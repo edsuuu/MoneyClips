@@ -7,13 +7,28 @@
         current: 0,
         start: @js((float) $newStart),
         end: @js((float) $newEnd),
-        zoom: 1.8,
+        zoom: 1.0,
         dragging: null,
         viewportWidth: 900,
         resizeHandler: null,
         thumbTrack: [],
         thumbFrameCount: 14,
         loadingThumbs: false,
+        transcriptText: @js($transcript?->activeText() ?? ''),
+        timedWords: @js($timedWords ?? []),
+        fitSelectionToViewport() {
+            if (!this.$refs.timelineViewport) return;
+            const vpWidth = this.$refs.timelineViewport.clientWidth || this.viewportWidth;
+            const rangeSecs = Math.max(0.5, this.end - this.start);
+            const basePx = 42;
+            const idealZoom = vpWidth / (rangeSecs * basePx);
+            this.zoom = this.round(this.clamp(idealZoom, 0.1, 5));
+            this.$nextTick(() => {
+                if (this.$refs.timelineViewport) {
+                    this.$refs.timelineViewport.scrollLeft = this.timeToPx(this.start);
+                }
+            });
+        },
         init() {
             this.end = this.end > this.start ? this.end : Math.max(this.start + 1, 60);
             this.resizeHandler = () => {
@@ -26,7 +41,10 @@
                     }
                 }
             };
-            this.$nextTick(() => this.resizeHandler());
+            this.$nextTick(() => {
+                this.resizeHandler();
+                this.fitSelectionToViewport();
+            });
             window.addEventListener('resize', this.resizeHandler);
             this.syncWire();
         },
@@ -37,19 +55,23 @@
         },
         registerPlayer(el) {
             this.player = el;
-            const sync = () => {
+            const onMeta = () => {
                 if (Number.isFinite(el.duration) && el.duration > 0) {
                     this.duration = el.duration;
                     if (this.end > this.duration) this.end = this.duration;
                     if (!this.thumbTrack.length) {
                         this.buildThumbTrack();
                     }
+                    this.$nextTick(() => this.fitSelectionToViewport());
                 }
                 this.current = el.currentTime || 0;
             };
-            el.addEventListener('loadedmetadata', sync);
-            el.addEventListener('timeupdate', sync);
-            sync();
+            const onTime = () => {
+                this.current = el.currentTime || 0;
+            };
+            el.addEventListener('loadedmetadata', onMeta);
+            el.addEventListener('timeupdate', onTime);
+            onMeta();
         },
         clamp(value, min, max) {
             return Math.min(max, Math.max(min, value));
@@ -59,7 +81,7 @@
         },
         adjustZoom(event) {
             const direction = event.deltaY < 0 ? 0.2 : -0.2;
-            this.zoom = this.round(this.clamp(this.zoom + direction, 0.6, 5));
+            this.zoom = this.round(this.clamp(this.zoom + direction, 0.1, 5));
         },
         nudgePlayhead(delta) {
             this.jumpTo(this.current + delta);
@@ -69,6 +91,47 @@
         },
         get timelineWidth() {
             return Math.max(this.viewportWidth, Math.ceil((this.duration || 1) * this.pxPerSecond));
+        },
+        get transcriptData() {
+            if (!this.transcriptText) return { words: [], totalChars: 0 };
+            const rawWords = this.transcriptText.split(/\s+/).filter(w => w.length > 0);
+            let totalChars = 0;
+            const words = rawWords.map(w => {
+                const startChar = totalChars;
+                totalChars += w.length;
+                return { text: w, startChar, endChar: totalChars };
+            });
+            return { words, totalChars };
+        },
+        get karaokeWords() {
+            if (this.timedWords && this.timedWords.length > 0) {
+                return this.timedWords;
+            }
+            return this.transcriptData.words;
+        },
+        get currentWordIdx() {
+            const words = this.karaokeWords;
+            if (!this.duration || words.length === 0) return -1;
+            
+            if (this.timedWords && this.timedWords.length > 0) {
+                const t = this.current;
+                for (let i = 0; i < words.length; i++) {
+                    if (t >= words[i].start && t <= words[i].end) return i;
+                }
+                for (let i = 0; i < words.length; i++) {
+                    if (t < words[i].start) return Math.max(0, i - 1);
+                }
+                return words.length - 1;
+            }
+
+            // Fallback to char-based approach
+            const targetChar = (this.current / this.duration) * this.transcriptData.totalChars;
+            for (let i = 0; i < words.length; i++) {
+                if (targetChar >= words[i].startChar && targetChar <= words[i].endChar) {
+                    return i;
+                }
+            }
+            return words.length - 1;
         },
         timeToPx(time) {
             return this.clamp(time, 0, this.duration || time) * this.pxPerSecond;
@@ -95,12 +158,14 @@
             if (this.zoom >= 2) return 0.5;
             if (this.zoom >= 1.2) return 1;
             if (this.zoom >= 0.8) return 2;
-            return 5;
+            if (this.zoom >= 0.3) return 5;
+            if (this.zoom >= 0.15) return 10;
+            return 30;
         },
         rulerMarks() {
             const step = this.timelineStep();
             const total = Math.max(1, Math.ceil((this.duration || 0) / step));
-            const majorEvery = step <= 0.1 ? 5 : step <= 0.25 ? 4 : step <= 0.5 ? 4 : step <= 1 ? 5 : step <= 2 ? 3 : 2;
+            const majorEvery = step <= 0.1 ? 5 : step <= 0.25 ? 4 : step <= 0.5 ? 4 : step <= 1 ? 5 : step <= 2 ? 3 : step <= 5 ? 2 : 3;
             return Array.from({ length: total + 1 }, (_, idx) => {
                 const time = Math.min((this.duration || 0), idx * step);
                 return {
@@ -228,9 +293,31 @@
             this.end = this.round(this.clamp(Number(end || 0), safeStart + 0.05, maxDuration));
             this.jumpTo(this.start);
             this.syncWire();
+            this.$nextTick(() => this.fitSelectionToViewport());
         }
     }"
 >
+    <style>
+        .timeline-scroll::-webkit-scrollbar {
+            height: 8px;
+        }
+        .timeline-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 4px;
+        }
+        .timeline-scroll::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.7);
+            border-radius: 4px;
+        }
+        .timeline-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.9);
+        }
+        /* Firefox */
+        .timeline-scroll {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(100, 116, 139, 0.7) rgba(255, 255, 255, 0.04);
+        }
+    </style>
     <flux:heading size="xl" level="1">{{ $video->title ?? 'Editor de cortes' }}</flux:heading>
     <flux:subheading size="lg" class="mb-2">Use a timeline para marcar com precisão os pontos do corte, igual um editor leve de vídeo.</flux:subheading>
     <div class="flex items-center gap-3 mb-4">
@@ -244,39 +331,87 @@
         </div>
     @endif
 
-    <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.25fr)_360px] gap-8">
+    <div class="space-y-8 min-w-0">
         <div class="space-y-5 min-w-0">
             <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-900/60 p-5 min-w-0 overflow-hidden">
-                <div class="mx-auto w-full" style="max-width: 36rem;">
-                    @if($playerUrl)
-                        <video
-                            x-init="registerPlayer($el)"
-                            src="{{ $playerUrl }}"
-                            controls
-                            class="w-full rounded-2xl bg-black aspect-video shadow-sm"
-                            style="max-height: 320px;"
-                        ></video>
-                    @else
-                        <div class="w-full rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 aspect-video flex items-center justify-center text-zinc-500">
-                            Video original ainda nao disponivel.
-                        </div>
-                    @endif
+                <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
+                    <div>
+                        @if($playerUrl)
+                            <video
+                                x-init="registerPlayer($el)"
+                                src="{{ $playerUrl }}"
+                                controls
+                                class="w-full rounded-2xl bg-black shadow-sm object-contain"
+                                style="max-height: 420px;"
+                            ></video>
+                        @else
+                            <div class="w-full rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 aspect-video flex items-center justify-center text-zinc-500">
+                                Video original ainda nao disponivel.
+                            </div>
+                        @endif
+                    </div>
+                    {{-- Karaoke transcript --}}
+                    <div
+                        class="relative overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/40 p-4"
+                        style="max-height: 420px;"
+                        x-ref="karaokePanel"
+                        x-init="$watch('currentWordIdx', () => {
+                            $nextTick(() => {
+                                const a = $refs.karaokePanel.querySelector('.karaoke-active');
+                                if(a) {
+                                    const target = a.offsetTop - ($refs.karaokePanel.clientHeight / 2) + (a.clientHeight / 2);
+                                    $refs.karaokePanel.scrollTo({ top: target, behavior: 'smooth' });
+                                }
+                            });
+                        })"
+                    >
+                        <div class="text-xs text-zinc-500 mb-2 font-medium uppercase tracking-wide">Transcrição ao vivo</div>
+                        <template x-if="karaokeWords.length > 0">
+                            <div class="flex flex-wrap gap-x-1 gap-y-1 leading-7 text-sm">
+                                <template x-for="(item, idx) in karaokeWords" :key="idx">
+                                    <span
+                                        :class="{
+                                            'karaoke-active bg-cyan-100 text-cyan-700 dark:bg-cyan-400/25 dark:text-cyan-300 rounded px-0.5 font-semibold': idx === currentWordIdx,
+                                            'text-zinc-800 dark:text-zinc-300': idx < currentWordIdx,
+                                            'text-zinc-400 dark:text-zinc-600': idx > currentWordIdx,
+                                        }"
+                                        x-text="item.text"
+                                    ></span>
+                                </template>
+                            </div>
+                        </template>
+                        <template x-if="karaokeWords.length === 0">
+                            <p class="text-zinc-500 text-xs">Nenhuma transcrição disponível.</p>
+                        </template>
+                    </div>
                 </div>
 
-                <div class="mt-5 flex flex-wrap items-center gap-3">
-                    <flux:badge size="sm" color="sky">Playhead <span class="ml-1 tabular-nums" x-text="formatClock(current)"></span></flux:badge>
-                    <flux:badge size="sm" color="emerald">Início <span class="ml-1 tabular-nums" x-text="formatClock(start)"></span></flux:badge>
-                    <flux:badge size="sm" color="amber">Fim <span class="ml-1 tabular-nums" x-text="formatClock(end)"></span></flux:badge>
-                    <flux:badge size="sm">Duração <span class="ml-1 tabular-nums" x-text="formatClock(Math.max(0, end - start))"></span></flux:badge>
+                <div class="mt-5 flex flex-wrap items-center justify-center gap-6">
+                    <div class="flex flex-col items-center justify-center min-w-[5rem]">
+                        <span class="text-[10px] uppercase font-semibold tracking-wider text-sky-500 dark:text-sky-400">Playhead</span>
+                        <span class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5" x-text="formatClock(current)"></span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center min-w-[5rem]">
+                        <span class="text-[10px] uppercase font-semibold tracking-wider text-emerald-500 dark:text-emerald-400">Início</span>
+                        <span class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5" x-text="formatClock(start)"></span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center min-w-[5rem]">
+                        <span class="text-[10px] uppercase font-semibold tracking-wider text-amber-500 dark:text-amber-400">Fim</span>
+                        <span class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5" x-text="formatClock(end)"></span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center min-w-[5rem]">
+                        <span class="text-[10px] uppercase font-semibold tracking-wider text-zinc-500 dark:text-zinc-400">Duração</span>
+                        <span class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5" x-text="formatClock(Math.max(0, end - start))"></span>
+                    </div>
                 </div>
 
-                <div class="mt-5 flex flex-wrap items-center gap-3">
-                    <flux:button size="sm" variant="ghost" x-on:click="jumpTo(start)">ir para início</flux:button>
-                    <flux:button size="sm" variant="ghost" x-on:click="jumpTo(end)">ir para fim</flux:button>
-                    <flux:button size="sm" variant="ghost" x-on:click="nudgePlayhead(-0.05)">-50ms</flux:button>
-                    <flux:button size="sm" variant="ghost" x-on:click="nudgePlayhead(0.05)">+50ms</flux:button>
-                    <flux:button size="sm" variant="ghost" x-on:click="setStartFromCurrent()">marcar início no playhead</flux:button>
-                    <flux:button size="sm" variant="ghost" x-on:click="setEndFromCurrent()">marcar fim no playhead</flux:button>
+                <div class="mt-5 flex flex-wrap items-center justify-center gap-2">
+                    <flux:button variant="filled" size="sm" x-on:click="jumpTo(start)">ir para início</flux:button>
+                    <flux:button variant="filled" size="sm" x-on:click="jumpTo(end)">ir para fim</flux:button>
+                    <flux:button variant="filled" size="sm" x-on:click="nudgePlayhead(-0.05)">-50ms</flux:button>
+                    <flux:button variant="filled" size="sm" x-on:click="nudgePlayhead(0.05)">+50ms</flux:button>
+                    <flux:button variant="filled" size="sm" x-on:click="setStartFromCurrent()">marcar início no playhead</flux:button>
+                    <flux:button variant="filled" size="sm" x-on:click="setEndFromCurrent()">marcar fim no playhead</flux:button>
                 </div>
 
                 <div class="mt-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-950 text-zinc-100 p-4 min-w-0">
@@ -287,14 +422,14 @@
                         </div>
                         <label class="flex items-center gap-3 text-sm">
                             <span class="text-zinc-400">Zoom</span>
-                            <input type="range" min="0.6" max="5" step="0.1" x-model.number="zoom" class="accent-cyan-400 w-40">
+                            <input type="range" min="0.1" max="5" step="0.05" x-model.number="zoom" class="accent-cyan-400 w-40">
                             <span class="tabular-nums text-zinc-300 w-10 text-right" x-text="zoom.toFixed(1) + 'x'"></span>
                         </label>
                     </div>
 
                     <div
                         x-ref="timelineViewport"
-                        class="relative overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950 pb-2"
+                        class="timeline-scroll relative overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950 pb-2"
                         x-on:wheel.prevent="adjustZoom($event)"
                     >
                         <div
@@ -302,7 +437,8 @@
                             class="relative"
                             :style="`width:${timelineWidth}px`"
                         >
-                            <div class="relative h-10 border-b border-zinc-800 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))]">
+                            <div class="relative h-10 border-b border-zinc-800 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))] cursor-pointer"
+                                 x-on:click="seekFromPointer($event)">
                                 <template x-for="mark in rulerMarks()" :key="`mark-${mark.time}`">
                                     <div
                                         class="absolute top-0"
@@ -348,9 +484,9 @@
                                     class="absolute inset-0 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(34,211,238,0.05)),repeating-linear-gradient(90deg,rgba(255,255,255,0.03)_0px,rgba(255,255,255,0.03)_20px,transparent_20px,transparent_40px)]"
                                 ></div>
 
-                                <div class="absolute inset-y-0 left-0 bg-black/45"
+                                <div class="absolute inset-y-0 left-0 bg-black/20 rounded-r-xl"
                                      :style="`width:${timeToPx(start)}px`"></div>
-                                <div class="absolute inset-y-0 bg-black/45"
+                                <div class="absolute inset-y-0 bg-black/20 rounded-l-xl"
                                      :style="`left:${timeToPx(end)}px;width:${Math.max(0, timelineWidth - timeToPx(end))}px`"></div>
 
                                 <div class="absolute inset-y-5 rounded-xl border border-cyan-300/70 bg-cyan-400/15"
@@ -405,79 +541,197 @@
                     <flux:button variant="primary" size="sm" icon="plus" x-on:click="addCutFromTimeline()">Adicionar corte</flux:button>
                 </div>
             </div>
+        </div>
 
-            <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-5">
-                <flux:heading size="sm">Sugestão opcional da IA</flux:heading>
-                <flux:text class="text-sm text-zinc-500 mt-1">
-                    Se quiser acelerar, a IA ainda pode sugerir tempos iniciais. Depois voce ajusta tudo na timeline.
-                </flux:text>
-                <div class="mt-3 flex flex-col gap-3">
-                    <flux:input wire:model="userPrompt" placeholder="Ex: foque nos melhores ganchos (opcional)" />
+        {{-- Transcrição do vídeo --}}
+        @if(isset($transcript) && $transcript)
+            <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-5 min-w-0"
+                 x-data="{ transcriptOpen: false, transcriptText: @js($transcript->activeText() ?? '') }">
+                <button
+                    type="button"
+                    class="w-full flex items-center justify-between text-left"
+                    x-on:click="transcriptOpen = !transcriptOpen">
                     <div>
-                        <flux:button wire:click="recommend" variant="filled" size="sm" icon="sparkles">
-                            <span wire:loading.remove wire:target="recommend">Sugerir cortes com IA</span>
-                            <span wire:loading wire:target="recommend">Pensando...</span>
-                        </flux:button>
+                        <flux:heading size="sm">Transcrição do vídeo</flux:heading>
+                        <flux:text class="text-xs text-zinc-500 mt-0.5">Texto detectado automaticamente. Clique para expandir e editar.</flux:text>
                     </div>
+                    <svg class="w-4 h-4 text-zinc-400 transition-transform" :class="transcriptOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                </button>
+                <div x-show="transcriptOpen" x-collapse class="mt-3">
+                    <template x-if="timedWords.length > 0">
+                        <div>
+                            <div class="grid grid-cols-[auto_1fr_80px_80px] gap-3 mb-2 px-2 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                                <div class="w-6 text-center">#</div>
+                                <div>Texto da palavra</div>
+                                <div>Start (s)</div>
+                                <div>End (s)</div>
+                            </div>
+                            <div class="space-y-2 max-h-[400px] overflow-y-auto pr-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 p-2 border border-zinc-200 dark:border-zinc-700">
+                                <template x-for="(word, idx) in timedWords" :key="idx">
+                                    <div class="grid grid-cols-[auto_1fr_80px_80px] gap-3 items-center">
+                                        <span class="text-xs text-zinc-400 w-6 text-center tabular-nums" x-text="idx+1"></span>
+                                        <input type="text" x-model="word.text" class="w-full text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-1.5 outline-none focus:ring-1 focus:ring-cyan-500 transition" />
+                                        <input type="number" step="0.01" x-model.number="word.start" class="w-full text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-1.5 outline-none focus:ring-1 focus:ring-cyan-500 tabular-nums transition" />
+                                        <input type="number" step="0.01" x-model.number="word.end" class="w-full text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-1.5 outline-none focus:ring-1 focus:ring-cyan-500 tabular-nums transition" />
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="mt-4 flex justify-between items-center">
+                                <div class="text-xs text-zinc-500">
+                                    Atenção: alterações aqui refletem diretamente nas legendas queimadas.
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <flux:button size="sm" variant="ghost" x-on:click="transcriptOpen = false">Cancelar</flux:button>
+                                    <flux:button size="sm" variant="filled" x-on:click="$wire.saveTimedWords(timedWords); transcriptOpen = false">
+                                        Salvar Sincronia
+                                    </flux:button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <template x-if="timedWords.length === 0">
+                        <div class="p-4 text-center text-sm text-zinc-500 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                            A edição avançada de sincronia não está disponível para este vídeo (JSON original não encontrado).
+                        </div>
+                    </template>
+                </div>
+            </div>
+        @endif
+
+        {{-- Sugestão da IA (abaixo da transcrição) --}}
+        <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-5">
+            <flux:heading size="sm">Sugestão opcional da IA</flux:heading>
+            <flux:text class="text-sm text-zinc-500 mt-1">
+                Se quiser acelerar, a IA ainda pode sugerir tempos iniciais. Depois voce ajusta tudo na timeline.
+            </flux:text>
+            <div class="mt-3 flex flex-col gap-3">
+                <flux:input wire:model="userPrompt" placeholder="Ex: foque nos melhores ganchos (opcional)" />
+                <div>
+                    <flux:button wire:click="recommend" variant="filled" size="sm" icon="sparkles">
+                        <span wire:loading.remove wire:target="recommend">Sugerir cortes com IA</span>
+                        <span wire:loading wire:target="recommend">Pensando...</span>
+                    </flux:button>
                 </div>
             </div>
         </div>
 
-        <div class="space-y-4">
-            <div class="flex items-center justify-between">
-                <flux:heading size="lg">Cortes ({{ $cuts->count() }})</flux:heading>
-                @if($cuts->isNotEmpty())
-                    <flux:button wire:click="renderCuts" variant="primary" size="sm" icon="film">
-                        <span wire:loading.remove wire:target="renderCuts">Renderizar todos</span>
-                        <span wire:loading wire:target="renderCuts">Enviando...</span>
-                    </flux:button>
-                @endif
+        {{-- Seção de cortes --}}
+        <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-5 min-w-0"
+             x-data="{ selectedCuts: @entangle('selectedCuts') }">
+            <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+                <div class="flex items-center gap-3">
+                    @if($cuts->isNotEmpty())
+                        <input
+                            type="checkbox"
+                            class="h-4 w-4 rounded accent-cyan-500 cursor-pointer"
+                            x-data="{ allUuids: @js($cuts->pluck('uuid')->all()) }"
+                            :checked="selectedCuts.length === allUuids.length && allUuids.length > 0"
+                            x-on:click="selectedCuts.length === allUuids.length ? selectedCuts = [] : selectedCuts = [...allUuids]">
+                    @endif
+                    <flux:heading size="lg">Cortes ({{ $cuts->count() }})</flux:heading>
+                </div>
+                <div class="flex items-center gap-2">
+                    @if($cuts->isNotEmpty())
+                        <button
+                            type="button"
+                            class="inline-flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20 rounded-lg transition-colors"
+                            x-show="selectedCuts.length > 0"
+                            wire:click="deleteSelected">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                            </svg>
+                            <span wire:loading.remove wire:target="deleteSelected" x-text="`Apagar (${selectedCuts.length})`"></span>
+                            <span wire:loading wire:target="deleteSelected">Apagando...</span>
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700 rounded-lg transition-colors"
+                            x-show="selectedCuts.length > 0"
+                            wire:click="renderSelected">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125m-9.75 0v1.5c0 .621.504 1.125 1.125 1.125m18.375-3.75v1.5c0 .621-.504 1.125-1.125 1.125m0 0v1.5c0 .621-.504 1.125-1.125 1.125m0 0h-7.5c-.621 0-1.125-.504-1.125-1.125" />
+                            </svg>
+                            <span wire:loading.remove wire:target="renderSelected" x-text="`Renderizar (${selectedCuts.length})`"></span>
+                            <span wire:loading wire:target="renderSelected">Enviando...</span>
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="renderCuts"
+                            class="inline-flex items-center justify-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                              <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 0 1-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0 1 12 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125m-9.75 0v1.5c0 .621.504 1.125 1.125 1.125m18.375-3.75v1.5c0 .621-.504 1.125-1.125 1.125m0 0v1.5c0 .621-.504 1.125-1.125 1.125m0 0h-7.5c-.621 0-1.125-.504-1.125-1.125" />
+                            </svg>
+                            <span wire:loading.remove wire:target="renderCuts">Renderizar todos</span>
+                            <span wire:loading wire:target="renderCuts">Enviando...</span>
+                        </button>
+                    @endif
+                </div>
             </div>
 
             @if($cuts->isEmpty())
                 <flux:text class="text-zinc-500">Nenhum corte ainda. Marque o range na timeline e adicione o corte.</flux:text>
             @endif
 
-            <div class="flex flex-col gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 @foreach($cuts as $cut)
                     @php($rendered = $cut->files->firstWhere('type', $cut->type))
-                    <div class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-4" wire:key="cut-{{ $cut->uuid }}">
-                        <div class="flex items-center justify-between mb-2">
-                            <div class="flex items-center gap-2">
-                                <flux:badge color="{{ $cut->source === 'ai' ? 'purple' : 'zinc' }}" size="sm">{{ $cut->name }}</flux:badge>
-                                @if($cut->source === 'ai')<flux:badge size="sm" color="purple">IA</flux:badge>@endif
-                                @if($cut->rendered_at)<flux:badge size="sm" color="green">renderizado</flux:badge>@endif
-                            </div>
-                            <div class="flex items-center gap-1">
-                                <flux:button size="xs" variant="ghost"
-                                    x-on:click="loadCut({{ $cut->start_seconds }}, {{ $cut->end_seconds }})">
-                                    editar na timeline
-                                </flux:button>
-                                <flux:button wire:click="deleteCut('{{ $cut->uuid }}')" size="xs" variant="ghost" icon="trash" />
+                    <div class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/60 p-4 flex flex-col gap-3"
+                         wire:key="cut-{{ $cut->uuid }}"
+                         x-data="{ isEditing: false }">
+
+                        {{-- Checkbox + badges + actions --}}
+                        <div class="flex items-start gap-2">
+                            <input
+                                type="checkbox"
+                                class="mt-1 h-4 w-4 rounded accent-cyan-500 cursor-pointer flex-shrink-0"
+                                value="{{ $cut->uuid }}"
+                                x-model="selectedCuts"
+                            >
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-start justify-between gap-1 flex-wrap">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <flux:badge color="{{ $cut->source === 'ai' ? 'purple' : 'zinc' }}" size="sm">{{ $cut->name }}</flux:badge>
+                                        @if($cut->source === 'ai')<flux:badge size="sm" color="purple">IA</flux:badge>@endif
+                                        @if($cut->rendered_at)<flux:badge size="sm" color="green">renderizado</flux:badge>@endif
+                                    </div>
+                                    <div class="flex items-center gap-1 flex-shrink-0">
+                                        <flux:button variant="ghost" icon="pencil-square"
+                                            x-show="!isEditing"
+                                            x-on:click="isEditing = true; loadCut({{ $cut->start_seconds }}, {{ $cut->end_seconds }})">
+                                        </flux:button>
+                                        <flux:button variant="ghost" icon="x-mark"
+                                            x-show="isEditing"
+                                            x-on:click="isEditing = false">
+                                        </flux:button>
+                                    </div>
+                                </div>
+                                @if($cut->reason)
+                                    <p class="text-xs text-zinc-500 mt-1">{{ $cut->reason }}</p>
+                                @endif
                             </div>
                         </div>
 
-                        @if($cut->reason)
-                            <flux:text class="text-sm text-zinc-500 mb-2">{{ $cut->reason }}</flux:text>
-                        @endif
+                        {{-- Inputs de tempo --}}
+                        <div class="grid grid-cols-[1fr_1fr] gap-2 items-end">
+                            <flux:input type="number" step="0.001" wire:model="cutEdits.{{ $cut->uuid }}.start" label="Início" size="sm" x-bind:disabled="!isEditing" />
+                            <flux:input type="number" step="0.001" wire:model="cutEdits.{{ $cut->uuid }}.end" label="Fim" size="sm" x-bind:disabled="!isEditing" />
+                        </div>
 
-                        <div class="grid grid-cols-[1fr_1fr_auto] gap-2 items-end"
-                             x-data="{ s: {{ $cut->start_seconds }}, e: {{ $cut->end_seconds }} }">
-                            <flux:input type="number" step="0.001" x-model="s" label="Início" size="sm" />
-                            <flux:input type="number" step="0.001" x-model="e" label="Fim" size="sm" />
-                            <flux:button size="sm" variant="ghost"
-                                x-on:click="$wire.updateCut('{{ $cut->uuid }}', parseFloat(s), parseFloat(e))">
-                                salvar
+                        <p class="text-xs text-zinc-400 tabular-nums -mt-1">{{ number_format($cut->duration_seconds, 3) }}s</p>
+
+                        <div class="mt-2" x-show="isEditing" x-collapse>
+                            <flux:button variant="filled" class="w-full"
+                                wire:click="saveCutEdit('{{ $cut->uuid }}')"
+                                x-on:click="isEditing = false">
+                                <span wire:loading.remove wire:target="saveCutEdit">Salvar Alterações</span>
+                                <span wire:loading wire:target="saveCutEdit">Salvando...</span>
                             </flux:button>
                         </div>
 
-                        <flux:text class="mt-2 text-xs text-zinc-400 tabular-nums">
-                            {{ number_format($cut->duration_seconds, 3) }}s
-                        </flux:text>
-
+                        {{-- Preview do vídeo renderizado --}}
                         @if($rendered)
                             <video src="{{ $rendered->temporaryUrl(120) }}" controls
-                                   class="w-full mt-3 rounded-xl bg-black aspect-[9/16] max-h-80 mx-auto"></video>
+                                   class="w-full rounded-xl bg-black aspect-[9/16] max-h-80 mx-auto"></video>
                         @endif
                     </div>
                 @endforeach

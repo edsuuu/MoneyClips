@@ -61,6 +61,7 @@ final class Video extends Model
         return $this->hasOne(Transcript::class);
     }
 
+
     /**
      * @return HasMany<Cut, $this>
      */
