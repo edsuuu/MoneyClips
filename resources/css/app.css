@@ -37,6 +37,9 @@
 }
 
 @layer base {
+    html {
+        background-color: #020617;
+    }
 
     *,
     ::after,
@@ -44,6 +47,10 @@
     ::backdrop,
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
+    }
+
+    body {
+        @apply bg-slate-950 text-slate-100 antialiased;
     }
 }
 
@@ -59,6 +66,22 @@ input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-accent ring-offset-2 ring-offset-accent-foreground;
+}
+
+[data-flux-main] {
+    @apply bg-transparent;
+}
+
+[data-flux-sidebar] {
+    @apply bg-transparent;
+}
+
+.studio-table thead th {
+    @apply border-b border-slate-800 bg-slate-950/80 px-3 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400;
+}
+
+.studio-table tbody td {
+    @apply border-b border-slate-900 px-3 py-3 align-top text-sm text-slate-200;
 }
 
 /* \[:where(&)\]:size-4 {

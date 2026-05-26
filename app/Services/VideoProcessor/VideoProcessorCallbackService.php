@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\VideoProcessor;
 
+use App\Jobs\RunAutoPilotJob;
 use App\Models\Cut;
 use App\Models\File;
 use App\Models\ProcessingJob;
@@ -28,7 +29,7 @@ final readonly class VideoProcessorCallbackService
         $videoIdStr = is_string($videoId) ? $videoId : '';
         $video = Video::query()->where('uuid', $videoIdStr)->firstOrFail();
 
-        return DB::transaction(function () use ($video, $payload): Video {
+        $video = DB::transaction(function () use ($video, $payload): Video {
             $job = $this->resolveJob($video, $payload);
 
             $files = $payload['files'] ?? null;
@@ -92,6 +93,35 @@ final readonly class VideoProcessorCallbackService
 
             return $video->refresh();
         });
+
+        $this->maybeStartAutoPilot($video, $payload);
+
+        return $video;
+    }
+
+    /**
+     * Dispara o piloto automático assim que a ingestão termina (transcrição pronta)
+     * para vídeos marcados como is_auto. As demais etapas (cortes/renderização) já
+     * acontecem dentro do próprio fluxo automático.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function maybeStartAutoPilot(Video $video, array $payload): void
+    {
+        if (! $video->is_auto || $this->isFailure($payload)) {
+            return;
+        }
+
+        $event = is_string($payload['event'] ?? null) ? $payload['event'] : '';
+        if (! str_starts_with($event, 'ingest')) {
+            return;
+        }
+
+        if (! $video->transcript()->exists()) {
+            return;
+        }
+
+        dispatch(new RunAutoPilotJob($video->id));
     }
 
     /** @param  array<string, mixed>  $payload */
@@ -181,12 +211,36 @@ final readonly class VideoProcessorCallbackService
     {
         foreach ($files as $file) {
             $cutUuid = $file['cut_id'] ?? null;
-            if (is_string($cutUuid) && $cutUuid !== '') {
-                Cut::query()->where('uuid', $cutUuid)->update([
-                    'status_id' => Status::idFor('completed'),
-                    'rendered_at' => now(),
-                ]);
+            if (! is_string($cutUuid)) {
+                continue;
             }
+
+            if ($cutUuid === '') {
+                continue;
+            }
+
+            $update = [
+                'status_id' => Status::idFor('completed'),
+                'rendered_at' => now(),
+            ];
+
+            // Metadados gerados pela IA na renderização (título/descrição/hashtags).
+            if (isset($file['title']) && is_string($file['title']) && $file['title'] !== '') {
+                $update['title'] = $file['title'];
+            }
+
+            if (isset($file['description']) && is_string($file['description']) && $file['description'] !== '') {
+                $update['description'] = $file['description'];
+            }
+
+            if (isset($file['hashtags']) && is_array($file['hashtags'])) {
+                $update['hashtags'] = array_values(array_filter(
+                    $file['hashtags'],
+                    static fn ($tag): bool => is_string($tag) && $tag !== '',
+                ));
+            }
+
+            Cut::query()->where('uuid', $cutUuid)->update($update);
         }
     }
 

@@ -153,6 +153,7 @@ final readonly class VideoProcessorService
             callbackUrl: $this->callbackUrl(),
             bucket: is_string($bucketVal = config('video-processor.storage_bucket')) ? $bucketVal : null,
             callbackToken: $this->callbackToken(),
+            video: ['title' => $video->title, 'duration_seconds' => $video->duration_seconds],
         );
 
         $this->savePayload($video, $job, 'render_request', $data->toArray());

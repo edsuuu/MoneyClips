@@ -11,10 +11,13 @@ use Carbon\CarbonImmutable;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Override;
+use SocialiteProviders\Manager\SocialiteWasCalled;
+use SocialiteProviders\TikTok\Provider as TikTokProvider;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -34,6 +37,11 @@ final class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+
+        // Registra o provider TikTok do socialiteproviders (Google e Facebook são nativos do Socialite).
+        Event::listen(function (SocialiteWasCalled $event): void {
+            $event->extendSocialite('tiktok', TikTokProvider::class);
+        });
 
         Gate::define('viewLogViewer', fn (User $user) => $user->hasRole('Administrador')
             ? Response::allow()

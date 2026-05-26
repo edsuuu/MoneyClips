@@ -13,6 +13,7 @@
         "laravel/fortify": "^1.34",
         "laravel/framework": "^13.7",
         "laravel/sanctum": "^4.3",
+        "laravel/socialite": "^5.27",
         "laravel/telescope": "^5.20",
         "laravel/tinker": "^3.0",
         "league/flysystem-aws-s3-v3": "^3.0",
@@ -21,6 +22,7 @@
         "lucascudo/laravel-pt-br-localization": "^3.0",
         "opcodesio/log-viewer": "^3.24",
         "owen-it/laravel-auditing": "*",
+        "socialiteproviders/tiktok": "^5.2",
         "spatie/laravel-permission": "*"
     },
     "require-dev": {
@@ -63,17 +65,23 @@
             "Composer\\Config::disableProcessTimeout",
             "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1 --timeout=0\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite --kill-others"
         ],
+        "serve": [
+            "@php artisan serve"
+        ],
         "lint": [
-            "pint --parallel",
+            "pint",
             "rector process"
         ],
         "phpstan": [
-            "./vendor/bin/phpstan analyse --memory-limit=2G"
+            "@php -d memory_limit=2G ./vendor/bin/phpstan analyse --debug --no-progress"
         ],
         "check": [
             "@phpstan",
             "@lint",
             "@test"
+        ],
+        "checks": [
+            "@check"
         ],
         "rector": [
             "rector process"
@@ -82,7 +90,7 @@
             "rector process --dry-run"
         ],
         "lint:check": [
-            "pint --parallel --test",
+            "pint --test",
             "rector process --dry-run"
         ],
         "ci:check": [

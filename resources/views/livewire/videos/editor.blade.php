@@ -1,5 +1,5 @@
 <section
-    class="w-full max-w-7xl mx-auto"
+    class="mx-auto w-full max-w-7xl"
     @if($activeJobId) wire:poll.5s="refreshStatus" @endif
     x-data="{
         player: null,
@@ -55,6 +55,7 @@
         },
         registerPlayer(el) {
             this.player = el;
+            el.volume = 0.2;
             const onMeta = () => {
                 if (Number.isFinite(el.duration) && el.duration > 0) {
                     this.duration = el.duration;
@@ -318,118 +319,91 @@
             scrollbar-color: rgba(100, 116, 139, 0.7) rgba(255, 255, 255, 0.04);
         }
     </style>
-    <flux:heading size="xl" level="1">{{ $video->title ?? 'Editor de cortes' }}</flux:heading>
-    <flux:subheading size="lg" class="mb-2">Use a timeline para marcar com precisão os pontos do corte, igual um editor leve de vídeo.</flux:subheading>
-    <div class="flex items-center gap-3 mb-4">
-        <flux:badge>{{ $video->status?->label ?? '—' }}</flux:badge>
-    </div>
-    <flux:separator variant="subtle" class="mb-6" />
+    <div class="space-y-6">
+        <x-studio.page-header
+            eyebrow="Editor"
+            :title="$video->title ?? 'Editor de cortes'"
+            subtitle="Use a timeline para marcar com precisão os pontos do corte e revisar a fala em paralelo."
+        >
+            <x-slot:meta>
+                <flux:badge>{{ $video->status?->label ?? '—' }}</flux:badge>
+            </x-slot:meta>
+        </x-studio.page-header>
 
-    @if($activeJobId)
-        <div class="mb-6" wire:key="render-progress-{{ $activeJobId }}">
-            @include('livewire.videos._progress', ['jobId' => $activeJobId, 'wsUrl' => $wsUrl])
-        </div>
-    @endif
+        @if($activeJobId)
+            <div class="mb-6" wire:key="render-progress-{{ $activeJobId }}">
+                @include('livewire.videos._progress', ['jobId' => $activeJobId, 'wsUrl' => $wsUrl])
+            </div>
+        @endif
 
-    <div class="space-y-8 min-w-0">
-        <div class="space-y-5 min-w-0">
-            <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50/80 dark:bg-zinc-900/60 p-5 min-w-0 overflow-hidden">
+        <div class="min-w-0 space-y-8">
+            <div class="min-w-0 space-y-5">
+                <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-5 min-w-0">
                 <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
                     <div>
                         @if($playerUrl)
                             <video
-                                x-init="registerPlayer($el)"
-                                src="{{ $playerUrl }}"
+                                x-init="window.initAdaptiveVideoPlayer($el); registerPlayer($el)"
+                                @if($hlsUrl) data-hls-src="{{ $hlsUrl }}" @endif
+                                @if($playerUrl) data-fallback-src="{{ $playerUrl }}" @endif
+                                @if($playerUrl && ! $hlsUrl) src="{{ $playerUrl }}" @endif
                                 controls
-                                class="w-full rounded-2xl bg-black shadow-sm object-contain"
+                                class="w-full rounded-xl bg-black object-contain"
                                 style="max-height: 420px;"
                             ></video>
                         @else
-                            <div class="w-full rounded-2xl border border-dashed border-zinc-300 dark:border-zinc-700 aspect-video flex items-center justify-center text-zinc-500">
+                            <div class="w-full rounded-xl border border-dashed border-slate-700 aspect-video flex items-center justify-center text-slate-500">
                                 Video original ainda nao disponivel.
                             </div>
                         @endif
                     </div>
-                    {{-- Karaoke transcript --}}
-                    <div
-                        class="relative overflow-y-auto rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700/40 p-4"
-                        style="max-height: 420px;"
-                        x-ref="karaokePanel"
-                        x-init="$watch('currentWordIdx', () => {
-                            $nextTick(() => {
-                                const a = $refs.karaokePanel.querySelector('.karaoke-active');
-                                if(a) {
-                                    const target = a.offsetTop - ($refs.karaokePanel.clientHeight / 2) + (a.clientHeight / 2);
-                                    $refs.karaokePanel.scrollTo({ top: target, behavior: 'smooth' });
-                                }
-                            });
-                        })"
-                    >
-                        <div class="text-xs text-zinc-500 mb-2 font-medium uppercase tracking-wide">Transcrição ao vivo</div>
-                        <template x-if="karaokeWords.length > 0">
-                            <div class="flex flex-wrap gap-x-1 gap-y-1 leading-7 text-sm">
-                                <template x-for="(item, idx) in karaokeWords" :key="idx">
-                                    <span
-                                        :class="{
-                                            'karaoke-active bg-cyan-100 text-cyan-700 dark:bg-cyan-400/25 dark:text-cyan-300 rounded px-0.5 font-semibold': idx === currentWordIdx,
-                                            'text-zinc-800 dark:text-zinc-300': idx < currentWordIdx,
-                                            'text-zinc-400 dark:text-zinc-600': idx > currentWordIdx,
-                                        }"
-                                        x-text="item.text"
-                                    ></span>
-                                </template>
-                            </div>
-                        </template>
-                        <template x-if="karaokeWords.length === 0">
-                            <p class="text-zinc-500 text-xs">Nenhuma transcrição disponível.</p>
-                        </template>
-                    </div>
+                    <x-videos.karaoke-panel />
                 </div>
 
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-6">
                     <div class="flex flex-col items-center justify-center min-w-[5rem]">
                         <span class="text-[10px] uppercase font-semibold tracking-wider text-sky-500 dark:text-sky-400">Playhead</span>
-                        <span class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5" x-text="formatClock(current)"></span>
+                        <span class="mt-0.5 text-sm font-medium tabular-nums text-slate-100" x-text="formatClock(current)"></span>
                     </div>
                     <div class="flex flex-col items-center justify-center min-w-[5rem]">
                         <span class="text-[10px] uppercase font-semibold tracking-wider text-emerald-500 dark:text-emerald-400">Início</span>
-                        <span class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5" x-text="formatClock(start)"></span>
+                        <span class="mt-0.5 text-sm font-medium tabular-nums text-slate-100" x-text="formatClock(start)"></span>
                     </div>
                     <div class="flex flex-col items-center justify-center min-w-[5rem]">
                         <span class="text-[10px] uppercase font-semibold tracking-wider text-amber-500 dark:text-amber-400">Fim</span>
-                        <span class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5" x-text="formatClock(end)"></span>
+                        <span class="mt-0.5 text-sm font-medium tabular-nums text-slate-100" x-text="formatClock(end)"></span>
                     </div>
                     <div class="flex flex-col items-center justify-center min-w-[5rem]">
                         <span class="text-[10px] uppercase font-semibold tracking-wider text-zinc-500 dark:text-zinc-400">Duração</span>
-                        <span class="text-sm font-medium tabular-nums text-zinc-900 dark:text-zinc-100 mt-0.5" x-text="formatClock(Math.max(0, end - start))"></span>
+                        <span class="mt-0.5 text-sm font-medium tabular-nums text-slate-100" x-text="formatClock(Math.max(0, end - start))"></span>
                     </div>
                 </div>
 
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-2">
-                    <flux:button variant="filled" size="sm" x-on:click="jumpTo(start)">ir para início</flux:button>
-                    <flux:button variant="filled" size="sm" x-on:click="jumpTo(end)">ir para fim</flux:button>
-                    <flux:button variant="filled" size="sm" x-on:click="nudgePlayhead(-0.05)">-50ms</flux:button>
-                    <flux:button variant="filled" size="sm" x-on:click="nudgePlayhead(0.05)">+50ms</flux:button>
-                    <flux:button variant="filled" size="sm" x-on:click="setStartFromCurrent()">marcar início no playhead</flux:button>
-                    <flux:button variant="filled" size="sm" x-on:click="setEndFromCurrent()">marcar fim no playhead</flux:button>
+                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="jumpTo(start)">ir para início</flux:button>
+                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="jumpTo(end)">ir para fim</flux:button>
+                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="nudgePlayhead(-0.05)">-50ms</flux:button>
+                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="nudgePlayhead(0.05)">+50ms</flux:button>
+                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="setStartFromCurrent()">marcar início no playhead</flux:button>
+                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="setEndFromCurrent()">marcar fim no playhead</flux:button>
                 </div>
 
-                <div class="mt-6 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-950 text-zinc-100 p-4 min-w-0">
+                <div class="mt-6 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 p-4 min-w-0">
                     <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
                         <div>
                             <div class="text-sm font-medium">Timeline do corte</div>
-                            <div class="text-xs text-zinc-400">Clique para mover o playhead, arraste as alças para ajustar início e fim, use zoom para refinar.</div>
+                            <div class="text-xs text-slate-400">Clique para mover o playhead, arraste as alças para ajustar início e fim, use zoom para refinar.</div>
                         </div>
                         <label class="flex items-center gap-3 text-sm">
-                            <span class="text-zinc-400">Zoom</span>
+                            <span class="text-slate-400">Zoom</span>
                             <input type="range" min="0.1" max="5" step="0.05" x-model.number="zoom" class="accent-cyan-400 w-40">
-                            <span class="tabular-nums text-zinc-300 w-10 text-right" x-text="zoom.toFixed(1) + 'x'"></span>
+                            <span class="w-10 text-right tabular-nums text-slate-300" x-text="zoom.toFixed(1) + 'x'"></span>
                         </label>
                     </div>
 
                     <div
                         x-ref="timelineViewport"
-                        class="timeline-scroll relative overflow-x-auto rounded-xl border border-zinc-800 bg-zinc-950 pb-2"
+                        class="timeline-scroll relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 pb-2"
                         x-on:wheel.prevent="adjustZoom($event)"
                     >
                         <div
@@ -437,17 +411,17 @@
                             class="relative"
                             :style="`width:${timelineWidth}px`"
                         >
-                            <div class="relative h-10 border-b border-zinc-800 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))] cursor-pointer"
+                            <div class="relative h-10 cursor-pointer border-b border-slate-800 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),rgba(255,255,255,0))]"
                                  x-on:click="seekFromPointer($event)">
                                 <template x-for="mark in rulerMarks()" :key="`mark-${mark.time}`">
                                     <div
                                         class="absolute top-0"
                                         :style="`left:${timeToPx(mark.time)}px`"
                                     >
-                                        <div class="w-px bg-zinc-500/80" :style="`height:${mark.height}px`"></div>
+                                        <div class="w-px bg-slate-500/80" :style="`height:${mark.height}px`"></div>
                                         <div
                                             x-show="mark.label"
-                                            class="absolute top-0 left-2 text-[10px] tracking-wide text-zinc-400 tabular-nums"
+                                            class="absolute top-0 left-2 text-[10px] tracking-wide text-slate-400 tabular-nums"
                                             x-text="formatRuler(mark.time)"
                                         ></div>
                                     </div>
@@ -455,7 +429,7 @@
                             </div>
 
                             <div
-                                class="relative h-28 cursor-pointer overflow-hidden rounded-b-xl bg-zinc-900"
+                                class="relative h-28 cursor-pointer overflow-hidden rounded-b-xl bg-slate-900"
                                 style="height: 7rem;"
                                 x-on:click="seekFromPointer($event)"
                             >
@@ -514,7 +488,7 @@
                                     aria-label="Arrastar fim"
                                 ></button>
 
-                                <div class="absolute left-4 top-4 rounded-full bg-black/50 px-3 py-1 text-[11px] text-zinc-200">
+                                <div class="absolute left-4 top-4 rounded-full bg-black/50 px-3 py-1 text-[11px] text-slate-200">
                                     timeline com preview
                                 </div>
                             </div>
@@ -523,91 +497,65 @@
                 </div>
 
                 <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <label class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-3">
-                        <div class="text-xs uppercase tracking-wide text-zinc-500 mb-1">Início</div>
-                        <input type="number" step="0.001" x-model.number="start" x-on:change="syncStartInput()" class="w-full bg-transparent text-sm font-medium outline-none">
+                    <label class="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                        <div class="mb-1 text-xs uppercase tracking-wide text-slate-500">Início</div>
+                        <input type="number" step="0.001" x-model.number="start" x-on:change="syncStartInput()" class="w-full bg-transparent text-sm font-medium text-slate-100 outline-none">
                     </label>
-                    <label class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-3">
-                        <div class="text-xs uppercase tracking-wide text-zinc-500 mb-1">Fim</div>
-                        <input type="number" step="0.001" x-model.number="end" x-on:change="syncEndInput()" class="w-full bg-transparent text-sm font-medium outline-none">
+                    <label class="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                        <div class="mb-1 text-xs uppercase tracking-wide text-slate-500">Fim</div>
+                        <input type="number" step="0.001" x-model.number="end" x-on:change="syncEndInput()" class="w-full bg-transparent text-sm font-medium text-slate-100 outline-none">
                     </label>
-                    <div class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-3">
-                        <div class="text-xs uppercase tracking-wide text-zinc-500 mb-1">Duração</div>
-                        <div class="text-sm font-medium tabular-nums" x-text="formatClock(Math.max(0, end - start))"></div>
+                    <div class="rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                        <div class="mb-1 text-xs uppercase tracking-wide text-slate-500">Duração</div>
+                        <div class="text-sm font-medium tabular-nums text-slate-100" x-text="formatClock(Math.max(0, end - start))"></div>
                     </div>
                 </div>
 
                 <div class="mt-4 flex flex-wrap gap-3">
-                    <flux:button variant="primary" size="sm" icon="plus" x-on:click="addCutFromTimeline()">Adicionar corte</flux:button>
+                    <flux:button variant="primary" size="sm" icon="plus" class="cursor-pointer" x-on:click="addCutFromTimeline()">Adicionar corte</flux:button>
+                    <flux:button :href="route('videos.schedule', $video)" variant="subtle" size="sm" icon="calendar-days" class="cursor-pointer" wire:navigate>Agendar postagens</flux:button>
                 </div>
             </div>
         </div>
 
         {{-- Transcrição do vídeo --}}
         @if(isset($transcript) && $transcript)
-            <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-5 min-w-0"
-                 x-data="{ transcriptOpen: false, transcriptText: @js($transcript->activeText() ?? '') }">
+            <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 min-w-0"
+                 x-data="{ transcriptOpen: false }">
                 <button
                     type="button"
                     class="w-full flex items-center justify-between text-left"
                     x-on:click="transcriptOpen = !transcriptOpen">
                     <div>
-                        <flux:heading size="sm">Transcrição do vídeo</flux:heading>
-                        <flux:text class="text-xs text-zinc-500 mt-0.5">Texto detectado automaticamente. Clique para expandir e editar.</flux:text>
+                        <flux:heading size="sm">Transcrição por tempo</flux:heading>
+                        <flux:text class="mt-0.5 text-xs text-slate-500">Ajustes aqui impactam diretamente o resultado da legenda.</flux:text>
                     </div>
-                    <svg class="w-4 h-4 text-zinc-400 transition-transform" :class="transcriptOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    <svg class="h-4 w-4 text-slate-400 transition-transform" :class="transcriptOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
                 </button>
+
                 <div x-show="transcriptOpen" x-collapse class="mt-3">
-                    <template x-if="timedWords.length > 0">
-                        <div>
-                            <div class="grid grid-cols-[auto_1fr_80px_80px] gap-3 mb-2 px-2 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-                                <div class="w-6 text-center">#</div>
-                                <div>Texto da palavra</div>
-                                <div>Start (s)</div>
-                                <div>End (s)</div>
-                            </div>
-                            <div class="space-y-2 max-h-[400px] overflow-y-auto pr-2 rounded-xl bg-zinc-50 dark:bg-zinc-900 p-2 border border-zinc-200 dark:border-zinc-700">
-                                <template x-for="(word, idx) in timedWords" :key="idx">
-                                    <div class="grid grid-cols-[auto_1fr_80px_80px] gap-3 items-center">
-                                        <span class="text-xs text-zinc-400 w-6 text-center tabular-nums" x-text="idx+1"></span>
-                                        <input type="text" x-model="word.text" class="w-full text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-1.5 outline-none focus:ring-1 focus:ring-cyan-500 transition" />
-                                        <input type="number" step="0.01" x-model.number="word.start" class="w-full text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-1.5 outline-none focus:ring-1 focus:ring-cyan-500 tabular-nums transition" />
-                                        <input type="number" step="0.01" x-model.number="word.end" class="w-full text-sm rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 p-1.5 outline-none focus:ring-1 focus:ring-cyan-500 tabular-nums transition" />
-                                    </div>
-                                </template>
-                            </div>
-                            <div class="mt-4 flex justify-between items-center">
-                                <div class="text-xs text-zinc-500">
-                                    Atenção: alterações aqui refletem diretamente nas legendas queimadas.
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <flux:button size="sm" variant="ghost" x-on:click="transcriptOpen = false">Cancelar</flux:button>
-                                    <flux:button size="sm" variant="filled" x-on:click="$wire.saveTimedWords(timedWords); transcriptOpen = false">
-                                        Salvar Sincronia
-                                    </flux:button>
-                                </div>
-                            </div>
-                        </div>
-                    </template>
-                    <template x-if="timedWords.length === 0">
-                        <div class="p-4 text-center text-sm text-zinc-500 bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                            A edição avançada de sincronia não está disponível para este vídeo (JSON original não encontrado).
-                        </div>
-                    </template>
+                    <x-videos.timed-words-editor
+                        title="Transcrição por tempo"
+                        subtitle="Ajustes aqui impactam diretamente o resultado da legenda."
+                        save-label="Salvar sincronia"
+                        :save-action="'$wire.saveTimedWords(timedWords)'"
+                    />
                 </div>
             </div>
         @endif
 
         {{-- Sugestão da IA (abaixo da transcrição) --}}
-        <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-5">
+        <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
             <flux:heading size="sm">Sugestão opcional da IA</flux:heading>
-            <flux:text class="text-sm text-zinc-500 mt-1">
+            <flux:text class="mt-1 text-sm text-slate-400">
                 Se quiser acelerar, a IA ainda pode sugerir tempos iniciais. Depois voce ajusta tudo na timeline.
             </flux:text>
             <div class="mt-3 flex flex-col gap-3">
                 <flux:input wire:model="userPrompt" placeholder="Ex: foque nos melhores ganchos (opcional)" />
                 <div>
-                    <flux:button wire:click="recommend" variant="filled" size="sm" icon="sparkles">
+                    <flux:button wire:click="recommend" variant="filled" size="sm" icon="sparkles" class="cursor-pointer">
                         <span wire:loading.remove wire:target="recommend">Sugerir cortes com IA</span>
                         <span wire:loading wire:target="recommend">Pensando...</span>
                     </flux:button>
@@ -616,7 +564,7 @@
         </div>
 
         {{-- Seção de cortes --}}
-        <div class="rounded-3xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950/50 p-5 min-w-0"
+        <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 min-w-0"
              x-data="{ selectedCuts: @entangle('selectedCuts') }">
             <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
                 <div class="flex items-center gap-3">
@@ -669,13 +617,13 @@
             </div>
 
             @if($cuts->isEmpty())
-                <flux:text class="text-zinc-500">Nenhum corte ainda. Marque o range na timeline e adicione o corte.</flux:text>
+                <flux:text class="text-slate-500">Nenhum corte ainda. Marque o range na timeline e adicione o corte.</flux:text>
             @endif
 
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 @foreach($cuts as $cut)
                     @php($rendered = $cut->files->firstWhere('type', $cut->type))
-                    <div class="rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/60 p-4 flex flex-col gap-3"
+                    <div class="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4"
                          wire:key="cut-{{ $cut->uuid }}"
                          x-data="{ isEditing: false }">
 
@@ -695,18 +643,18 @@
                                         @if($cut->rendered_at)<flux:badge size="sm" color="green">renderizado</flux:badge>@endif
                                     </div>
                                     <div class="flex items-center gap-1 flex-shrink-0">
-                                        <flux:button variant="ghost" icon="pencil-square"
+                                        <flux:button variant="ghost" icon="pencil-square" class="cursor-pointer"
                                             x-show="!isEditing"
                                             x-on:click="isEditing = true; loadCut({{ $cut->start_seconds }}, {{ $cut->end_seconds }})">
                                         </flux:button>
-                                        <flux:button variant="ghost" icon="x-mark"
+                                        <flux:button variant="ghost" icon="x-mark" class="cursor-pointer"
                                             x-show="isEditing"
                                             x-on:click="isEditing = false">
                                         </flux:button>
                                     </div>
                                 </div>
                                 @if($cut->reason)
-                                    <p class="text-xs text-zinc-500 mt-1">{{ $cut->reason }}</p>
+                                    <p class="mt-1 text-xs text-slate-500">{{ $cut->reason }}</p>
                                 @endif
                             </div>
                         </div>
@@ -717,10 +665,10 @@
                             <flux:input type="number" step="0.001" wire:model="cutEdits.{{ $cut->uuid }}.end" label="Fim" size="sm" x-bind:disabled="!isEditing" />
                         </div>
 
-                        <p class="text-xs text-zinc-400 tabular-nums -mt-1">{{ number_format($cut->duration_seconds, 3) }}s</p>
+                        <p class="-mt-1 text-xs tabular-nums text-slate-400">{{ number_format($cut->duration_seconds, 3) }}s</p>
 
                         <div class="mt-2" x-show="isEditing" x-collapse>
-                            <flux:button variant="filled" class="w-full"
+                            <flux:button variant="filled" class="w-full cursor-pointer"
                                 wire:click="saveCutEdit('{{ $cut->uuid }}')"
                                 x-on:click="isEditing = false">
                                 <span wire:loading.remove wire:target="saveCutEdit">Salvar Alterações</span>
@@ -730,12 +678,13 @@
 
                         {{-- Preview do vídeo renderizado --}}
                         @if($rendered)
-                            <video src="{{ $rendered->temporaryUrl(120) }}" controls
-                                   class="w-full rounded-xl bg-black aspect-[9/16] max-h-80 mx-auto"></video>
+                            <video src="{{ $rendered->temporaryUrl(120) }}" controls x-init="$el.volume = 0.2"
+                                   class="mx-auto aspect-[9/16] max-h-80 w-full rounded-xl bg-black"></video>
                         @endif
                     </div>
                 @endforeach
             </div>
+        </div>
         </div>
     </div>
 </section>

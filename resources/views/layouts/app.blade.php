@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -19,12 +19,12 @@
 
         @livewireStyles
     </head>
-    <body class="min-h-screen bg-white dark:bg-zinc-800">
+    <body class="min-h-screen bg-slate-950 text-slate-100">
         @if($layout === 'sidebar')
             <x-sidebar />
         @elseif($layout === 'navbar')
             <x-sidebar layout="navbar" />
-            <flux:header container class="border-b border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
+            <flux:header container class="border-b border-slate-800 bg-slate-950/95 backdrop-blur">
                 <flux:sidebar.toggle class="lg:hidden mr-2" icon="bars-2" inset="left" />
 
                 <x-app-logo href="{{ route('home') }}" wire:navigate />
@@ -52,11 +52,6 @@
                 </flux:navbar>
 
                 <flux:spacer />
-
-                <flux:button variant="subtle" square x-data x-on:click="$flux.appearance = $flux.appearance === 'dark' ? 'light' : 'dark'" class="cursor-pointer mr-2" aria-label="Toggle theme">
-                    <flux:icon.sun x-show="$flux.appearance === 'dark'" variant="outline" class="size-5" />
-                    <flux:icon.moon x-show="$flux.appearance === 'light' || $flux.appearance === 'system'" variant="outline" class="size-5" />
-                </flux:button>
 
                 @auth
                     <flux:dropdown position="bottom" align="start">
@@ -113,7 +108,7 @@
             </flux:header>
         @endif
 
-        <flux:main>
+        <flux:main class="bg-transparent">
             {{ $slot }}
         </flux:main>
 

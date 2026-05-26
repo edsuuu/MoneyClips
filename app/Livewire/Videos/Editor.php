@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Livewire\Videos;
 
 use App\Models\Cut;
+use App\Models\File;
 use App\Models\ProcessingJob;
 use App\Models\Status;
 use App\Models\Video;
+use App\Models\VideoPayload;
 use App\Services\VideoProcessor\VideoProcessorService;
+use App\Support\Cast;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Component;
+use Throwable;
 
 final class Editor extends Component
 {
@@ -24,6 +28,7 @@ final class Editor extends Component
 
     public string $userPrompt = '';
 
+    /** @var list<string> */
     public array $selectedCuts = [];
 
     /** @var array<string, array{start: float, end: float}> */
@@ -68,7 +73,7 @@ final class Editor extends Component
         $cut = $this->video->cuts()->where('uuid', $uuid)->firstOrFail();
         $cut->update([
             'start_seconds' => $start,
-            'end_seconds'   => $end,
+            'end_seconds' => $end,
             'duration_seconds' => max(0, $end - $start),
         ]);
 
@@ -121,8 +126,9 @@ final class Editor extends Component
     {
         $uuids = $this->selectedCuts;
 
-        if (empty($uuids)) {
+        if ($uuids === []) {
             Flux::toast('Selecione ao menos um corte para renderizar.');
+
             return;
         }
 
@@ -131,7 +137,7 @@ final class Editor extends Component
         abort_if($cuts->isEmpty(), 422, 'Nenhum corte encontrado.');
 
         /** @var VideoProcessorService $videoProcessor */
-        $videoProcessor = app(VideoProcessorService::class);
+        $videoProcessor = resolve(VideoProcessorService::class);
         $videoProcessor->startRenderCuts($this->video, $cuts);
         Flux::toast(count($uuids).' corte(s) enviado(s) para renderização.');
         $this->reset('selectedCuts');
@@ -142,8 +148,8 @@ final class Editor extends Component
         $data = $this->cutEdits[$uuid] ?? null;
         abort_if(! is_array($data), 422, 'Corte inválido.');
 
-        $start = (float) ($data['start'] ?? 0);
-        $end = (float) ($data['end'] ?? 0);
+        $start = (float) $data['start'];
+        $end = (float) $data['end'];
 
         if ($start < 0 || $end <= $start) {
             Flux::toast('Tempos inválidos: o fim deve ser maior que o início.', variant: 'danger');
@@ -153,8 +159,8 @@ final class Editor extends Component
 
         $cut = $this->video->cuts()->where('uuid', $uuid)->firstOrFail();
         $cut->update([
-            'start_seconds'    => $start,
-            'end_seconds'      => $end,
+            'start_seconds' => $start,
+            'end_seconds' => $end,
             'duration_seconds' => max(0, $end - $start),
         ]);
 
@@ -164,13 +170,14 @@ final class Editor extends Component
     public function deleteSelected(): void
     {
         $uuids = $this->selectedCuts;
-        if (empty($uuids)) {
+        if ($uuids === []) {
             Flux::toast('Selecione ao menos um corte para apagar.', variant: 'danger');
+
             return;
         }
 
         $this->video->cuts()->whereIn('uuid', $uuids)->delete();
-        Flux::toast(count($uuids) . ' corte(s) apagado(s).');
+        Flux::toast(count($uuids).' corte(s) apagado(s).');
         $this->reset('selectedCuts');
     }
 
@@ -179,8 +186,8 @@ final class Editor extends Component
         $transcript = $this->video->transcript;
         if ($transcript) {
             $transcript->update([
-                'edited_text'         => $text,
-                'active_text_source'  => 'edited',
+                'edited_text' => $text,
+                'active_text_source' => 'edited',
             ]);
             Flux::toast('Transcrição salva.');
         } else {
@@ -188,10 +195,14 @@ final class Editor extends Component
         }
     }
 
+    /**
+     * @param  list<array{text: string, start: float|int, end: float|int}>  $words
+     */
     public function saveTimedWords(array $words): void
     {
-        if (empty($words)) {
+        if ($words === []) {
             Flux::toast('A transcrição não pode estar vazia.', variant: 'danger');
+
             return;
         }
 
@@ -200,14 +211,17 @@ final class Editor extends Component
             ['payload' => []]
         );
 
-        $fullText = collect($words)->pluck('text')->join(' ');
-        $duration = end($words)['end'];
+        $fullText = Cast::str(collect($words)->pluck('text')->join(' '));
+        $lastWord = $words[array_key_last($words)];
+        $duration = (float) $lastWord['end'];
 
-        $existingData = is_array($payload->payload) ? $payload->payload : json_decode($payload->payload ?: '{}', true);
+        $existingData = $this->payloadData($payload);
 
         $newPayloadData = [
-            'language' => $existingData['language'] ?? 'pt',
-            'duration_seconds' => $existingData['duration_seconds'] ?? $duration,
+            'language' => isset($existingData['language']) && is_string($existingData['language']) ? $existingData['language'] : 'pt',
+            'duration_seconds' => isset($existingData['duration_seconds']) && is_numeric($existingData['duration_seconds'])
+                ? (float) $existingData['duration_seconds']
+                : $duration,
             'text' => $fullText,
             'segments' => [
                 [
@@ -215,7 +229,7 @@ final class Editor extends Component
                     'end' => $duration,
                     'text' => $fullText,
                     'words' => $words,
-                ]
+                ],
             ],
         ];
 
@@ -223,8 +237,8 @@ final class Editor extends Component
 
         if ($this->video->transcript) {
             $this->video->transcript->update([
-                'edited_text'         => $fullText,
-                'active_text_source'  => 'edited',
+                'edited_text' => $fullText,
+                'active_text_source' => 'edited',
             ]);
         }
 
@@ -235,6 +249,7 @@ final class Editor extends Component
     {
         $this->video->refresh()->load(['cuts.files', 'files', 'transcript']);
 
+        $hlsMaster = $this->video->fileOfType('hls_master');
         $legendado = $this->video->fileOfType('legendado');
         $original = $this->video->fileOfType('original');
         $playable = $legendado ?? $original;
@@ -250,7 +265,7 @@ final class Editor extends Component
         foreach ($this->video->cuts as $cut) {
             $this->cutEdits[$cut->uuid] ??= [
                 'start' => (float) $cut->start_seconds,
-                'end'   => (float) $cut->end_seconds,
+                'end' => (float) $cut->end_seconds,
             ];
         }
 
@@ -260,40 +275,78 @@ final class Editor extends Component
             ->orderByRaw("FIELD(type, 'transcript_validated', 'transcript_raw')")
             ->first();
 
-        if ($payload) {
-            $data = is_array($payload->payload) ? $payload->payload : json_decode($payload->payload, true);
-            foreach ($data['segments'] ?? [] as $seg) {
-                foreach ($seg['words'] ?? [] as $w) {
-                    $timedWords[] = [
-                        'text'  => $w['text'],
-                        'start' => (float) $w['start'],
-                        'end'   => (float) $w['end'],
-                    ];
+        if ($payload instanceof VideoPayload) {
+            $data = $this->payloadData($payload);
+            $segments = $data['segments'] ?? null;
+
+            if (is_array($segments)) {
+                foreach ($segments as $seg) {
+                    if (! is_array($seg)) {
+                        continue;
+                    }
+
+                    foreach (Cast::arr($seg['words'] ?? []) as $w) {
+                        if (! is_array($w)) {
+                            continue;
+                        }
+
+                        $timedWords[] = [
+                            'text' => Cast::str($w['text'] ?? ''),
+                            'start' => Cast::float($w['start'] ?? 0),
+                            'end' => Cast::float($w['end'] ?? 0),
+                        ];
+                    }
                 }
             }
         }
 
         return view('livewire.videos.editor', [
-            'cuts'        => $this->video->cuts,
-            'playerUrl'   => $this->resolvePlayerUrl($playable),
-            'transcript'  => $this->video->transcript,
-            'timedWords'  => $timedWords,
-            'statusKey'   => $status instanceof Status ? $status->key : null,
+            'cuts' => $this->video->cuts,
+            'hlsUrl' => $this->resolveHlsUrl($hlsMaster),
+            'playerUrl' => $this->resolvePlayerUrl($playable),
+            'transcript' => $this->video->transcript,
+            'timedWords' => $timedWords,
+            'statusKey' => $status instanceof Status ? $status->key : null,
             'activeJobId' => $activeJob instanceof ProcessingJob ? $activeJob->external_job_id : null,
-            'wsUrl'       => config('video-processor.ws_url'),
+            'wsUrl' => config('video-processor.ws_url'),
         ]);
     }
 
-    private function resolvePlayerUrl(mixed $playable): ?string
+    private function resolvePlayerUrl(?File $playable): ?string
     {
-        if ($playable === null) {
+        if (! $playable instanceof File) {
             return null;
         }
 
         try {
             return $playable->temporaryUrl(120);
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
+    }
+
+    private function resolveHlsUrl(?File $hlsMaster): ?string
+    {
+        if (! $hlsMaster instanceof File || $hlsMaster->path === '') {
+            return null;
+        }
+
+        $prefix = 'videos/'.$this->video->uuid.'/hls/';
+        $relativePath = str_starts_with($hlsMaster->path, $prefix)
+            ? mb_substr($hlsMaster->path, mb_strlen($prefix))
+            : basename($hlsMaster->path);
+
+        return route('videos.stream', ['video' => $this->video->uuid, 'path' => $relativePath]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payloadData(VideoPayload $payload): array
+    {
+        /** @var array<string, mixed> $data */
+        $data = Cast::arr($payload->payload);
+
+        return $data;
     }
 }
