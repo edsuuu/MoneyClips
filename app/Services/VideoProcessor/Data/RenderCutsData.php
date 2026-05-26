@@ -11,6 +11,11 @@ final readonly class RenderCutsData
      *                                            start_seconds, end_seconds, vertical, face_tracking, output_path
      * @param  array<string, mixed>  $transcriptJson
      */
+    /**
+     * @param  list<array<string, mixed>>  $cuts
+     * @param  array<string, mixed>  $transcriptJson
+     * @param  array<string, mixed>|null  $video
+     */
     public function __construct(
         public string $sourcePath,
         public array $transcriptJson,
@@ -19,6 +24,8 @@ final readonly class RenderCutsData
         public ?string $bucket = null,
         public ?string $callbackToken = null,
         public string $callbackHeader = 'Authorization',
+        public ?array $video = null,
+        public bool $generateMetadata = true,
     ) {}
 
     /** @return array<string, mixed> */
@@ -31,6 +38,8 @@ final readonly class RenderCutsData
             'callback_url' => $this->callbackUrl,
             'callback_token' => $this->callbackToken,
             'callback_header' => $this->callbackHeader,
+            'video' => $this->video,
+            'generate_metadata' => $this->generateMetadata,
         ];
     }
 }

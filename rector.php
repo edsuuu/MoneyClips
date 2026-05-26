@@ -27,6 +27,7 @@ try {
             cacheDirectory: '/tmp/rector',
             cacheClass: FileCacheStorage::class,
         )
+        ->withoutParallel()
         ->withPhpSets(php84: true)
         ->withSets([
             LaravelSetList::LARAVEL_100,

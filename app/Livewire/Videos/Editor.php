@@ -5,14 +5,18 @@ declare(strict_types=1);
 namespace App\Livewire\Videos;
 
 use App\Models\Cut;
+use App\Models\File;
 use App\Models\ProcessingJob;
 use App\Models\Status;
 use App\Models\Video;
+use App\Models\VideoPayload;
 use App\Services\VideoProcessor\VideoProcessorService;
+use App\Support\Cast;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Component;
+use Throwable;
 
 final class Editor extends Component
 {
@@ -23,6 +27,12 @@ final class Editor extends Component
     public float $newEnd = 60.0;
 
     public string $userPrompt = '';
+
+    /** @var list<string> */
+    public array $selectedCuts = [];
+
+    /** @var array<string, array{start: float, end: float}> */
+    public array $cutEdits = [];
 
     public function mount(Video $video): void
     {
@@ -66,6 +76,8 @@ final class Editor extends Component
             'end_seconds' => $end,
             'duration_seconds' => max(0, $end - $start),
         ]);
+
+        Flux::toast('Corte atualizado.');
     }
 
     public function deleteCut(string $uuid): void
@@ -110,10 +122,136 @@ final class Editor extends Component
         Flux::toast('Renderização iniciada. Os arquivos aparecem ao concluir.');
     }
 
+    public function renderSelected(): void
+    {
+        $uuids = $this->selectedCuts;
+
+        if ($uuids === []) {
+            Flux::toast('Selecione ao menos um corte para renderizar.');
+
+            return;
+        }
+
+        /** @var Collection<int, Cut> $cuts */
+        $cuts = $this->video->cuts()->whereIn('uuid', $uuids)->get();
+        abort_if($cuts->isEmpty(), 422, 'Nenhum corte encontrado.');
+
+        /** @var VideoProcessorService $videoProcessor */
+        $videoProcessor = resolve(VideoProcessorService::class);
+        $videoProcessor->startRenderCuts($this->video, $cuts);
+        Flux::toast(count($uuids).' corte(s) enviado(s) para renderização.');
+        $this->reset('selectedCuts');
+    }
+
+    public function saveCutEdit(string $uuid): void
+    {
+        $data = $this->cutEdits[$uuid] ?? null;
+        abort_if(! is_array($data), 422, 'Corte inválido.');
+
+        $start = (float) $data['start'];
+        $end = (float) $data['end'];
+
+        if ($start < 0 || $end <= $start) {
+            Flux::toast('Tempos inválidos: o fim deve ser maior que o início.', variant: 'danger');
+
+            return;
+        }
+
+        $cut = $this->video->cuts()->where('uuid', $uuid)->firstOrFail();
+        $cut->update([
+            'start_seconds' => $start,
+            'end_seconds' => $end,
+            'duration_seconds' => max(0, $end - $start),
+        ]);
+
+        Flux::toast('Corte atualizado com sucesso.');
+        $this->dispatch('cut-saved', uuid: $uuid);
+    }
+
+    public function deleteSelected(): void
+    {
+        $uuids = $this->selectedCuts;
+        if ($uuids === []) {
+            Flux::toast('Selecione ao menos um corte para apagar.', variant: 'danger');
+
+            return;
+        }
+
+        $this->video->cuts()->whereIn('uuid', $uuids)->delete();
+        Flux::toast(count($uuids).' corte(s) apagado(s).');
+        $this->reset('selectedCuts');
+    }
+
+    public function saveTranscript(string $text): void
+    {
+        $transcript = $this->video->transcript;
+        if ($transcript) {
+            $transcript->update([
+                'edited_text' => $text,
+                'active_text_source' => 'edited',
+            ]);
+            Flux::toast('Transcrição salva.');
+        } else {
+            Flux::toast('Nenhuma transcrição encontrada para este vídeo.');
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $words
+     */
+    public function saveTimedWords(array $words): void
+    {
+        $normalizedWords = $this->normalizeTimedWords($words);
+
+        if ($normalizedWords === []) {
+            Flux::toast('A transcrição não pode estar vazia.', variant: 'danger');
+
+            return;
+        }
+
+        $payload = $this->video->payloads()->firstOrCreate(
+            ['type' => 'transcript_validated'],
+            ['payload' => []]
+        );
+
+        $fullText = Cast::str(collect($normalizedWords)->pluck('text')->join(' '));
+        $lastWord = $normalizedWords[array_key_last($normalizedWords)];
+        $duration = (float) $lastWord['end'];
+
+        $existingData = $this->payloadData($payload);
+
+        $newPayloadData = [
+            'language' => isset($existingData['language']) && is_string($existingData['language']) ? $existingData['language'] : 'pt',
+            'duration_seconds' => $duration,
+            'text' => $fullText,
+            'segments' => [
+                [
+                    'start' => $normalizedWords[0]['start'],
+                    'end' => $duration,
+                    'text' => $fullText,
+                    'words' => $normalizedWords,
+                ],
+            ],
+        ];
+
+        $payload->update(['payload' => $newPayloadData]);
+
+        if ($this->video->transcript) {
+            $this->video->transcript->update([
+                'edited_text' => $fullText,
+                'active_text_source' => 'edited',
+            ]);
+        }
+
+        Flux::toast('Sincronia salva e aplicada!', variant: 'success');
+        $this->dispatch('timed-words-saved');
+    }
+
     public function render(): View
     {
-        $this->video->refresh()->load(['cuts.files', 'files']);
+        $this->video->refresh()->load(['cuts.files', 'files', 'transcript']);
 
+        $hlsMaster = $this->video->fileOfType('hls_master');
         $legendado = $this->video->fileOfType('legendado');
         $original = $this->video->fileOfType('original');
         $playable = $legendado ?? $original;
@@ -126,12 +264,156 @@ final class Editor extends Component
 
         $status = $this->video->status;
 
+        foreach ($this->video->cuts as $cut) {
+            $this->cutEdits[$cut->uuid] ??= [
+                'start' => (float) $cut->start_seconds,
+                'end' => (float) $cut->end_seconds,
+            ];
+        }
+
+        $timedWords = [];
+        $payload = $this->video->payloads()
+            ->whereIn('type', ['transcript_validated', 'transcript_raw'])
+            ->orderByRaw("FIELD(type, 'transcript_validated', 'transcript_raw')")
+            ->first();
+
+        if ($payload instanceof VideoPayload) {
+            $data = $this->payloadData($payload);
+            $segments = $data['segments'] ?? null;
+
+            if (is_array($segments)) {
+                foreach ($segments as $seg) {
+                    if (! is_array($seg)) {
+                        continue;
+                    }
+
+                    foreach (Cast::arr($seg['words'] ?? []) as $w) {
+                        if (! is_array($w)) {
+                            continue;
+                        }
+
+                        $timedWords[] = [
+                            'text' => Cast::str($w['text'] ?? ''),
+                            'start' => Cast::float($w['start'] ?? 0),
+                            'end' => Cast::float($w['end'] ?? 0),
+                        ];
+                    }
+                }
+            }
+        }
+
         return view('livewire.videos.editor', [
             'cuts' => $this->video->cuts,
-            'playerUrl' => $playable?->temporaryUrl(120),
+            'hlsUrl' => $this->resolveHlsUrl($hlsMaster),
+            'playerUrl' => $this->resolvePlayerUrl($playable),
+            'transcript' => $this->video->transcript,
+            'timedWords' => $timedWords,
             'statusKey' => $status instanceof Status ? $status->key : null,
             'activeJobId' => $activeJob instanceof ProcessingJob ? $activeJob->external_job_id : null,
             'wsUrl' => config('video-processor.ws_url'),
         ]);
+    }
+
+    private function resolvePlayerUrl(?File $playable): ?string
+    {
+        if (! $playable instanceof File) {
+            return null;
+        }
+
+        try {
+            return $playable->temporaryUrl(120);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function resolveHlsUrl(?File $hlsMaster): ?string
+    {
+        if (! $hlsMaster instanceof File || $hlsMaster->path === '') {
+            return null;
+        }
+
+        $prefix = 'videos/'.$this->video->uuid.'/hls/';
+        $relativePath = str_starts_with($hlsMaster->path, $prefix)
+            ? mb_substr($hlsMaster->path, mb_strlen($prefix))
+            : basename($hlsMaster->path);
+
+        return route('videos.stream', ['video' => $this->video->uuid, 'path' => $relativePath]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payloadData(VideoPayload $payload): array
+    {
+        /** @var array<string, mixed> $data */
+        $data = Cast::arr($payload->payload);
+
+        return $data;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $words
+     * @return list<array{text: string, start: float, end: float}>
+     */
+    private function normalizeTimedWords(array $words): array
+    {
+        $normalized = [];
+
+        foreach ($words as $word) {
+            $text = mb_trim(Cast::str($word['text'] ?? ''));
+            $start = $word['start'] ?? null;
+            $end = $word['end'] ?? null;
+            if ($text === '') {
+                continue;
+            }
+
+            if (! is_numeric($start)) {
+                continue;
+            }
+
+            if (! is_numeric($end)) {
+                continue;
+            }
+
+            $startFloat = (float) $start;
+            $endFloat = (float) $end;
+            if ($startFloat < 0) {
+                continue;
+            }
+
+            if ($endFloat <= $startFloat) {
+                continue;
+            }
+
+            $normalized[] = [
+                'text' => $text,
+                'start' => $startFloat,
+                'end' => $endFloat,
+            ];
+        }
+
+        usort($normalized, static fn (array $left, array $right): int => $left['start'] <=> $right['start']);
+
+        $cleaned = [];
+        $previousEnd = 0.0;
+
+        foreach ($normalized as $word) {
+            $start = max($word['start'], $previousEnd);
+            $end = $word['end'];
+
+            if ($end <= $start) {
+                continue;
+            }
+
+            $cleaned[] = [
+                'text' => $word['text'],
+                'start' => $start,
+                'end' => $end,
+            ];
+            $previousEnd = $end;
+        }
+
+        return $cleaned;
     }
 }

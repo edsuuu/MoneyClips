@@ -1,31 +1,39 @@
 @props(['layout' => 'sidebar'])
 
-<flux:sidebar sticky stashable class="bg-zinc-50 dark:bg-zinc-900 border-r border-zinc-200 dark:border-zinc-700 {{ $layout === 'navbar' ? 'lg:hidden' : '' }}">
+<flux:sidebar sticky stashable class="border-r border-slate-800 bg-slate-950/95 text-slate-100 backdrop-blur {{ $layout === 'navbar' ? 'lg:hidden' : '' }}">
     <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-    <x-app-logo href="{{ route('home') }}" class="px-2" wire:navigate />
+    <div class="px-2">
+        <x-app-logo href="{{ route('home') }}" wire:navigate />
+        <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900/70 p-3">
+            <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Generate Clips</p>
+            <p class="mt-1 text-sm text-slate-300">Pipeline editorial para corte, revisão e distribuição social.</p>
+        </div>
+    </div>
 
-    <flux:navlist variant="grid">
+    <div class="mt-6 px-2">
+        <p class="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Workspace</p>
+        <flux:navlist variant="grid" class="gap-1">
         @auth
-            <flux:navlist.item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+            <flux:navlist.item icon="layout-grid" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                 {{ __('Dashboard') }}
             </flux:navlist.item>
         @endauth
 
-        <flux:navlist.item icon="video-camera" :href="route('videos.create')" :current="request()->routeIs('videos.create')" wire:navigate>
+        <flux:navlist.item icon="video-camera" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('videos.create')" :current="request()->routeIs('videos.create')" wire:navigate>
             {{ __('Novo Vídeo') }}
         </flux:navlist.item>
-
-        @if(request()->route('video'))
-            <flux:navlist.item icon="document-text" :href="route('videos.transcript', request()->route('video'))" :current="request()->routeIs('videos.transcript')" wire:navigate>
-                {{ __('Transcrição') }}
-            </flux:navlist.item>
-
-            <flux:navlist.item icon="scissors" :href="route('videos.editor', request()->route('video'))" :current="request()->routeIs('videos.editor')" wire:navigate>
-                {{ __('Editor') }}
-            </flux:navlist.item>
-        @endif
-    </flux:navlist>
+        <flux:navlist.item icon="film" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('videos.index')" :current="request()->routeIs('videos.index')" wire:navigate>
+            {{ __('Vídeos') }}
+        </flux:navlist.item>
+        <flux:navlist.item icon="calendar-days" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('posts.dashboard')" :current="request()->routeIs('posts.dashboard')" wire:navigate>
+            {{ __('Publicações') }}
+        </flux:navlist.item>
+        <flux:navlist.item icon="user-circle" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('social-accounts')" :current="request()->routeIs('social-accounts')" wire:navigate>
+            {{ __('Contas sociais') }}
+        </flux:navlist.item>
+        </flux:navlist>
+    </div>
 
     <flux:spacer />
 

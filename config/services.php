@@ -37,4 +37,30 @@ return [
         ],
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OAuth das redes sociais (Socialite)
+    |--------------------------------------------------------------------------
+    | Google cobre o YouTube; Facebook cobre Instagram + Facebook (Meta).
+    | Crie os apps nos consoles de cada plataforma e registre as redirect URIs
+    | abaixo. Os tokens das contas conectadas vivem em social_accounts.
+    */
+    'google' => [
+        'client_id' => env('YOUTUBE_CLIENT_ID'),
+        'client_secret' => env('YOUTUBE_CLIENT_SECRET'),
+        'redirect' => env('YOUTUBE_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback'),
+    ],
+
+    'facebook' => [
+        'client_id' => env('META_APP_ID'),
+        'client_secret' => env('META_APP_SECRET'),
+        'redirect' => env('META_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/facebook/callback'),
+    ],
+
+    'tiktok' => [
+        'client_id' => env('TIKTOK_CLIENT_KEY'),
+        'client_secret' => env('TIKTOK_CLIENT_SECRET'),
+        'redirect' => env('TIKTOK_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/tiktok/callback'),
+    ],
+
 ];

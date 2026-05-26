@@ -2,18 +2,30 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\OAuthController;
+use App\Http\Controllers\VideoController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 
-use App\Models\Video;
+Route::middleware(['auth'])->group(function (): void {
+    Route::get('/videos', [VideoController::class, 'index'])->name('videos.index');
+    Route::get('/videos/create', [VideoController::class, 'create'])->name('videos.create');
+    Route::get('/videos/{video}/transcript', [VideoController::class, 'transcript'])->name('videos.transcript');
+    Route::get('/videos/{video}/editor', [VideoController::class, 'editor'])->name('videos.editor');
+    Route::get('/videos/{video}/schedule', [VideoController::class, 'schedule'])->name('videos.schedule');
+    Route::get('/videos/{video}/stream/{path}', [VideoController::class, 'stream'])
+        ->where('path', '.*')
+        ->name('videos.stream');
 
-// Fluxo de geração de cortes (sem auth, conforme solicitado).
-Route::view('/videos/create', 'videos.create')->name('videos.create');
+    // Agendamento social: dashboard de publicações e gestão de contas conectadas.
+    Route::view('/posts', 'posts.dashboard')->name('posts.dashboard');
+    Route::view('/social-accounts', 'social.accounts')->name('social-accounts');
 
-Route::get('/videos/{video}/transcript', fn(Video $video) => view('videos.transcript', ['video' => $video]))->name('videos.transcript');
-
-Route::get('/videos/{video}/editor', fn(Video $video) => view('videos.editor', ['video' => $video]))->name('videos.editor');
+    // OAuth das redes sociais (conectar contas com 1 clique).
+    Route::get('/oauth/{platform}/connect', [OAuthController::class, 'connect'])->name('oauth.connect');
+    Route::get('/oauth/{platform}/callback', [OAuthController::class, 'callback'])->name('oauth.callback');
+});
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
     Route::view('dashboard', 'dashboard')->name('dashboard');

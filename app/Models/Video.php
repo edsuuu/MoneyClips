@@ -21,7 +21,8 @@ final class Video extends Model
     protected $fillable = [
         'uuid', 'url', 'source_provider', 'external_video_id', 'title',
         'duration_seconds', 'status_id', 'current_stage', 'progress',
-        'error_message', 'created_by', 'finished_at',
+        'error_message', 'created_by', 'finished_at', 'is_auto',
+        'auto_mode', 'auto_clip_count',
     ];
 
     public function getRouteKeyName(): string
@@ -107,6 +108,8 @@ final class Video extends Model
             'duration_seconds' => 'float',
             'progress' => 'integer',
             'finished_at' => 'datetime',
+            'is_auto' => 'boolean',
+            'auto_clip_count' => 'integer',
         ];
     }
 }
