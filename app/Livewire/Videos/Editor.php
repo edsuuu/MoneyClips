@@ -165,6 +165,7 @@ final class Editor extends Component
         ]);
 
         Flux::toast('Corte atualizado com sucesso.');
+        $this->dispatch('cut-saved', uuid: $uuid);
     }
 
     public function deleteSelected(): void
@@ -196,11 +197,13 @@ final class Editor extends Component
     }
 
     /**
-     * @param  list<array{text: string, start: float|int, end: float|int}>  $words
+     * @param  list<array<string, mixed>>  $words
      */
     public function saveTimedWords(array $words): void
     {
-        if ($words === []) {
+        $normalizedWords = $this->normalizeTimedWords($words);
+
+        if ($normalizedWords === []) {
             Flux::toast('A transcrição não pode estar vazia.', variant: 'danger');
 
             return;
@@ -211,24 +214,22 @@ final class Editor extends Component
             ['payload' => []]
         );
 
-        $fullText = Cast::str(collect($words)->pluck('text')->join(' '));
-        $lastWord = $words[array_key_last($words)];
+        $fullText = Cast::str(collect($normalizedWords)->pluck('text')->join(' '));
+        $lastWord = $normalizedWords[array_key_last($normalizedWords)];
         $duration = (float) $lastWord['end'];
 
         $existingData = $this->payloadData($payload);
 
         $newPayloadData = [
             'language' => isset($existingData['language']) && is_string($existingData['language']) ? $existingData['language'] : 'pt',
-            'duration_seconds' => isset($existingData['duration_seconds']) && is_numeric($existingData['duration_seconds'])
-                ? (float) $existingData['duration_seconds']
-                : $duration,
+            'duration_seconds' => $duration,
             'text' => $fullText,
             'segments' => [
                 [
-                    'start' => $words[0]['start'],
+                    'start' => $normalizedWords[0]['start'],
                     'end' => $duration,
                     'text' => $fullText,
-                    'words' => $words,
+                    'words' => $normalizedWords,
                 ],
             ],
         ];
@@ -243,6 +244,7 @@ final class Editor extends Component
         }
 
         Flux::toast('Sincronia salva e aplicada!', variant: 'success');
+        $this->dispatch('timed-words-saved');
     }
 
     public function render(): View
@@ -348,5 +350,70 @@ final class Editor extends Component
         $data = Cast::arr($payload->payload);
 
         return $data;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $words
+     * @return list<array{text: string, start: float, end: float}>
+     */
+    private function normalizeTimedWords(array $words): array
+    {
+        $normalized = [];
+
+        foreach ($words as $word) {
+            $text = mb_trim(Cast::str($word['text'] ?? ''));
+            $start = $word['start'] ?? null;
+            $end = $word['end'] ?? null;
+            if ($text === '') {
+                continue;
+            }
+
+            if (! is_numeric($start)) {
+                continue;
+            }
+
+            if (! is_numeric($end)) {
+                continue;
+            }
+
+            $startFloat = (float) $start;
+            $endFloat = (float) $end;
+            if ($startFloat < 0) {
+                continue;
+            }
+
+            if ($endFloat <= $startFloat) {
+                continue;
+            }
+
+            $normalized[] = [
+                'text' => $text,
+                'start' => $startFloat,
+                'end' => $endFloat,
+            ];
+        }
+
+        usort($normalized, static fn (array $left, array $right): int => $left['start'] <=> $right['start']);
+
+        $cleaned = [];
+        $previousEnd = 0.0;
+
+        foreach ($normalized as $word) {
+            $start = max($word['start'], $previousEnd);
+            $end = $word['end'];
+
+            if ($end <= $start) {
+                continue;
+            }
+
+            $cleaned[] = [
+                'text' => $word['text'],
+                'start' => $start,
+                'end' => $end,
+            ];
+            $previousEnd = $end;
+        }
+
+        return $cleaned;
     }
 }

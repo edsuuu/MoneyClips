@@ -14,6 +14,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * Publica de fato um ScheduledPost na plataforma. Roda na fila; cada execução
@@ -40,38 +41,51 @@ final class PublishScheduledPostJob implements ShouldQueue
             return;
         }
 
-        // Só processa posts que o dispatcher marcou como publishing (evita corrida/duplicação).
-        if ($post->status !== ScheduledPost::STATUS_PUBLISHING) {
+        $lock = Cache::lock('scheduled-post:'.$post->id, $this->timeout);
+
+        if (! $lock->get()) {
             return;
         }
 
-        $publisher = $registry->for($post->platform);
-        if (! $publisher instanceof SocialPublisher) {
-            $this->markFailed($post, 'Plataforma não suportada: '.$post->platform);
+        try {
+            $post->refresh();
 
-            return;
+            // Só processa posts que o dispatcher marcou como publishing (evita corrida/duplicação).
+            if ($post->status !== ScheduledPost::STATUS_PUBLISHING) {
+                return;
+            }
+
+            $publisher = $registry->for($post->platform);
+            if (! $publisher instanceof SocialPublisher) {
+                $this->markFailed($post, 'Plataforma não suportada: '.$post->platform);
+
+                return;
+            }
+
+            $post->increment('attempts');
+            $post->refresh();
+            $post->log(SocialPostLog::LEVEL_INFO, sprintf('Publicando em %s (tentativa %s).', $publisher->label(), $post->attempts));
+
+            $result = $publisher->publish($post);
+
+            if ($result->success) {
+                $post->update([
+                    'status' => ScheduledPost::STATUS_POSTED,
+                    'external_post_id' => $result->externalId,
+                    'external_url' => $result->url,
+                    'error_message' => null,
+                    'posted_at' => now(),
+                    'payload' => $result->context ?: $post->payload,
+                ]);
+                $post->log(SocialPostLog::LEVEL_INFO, $result->message, $result->context);
+
+                return;
+            }
+
+            $this->handleFailure($post, $result->message, $result->context);
+        } finally {
+            $lock->release();
         }
-
-        $post->increment('attempts');
-        $post->log(SocialPostLog::LEVEL_INFO, sprintf('Publicando em %s (tentativa %s).', $publisher->label(), $post->attempts));
-
-        $result = $publisher->publish($post);
-
-        if ($result->success) {
-            $post->update([
-                'status' => ScheduledPost::STATUS_POSTED,
-                'external_post_id' => $result->externalId,
-                'external_url' => $result->url,
-                'error_message' => null,
-                'posted_at' => now(),
-                'payload' => $result->context ?: $post->payload,
-            ]);
-            $post->log(SocialPostLog::LEVEL_INFO, $result->message, $result->context);
-
-            return;
-        }
-
-        $this->handleFailure($post, $result->message, $result->context);
     }
 
     /**

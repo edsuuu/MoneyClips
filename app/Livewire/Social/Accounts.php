@@ -6,11 +6,14 @@ namespace App\Livewire\Social;
 
 use App\Models\SocialAccount;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
+use Carbon\CarbonInterface;
 use Flux\Flux;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\View\View;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Throwable;
 
 /**
  * Conecta contas das plataformas guardando o token OAuth (criptografado).
@@ -32,6 +35,7 @@ final class Accounts extends Component
 
     public string $refresh_token = '';
 
+    #[Validate('nullable|string')]
     public string $token_expires_at = '';
 
     /** JSON livre com extras por plataforma (ig_user_id, page_id, privacy_level...). */
@@ -59,8 +63,14 @@ final class Accounts extends Component
             $meta = $decoded;
         }
 
-        $configuredOwnerId = config('social-publishing.account_owner_id', 1);
-        $ownerId = is_numeric($configuredOwnerId) ? (int) $configuredOwnerId : 1;
+        $ownerId = $this->currentUserId();
+        $tokenExpiresAt = $this->parseTokenExpiresAt();
+
+        if ($this->token_expires_at !== '' && ! $tokenExpiresAt instanceof CarbonInterface) {
+            Flux::toast('Informe uma data de expiração válida.', variant: 'danger');
+
+            return;
+        }
 
         SocialAccount::query()->create([
             'user_id' => $ownerId,
@@ -69,7 +79,7 @@ final class Accounts extends Component
             'external_account_id' => $this->external_account_id ?: null,
             'access_token' => $this->access_token,
             'refresh_token' => $this->refresh_token ?: null,
-            'token_expires_at' => $this->token_expires_at !== '' ? Date::parse($this->token_expires_at) : null,
+            'token_expires_at' => $tokenExpiresAt,
             'meta' => $meta,
             'is_active' => true,
         ]);
@@ -80,7 +90,10 @@ final class Accounts extends Component
 
     public function toggleActive(int $id): void
     {
-        $account = SocialAccount::query()->find($id);
+        $account = SocialAccount::query()
+            ->where('user_id', $this->currentUserId())
+            ->find($id);
+
         if ($account instanceof SocialAccount) {
             $account->update(['is_active' => ! $account->is_active]);
         }
@@ -88,7 +101,11 @@ final class Accounts extends Component
 
     public function delete(int $id): void
     {
-        SocialAccount::query()->whereKey($id)->delete();
+        SocialAccount::query()
+            ->where('user_id', $this->currentUserId())
+            ->whereKey($id)
+            ->delete();
+
         Flux::toast('Conta removida.');
     }
 
@@ -96,7 +113,31 @@ final class Accounts extends Component
     {
         return view('livewire.social.accounts', [
             'platformLabels' => $registry->labels(),
-            'accounts' => SocialAccount::query()->latest()->get(),
+            'accounts' => SocialAccount::query()
+                ->where('user_id', $this->currentUserId())
+                ->latest()
+                ->get(),
         ]);
+    }
+
+    private function currentUserId(): int
+    {
+        $userId = Auth::id();
+        abort_unless(is_int($userId), 403);
+
+        return $userId;
+    }
+
+    private function parseTokenExpiresAt(): ?CarbonInterface
+    {
+        if ($this->token_expires_at === '') {
+            return null;
+        }
+
+        try {
+            return Date::parse($this->token_expires_at);
+        } catch (Throwable) {
+            return null;
+        }
     }
 }

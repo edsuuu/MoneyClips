@@ -16,6 +16,10 @@
         loadingThumbs: false,
         transcriptText: @js($transcript?->activeText() ?? ''),
         timedWords: @js($timedWords ?? []),
+        draftTimedWords: [],
+        cloneTimedWords(words) {
+            return JSON.parse(JSON.stringify(Array.isArray(words) ? words : []));
+        },
         fitSelectionToViewport() {
             if (!this.$refs.timelineViewport) return;
             const vpWidth = this.$refs.timelineViewport.clientWidth || this.viewportWidth;
@@ -521,11 +525,12 @@
         {{-- Transcrição do vídeo --}}
         @if(isset($transcript) && $transcript)
             <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 min-w-0"
-                 x-data="{ transcriptOpen: false }">
+                 x-data="{ transcriptOpen: false }"
+                 x-on:timed-words-saved.window="timedWords = cloneTimedWords(draftTimedWords); transcriptOpen = false">
                 <button
                     type="button"
                     class="w-full flex items-center justify-between text-left"
-                    x-on:click="transcriptOpen = !transcriptOpen">
+                    x-on:click="if (!transcriptOpen) { draftTimedWords = cloneTimedWords(timedWords) }; transcriptOpen = !transcriptOpen">
                     <div>
                         <flux:heading size="sm">Transcrição por tempo</flux:heading>
                         <flux:text class="mt-0.5 text-xs text-slate-500">Ajustes aqui impactam diretamente o resultado da legenda.</flux:text>
@@ -540,7 +545,9 @@
                         title="Transcrição por tempo"
                         subtitle="Ajustes aqui impactam diretamente o resultado da legenda."
                         save-label="Salvar sincronia"
-                        :save-action="'$wire.saveTimedWords(timedWords)'"
+                        :words-model="'draftTimedWords'"
+                        :save-action="'$wire.saveTimedWords(draftTimedWords)'"
+                        :cancel-action="'draftTimedWords = cloneTimedWords(timedWords); transcriptOpen = false'"
                     />
                 </div>
             </div>
@@ -625,7 +632,8 @@
                     @php($rendered = $cut->files->firstWhere('type', $cut->type))
                     <div class="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4"
                          wire:key="cut-{{ $cut->uuid }}"
-                         x-data="{ isEditing: false }">
+                         x-data="{ isEditing: false }"
+                         x-on:cut-saved.window="if (($event.detail?.uuid ?? null) === '{{ $cut->uuid }}') isEditing = false">
 
                         {{-- Checkbox + badges + actions --}}
                         <div class="flex items-start gap-2">
@@ -668,9 +676,7 @@
                         <p class="-mt-1 text-xs tabular-nums text-slate-400">{{ number_format($cut->duration_seconds, 3) }}s</p>
 
                         <div class="mt-2" x-show="isEditing" x-collapse>
-                            <flux:button variant="filled" class="w-full cursor-pointer"
-                                wire:click="saveCutEdit('{{ $cut->uuid }}')"
-                                x-on:click="isEditing = false">
+                            <flux:button variant="filled" class="w-full cursor-pointer" wire:click="saveCutEdit('{{ $cut->uuid }}')">
                                 <span wire:loading.remove wire:target="saveCutEdit">Salvar Alterações</span>
                                 <span wire:loading wire:target="saveCutEdit">Salvando...</span>
                             </flux:button>
