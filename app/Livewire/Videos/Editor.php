@@ -34,6 +34,14 @@ final class Editor extends Component
     /** @var array<string, array{start: float, end: float}> */
     public array $cutEdits = [];
 
+    /**
+     * external_job_id da renderização que o usuário acabou de iniciar.
+     * Guardamos explicitamente para a barra de progresso aparecer no mesmo
+     * ciclo do clique — sem depender de a query "achar" um job não-terminal
+     * (corrida que se perde em renders rápidos / jobs antigos travados).
+     */
+    public ?string $renderJobId = null;
+
     public function mount(Video $video): void
     {
         $this->video = $video;
@@ -42,6 +50,12 @@ final class Editor extends Component
     public function refreshStatus(): void
     {
         $this->video->refresh();
+
+        // Solta a barra assim que o job rastreado termina (done/failed),
+        // deixando os arquivos renderizados aparecerem.
+        if ($this->renderJobId !== null && $this->renderJobFinished($this->renderJobId)) {
+            $this->renderJobId = null;
+        }
     }
 
     public function addCut(): void
@@ -118,7 +132,8 @@ final class Editor extends Component
         $cuts = $this->video->cuts()->get();
         abort_if($cuts->isEmpty(), 422, 'Nenhum corte para renderizar.');
 
-        $videoProcessor->startRenderCuts($this->video, $cuts);
+        $job = $videoProcessor->startRenderCuts($this->video, $cuts);
+        $this->renderJobId = $job->external_job_id;
         Flux::toast('Renderização iniciada. Os arquivos aparecem ao concluir.');
     }
 
@@ -138,7 +153,8 @@ final class Editor extends Component
 
         /** @var VideoProcessorService $videoProcessor */
         $videoProcessor = resolve(VideoProcessorService::class);
-        $videoProcessor->startRenderCuts($this->video, $cuts);
+        $job = $videoProcessor->startRenderCuts($this->video, $cuts);
+        $this->renderJobId = $job->external_job_id;
         Flux::toast(count($uuids).' corte(s) enviado(s) para renderização.');
         $this->reset('selectedCuts');
     }
@@ -256,11 +272,12 @@ final class Editor extends Component
         $original = $this->video->fileOfType('original');
         $playable = $legendado ?? $original;
 
-        // Job em andamento para mostrar progresso.
-        $activeJob = $this->video->processingJobs()
-            ->whereHas('status', fn ($q) => $q->whereNotIn('key', ['completed', 'failed']))
-            ->latest()
-            ->first();
+        // Barra de progresso: prioriza o job que o usuário acabou de iniciar
+        // (this->renderJobId). Como fallback (ex.: recarregou a página no meio
+        // de um render) usa o job MAIS RECENTE se ainda estiver em andamento —
+        // assim jobs antigos travados em "processing" não exibem barra morta.
+        $latestJob = $this->video->processingJobs()->latest()->first();
+        $activeJobId = $this->renderJobId ?? $this->runningJobId($latestJob);
 
         $status = $this->video->status;
 
@@ -274,7 +291,8 @@ final class Editor extends Component
         $timedWords = [];
         $payload = $this->video->payloads()
             ->whereIn('type', ['transcript_validated', 'transcript_raw'])
-            ->orderByRaw("FIELD(type, 'transcript_validated', 'transcript_raw')")
+            // CASE (em vez de FIELD()) para funcionar em MySQL e SQLite: prioriza o validado.
+            ->orderByRaw("CASE type WHEN 'transcript_validated' THEN 0 ELSE 1 END")
             ->first();
 
         if ($payload instanceof VideoPayload) {
@@ -309,9 +327,39 @@ final class Editor extends Component
             'transcript' => $this->video->transcript,
             'timedWords' => $timedWords,
             'statusKey' => $status instanceof Status ? $status->key : null,
-            'activeJobId' => $activeJob instanceof ProcessingJob ? $activeJob->external_job_id : null,
+            'activeJobId' => $activeJobId,
             'wsUrl' => config('video-processor.ws_url'),
         ]);
+    }
+
+    private function renderJobFinished(string $externalJobId): bool
+    {
+        $job = $this->video->processingJobs()
+            ->where('external_job_id', $externalJobId)
+            ->first();
+
+        if (! $job instanceof ProcessingJob) {
+            return true;
+        }
+
+        return $this->isTerminal($job->status instanceof Status ? $job->status->key : null);
+    }
+
+    private function isTerminal(?string $statusKey): bool
+    {
+        return in_array($statusKey, ['completed', 'failed'], true);
+    }
+
+    /** external_job_id do job se ele ainda estiver em andamento; senão null. */
+    private function runningJobId(?ProcessingJob $job): ?string
+    {
+        if (! $job instanceof ProcessingJob) {
+            return null;
+        }
+
+        $statusKey = $job->status instanceof Status ? $job->status->key : null;
+
+        return $this->isTerminal($statusKey) ? null : $job->external_job_id;
     }
 
     private function resolvePlayerUrl(?File $playable): ?string

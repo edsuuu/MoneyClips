@@ -132,7 +132,7 @@ final class Transcript extends Component
         $timedWords = [];
         $payload = $this->video->payloads()
             ->whereIn('type', ['transcript_validated', 'transcript_raw'])
-            ->orderByRaw("FIELD(type, 'transcript_validated', 'transcript_raw')")
+            ->orderByRaw("CASE type WHEN 'transcript_validated' THEN 0 ELSE 1 END")
             ->first();
 
         if ($payload instanceof VideoPayload) {

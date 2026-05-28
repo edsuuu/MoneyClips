@@ -208,7 +208,7 @@ final readonly class VideoProcessorService
     {
         $payload = $video->payloads()
             ->whereIn('type', ['transcript_validated', 'transcript_raw'])
-            ->orderByRaw("FIELD(type, 'transcript_validated', 'transcript_raw')")
+            ->orderByRaw("CASE type WHEN 'transcript_validated' THEN 0 ELSE 1 END")
             ->latest()
             ->first();
 
