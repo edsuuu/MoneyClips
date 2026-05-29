@@ -1,8 +1,8 @@
 <section class="mx-auto flex w-full max-w-7xl flex-col gap-6">
     <x-studio.page-header
         eyebrow="Distribuição"
-        title="Agendar Publicações"
-        subtitle="Edite título, descrição e hashtags por corte, escolha plataformas e distribua em sequência."
+        title="Publicar ou Agendar"
+        subtitle="Escolha a conta, revise os metadados sugeridos por corte e publique agora ou em sequência."
     >
         <x-slot:meta>
             <flux:badge>{{ $video->title ?? 'Vídeo' }}</flux:badge>
@@ -13,10 +13,21 @@
                 Dashboard
             </flux:button>
             <flux:button :href="route('social-accounts')" size="sm" variant="subtle" icon="user-circle" class="cursor-pointer" wire:navigate>
-                Contas sociais
+                Contas vinculadas
             </flux:button>
         </x-slot:actions>
     </x-studio.page-header>
+
+    <x-studio.panel
+        :title="$preferredMode === 'publish' ? 'Fluxo rapido de publicacao' : 'Fluxo de agendamento'"
+        :subtitle="$preferredMode === 'publish'
+            ? 'Os cortes ja chegam selecionados com YouTube marcado. Revise a conta e clique em publicar agora.'
+            : 'Os cortes ja chegam com titulo, descricao, hashtags e parte sugeridos. Ajuste o necessario e agende.'"
+    >
+        <flux:text class="text-xs text-slate-500">
+            Contas ativas neste fluxo: {{ collect($supportedPlatforms)->map(fn (string $platform) => $platformLabels[$platform] ?? ucfirst($platform))->implode(' · ') }}.
+        </flux:text>
+    </x-studio.panel>
 
     {{-- Plataformas, contas e sequência --}}
     <x-studio.panel title="Plataformas, contas e horários" subtitle="Os cortes selecionados são postados em sequência: o 1º no horário de início e os seguintes a cada intervalo.">
@@ -117,7 +128,11 @@
     </x-studio.panel>
 
     <div class="flex items-center gap-3">
-        <flux:button wire:click="schedule" variant="primary" class="cursor-pointer" icon="calendar">
+        <flux:button wire:click="publishNow" variant="primary" class="cursor-pointer" icon="paper-airplane">
+            <span wire:loading.remove wire:target="publishNow">Publicar agora</span>
+            <span wire:loading wire:target="publishNow">Publicando...</span>
+        </flux:button>
+        <flux:button wire:click="schedule" variant="subtle" class="cursor-pointer" icon="calendar">
             <span wire:loading.remove wire:target="schedule">Agendar publicações</span>
             <span wire:loading wire:target="schedule">Agendando...</span>
         </flux:button>

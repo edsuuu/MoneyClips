@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\VideoProcessor\Data;
 
+use stdClass;
+
 final readonly class RecommendCutsData
 {
     /**
@@ -26,14 +28,22 @@ final readonly class RecommendCutsData
     public function toArray(): array
     {
         return [
-            'transcript_json' => $this->transcriptJson,
-            'video' => $this->video,
-            'constraints' => $this->constraints,
+            'transcript_json' => $this->dictionary($this->transcriptJson),
+            'video' => $this->dictionary($this->video),
+            'constraints' => $this->dictionary($this->constraints),
             'user_prompt' => $this->userPrompt,
             'llm' => $this->llm,
             'callback_url' => $this->callbackUrl,
             'callback_token' => $this->callbackToken,
             'callback_header' => $this->callbackHeader,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>|stdClass
+     */
+    private function dictionary(array $value): array|stdClass
+    {
+        return $value === [] ? new stdClass() : $value;
     }
 }

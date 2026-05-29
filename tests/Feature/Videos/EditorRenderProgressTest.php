@@ -118,3 +118,69 @@ test('a stale stuck job superseded by a newer completed job shows no progress ba
         ->test(Editor::class, ['video' => $video])
         ->assertViewHas('activeJobId', fn ($value): bool => $value === null);
 });
+
+test('ai recommend sends default constraints and persists returned cuts', function (): void {
+    config()->set('video-processor.auto.ai_min_cuts', 3);
+    config()->set('video-processor.auto.ai_max_cuts', 7);
+
+    $mockProvider = mock(VideoProcessorProviderInterface::class);
+    $mockProvider->shouldReceive('recommendCuts')
+        ->once()
+        ->withArgs(function (string $videoUuid, \App\Services\VideoProcessor\Data\RecommendCutsData $data): bool {
+            expect($videoUuid)->not->toBe('');
+            expect($data->constraints)->toBe([
+                'min_cuts' => 3,
+                'max_cuts' => 7,
+            ]);
+
+            return true;
+        })
+        ->andReturn([
+            'cuts' => [
+                [
+                    'index' => 1,
+                    'name' => 'PT1',
+                    'type' => 'pt1',
+                    'start_seconds' => 12.0,
+                    'end_seconds' => 48.0,
+                    'duration_seconds' => 36.0,
+                    'score' => 0.94,
+                    'reason' => 'Bom gancho',
+                ],
+            ],
+        ]);
+    $this->app->instance(VideoProcessorProviderInterface::class, $mockProvider);
+
+    $video = makeVideoWithCut();
+
+    Livewire::actingAs($this->user)
+        ->test(Editor::class, ['video' => $video])
+        ->call('recommend')
+        ->assertHasNoErrors();
+
+    $video->refresh();
+    $cut = $video->cuts()->where('index', 1)->first();
+
+    expect($cut)->not->toBeNull();
+    expect($cut?->start_seconds)->toBe(12.0);
+    expect($cut?->end_seconds)->toBe(48.0);
+    expect($video->status?->key)->toBe('waiting_cuts');
+});
+
+test('ai recommend failure does not break the livewire request', function (): void {
+    $mockProvider = mock(VideoProcessorProviderInterface::class);
+    $mockProvider->shouldReceive('recommendCuts')
+        ->once()
+        ->andThrow(new \RuntimeException('API de cortes indisponível'));
+    $this->app->instance(VideoProcessorProviderInterface::class, $mockProvider);
+
+    $video = makeVideoWithCut();
+
+    Livewire::actingAs($this->user)
+        ->test(Editor::class, ['video' => $video])
+        ->call('recommend')
+        ->assertHasNoErrors();
+
+    $video->refresh();
+    expect($video->status?->key)->toBe('failed');
+});

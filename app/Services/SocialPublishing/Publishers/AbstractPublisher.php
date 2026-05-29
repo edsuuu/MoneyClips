@@ -25,7 +25,7 @@ abstract class AbstractPublisher implements SocialPublisher
     {
         $account = $post->account;
 
-        throw_unless($account instanceof SocialAccount, PublishException::class, 'Nenhuma conta conectada para esta plataforma. Conecte uma conta em "Contas sociais".');
+        throw_unless($account instanceof SocialAccount, PublishException::class, 'Nenhuma conta conectada para esta plataforma. Conecte uma conta em "Contas vinculadas".');
 
         throw_unless($account->is_active, PublishException::class, 'A conta conectada está inativa.');
 

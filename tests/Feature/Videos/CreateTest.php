@@ -17,6 +17,15 @@ beforeEach(function (): void {
     Auth::login($this->user);
 });
 
+test('create page shows the clip generation modes', function (): void {
+    $this->actingAs($this->user)
+        ->get(route('videos.create'))
+        ->assertOk()
+        ->assertSee('Manual')
+        ->assertSee('Automático 60s')
+        ->assertSee('IA escolhe');
+});
+
 test('starts ingest when url does not exist', function (): void {
     $mockProvider = mock(VideoProcessorProviderInterface::class);
     $mockProvider->shouldReceive('ingest')
@@ -30,6 +39,71 @@ test('starts ingest when url does not exist', function (): void {
         ->call('start')
         ->assertHasNoErrors()
         ->assertRedirectContains('/videos/');
+});
+
+test('sequential automatic mode stores auto settings for full coverage clips', function (): void {
+    $mockProvider = mock(VideoProcessorProviderInterface::class);
+    $mockProvider->shouldReceive('ingest')
+        ->once()
+        ->andReturn(['job_id' => 'external-job-123']);
+    $this->app->instance(VideoProcessorProviderInterface::class, $mockProvider);
+
+    Livewire::actingAs($this->user)
+        ->test(Create::class)
+        ->set('url', 'https://www.youtube.com/watch?v=sequential123')
+        ->set('processingMode', 'sequential')
+        ->call('start')
+        ->assertHasNoErrors()
+        ->assertRedirectContains('/videos/')
+        ->assertRedirectContains('/editor');
+
+    $video = Video::query()->latest()->first();
+
+    expect($video)->not->toBeNull();
+    expect($video?->is_auto)->toBeTrue();
+    expect($video?->auto_mode)->toBe('sequential');
+    expect($video?->auto_clip_count)->toBeNull();
+});
+
+test('ai mode allows empty clip count and stores requested amount when provided', function (): void {
+    $mockProvider = mock(VideoProcessorProviderInterface::class);
+    $mockProvider->shouldReceive('ingest')
+        ->twice()
+        ->andReturn(['job_id' => 'external-job-456']);
+    $this->app->instance(VideoProcessorProviderInterface::class, $mockProvider);
+
+    Livewire::actingAs($this->user)
+        ->test(Create::class)
+        ->set('url', 'https://www.youtube.com/watch?v=ai123')
+        ->set('processingMode', 'ai')
+        ->call('start')
+        ->assertHasNoErrors()
+        ->assertRedirectContains('/videos/')
+        ->assertRedirectContains('/editor');
+
+    Livewire::actingAs($this->user)
+        ->test(Create::class)
+        ->set('url', 'https://www.youtube.com/watch?v=ai456')
+        ->set('processingMode', 'ai')
+        ->set('clipCount', 5)
+        ->call('start')
+        ->assertHasNoErrors()
+        ->assertRedirectContains('/videos/')
+        ->assertRedirectContains('/editor');
+
+    $videos = Video::query()->latest()->take(2)->get()->values();
+    $videoWithCount = $videos->firstWhere('url', 'https://www.youtube.com/watch?v=ai456');
+    $videoWithoutCount = $videos->firstWhere('url', 'https://www.youtube.com/watch?v=ai123');
+
+    expect($videoWithoutCount)->not->toBeNull();
+    expect($videoWithoutCount?->is_auto)->toBeTrue();
+    expect($videoWithoutCount?->auto_mode)->toBe('ai');
+    expect($videoWithoutCount?->auto_clip_count)->toBeNull();
+
+    expect($videoWithCount)->not->toBeNull();
+    expect($videoWithCount?->is_auto)->toBeTrue();
+    expect($videoWithCount?->auto_mode)->toBe('ai');
+    expect($videoWithCount?->auto_clip_count)->toBe(5);
 });
 
 test('reuses cached video data and redirects to transcript if no legendado file exists', function (): void {

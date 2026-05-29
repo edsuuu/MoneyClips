@@ -17,7 +17,9 @@ use App\Services\VideoProcessor\Data\IngestVideoData;
 use App\Services\VideoProcessor\Data\RecommendCutsData;
 use App\Services\VideoProcessor\Data\RenderCutsData;
 use App\Services\VideoProcessor\Data\SubtitleFullData;
+use App\Support\Cast;
 use Illuminate\Support\Collection;
+use Throwable;
 
 /**
  * Regra de negócio da integração com a API de processamento de vídeo.
@@ -104,23 +106,31 @@ final readonly class VideoProcessorService
     {
         $this->status->transition($video, 'recommending_cuts', 'Solicitando recomendação de cortes');
 
-        $data = new RecommendCutsData(
-            transcriptJson: $this->transcriptJson($video),
-            video: ['title' => $video->title, 'duration_seconds' => $video->duration_seconds],
-            constraints: $constraints,
-            userPrompt: $userPrompt,
-        );
+        try {
+            $data = new RecommendCutsData(
+                transcriptJson: $this->transcriptJson($video),
+                video: ['title' => $video->title, 'duration_seconds' => $video->duration_seconds],
+                constraints: $this->normalizeRecommendConstraints($constraints),
+                userPrompt: $userPrompt,
+            );
 
-        $response = $this->provider->recommendCuts($video->uuid, $data);
-        $cuts = $response['cuts'] ?? [];
+            $response = $this->provider->recommendCuts($video->uuid, $data);
+            $cuts = $response['cuts'] ?? [];
 
-        $this->savePayload($video, null, 'cuts_recommendation_result', $response);
-        $this->status->transition($video, 'waiting_cuts', 'Cortes recomendados pela IA');
+            $this->savePayload($video, null, 'cuts_recommendation_result', $response);
+            $this->status->transition($video, 'waiting_cuts', 'Cortes recomendados pela IA');
 
-        /** @var list<array<string, mixed>> $cutsList */
-        $cutsList = is_array($cuts) ? array_values($cuts) : [];
+            /** @var list<array<string, mixed>> $cutsList */
+            $cutsList = is_array($cuts) ? array_values($cuts) : [];
 
-        return $cutsList;
+            return $cutsList;
+        } catch (Throwable $throwable) {
+            $this->status->transition($video, 'failed', 'Falha ao solicitar recomendação de cortes', [
+                'error' => $throwable->getMessage(),
+            ]);
+
+            throw $throwable;
+        }
     }
 
     /**
@@ -135,6 +145,11 @@ final readonly class VideoProcessorService
 
         $job = $this->createJob($video, 'render_cuts');
 
+        // Pula face tracking se o usuário desabilitou no vídeo (ex.: screencast,
+        // animação, vídeo sem rosto). O Python economiza tempo e não carrega
+        // os modelos do MediaPipe quando nenhum corte pede face_tracking.
+        $faceTracking = (bool) ($video->face_tracking ?? true);
+
         $payloadCuts = array_values($cuts->map(fn (Cut $cut): array => [
             'cut_id' => $cut->uuid,
             'name' => $cut->name,
@@ -142,7 +157,7 @@ final readonly class VideoProcessorService
             'start_seconds' => $cut->start_seconds,
             'end_seconds' => $cut->end_seconds,
             'vertical' => true,
-            'face_tracking' => true,
+            'face_tracking' => $faceTracking,
             'output_path' => sprintf('videos/%s/cuts/%s.mp4', $video->uuid, $cut->type),
         ])->all());
 
@@ -235,5 +250,21 @@ final readonly class VideoProcessorService
         $tokenStr = is_string($token) ? $token : '';
 
         return $tokenStr !== '' ? $tokenStr : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $constraints
+     * @return array<string, mixed>
+     */
+    private function normalizeRecommendConstraints(array $constraints): array
+    {
+        if ($constraints !== []) {
+            return $constraints;
+        }
+
+        return [
+            'min_cuts' => Cast::int(config('video-processor.auto.ai_min_cuts', 8)),
+            'max_cuts' => Cast::int(config('video-processor.auto.ai_max_cuts', 20)),
+        ];
     }
 }

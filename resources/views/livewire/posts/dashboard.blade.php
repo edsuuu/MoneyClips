@@ -6,7 +6,7 @@
     >
         <x-slot:actions>
             <flux:button :href="route('social-accounts')" size="sm" variant="subtle" icon="user-circle" class="cursor-pointer" wire:navigate>
-                Contas sociais
+                Contas vinculadas
             </flux:button>
         </x-slot:actions>
     </x-studio.page-header>

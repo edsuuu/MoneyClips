@@ -623,6 +623,68 @@
                 </div>
             </div>
 
+            @if($cuts->isNotEmpty())
+                <div x-show="selectedCuts.length > 0" x-cloak class="mb-4 rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4">
+                    <div class="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                        <div class="max-w-3xl space-y-3">
+                            <div>
+                                <div class="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">Fluxo rapido</div>
+                                <div class="mt-1 text-lg font-semibold text-slate-50">Selecionou o corte. Quer publicar agora ou agendar?</div>
+                                <div class="mt-1 text-sm text-slate-300">
+                                    O sistema ja sugere titulo, descricao e hashtags com a parte do corte, como <code>PT1</code> e <code>PT2</code>.
+                                </div>
+                            </div>
+
+                            <div class="grid gap-3 md:grid-cols-2">
+                                @foreach($cuts as $cut)
+                                    @php($draft = $quickDrafts[$cut->uuid] ?? null)
+                                    @if(is_array($draft))
+                                        <div x-show="selectedCuts.includes('{{ $cut->uuid }}')" x-cloak class="rounded-xl border border-slate-800 bg-slate-950/80 p-3">
+                                            <div class="flex items-center gap-2">
+                                                <flux:badge size="sm" color="cyan">{{ $draft['part_label'] }}</flux:badge>
+                                                <span class="text-xs text-slate-400">{{ $cut->name }}</span>
+                                            </div>
+                                            <div class="mt-2 text-sm font-medium text-slate-100">{{ $draft['title'] }}</div>
+                                            <div class="mt-1 text-xs text-slate-400">{{ $draft['description'] }}</div>
+                                            <div class="mt-2 text-xs text-cyan-200">{{ collect($draft['hashtags'])->map(fn ($tag) => '#'.$tag)->implode(' ') }}</div>
+                                        </div>
+                                    @endif
+                                @endforeach
+                            </div>
+                        </div>
+
+                        <div class="w-full max-w-xl space-y-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+                            <div>
+                                <div class="text-xs text-slate-500">Conta do YouTube</div>
+                                @if($youtubeAccounts->isEmpty())
+                                    <div class="mt-1 text-sm text-amber-300">
+                                        Nenhuma conta vinculada.
+                                        <a class="underline" href="{{ route('social-accounts') }}" wire:navigate>Conectar agora</a>
+                                    </div>
+                                @else
+                                    <select wire:model="quickYoutubeAccount"
+                                            class="mt-1 w-full cursor-pointer rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5 text-sm text-slate-100">
+                                        <option value="">Selecione...</option>
+                                        @foreach($youtubeAccounts as $account)
+                                            <option value="{{ $account->uuid }}">{{ $account->name }}</option>
+                                        @endforeach
+                                    </select>
+                                @endif
+                            </div>
+
+                            <div class="flex flex-wrap gap-2">
+                                <flux:button wire:click="publishSelectedToYoutube" variant="primary" icon="paper-airplane" class="cursor-pointer">
+                                    Publicar no YouTube agora
+                                </flux:button>
+                                <flux:button wire:click="openScheduleForSelected" variant="subtle" icon="calendar-days" class="cursor-pointer">
+                                    Ajustar e agendar
+                                </flux:button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
+
             @if($cuts->isEmpty())
                 <flux:text class="text-slate-500">Nenhum corte ainda. Marque o range na timeline e adicione o corte.</flux:text>
             @endif

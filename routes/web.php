@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 
+Route::middleware('guest')->group(function (): void {
+    Route::get('/auth/google/redirect', [OAuthController::class, 'loginRedirect'])->name('auth.google.redirect');
+    Route::get('/auth/google/callback', [OAuthController::class, 'loginCallback'])->name('auth.google.callback');
+    Route::get('/oauth2/google/redirect', [OAuthController::class, 'loginRedirect'])->name('auth.google.redirect.legacy');
+    Route::get('/oauth2/google/callback', [OAuthController::class, 'loginCallback'])->name('auth.google.callback.legacy');
+});
+
 Route::middleware(['auth'])->group(function (): void {
     Route::get('/videos', [VideoController::class, 'index'])->name('videos.index');
     Route::get('/videos/create', [VideoController::class, 'create'])->name('videos.create');
@@ -20,7 +27,7 @@ Route::middleware(['auth'])->group(function (): void {
 
     // Agendamento social: dashboard de publicações e gestão de contas conectadas.
     Route::view('/posts', 'posts.dashboard')->name('posts.dashboard');
-    Route::view('/social-accounts', 'social.accounts')->name('social-accounts');
+    Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
     // OAuth das redes sociais (conectar contas com 1 clique).
     Route::get('/oauth/{platform}/connect', [OAuthController::class, 'connect'])->name('oauth.connect');
