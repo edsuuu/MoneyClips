@@ -9,6 +9,7 @@ use App\Models\Video;
 use App\Models\ScheduledPost;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -79,26 +80,106 @@ final class VideoController extends Controller
         );
     }
 
-    public function stream(Video $video, string $path): StreamedResponse
+    public function stream(Request $request, Video $video, string $path): StreamedResponse
     {
         $objectPath = 'videos/'.$video->uuid.'/hls/'.mb_ltrim($path, '/');
-        $disk = Storage::disk('minio');
 
+        return $this->streamObject($request, $objectPath);
+    }
+
+    /**
+     * Serve um corte renderizado pelo próprio domínio HTTPS do Laravel.
+     *
+     * Evita o presigned URL HTTP do MinIO (que o browser bloqueia como
+     * mixed-content numa página HTTPS) e habilita streaming progressivo via
+     * HTTP Range — o vídeo começa a tocar sem baixar o arquivo inteiro.
+     */
+    public function cut(Request $request, Video $video, string $type): StreamedResponse
+    {
+        $cut = $video->cuts()->where('type', $type)->firstOrFail();
+        $rendered = $cut->files()->where('type', $type)->latest()->first();
+        abort_unless($rendered instanceof File, 404);
+
+        return $this->streamObject($request, $rendered->path);
+    }
+
+    /**
+     * Faz proxy de um objeto do MinIO com suporte a HTTP Range (206).
+     *
+     * MinIO e Laravel rodam no mesmo servidor, então a leitura é local/rápida;
+     * o gargalo é só servidor → browser. Servir com Range deixa o player pedir
+     * apenas o trecho que precisa, em vez de baixar o segmento inteiro.
+     */
+    private function streamObject(Request $request, string $objectPath): StreamedResponse
+    {
+        $disk = Storage::disk('minio');
         abort_unless($disk->exists($objectPath), 404);
 
-        $stream = $disk->readStream($objectPath);
-        abort_if($stream === null, 404);
+        $size = (int) $disk->size($objectPath);
+        $contentType = $this->contentTypeFor($objectPath);
+        $cacheControl = $this->cacheControlFor($objectPath);
+
+        $start = 0;
+        $end = $size - 1;
+        $status = 200;
+        $headers = [
+            'Content-Type' => $contentType,
+            'Cache-Control' => $cacheControl,
+            'Accept-Ranges' => 'bytes',
+        ];
+
+        $range = $request->headers->get('Range');
+        if (is_string($range) && preg_match('/bytes=(\d*)-(\d*)/', $range, $m) === 1) {
+            if ($m[1] !== '') {
+                $start = (int) $m[1];
+            }
+            if ($m[2] !== '') {
+                $end = (int) $m[2];
+            }
+
+            if ($start > $end || $start >= $size) {
+                return new StreamedResponse(null, 416, [
+                    'Content-Range' => 'bytes */'.$size,
+                    'Accept-Ranges' => 'bytes',
+                ]);
+            }
+
+            $end = min($end, $size - 1);
+            $status = 206;
+            $headers['Content-Range'] = sprintf('bytes %d-%d/%d', $start, $end, $size);
+        }
+
+        $length = $end - $start + 1;
+        $headers['Content-Length'] = (string) $length;
 
         return new StreamedResponse(
-            static function () use ($stream): void {
-                fpassthru($stream);
+            function () use ($disk, $objectPath, $start, $length): void {
+                $stream = $disk->readStream($objectPath);
+                if ($stream === null) {
+                    return;
+                }
+
+                if ($start > 0) {
+                    fseek($stream, $start);
+                }
+
+                $remaining = $length;
+                $chunkSize = 1024 * 1024; // 1 MB por iteração
+                while ($remaining > 0 && ! feof($stream)) {
+                    $read = (int) min($chunkSize, $remaining);
+                    $buffer = fread($stream, $read);
+                    if ($buffer === false) {
+                        break;
+                    }
+                    echo $buffer;
+                    flush();
+                    $remaining -= mb_strlen($buffer, '8bit');
+                }
+
                 fclose($stream);
             },
-            200,
-            [
-                'Content-Type' => $this->contentTypeFor($objectPath),
-                'Cache-Control' => $this->cacheControlFor($objectPath),
-            ],
+            $status,
+            $headers,
         );
     }
 

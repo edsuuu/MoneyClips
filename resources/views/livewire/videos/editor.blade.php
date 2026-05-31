@@ -806,7 +806,7 @@
                         {{-- Preview do vídeo renderizado --}}
                         @if($rendered)
                             <div wire:ignore>
-                                <video src="{{ $rendered->temporaryUrl(120) }}" controls x-init="$el.volume = 0.2"
+                                <video src="{{ route('videos.cut', ['video' => $video->uuid, 'type' => $cut->type]) }}" controls x-init="$el.volume = 0.2"
                                        class="mx-auto aspect-[9/16] max-h-80 w-full rounded-xl bg-black"></video>
                             </div>
                         @endif
