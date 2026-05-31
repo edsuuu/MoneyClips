@@ -17,7 +17,7 @@ use Throwable;
 
 /**
  * Conecta contas das plataformas guardando tokens criptografados.
- * TikTok usa conexão manual por token; YouTube entra via Google OAuth ou colagem manual.
+ * YouTube e TikTok entram via OAuth; Meta cobre Facebook/Instagram.
  */
 final class Accounts extends Component
 {
@@ -183,7 +183,7 @@ final class Accounts extends Component
     {
         return match ($platform) {
             'youtube' => 'Google OAuth para conectar o canal e publicar no YouTube.',
-            'tiktok' => 'Token manual para deixar a publicacao pronta via API.',
+            'tiktok' => 'TikTok Login Kit para captar open_id, access_token e refresh_token automaticamente.',
             'instagram' => 'OAuth Meta para publicar reels e conteudo no Instagram.',
             'facebook' => 'OAuth Meta para publicar no Facebook.',
             default => 'Conecte a conta para liberar a publicacao automatica.',
@@ -208,7 +208,7 @@ final class Accounts extends Component
             ->map(function (string $label, string $platform) use ($accountsByPlatform): array {
                 $account = $accountsByPlatform->get($platform)?->first();
                 $linked = $account instanceof SocialAccount;
-                $oauthPlatform = $platform === 'youtube';
+                $oauthPlatform = in_array($platform, ['youtube', 'tiktok'], true);
 
                 return [
                     'key' => $platform,
@@ -232,6 +232,7 @@ final class Accounts extends Component
             'platformLabels' => $registry->labels(),
             'providers' => $providers,
             'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
+            'tiktokOAuthReady' => filled(config('services.tiktok.client_key')) && filled(config('services.tiktok.client_secret')) && filled(config('services.tiktok.redirect')),
         ]);
     }
 }
