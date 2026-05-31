@@ -29,38 +29,39 @@ final readonly class VideoProcessorCallbackService
         $videoIdStr = is_string($videoId) ? $videoId : '';
         $video = Video::query()->where('uuid', $videoIdStr)->firstOrFail();
 
-        $video = DB::transaction(function () use ($video, $payload): Video {
-            $job = $this->resolveJob($video, $payload);
+        $job = $this->resolveJob($video, $payload);
 
-            $files = $payload['files'] ?? null;
-            /** @var list<array<string, mixed>> $filesList */
-            $filesList = is_array($files) ? array_values($files) : [];
+        $files = $payload['files'] ?? null;
+        /** @var list<array<string, mixed>> $filesList */
+        $filesList = is_array($files) ? array_values($files) : [];
 
-            $transcript = $payload['transcript'] ?? null;
-            /** @var array<string, mixed>|null $transcriptArr */
-            $transcriptArr = is_array($transcript) ? $transcript : null;
+        $transcript = $payload['transcript'] ?? null;
+        /** @var array<string, mixed>|null $transcriptArr */
+        $transcriptArr = is_array($transcript) ? $transcript : null;
 
-            $payloads = $payload['payloads'] ?? null;
-            /** @var list<array<string, mixed>> $payloadsList */
-            $payloadsList = is_array($payloads) ? array_values($payloads) : [];
+        $payloads = $payload['payloads'] ?? null;
+        /** @var list<array<string, mixed>> $payloadsList */
+        $payloadsList = is_array($payloads) ? array_values($payloads) : [];
 
+        $statusKeyVal = $payload['status'] ?? '';
+        $statusKey = is_string($statusKeyVal) ? $statusKeyVal : '';
+
+        $messageVal = $payload['message'] ?? ($payload['event'] ?? '');
+        $message = is_string($messageVal) ? $messageVal : '';
+
+        $eventVal = $payload['event'] ?? null;
+        $eventStr = is_string($eventVal) ? $eventVal : null;
+
+        $isFailure = $this->isFailure($payload);
+
+        // Salva dados do vídeo, transcrição, arquivos e payloads numa transação própria.
+        // Separada da transição de status para garantir que os dados chegam ao banco
+        // mesmo que o status_logs falhe (ex.: message muito longa em ambientes legados).
+        $video = DB::transaction(function () use ($video, $job, $filesList, $transcriptArr, $payloadsList, $payload, $message, $isFailure): Video {
             $this->saveFiles($video, $filesList);
             $this->saveTranscript($video, $transcriptArr);
             $this->savePayloads($video, $job, $payloadsList);
             $this->markRenderedCuts($filesList);
-
-            $statusKeyVal = $payload['status'] ?? '';
-            $statusKey = is_string($statusKeyVal) ? $statusKeyVal : '';
-
-            $messageVal = $payload['message'] ?? ($payload['event'] ?? '');
-            $message = is_string($messageVal) ? $messageVal : '';
-
-            $eventVal = $payload['event'] ?? null;
-            $eventStr = is_string($eventVal) ? $eventVal : null;
-
-            if ($statusKey !== '' && Status::idFor($statusKey) !== 0) {
-                $this->status->transition($video, $statusKey, $message, ['event' => $eventStr]);
-            }
 
             $videoData = $payload['video'] ?? null;
             if (is_array($videoData)) {
@@ -77,22 +78,32 @@ final readonly class VideoProcessorCallbackService
                 }
             }
 
-            $video->progress = $this->isFailure($payload) ? $video->progress : 100;
+            $video->progress = $isFailure ? $video->progress : 100;
             $video->save();
 
             if ($job instanceof ProcessingJob) {
-                $finalKey = $this->isFailure($payload) ? 'failed' : 'completed';
+                $finalKey = $isFailure ? 'failed' : 'completed';
                 $job->update([
                     'status_id' => Status::idFor($finalKey),
-                    'progress' => $this->isFailure($payload) ? $job->progress : 100,
-                    'error_message' => $this->isFailure($payload) ? $message : null,
+                    'progress' => $isFailure ? $job->progress : 100,
+                    'error_message' => $isFailure ? $message : null,
                     'finished_at' => now(),
                 ]);
-                $this->status->transition($job, $finalKey, $message);
             }
 
             return $video->refresh();
         });
+
+        // Transições de status ficam fora da transação de dados para que um erro de
+        // status_logs não descarte transcrição/arquivos já salvos.
+        if ($statusKey !== '' && Status::idFor($statusKey) !== 0) {
+            $this->status->transition($video, $statusKey, $message, ['event' => $eventStr]);
+        }
+
+        if ($job instanceof ProcessingJob) {
+            $finalKey = $isFailure ? 'failed' : 'completed';
+            $this->status->transition($job, $finalKey, $message);
+        }
 
         $this->maybeStartAutoPilot($video, $payload);
 

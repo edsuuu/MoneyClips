@@ -9,6 +9,7 @@ Route::middleware(['auth'])->group(function (): void {
     Route::redirect('settings', 'settings/profile');
 
     Route::view('settings/profile', 'settings.profile')->name('profile.edit');
+    Route::view('settings/accounts', 'settings.accounts')->name('settings.accounts');
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {

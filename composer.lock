@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "11e0ba7cce23168369eb16806148336f",
+    "content-hash": "5b706ec207428e6b4eba5ffca4371199",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -5185,129 +5185,6 @@
                 "source": "https://github.com/ramsey/uuid/tree/4.9.2"
             },
             "time": "2025-12-14T04:43:48+00:00"
-        },
-        {
-            "name": "socialiteproviders/manager",
-            "version": "4.9.2",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/SocialiteProviders/Manager.git",
-                "reference": "35372dc62787e61e91cfec73f45fd5d5ae0f8891"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/SocialiteProviders/Manager/zipball/35372dc62787e61e91cfec73f45fd5d5ae0f8891",
-                "reference": "35372dc62787e61e91cfec73f45fd5d5ae0f8891",
-                "shasum": ""
-            },
-            "require": {
-                "illuminate/support": "^11.0 || ^12.0 || ^13.0",
-                "laravel/socialite": "^5.5",
-                "php": "^8.2"
-            },
-            "require-dev": {
-                "mockery/mockery": "^1.2",
-                "phpunit/phpunit": "^9.0"
-            },
-            "type": "library",
-            "extra": {
-                "laravel": {
-                    "providers": [
-                        "SocialiteProviders\\Manager\\ServiceProvider"
-                    ]
-                }
-            },
-            "autoload": {
-                "psr-4": {
-                    "SocialiteProviders\\Manager\\": "src/"
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Andy Wendt",
-                    "email": "andy@awendt.com"
-                },
-                {
-                    "name": "Anton Komarev",
-                    "email": "a.komarev@cybercog.su"
-                },
-                {
-                    "name": "Miguel Piedrafita",
-                    "email": "soy@miguelpiedrafita.com"
-                },
-                {
-                    "name": "atymic",
-                    "email": "atymicq@gmail.com",
-                    "homepage": "https://atymic.dev"
-                }
-            ],
-            "description": "Easily add new or override built-in providers in Laravel Socialite.",
-            "homepage": "https://socialiteproviders.com",
-            "keywords": [
-                "laravel",
-                "manager",
-                "oauth",
-                "providers",
-                "socialite"
-            ],
-            "support": {
-                "issues": "https://github.com/socialiteproviders/manager/issues",
-                "source": "https://github.com/socialiteproviders/manager"
-            },
-            "time": "2026-03-18T22:13:24+00:00"
-        },
-        {
-            "name": "socialiteproviders/tiktok",
-            "version": "5.2.0",
-            "source": {
-                "type": "git",
-                "url": "https://github.com/SocialiteProviders/TikTok.git",
-                "reference": "b8d9d4e86137bd19761a527e566965155e3893d7"
-            },
-            "dist": {
-                "type": "zip",
-                "url": "https://api.github.com/repos/SocialiteProviders/TikTok/zipball/b8d9d4e86137bd19761a527e566965155e3893d7",
-                "reference": "b8d9d4e86137bd19761a527e566965155e3893d7",
-                "shasum": ""
-            },
-            "require": {
-                "php": "^8.0",
-                "socialiteproviders/manager": "^4.4"
-            },
-            "type": "library",
-            "autoload": {
-                "psr-4": {
-                    "SocialiteProviders\\TikTok\\": ""
-                }
-            },
-            "notification-url": "https://packagist.org/downloads/",
-            "license": [
-                "MIT"
-            ],
-            "authors": [
-                {
-                    "name": "Thomas Banks",
-                    "email": "thomas@tombanks.me"
-                }
-            ],
-            "description": "TikTok (tiktok.com) OAuth2 Provider for Laravel Socialite",
-            "keywords": [
-                "TikTok ",
-                "laravel",
-                "oauth",
-                "provider",
-                "socialite"
-            ],
-            "support": {
-                "docs": "https://socialiteproviders.com/tiktok",
-                "issues": "https://github.com/socialiteproviders/providers/issues",
-                "source": "https://github.com/socialiteproviders/providers"
-            },
-            "time": "2024-04-29T01:40:44+00:00"
         },
         {
             "name": "spatie/laravel-package-tools",

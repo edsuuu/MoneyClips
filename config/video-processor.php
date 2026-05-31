@@ -57,7 +57,7 @@ return [
         // Sobra final menor que isso é absorvida pelo último clipe em vez de virar um clipe curto.
         'min_tail_seconds' => (int) env('AUTO_MIN_TAIL_SECONDS', 20),
         // Faixa de quantidade de cortes pedida à IA para vídeos longos.
-        'ai_min_cuts' => (int) env('AUTO_AI_MIN_CUTS', 8),
-        'ai_max_cuts' => (int) env('AUTO_AI_MAX_CUTS', 20),
+        'ai_min_cuts' => (int) env('AUTO_AI_MIN_CUTS', 4),
+        'ai_max_cuts' => (int) env('AUTO_AI_MAX_CUTS', 10),
     ],
 ];

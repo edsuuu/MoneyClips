@@ -11,6 +11,18 @@
         </div>
     @endif
 
+    <div class="flex flex-col gap-3">
+        <flux:button
+            :href="route('auth.google.redirect')"
+            variant="subtle"
+            class="w-full"
+            icon="arrow-top-right-on-square"
+        >
+            {{ __('Continue with Google') }}
+        </flux:button>
+        <div class="text-center text-xs uppercase tracking-[0.2em] text-zinc-500">{{ __('or') }}</div>
+    </div>
+
     <form wire:submit="register" class="flex flex-col gap-6">
         <!-- Name -->
         <flux:input

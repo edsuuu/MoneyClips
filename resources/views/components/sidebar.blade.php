@@ -7,7 +7,6 @@
         <x-app-logo href="{{ route('home') }}" wire:navigate />
         <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900/70 p-3">
             <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Generate Clips</p>
-            <p class="mt-1 text-sm text-slate-300">Pipeline editorial para corte, revisão e distribuição social.</p>
         </div>
     </div>
 
@@ -20,17 +19,11 @@
             </flux:navlist.item>
         @endauth
 
-        <flux:navlist.item icon="video-camera" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('videos.create')" :current="request()->routeIs('videos.create')" wire:navigate>
-            {{ __('Novo Vídeo') }}
-        </flux:navlist.item>
         <flux:navlist.item icon="film" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('videos.index')" :current="request()->routeIs('videos.index')" wire:navigate>
             {{ __('Vídeos') }}
         </flux:navlist.item>
         <flux:navlist.item icon="calendar-days" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('posts.dashboard')" :current="request()->routeIs('posts.dashboard')" wire:navigate>
             {{ __('Publicações') }}
-        </flux:navlist.item>
-        <flux:navlist.item icon="user-circle" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('social-accounts')" :current="request()->routeIs('social-accounts')" wire:navigate>
-            {{ __('Contas sociais') }}
         </flux:navlist.item>
         </flux:navlist>
     </div>

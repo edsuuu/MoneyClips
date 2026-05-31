@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire\Videos;
 
 use App\Models\File;
+use App\Models\Status;
 use App\Models\Video;
+use App\Services\VideoProcessor\VideoProcessorService;
 use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -68,6 +70,44 @@ final class Index extends Component
         }
 
         Flux::toast('Vídeo removido com sucesso.');
+    }
+
+    /**
+     * Re-dispara o ingest pra um vídeo que falhou. Reseta progresso, marca como
+     * pending e chama startIngest de novo. Os status_logs antigos ficam de
+     * trilha de auditoria.
+     */
+    public function reprocess(string $videoUuid, VideoProcessorService $videoProcessor): void
+    {
+        $video = Video::query()->where('uuid', $videoUuid)->first();
+
+        if (! $video instanceof Video) {
+            Flux::toast('Vídeo não encontrado.', variant: 'danger');
+
+            return;
+        }
+
+        if ($video->status?->key !== 'failed') {
+            Flux::toast('Só dá pra reprocessar vídeos que falharam.', variant: 'danger');
+
+            return;
+        }
+
+        try {
+            $video->update([
+                'progress' => 0,
+                'current_stage' => 'ingest',
+                'status_id' => Status::idFor('pending'),
+            ]);
+
+            $videoProcessor->startIngest($video);
+        } catch (Throwable $throwable) {
+            Flux::toast('Falha ao reprocessar: '.$throwable->getMessage(), variant: 'danger');
+
+            return;
+        }
+
+        Flux::toast('Reprocessamento disparado.');
     }
 
     public function render(): View

@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
+use App\Jobs\PublishScheduledPostJob;
 use App\Models\Cut;
 use App\Models\File;
 use App\Models\ProcessingJob;
+use App\Models\ScheduledPost;
+use App\Models\SocialAccount;
 use App\Models\Status;
 use App\Models\Video;
 use App\Models\VideoPayload;
+use App\Services\SocialPublishing\PostDraftBuilder;
 use App\Services\VideoProcessor\VideoProcessorService;
 use App\Support\Cast;
 use Flux\Flux;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;
@@ -33,6 +38,8 @@ final class Editor extends Component
 
     /** @var array<string, array{start: float, end: float}> */
     public array $cutEdits = [];
+
+    public string $quickYoutubeAccount = '';
 
     /**
      * external_job_id da renderização que o usuário acabou de iniciar.
@@ -101,7 +108,13 @@ final class Editor extends Component
 
     public function recommend(VideoProcessorService $videoProcessor): void
     {
-        $cuts = $videoProcessor->recommendCuts($this->video, $this->userPrompt ?: null);
+        try {
+            $cuts = $videoProcessor->recommendCuts($this->video, $this->userPrompt ?: null);
+        } catch (Throwable $throwable) {
+            Flux::toast('Falha ao sugerir cortes com IA: '.$throwable->getMessage(), variant: 'danger');
+
+            return;
+        }
 
         foreach ($cuts as $item) {
             $maxIndexVal = $this->video->cuts()->max('index');
@@ -263,7 +276,77 @@ final class Editor extends Component
         $this->dispatch('timed-words-saved');
     }
 
-    public function render(): View
+    public function openScheduleForSelected(): void
+    {
+        $uuids = $this->selectedCuts;
+        if ($uuids === []) {
+            Flux::toast('Selecione ao menos um corte.', variant: 'danger');
+
+            return;
+        }
+
+        $this->redirectRoute('videos.schedule', [
+            'video' => $this->video->uuid,
+            'cuts' => implode(',', $uuids),
+            'platform' => 'youtube',
+            'mode' => 'schedule',
+        ], navigate: true);
+    }
+
+    public function publishSelectedToYoutube(PostDraftBuilder $draftBuilder): void
+    {
+        $uuids = $this->selectedCuts;
+        if ($uuids === []) {
+            Flux::toast('Selecione ao menos um corte.', variant: 'danger');
+
+            return;
+        }
+
+        $account = $this->resolveQuickYoutubeAccount();
+        if (! $account instanceof SocialAccount) {
+            Flux::toast('Conecte uma conta do YouTube antes de publicar.', variant: 'danger');
+
+            return;
+        }
+
+        /** @var Collection<int, Cut> $cuts */
+        $cuts = $this->video->cuts()
+            ->whereIn('uuid', $uuids)
+            ->orderBy('index')
+            ->get();
+
+        if ($cuts->isEmpty()) {
+            Flux::toast('Nenhum corte valido selecionado.', variant: 'danger');
+
+            return;
+        }
+
+        foreach ($cuts as $index => $cut) {
+            $draft = $draftBuilder->forCut($this->video, $cut);
+
+            $post = ScheduledPost::query()->create([
+                'video_id' => $this->video->id,
+                'cut_id' => $cut->id,
+                'social_account_id' => $account->id,
+                'platform' => 'youtube',
+                'sequence' => $index + 1,
+                'title' => $draft['title'],
+                'description' => $draft['description'],
+                'hashtags' => $draft['hashtags'],
+                'scheduled_for' => now(),
+                'status' => ScheduledPost::STATUS_PUBLISHING,
+                'created_by' => Auth::id(),
+            ]);
+
+            $post->log('info', sprintf('Envio imediato solicitado em %s.', Cast::str($account->name)));
+            dispatch(new PublishScheduledPostJob($post->id));
+        }
+
+        Flux::toast(count($uuids).' corte(s) enviado(s) para publicacao no YouTube.');
+        $this->reset('selectedCuts');
+    }
+
+    public function render(PostDraftBuilder $draftBuilder): View
     {
         $this->video->refresh()->load(['cuts.files', 'files', 'transcript']);
 
@@ -320,6 +403,24 @@ final class Editor extends Component
             }
         }
 
+        $youtubeAccounts = SocialAccount::query()
+            ->where('platform', 'youtube')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        if ($this->quickYoutubeAccount === '' && $youtubeAccounts->count() === 1) {
+            $first = $youtubeAccounts->first();
+            if ($first instanceof SocialAccount) {
+                $this->quickYoutubeAccount = $first->uuid;
+            }
+        }
+
+        $quickDrafts = [];
+        foreach ($this->video->cuts as $cut) {
+            $quickDrafts[$cut->uuid] = $draftBuilder->forCut($this->video, $cut);
+        }
+
         return view('livewire.videos.editor', [
             'cuts' => $this->video->cuts,
             'hlsUrl' => $this->resolveHlsUrl($hlsMaster),
@@ -329,7 +430,31 @@ final class Editor extends Component
             'statusKey' => $status instanceof Status ? $status->key : null,
             'activeJobId' => $activeJobId,
             'wsUrl' => config('video-processor.ws_url'),
+            'youtubeAccounts' => $youtubeAccounts,
+            'quickDrafts' => $quickDrafts,
         ]);
+    }
+
+    private function resolveQuickYoutubeAccount(): ?SocialAccount
+    {
+        $query = SocialAccount::query()
+            ->where('platform', 'youtube')
+            ->where('is_active', true);
+
+        if ($this->quickYoutubeAccount !== '') {
+            $account = (clone $query)->where('uuid', $this->quickYoutubeAccount)->first();
+
+            return $account instanceof SocialAccount ? $account : null;
+        }
+
+        $accounts = $query->orderBy('name')->get();
+        if ($accounts->count() !== 1) {
+            return null;
+        }
+
+        $account = $accounts->first();
+
+        return $account instanceof SocialAccount ? $account : null;
     }
 
     private function renderJobFinished(string $externalJobId): bool

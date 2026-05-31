@@ -2,13 +2,13 @@
     <x-studio.page-header
         eyebrow="Entrada"
         title="Gerar cortes a partir de um vídeo"
-        subtitle="Cole a URL do YouTube. O pipeline baixa, transcreve, abre a revisão e segue para o editor."
+        subtitle="Escolha primeiro como os cortes serão criados. Depois a ingestão segue com o fluxo correto."
     />
 
     <div class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
         <x-studio.panel
             title="Nova ingestão"
-            subtitle="Defina se o fluxo será manual ou totalmente automático antes de enviar para o processador."
+            subtitle="Defina o modo antes de enviar para o processador."
         >
             <form wire:submit="start" class="flex flex-col gap-4">
                 <flux:input
@@ -19,39 +19,90 @@
                     required
                 />
 
-                <div class="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-                    <flux:field variant="inline">
-                        <flux:checkbox wire:model.live="auto" />
-                        <flux:label>Processo automático</flux:label>
-                        <flux:description>
-                            Transcreve, confirma, gera os cortes e já renderiza sem intervenção manual.
-                        </flux:description>
-                    </flux:field>
+                <div class="space-y-3">
+                    <div class="text-sm font-medium text-slate-100">Como você quer gerar os cortes?</div>
+
+                    <div class="grid gap-3 md:grid-cols-3">
+                        <button
+                            type="button"
+                            wire:click="$set('processingMode', 'manual')"
+                            class="rounded-2xl border p-4 text-left transition {{ $processingMode === 'manual' ? 'border-sky-500 bg-sky-500/10' : 'border-slate-800 bg-slate-950/70 hover:border-slate-700 hover:bg-slate-900' }}"
+                        >
+                            <div class="text-sm font-semibold text-slate-100">Manual</div>
+                            <p class="mt-2 text-xs text-slate-400">
+                                Baixa, transcreve e abre a revisão antes de você criar os cortes no editor.
+                            </p>
+                        </button>
+
+                        <button
+                            type="button"
+                            wire:click="$set('processingMode', 'sequential')"
+                            class="rounded-2xl border p-4 text-left transition {{ $processingMode === 'sequential' ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-800 bg-slate-950/70 hover:border-slate-700 hover:bg-slate-900' }}"
+                        >
+                            <div class="text-sm font-semibold text-slate-100">Automático 60s</div>
+                            <p class="mt-2 text-xs text-slate-400">
+                                Divide o vídeo inteiro em clipes sequenciais de 60 segundos.
+                            </p>
+                        </button>
+
+                        <button
+                            type="button"
+                            wire:click="$set('processingMode', 'ai')"
+                            class="rounded-2xl border p-4 text-left transition {{ $processingMode === 'ai' ? 'border-fuchsia-500 bg-fuchsia-500/10' : 'border-slate-800 bg-slate-950/70 hover:border-slate-700 hover:bg-slate-900' }}"
+                        >
+                            <div class="text-sm font-semibold text-slate-100">IA escolhe</div>
+                            <p class="mt-2 text-xs text-slate-400">
+                                A IA escolhe os melhores momentos e respeita fronteiras naturais de fala.
+                            </p>
+                        </button>
+                    </div>
                 </div>
 
-                @if($auto)
-                    <div class="grid gap-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4 md:grid-cols-2">
-                        <flux:select wire:model.live="clipMode" label="Como gerar os cortes">
-                            <flux:select.option value="auto">Automático (decide pela duração)</flux:select.option>
-                            <flux:select.option value="sequential">Clipes de 1 minuto (cobre o vídeo)</flux:select.option>
-                            <flux:select.option value="ai">Recomendação da IA (melhores momentos)</flux:select.option>
-                        </flux:select>
+                @if($processingMode === 'sequential')
+                    <div class="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 text-sm text-slate-300">
+                        <p class="font-medium text-slate-100">Cobertura automática por duração</p>
+                        <p class="mt-2 text-slate-400">
+                            Exemplo: se o vídeo tiver <span class="text-slate-200">4:39</span>, o sistema gera
+                            <span class="text-slate-200">5 clipes</span>: 4 clipes de 60 segundos e 1 clipe final de 39 segundos.
+                        </p>
+                    </div>
+                @endif
 
+                @if($processingMode === 'ai')
+                    <div class="grid gap-4 rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/5 p-4 md:grid-cols-[minmax(0,220px)_1fr]">
                         <flux:input
                             wire:model="clipCount"
                             type="number"
                             min="1"
                             max="60"
-                            label="Quantidade de clipes (opcional)"
-                            placeholder="Automático"
-                            :description="$clipMode === 'sequential'
-                                ? 'Máximo de clipes de ~1min a gerar. Vazio = cobre o vídeo inteiro.'
-                                : ($clipMode === 'ai'
-                                    ? 'Quantos cortes a IA deve escolher. Vazio = a IA decide.'
-                                    : 'Limite de clipes. Vazio = automático.')"
+                            label="Quantidade de clipes"
+                            placeholder="Ex.: 4, 6 ou 10"
                         />
+
+                        <div class="rounded-xl border border-slate-800 bg-slate-950/70 p-3 text-xs text-slate-400">
+                            <p class="font-medium text-slate-100">Como a IA decide</p>
+                            <p class="mt-2">
+                                O projeto Python <code>auto-post</code> já instrui a IA a escolher momentos que
+                                façam sentido sozinhos, com clímax/resolução, e a evitar corte no meio de frase.
+                            </p>
+                            <p class="mt-2">
+                                Se deixar vazio, a IA decide a quantidade dentro da faixa padrão da aplicação.
+                            </p>
+                        </div>
                     </div>
                 @endif
+
+                <div class="flex flex-col gap-2 rounded-2xl border border-slate-800 bg-slate-950/70 p-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-slate-100">Seguir o rosto nos cortes</p>
+                        <p class="mt-1 text-xs text-slate-400">
+                            Liga o face tracking + active speaker detection (crop dinâmico 9:16 que
+                            segue quem está falando). Desligue para screencast, animação ou vídeo
+                            sem rosto — fica mais rápido e o crop vira centralizado fixo.
+                        </p>
+                    </div>
+                    <flux:switch wire:model="faceTracking" />
+                </div>
 
                 <div class="flex flex-wrap items-center gap-3">
                     <flux:button type="submit" variant="primary" icon="arrow-down-tray" class="cursor-pointer">
@@ -64,21 +115,21 @@
         </x-studio.panel>
 
         <x-studio.panel
-            title="Notas do fluxo"
-            subtitle="Pontos operacionais que afetam a revisão e a geração de cortes."
+            title="Como cada modo funciona"
+            subtitle="Resumo objetivo do comportamento da automação."
         >
             <div class="space-y-3 text-sm text-slate-300">
                 <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
-                    <p class="font-medium text-slate-100">1. Transcrição</p>
-                    <p class="mt-1 text-slate-400">A revisão aparece uma única vez. Depois disso o fluxo segue direto para o editor.</p>
+                    <p class="font-medium text-slate-100">Manual</p>
+                    <p class="mt-1 text-slate-400">Mantém revisão de transcrição e criação de cortes por você.</p>
                 </div>
                 <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
-                    <p class="font-medium text-slate-100">2. Editor</p>
-                    <p class="mt-1 text-slate-400">O corte é ajustado com timeline, playhead e sincronização por tempo.</p>
+                    <p class="font-medium text-slate-100">Automático 60s</p>
+                    <p class="mt-1 text-slate-400">Cobre o vídeo inteiro em blocos sequenciais e já segue para renderização.</p>
                 </div>
                 <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-3">
-                    <p class="font-medium text-slate-100">3. Distribuição</p>
-                    <p class="mt-1 text-slate-400">Após renderizar os cortes, o agendamento distribui por conta e plataforma.</p>
+                    <p class="font-medium text-slate-100">IA escolhe</p>
+                    <p class="mt-1 text-slate-400">Usa o analisador do <code>auto-post</code> com quantidade alvo de cortes e foco em falas completas.</p>
                 </div>
             </div>
         </x-studio.panel>

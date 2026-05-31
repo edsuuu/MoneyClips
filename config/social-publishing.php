@@ -4,6 +4,15 @@ declare(strict_types=1);
 
 return [
     /*
+    | Plataformas ativas na UX principal. Mantemos o restante do código pronto,
+    | mas por ora o fluxo operacional fica simples: YouTube + TikTok.
+    */
+    'enabled_platforms' => array_values(array_filter(array_map(
+        static fn (string $platform): string => trim($platform),
+        explode(',', (string) env('SOCIAL_ENABLED_PLATFORMS', 'youtube,tiktok')),
+    ), static fn (string $platform): bool => $platform !== '')),
+
+    /*
     | Versão da Graph API usada pelos publishers de Instagram e Facebook.
     */
     'graph_version' => env('META_GRAPH_VERSION', 'v21.0'),

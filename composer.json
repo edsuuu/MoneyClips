@@ -23,7 +23,6 @@
         "lucascudo/laravel-pt-br-localization": "^3.0",
         "opcodesio/log-viewer": "^3.24",
         "owen-it/laravel-auditing": "*",
-        "socialiteproviders/tiktok": "^5.2",
         "spatie/laravel-permission": "*"
     },
     "require-dev": {
