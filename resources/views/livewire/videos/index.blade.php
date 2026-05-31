@@ -23,10 +23,16 @@
             })
             @php($duration = is_numeric($video->duration_seconds) ? (int) round((float) $video->duration_seconds) : null)
             <article class="overflow-hidden rounded-3xl border border-slate-800 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.10),_rgba(15,23,42,0.95)_52%)] shadow-[0_20px_60px_rgba(2,6,23,0.35)] transition hover:border-slate-700">
-                <a href="{{ route('videos.editor', $video) }}" wire:navigate class="group block cursor-pointer">
+                <a href="{{ route('videos.editor', $video) }}" wire:navigate class="block cursor-pointer">
                     <div class="relative aspect-video bg-slate-950">
                         @if($card['thumb'])
-                            <video src="{{ $card['thumb'] }}" class="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" muted playsinline preload="metadata"></video>
+                            <img
+                                src="{{ $card['thumb'] }}"
+                                alt="{{ $video->title ?? 'Preview do vídeo' }}"
+                                class="h-full w-full object-cover"
+                                loading="lazy"
+                                decoding="async"
+                            >
                         @else
                             <div class="flex h-full w-full items-center justify-center text-xs text-slate-500">Sem preview</div>
                         @endif
@@ -56,9 +62,6 @@
                             {{ $video->title ?? 'Vídeo sem título' }}
                         </p>
                         <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span class="rounded-full border border-slate-800 bg-slate-950/70 px-2 py-1 font-mono">
-                                {{ $video->uuid }}
-                            </span>
                             @if($video->progress !== null && $statusKey !== 'completed')
                                 <span>{{ (int) $video->progress }}% concluído</span>
                             @endif
@@ -69,9 +72,15 @@
                         <flux:button :href="route('videos.editor', $video)" variant="primary" size="sm" class="cursor-pointer justify-center" wire:navigate>
                             Abrir editor
                         </flux:button>
-                        <flux:button :href="route('videos.schedule', $video)" variant="filled" size="sm" class="cursor-pointer justify-center" wire:navigate>
-                            Agendar
-                        </flux:button>
+                        @if($pendingDeleteUuid === $video->uuid)
+                            <flux:button variant="danger" size="sm" class="cursor-pointer justify-center" wire:click="confirmDelete">
+                                Confirmar exclusão
+                            </flux:button>
+                        @else
+                            <flux:button variant="ghost" size="sm" class="cursor-pointer justify-center text-red-300 hover:text-red-200" wire:click="askDelete('{{ $video->uuid }}')">
+                                Excluir vídeo
+                            </flux:button>
+                        @endif
 
                         @if($video->status?->key === 'failed')
                             <flux:button variant="subtle" size="sm" icon="arrow-path" class="col-span-2 cursor-pointer justify-center" wire:click="reprocess('{{ $video->uuid }}')" wire:loading.attr="disabled" wire:target="reprocess('{{ $video->uuid }}')">
@@ -86,20 +95,11 @@
                             <p class="mt-1 text-xs text-red-200/80">
                                 Isso remove vídeo, transcrição, cortes, jobs e arquivos vinculados.
                             </p>
-                            <div class="mt-3 flex flex-wrap gap-2">
-                                <flux:button variant="danger" size="sm" class="cursor-pointer" wire:click="confirmDelete">
-                                    Confirmar exclusão
-                                </flux:button>
-                                <flux:button variant="ghost" size="sm" class="cursor-pointer" wire:click="cancelDelete">
+                            <div class="mt-3">
+                                <flux:button variant="ghost" size="sm" class="cursor-pointer text-red-200 hover:text-red-100" wire:click="cancelDelete">
                                     Cancelar
                                 </flux:button>
                             </div>
-                        </div>
-                    @else
-                        <div class="border-t border-slate-800 pt-3">
-                            <flux:button variant="ghost" size="sm" class="w-full cursor-pointer justify-center text-red-300 hover:text-red-200" wire:click="askDelete('{{ $video->uuid }}')">
-                                Excluir vídeo
-                            </flux:button>
                         </div>
                     @endif
                 </div>

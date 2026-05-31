@@ -159,6 +159,10 @@ final readonly class VideoProcessorService
             'vertical' => true,
             'face_tracking' => $faceTracking,
             'output_path' => sprintf('videos/%s/cuts/%s.mp4', $video->uuid, $cut->type),
+            // Metadados já gerados: o Python os reaproveita sem chamar a IA novamente.
+            'title' => $cut->title ?? null,
+            'description' => $cut->description ?? null,
+            'hashtags' => is_array($cut->hashtags) ? $cut->hashtags : null,
         ])->all());
 
         $data = new RenderCutsData(

@@ -31,7 +31,7 @@ final class Editor extends Component
 
     public float $newEnd = 60.0;
 
-    public string $userPrompt = '';
+    public string $pendingAutoGenerationMode = '';
 
     /** @var list<string> */
     public array $selectedCuts = [];
@@ -106,10 +106,47 @@ final class Editor extends Component
         $this->video->cuts()->where('uuid', $uuid)->delete();
     }
 
-    public function recommend(VideoProcessorService $videoProcessor): void
+    public function selectAutoGenerationMode(string $mode): void
+    {
+        if (! in_array($mode, ['ai', 'timed'], true)) {
+            return;
+        }
+
+        $this->pendingAutoGenerationMode = $mode;
+    }
+
+    public function confirmAutoGeneration(VideoProcessorService $videoProcessor): void
+    {
+        if ($this->pendingAutoGenerationMode === 'ai') {
+            $this->generateAiCuts($videoProcessor);
+            $this->pendingAutoGenerationMode = '';
+
+            return;
+        }
+
+        if ($this->pendingAutoGenerationMode === 'timed') {
+            $this->generateTimedCuts();
+            $this->pendingAutoGenerationMode = '';
+
+            return;
+        }
+
+        Flux::toast('Escolha uma opção antes de confirmar.', variant: 'danger');
+    }
+
+    public function generateAiCuts(VideoProcessorService $videoProcessor): void
     {
         try {
-            $cuts = $videoProcessor->recommendCuts($this->video, $this->userPrompt ?: null);
+            $cuts = $videoProcessor->recommendCuts(
+                $this->video,
+                'Gere cortes consecutivos e contínuos, sem saltos grandes entre um trecho e o seguinte. Cada corte deve começar imediatamente após o fim do corte anterior, preservando o contexto da fala e evitando pular para partes muito distantes do vídeo.',
+                [
+                    'min_cuts' => 3,
+                    'max_cuts' => 12,
+                    'prefer_contiguous' => true,
+                    'max_gap_seconds' => 0,
+                ],
+            );
         } catch (Throwable $throwable) {
             Flux::toast('Falha ao sugerir cortes com IA: '.$throwable->getMessage(), variant: 'danger');
 
@@ -137,6 +174,53 @@ final class Editor extends Component
         }
 
         Flux::toast(count($cuts).' cortes recomendados pela IA.');
+    }
+
+    public function generateTimedCuts(): void
+    {
+        $duration = $this->resolveVideoDuration();
+
+        if ($duration <= 0) {
+            Flux::toast('Não foi possível identificar a duração do vídeo.', variant: 'danger');
+
+            return;
+        }
+
+        $clipSeconds = max(1, Cast::int(config('video-processor.auto.clip_seconds', 60)));
+        $segments = [];
+        $start = 0.0;
+        $index = 0;
+
+        while ($start < $duration - 0.5) {
+            $index++;
+            $end = min($start + $clipSeconds, $duration);
+
+            $segments[] = [
+                'index' => $index,
+                'start_seconds' => $start,
+                'end_seconds' => $end,
+                'duration_seconds' => $end - $start,
+            ];
+
+            $start = $end;
+        }
+
+        foreach ($segments as $segment) {
+            $this->video->cuts()->updateOrCreate(
+                ['video_id' => $this->video->id, 'index' => $segment['index']],
+                [
+                    'name' => 'PT'.$segment['index'],
+                    'type' => 'pt'.$segment['index'],
+                    'source' => 'auto',
+                    'start_seconds' => $segment['start_seconds'],
+                    'end_seconds' => $segment['end_seconds'],
+                    'duration_seconds' => $segment['duration_seconds'],
+                    'status_id' => Status::idFor('pending'),
+                ],
+            );
+        }
+
+        Flux::toast(count($segments).' cortes gerados por tempo.');
     }
 
     public function renderCuts(VideoProcessorService $videoProcessor): void
@@ -468,6 +552,18 @@ final class Editor extends Component
         }
 
         return $this->isTerminal($job->status instanceof Status ? $job->status->key : null);
+    }
+
+    private function resolveVideoDuration(): float
+    {
+        $duration = Cast::float($this->video->duration_seconds ?? 0);
+        if ($duration > 0) {
+            return $duration;
+        }
+
+        $transcriptDuration = $this->video->transcript?->duration_seconds;
+
+        return is_numeric($transcriptDuration) ? Cast::float($transcriptDuration) : 0.0;
     }
 
     private function isTerminal(?string $statusKey): bool

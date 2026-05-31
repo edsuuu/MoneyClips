@@ -26,6 +26,14 @@
             >
                 Agendamentos
             </a>
+
+            <a
+                href="{{ route('videos.publications', $video) }}"
+                wire:navigate
+                class="px-3 py-1.5 rounded-lg text-sm transition cursor-pointer {{ request()->routeIs('videos.publications') ? 'bg-slate-100 text-slate-950' : 'text-slate-400 hover:bg-slate-800 hover:text-slate-50' }}"
+            >
+                Publicações
+            </a>
         @endif
     </div>
 </div>

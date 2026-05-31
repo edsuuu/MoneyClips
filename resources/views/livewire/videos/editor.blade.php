@@ -1,8 +1,10 @@
 <section
     class="mx-auto w-full max-w-7xl"
-    @if($activeJobId) wire:poll.5s="refreshStatus" @endif
     x-data="{
         player: null,
+        playerReady: false,
+        playerPreviewReady: false,
+        playerAutoScheduled: false,
         duration: @js((float) ($video->duration_seconds ?? 0)),
         current: 0,
         start: @js((float) $newStart),
@@ -13,13 +15,6 @@
         resizeHandler: null,
         thumbTrack: [],
         thumbFrameCount: 14,
-        loadingThumbs: false,
-        transcriptText: @js($transcript?->activeText() ?? ''),
-        timedWords: @js($timedWords ?? []),
-        draftTimedWords: [],
-        cloneTimedWords(words) {
-            return JSON.parse(JSON.stringify(Array.isArray(words) ? words : []));
-        },
         fitSelectionToViewport() {
             if (!this.$refs.timelineViewport) return;
             const vpWidth = this.$refs.timelineViewport.clientWidth || this.viewportWidth;
@@ -48,6 +43,7 @@
             this.$nextTick(() => {
                 this.resizeHandler();
                 this.fitSelectionToViewport();
+                this.schedulePlayerLoad();
             });
             window.addEventListener('resize', this.resizeHandler);
             this.syncWire();
@@ -78,6 +74,77 @@
             el.addEventListener('timeupdate', onTime);
             onMeta();
         },
+        primePlayerPreview(el) {
+            if (!el || el.dataset.previewPrimed === '1') {
+                return;
+            }
+
+            const revealPreview = () => {
+                this.playerPreviewReady = true;
+            };
+
+            const primeFrame = () => {
+                if (el.dataset.previewPrimed === '1') {
+                    return;
+                }
+
+                el.dataset.previewPrimed = '1';
+
+                try {
+                    const safeTime = Number.isFinite(el.duration) && el.duration > 1
+                        ? Math.min(1, Math.max(0.1, el.duration * 0.02))
+                        : 0.1;
+
+                    el.currentTime = safeTime;
+                } catch (error) {
+                    console.warn('Nao foi possivel carregar a pre-visualizacao inicial do video.', error);
+                    revealPreview();
+                }
+            };
+
+            if (el.readyState >= 1) {
+                primeFrame();
+            } else {
+                el.addEventListener('loadedmetadata', primeFrame, { once: true });
+            }
+
+            el.addEventListener('loadeddata', revealPreview, { once: true });
+            el.addEventListener('seeked', revealPreview, { once: true });
+        },
+        loadPlayer() {
+            this.playerReady = true;
+            this.playerPreviewReady = false;
+            this.$nextTick(() => {
+                const el = this.$refs.videoPlayer;
+                if (!el || el.dataset.ready === '1') {
+                    return;
+                }
+
+                el.dataset.ready = '1';
+                el.preload = 'metadata';
+                window.initAdaptiveVideoPlayer(el);
+                this.registerPlayer(el);
+                this.primePlayerPreview(el);
+                if (typeof el.load === 'function') {
+                    el.load();
+                }
+            });
+        },
+        schedulePlayerLoad() {
+            if (this.playerAutoScheduled || this.playerReady || !@js((bool) $playerUrl)) {
+                return;
+            }
+
+            this.playerAutoScheduled = true;
+            const startLoad = () => this.loadPlayer();
+
+            if (typeof window.requestIdleCallback === 'function') {
+                window.requestIdleCallback(startLoad, { timeout: 1500 });
+                return;
+            }
+
+            window.setTimeout(startLoad, 250);
+        },
         clamp(value, min, max) {
             return Math.min(max, Math.max(min, value));
         },
@@ -88,6 +155,18 @@
             const direction = event.deltaY < 0 ? 0.2 : -0.2;
             this.zoom = this.round(this.clamp(this.zoom + direction, 0.1, 5));
         },
+        handleTimelineWheel(event) {
+            if (!this.$refs.timelineViewport) return;
+
+            if (event.shiftKey) {
+                event.preventDefault();
+                this.adjustZoom(event);
+                return;
+            }
+
+            event.preventDefault();
+            this.$refs.timelineViewport.scrollLeft += event.deltaX !== 0 ? event.deltaX : event.deltaY;
+        },
         nudgePlayhead(delta) {
             this.jumpTo(this.current + delta);
         },
@@ -96,47 +175,6 @@
         },
         get timelineWidth() {
             return Math.max(this.viewportWidth, Math.ceil((this.duration || 1) * this.pxPerSecond));
-        },
-        get transcriptData() {
-            if (!this.transcriptText) return { words: [], totalChars: 0 };
-            const rawWords = this.transcriptText.split(/\s+/).filter(w => w.length > 0);
-            let totalChars = 0;
-            const words = rawWords.map(w => {
-                const startChar = totalChars;
-                totalChars += w.length;
-                return { text: w, startChar, endChar: totalChars };
-            });
-            return { words, totalChars };
-        },
-        get karaokeWords() {
-            if (this.timedWords && this.timedWords.length > 0) {
-                return this.timedWords;
-            }
-            return this.transcriptData.words;
-        },
-        get currentWordIdx() {
-            const words = this.karaokeWords;
-            if (!this.duration || words.length === 0) return -1;
-            
-            if (this.timedWords && this.timedWords.length > 0) {
-                const t = this.current;
-                for (let i = 0; i < words.length; i++) {
-                    if (t >= words[i].start && t <= words[i].end) return i;
-                }
-                for (let i = 0; i < words.length; i++) {
-                    if (t < words[i].start) return Math.max(0, i - 1);
-                }
-                return words.length - 1;
-            }
-
-            // Fallback to char-based approach
-            const targetChar = (this.current / this.duration) * this.transcriptData.totalChars;
-            for (let i = 0; i < words.length; i++) {
-                if (targetChar >= words[i].startChar && targetChar <= words[i].endChar) {
-                    return i;
-                }
-            }
-            return words.length - 1;
         },
         timeToPx(time) {
             return this.clamp(time, 0, this.duration || time) * this.pxPerSecond;
@@ -205,23 +243,6 @@
                     time,
                 };
             });
-        },
-        primeThumb(video, time) {
-            const seekToTime = () => {
-                try {
-                    video.currentTime = Math.max(0, Number(time || 0));
-                } catch (error) {
-                    console.warn('Nao foi possivel posicionar thumbnail.', error);
-                }
-            };
-
-            if (video.readyState >= 1) {
-                seekToTime();
-                return;
-            }
-
-            video.addEventListener('loadedmetadata', seekToTime, { once: true });
-            video.addEventListener('seeked', () => video.pause(), { once: true });
         },
         setStartFromCurrent() {
             this.start = this.round(this.clamp(this.current, 0, this.end - 0.05));
@@ -342,27 +363,33 @@
 
         <div class="min-w-0 space-y-8">
             <div class="min-w-0 space-y-5">
-                <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-5 min-w-0">
-                <div class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
-                    <div>
-                        @if($playerUrl)
-                            <video
-                                x-init="window.initAdaptiveVideoPlayer($el); registerPlayer($el)"
-                                @if($hlsUrl) data-hls-src="{{ $hlsUrl }}" @endif
-                                @if($playerUrl) data-fallback-src="{{ $playerUrl }}" @endif
-                                @if($playerUrl && ! $hlsUrl) src="{{ $playerUrl }}" @endif
-                                controls
-                                class="w-full rounded-xl bg-black object-contain"
-                                style="max-height: 420px;"
-                            ></video>
-                        @else
-                            <div class="w-full rounded-xl border border-dashed border-slate-700 aspect-video flex items-center justify-center text-slate-500">
-                                Video original ainda nao disponivel.
+                <div class="overflow-hidden rounded-xl border border-slate-800 bg-slate-900/70 p-5 min-w-0" wire:ignore>
+                    @if($playerUrl)
+                        <div class="relative min-h-[420px] w-full">
+                            <div x-show="!playerReady || !playerPreviewReady" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-slate-700 bg-slate-950/90 px-6 text-center">
+                                <flux:icon.loading class="size-6 text-slate-400" />
+                                <p class="text-sm font-medium text-slate-100" x-show="!playerPreviewReady">Carregando prévia do vídeo...</p>
                             </div>
-                        @endif
-                    </div>
-                    <x-videos.karaoke-panel />
-                </div>
+
+                            <template x-if="playerReady">
+                                <video
+                                    x-ref="videoPlayer"
+                                    @if($hlsUrl) data-hls-src="{{ $hlsUrl }}" @endif
+                                    @if($playerUrl) data-fallback-src="{{ $playerUrl }}" @endif
+                                    @if($playerUrl && ! $hlsUrl) src="{{ $playerUrl }}" @endif
+                                    controls
+                                    preload="none"
+                                    :class="playerPreviewReady ? 'opacity-100' : 'opacity-0 pointer-events-none'"
+                                    class="w-full rounded-xl bg-black object-contain transition-opacity duration-300"
+                                    style="max-height: 420px;"
+                                ></video>
+                            </template>
+                        </div>
+                    @else
+                        <div class="w-full rounded-xl border border-dashed border-slate-700 aspect-video flex items-center justify-center text-slate-500">
+                            Video original ainda nao disponivel.
+                        </div>
+                    @endif
 
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-6">
                     <div class="flex flex-col items-center justify-center min-w-[5rem]">
@@ -396,7 +423,7 @@
                     <div class="flex flex-wrap items-center justify-between gap-4 mb-3">
                         <div>
                             <div class="text-sm font-medium">Timeline do corte</div>
-                            <div class="text-xs text-slate-400">Clique para mover o playhead, arraste as alças para ajustar início e fim, use zoom para refinar.</div>
+                            <div class="text-xs text-slate-400">Clique para mover o playhead, arraste as alças para ajustar início e fim, use o scroll lateral para navegar e segure Shift para zoom.</div>
                         </div>
                         <label class="flex items-center gap-3 text-sm">
                             <span class="text-slate-400">Zoom</span>
@@ -408,7 +435,7 @@
                     <div
                         x-ref="timelineViewport"
                         class="timeline-scroll relative overflow-x-auto rounded-xl border border-slate-800 bg-slate-950 pb-2"
-                        x-on:wheel.prevent="adjustZoom($event)"
+                        x-on:wheel="handleTimelineWheel($event)"
                     >
                         <div
                             x-ref="timelineInner"
@@ -441,17 +468,13 @@
                                     <div class="absolute inset-0 flex">
                                         <template x-for="thumb in thumbTrack" :key="thumb.id">
                                             <div
-                                                class="absolute inset-y-0 border-r border-black/30"
+                                                class="absolute inset-y-0 overflow-hidden border-r border-black/30 bg-[linear-gradient(135deg,rgba(34,211,238,0.18),rgba(34,211,238,0.05)),repeating-linear-gradient(90deg,rgba(255,255,255,0.04)_0px,rgba(255,255,255,0.04)_20px,transparent_20px,transparent_40px)]"
                                                 :style="`left:${thumb.left};width:${thumb.width}`"
                                             >
-                                                <video
-                                                    :src="player ? (player.currentSrc || player.src) : ''"
-                                                    muted
-                                                    playsinline
-                                                    preload="metadata"
-                                                    class="h-full w-full object-cover opacity-80 select-none pointer-events-none"
-                                                    x-init="primeThumb($el, thumb.time)"
-                                                ></video>
+                                                <span
+                                                    class="absolute bottom-2 left-2 text-[10px] font-medium tabular-nums text-slate-300/80"
+                                                    x-text="formatRuler(thumb.time)"
+                                                ></span>
                                             </div>
                                         </template>
                                     </div>
@@ -517,56 +540,79 @@
 
                 <div class="mt-4 flex flex-wrap gap-3">
                     <flux:button variant="primary" size="sm" icon="plus" class="cursor-pointer" x-on:click="addCutFromTimeline()">Adicionar corte</flux:button>
-                    <flux:button :href="route('videos.schedule', $video)" variant="subtle" size="sm" icon="calendar-days" class="cursor-pointer" wire:navigate>Agendar postagens</flux:button>
                 </div>
             </div>
         </div>
 
-        {{-- Transcrição do vídeo --}}
-        @if(isset($transcript) && $transcript)
-            <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5 min-w-0"
-                 x-data="{ transcriptOpen: false }"
-                 x-on:timed-words-saved.window="timedWords = cloneTimedWords(draftTimedWords); transcriptOpen = false">
+        {{-- Gerador automático --}}
+        <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5"
+             x-data="{ selectedMode: @entangle('pendingAutoGenerationMode') }">
+            <flux:heading size="sm">Gerar cortes automáticos</flux:heading>
+            <flux:text class="mt-1 text-sm text-slate-400">
+                Escolha entre cortar com IA em sequência contínua ou dividir o vídeo em blocos de 1 minuto.
+            </flux:text>
+
+            <div class="mt-4 grid gap-3 md:grid-cols-2">
                 <button
                     type="button"
-                    class="w-full flex items-center justify-between text-left"
-                    x-on:click="if (!transcriptOpen) { draftTimedWords = cloneTimedWords(timedWords) }; transcriptOpen = !transcriptOpen">
-                    <div>
-                        <flux:heading size="sm">Transcrição por tempo</flux:heading>
-                        <flux:text class="mt-0.5 text-xs text-slate-500">Ajustes aqui impactam diretamente o resultado da legenda.</flux:text>
+                    wire:click="selectAutoGenerationMode('ai')"
+                    :class="selectedMode === 'ai'
+                        ? 'border-cyan-400 bg-cyan-500/20 ring-2 ring-cyan-400/30'
+                        : 'border-cyan-500/30 bg-cyan-500/10 hover:border-cyan-400/50 hover:bg-cyan-500/15'"
+                    class="rounded-xl p-4 text-left transition"
+                >
+                    <div class="flex items-center gap-2">
+                        <flux:icon.sparkles class="size-5 text-cyan-300" />
+                        <span class="text-sm font-semibold text-slate-50">IA contínua</span>
                     </div>
-                    <svg class="h-4 w-4 text-slate-400 transition-transform" :class="transcriptOpen ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                    </svg>
+                    <p class="mt-2 text-xs leading-5 text-slate-300">
+                        Gera cortes em sequência, sem saltos grandes. O próximo trecho começa logo após o fim do anterior para não perder contexto.
+                    </p>
+                    <p class="mt-2 text-[11px] text-cyan-200">
+                        Ideal quando você quer que a IA escolha os melhores trechos, mas mantendo continuidade.
+                    </p>
                 </button>
 
-                <div x-show="transcriptOpen" x-collapse class="mt-3">
-                    <x-videos.timed-words-editor
-                        title="Transcrição por tempo"
-                        subtitle="Ajustes aqui impactam diretamente o resultado da legenda."
-                        save-label="Salvar sincronia"
-                        :words-model="'draftTimedWords'"
-                        :save-action="'$wire.saveTimedWords(draftTimedWords)'"
-                        :cancel-action="'draftTimedWords = cloneTimedWords(timedWords); transcriptOpen = false'"
-                    />
-                </div>
+                <button
+                    type="button"
+                    wire:click="selectAutoGenerationMode('timed')"
+                    :class="selectedMode === 'timed'
+                        ? 'border-emerald-400 bg-emerald-500/15 ring-2 ring-emerald-400/30'
+                        : 'border-slate-700 bg-slate-950/70 hover:border-slate-600 hover:bg-slate-950'"
+                    class="rounded-xl p-4 text-left transition"
+                >
+                    <div class="flex items-center gap-2">
+                        <flux:icon.clock class="size-5 text-emerald-300" />
+                        <span class="text-sm font-semibold text-slate-50">Por tempo</span>
+                    </div>
+                    <p class="mt-2 text-xs leading-5 text-slate-300">
+                        Divide o vídeo em blocos de 60 segundos. Exemplo: um vídeo de 4:39 vira 4 cortes de 1 minuto e 1 corte de 39 segundos.
+                    </p>
+                    <p class="mt-2 text-[11px] text-emerald-200">
+                        Ótimo quando você quer rapidez e cortes previsíveis.
+                    </p>
+                </button>
             </div>
-        @endif
 
-        {{-- Sugestão da IA (abaixo da transcrição) --}}
-        <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5">
-            <flux:heading size="sm">Sugestão opcional da IA</flux:heading>
-            <flux:text class="mt-1 text-sm text-slate-400">
-                Se quiser acelerar, a IA ainda pode sugerir tempos iniciais. Depois voce ajusta tudo na timeline.
-            </flux:text>
-            <div class="mt-3 flex flex-col gap-3">
-                <flux:input wire:model="userPrompt" placeholder="Ex: foque nos melhores ganchos (opcional)" />
-                <div>
-                    <flux:button wire:click="recommend" variant="filled" size="sm" icon="sparkles" class="cursor-pointer">
-                        <span wire:loading.remove wire:target="recommend">Sugerir cortes com IA</span>
-                        <span wire:loading wire:target="recommend">Pensando...</span>
-                    </flux:button>
+            <div class="mt-4 flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+                <div class="text-sm text-slate-300">
+                    <span class="font-medium text-slate-100">Seleção atual:</span>
+                    <span x-text="selectedMode === 'ai' ? 'IA contínua' : selectedMode === 'timed' ? 'Por tempo' : 'nenhuma'"></span>
                 </div>
+
+                <flux:button
+                    variant="primary"
+                    size="sm"
+                    icon="check"
+                    class="cursor-pointer"
+                    x-bind:disabled="!selectedMode"
+                    wire:click="confirmAutoGeneration"
+                    wire:loading.attr="disabled"
+                    wire:target="confirmAutoGeneration"
+                >
+                    <span wire:loading.remove wire:target="confirmAutoGeneration">Confirmar</span>
+                    <span wire:loading wire:target="confirmAutoGeneration">Gerando...</span>
+                </flux:button>
             </div>
         </div>
 
@@ -746,8 +792,10 @@
 
                         {{-- Preview do vídeo renderizado --}}
                         @if($rendered)
-                            <video src="{{ $rendered->temporaryUrl(120) }}" controls x-init="$el.volume = 0.2"
-                                   class="mx-auto aspect-[9/16] max-h-80 w-full rounded-xl bg-black"></video>
+                            <div wire:ignore>
+                                <video src="{{ $rendered->temporaryUrl(120) }}" controls x-init="$el.volume = 0.2"
+                                       class="mx-auto aspect-[9/16] max-h-80 w-full rounded-xl bg-black"></video>
+                            </div>
                         @endif
                     </div>
                 @endforeach

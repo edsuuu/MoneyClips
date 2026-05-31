@@ -14,7 +14,7 @@ final class Layout extends Component
      */
     public function __construct(
         public ?string $title = null,
-        public string $layout = 'navbar', // 'sidebar' or 'navbar'
+        public string $layout = 'auth', // 'auth', 'landing', 'navbar' or 'sidebar'
     ) {}
 
     /**

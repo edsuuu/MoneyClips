@@ -37,10 +37,6 @@
                     @endauth
 
                     @if(request()->route('video'))
-                        <flux:navbar.item icon="document-text" :href="route('videos.transcript', request()->route('video'))" :current="request()->routeIs('videos.transcript')" wire:navigate>
-                            {{ __('Transcrição') }}
-                        </flux:navbar.item>
-
                         <flux:navbar.item icon="scissors" :href="route('videos.editor', request()->route('video'))" :current="request()->routeIs('videos.editor')" wire:navigate>
                             {{ __('Editor') }}
                         </flux:navbar.item>

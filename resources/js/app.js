@@ -34,8 +34,11 @@ window.initAdaptiveVideoPlayer = async (element) => {
         const Hls = await loadHlsConstructor();
         if (Hls?.isSupported()) {
             const hls = new Hls({
-                maxBufferLength: 30,
-                backBufferLength: 90,
+                maxBufferLength: 20,
+                maxMaxBufferLength: 30,
+                maxBufferSize: 24 * 1000 * 1000,
+                backBufferLength: 30,
+                startFragPrefetch: false,
             });
 
             hls.loadSource(hlsSrc);

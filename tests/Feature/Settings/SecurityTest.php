@@ -37,6 +37,15 @@ test('security settings page requires password confirmation when enabled', funct
     $response->assertRedirect(route('password.confirm'));
 });
 
+test('google authenticated sessions do not require password confirmation', function (): void {
+    $user = User::factory()->create(['google_id' => 'google-123']);
+
+    $this->actingAs($user)
+        ->withSession(['auth.authenticated_via_google' => true])
+        ->get(route('security.edit'))
+        ->assertOk();
+});
+
 test('security settings page renders without two factor when feature is disabled', function (): void {
     config(['fortify.features' => []]);
 

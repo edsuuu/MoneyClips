@@ -36,6 +36,7 @@ final class Login extends Component
         }
 
         session()->regenerate();
+        session()->forget('auth.authenticated_via_google');
 
         $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
     }

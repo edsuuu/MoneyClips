@@ -50,6 +50,10 @@ final class PublishScheduledPostJob implements ShouldQueue
         try {
             $post->refresh();
 
+            if ($post->status === ScheduledPost::STATUS_SCHEDULED) {
+                $post->update(['status' => ScheduledPost::STATUS_PUBLISHING]);
+            }
+
             // Só processa posts que o dispatcher marcou como publishing (evita corrida/duplicação).
             if ($post->status !== ScheduledPost::STATUS_PUBLISHING) {
                 return;

@@ -16,6 +16,7 @@ use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Livewire\Component;
 
@@ -29,34 +30,28 @@ final class Schedule extends Component
     /** @var array<string, array{title: string, description: string, hashtags: string}> Metadados por corte (uuid). */
     public array $cutMeta = [];
 
-    /** @var array<string, bool> Plataformas marcadas. */
-    public array $platforms = [];
+    /** @var array<string, bool> */
+    public array $editingCuts = [];
 
-    /** @var array<string, string> Conta (uuid) escolhida por plataforma. */
-    public array $account = [];
+    /** @var array<string, string> */
+    public array $cutTargets = [];
 
-    /** @var array<string, string> Início da publicação por plataforma (datetime-local). */
-    public array $startAt = [];
+    /** @var array<string, string> */
+    public array $cutPublishModes = [];
 
-    /** @var array<string, int> Intervalo em minutos entre um corte e o próximo, por plataforma. */
-    public array $intervalMinutes = [];
+    /** @var array<string, string> */
+    public array $cutPublishAt = [];
 
-    public string $preferredMode = 'schedule';
+    /** @var array<string, bool> */
+    public array $cutPublishAuto = [];
+
+    /** @var array<string, int> */
+    public array $cutScheduleGapHours = [];
 
     public function mount(Video $video, SocialPublisherRegistry $registry, PostDraftBuilder $draftBuilder): void
     {
         $this->video = $video;
         $this->video->load('cuts');
-
-        $defaultStart = Date::now()->addHour()->format('Y-m-d\TH:i');
-
-        foreach (array_keys($registry->all()) as $key) {
-            $this->platforms[$key] = false;
-            $this->account[$key] = '';
-            $this->startAt[$key] = $defaultStart;
-            $this->intervalMinutes[$key] = 30;
-        }
-
         foreach ($this->video->cuts as $cut) {
             $draft = $draftBuilder->forCut($this->video, $cut);
             $this->cutMeta[$cut->uuid] = [
@@ -64,33 +59,165 @@ final class Schedule extends Component
                 'description' => $draft['description'],
                 'hashtags' => $this->stringifyHashtags($draft['hashtags']),
             ];
+            $this->editingCuts[$cut->uuid] = false;
+            $this->cutScheduleGapHours[$cut->uuid] = 2;
         }
 
-        $this->hydrateQuickFlowFromRequest($registry);
+        $this->hydrateQuickFlowFromRequest();
+        $this->normalizeCutSchedulingPlan();
     }
 
-    public function schedule(SocialPublisherRegistry $registry): void
+    public function confirmPublications(SocialPublisherRegistry $registry): void
     {
-        $created = $this->createPosts($registry, publishNow: false);
+        $this->normalizeCutSchedulingPlan();
+        $this->processPublications($registry);
+    }
+
+    public function updatedCutPublishModes(string $value, string $key): void
+    {
+        if (! array_key_exists($key, $this->cutPublishModes)) {
+            return;
+        }
+
+        $this->cutPublishModes[$key] = in_array($value, ['now', 'scheduled'], true) ? $value : 'now';
+        $this->cutPublishAuto[$key] = true;
+
+        $this->normalizeCutSchedulingPlan();
+    }
+
+    public function updatedCutPublishAt(string $value, string $key): void
+    {
+        if (! array_key_exists($key, $this->cutPublishAt)) {
+            return;
+        }
+
+        $this->cutPublishAuto[$key] = false;
+        $this->normalizeCutSchedulingPlan();
+    }
+
+    public function updatedCutScheduleGapHours(string $value, string $key): void
+    {
+        if (! array_key_exists($key, $this->cutScheduleGapHours)) {
+            return;
+        }
+
+        $this->cutScheduleGapHours[$key] = in_array((int) $value, [1, 2, 3, 4, 5, 6], true) ? (int) $value : 2;
+        $this->normalizeCutSchedulingPlan();
+    }
+
+    public function refreshSchedulingPlan(): void
+    {
+        $this->normalizeCutSchedulingPlan();
+    }
+
+    private function processPublications(SocialPublisherRegistry $registry): void
+    {
+        if ($this->selectedCuts === []) {
+            Flux::toast('Selecione ao menos um corte.', variant: 'danger');
+
+            return;
+        }
+
+        // Cortes na ordem de publicação (segue o index do corte).
+        /** @var Collection<int, Cut> $orderedCuts */
+        $orderedCuts = $this->video->cuts()
+            ->whereIn('uuid', $this->selectedCuts)
+            ->orderBy('index')
+            ->get();
+
+        if ($orderedCuts->isEmpty()) {
+            Flux::toast('Nenhum corte válido selecionado.', variant: 'danger');
+
+            return;
+        }
+
+        $created = 0;
+        $dispatchedPostIds = [];
+        $sequenceByPlatform = $this->startingSequencesByPlatform();
+
+        foreach ($orderedCuts as $cut) {
+            $target = $this->cutTargets[$cut->uuid] ?? $this->defaultCutTarget($cut->uuid);
+            $platforms = $this->resolveTargetPlatforms($target);
+
+            if ($platforms === []) {
+                Flux::toast(sprintf('Escolha o destino do corte %s.', $cut->name ?? $cut->uuid), variant: 'danger');
+
+                return;
+            }
+
+            $meta = $this->metaFor($cut);
+            $mode = $this->cutPublishModes[$cut->uuid] ?? 'now';
+            $scheduledFor = $this->parseLocalDateTime($this->cutPublishAt[$cut->uuid] ?? '') ?? Date::now();
+            $isImmediate = $mode !== 'scheduled';
+
+            foreach ($platforms as $platform) {
+                $account = SocialAccount::query()
+                    ->where('user_id', Auth::id())
+                    ->where('platform', $platform)
+                    ->where('is_active', true)
+                    ->orderBy('name')
+                    ->first();
+
+                if (! $account instanceof SocialAccount) {
+                    $label = $registry->for($platform)?->label() ?? $platform;
+                    Flux::toast(sprintf('Conecte uma conta de %s antes de publicar.', $label), variant: 'danger');
+
+                    return;
+                }
+
+                if ($this->hasExistingPublicationForCutPlatformAccount($cut->id, $platform, $account->id)) {
+                    $label = $registry->for($platform)?->label() ?? $platform;
+                    Flux::toast(sprintf(
+                        'O corte %s já foi publicado em %s usando a conta %s.',
+                        $cut->name ?? $cut->uuid,
+                        $label,
+                        Cast::str($account->name)
+                    ), variant: 'danger');
+
+                    return;
+                }
+
+                $post = ScheduledPost::query()->create([
+                    'video_id' => $this->video->id,
+                    'cut_id' => $cut->id,
+                    'social_account_id' => $account->id,
+                    'platform' => $platform,
+                    'sequence' => $sequenceByPlatform[$platform]++,
+                    'title' => $meta['title'] !== '' ? $meta['title'] : ($cut->name ?? null),
+                    'description' => $meta['description'],
+                    'hashtags' => $meta['hashtags'],
+                    'scheduled_for' => $scheduledFor,
+                    'status' => $isImmediate ? ScheduledPost::STATUS_PUBLISHING : ScheduledPost::STATUS_SCHEDULED,
+                    'created_by' => Auth::id(),
+                ]);
+
+                $post->log(
+                    'info',
+                    $isImmediate
+                        ? sprintf('Envio imediato solicitado em %s.', Cast::str($account->name))
+                        : sprintf('Agendado para %s em %s.', $scheduledFor->format('d/m/Y H:i'), Cast::str($account->name))
+                );
+
+                if ($isImmediate) {
+                    $dispatchedPostIds[] = $post->id;
+                } else {
+                    dispatch((new PublishScheduledPostJob($post->id))->delay($scheduledFor));
+                }
+
+                $created++;
+            }
+        }
+
+        foreach ($dispatchedPostIds as $postId) {
+            dispatch(new PublishScheduledPostJob($postId));
+        }
+
         if ($created === 0) {
             return;
         }
 
-        Flux::toast($created.' publicacao(oes) agendada(s) com sucesso.');
+        Flux::toast($created.' publicação(ões) confirmada(s).');
         $this->reset('selectedCuts');
-        $this->preferredMode = 'schedule';
-    }
-
-    public function publishNow(SocialPublisherRegistry $registry): void
-    {
-        $created = $this->createPosts($registry, publishNow: true);
-        if ($created === 0) {
-            return;
-        }
-
-        Flux::toast($created.' publicacao(oes) enviada(s) para publicacao.');
-        $this->reset('selectedCuts');
-        $this->preferredMode = 'publish';
     }
 
     public function render(SocialPublisherRegistry $registry): View
@@ -99,24 +226,40 @@ final class Schedule extends Component
 
         $accounts = SocialAccount::query()
             ->where('is_active', true)
+            ->where('user_id', Auth::id())
             ->orderBy('platform')
             ->orderBy('name')
             ->get()
             ->groupBy('platform');
 
-        $recentPosts = ScheduledPost::query()
-            ->where('video_id', $this->video->id)
-            ->with('account')
-            ->latest()
-            ->limit(50)
-            ->get();
+        $publishedTargetsByCut = $this->publishedTargetsByCut();
+
+        $hasYoutubeAccount = ($accounts['youtube'] ?? collect())->isNotEmpty();
+        $hasTiktokAccount = ($accounts['tiktok'] ?? collect())->isNotEmpty();
+
+        foreach ($this->video->cuts as $cut) {
+            $this->cutTargets[$cut->uuid] ??= $this->defaultCutTarget(
+                $cut->uuid,
+                $publishedTargetsByCut,
+                $hasYoutubeAccount,
+                $hasTiktokAccount,
+            );
+        }
+
+        $this->normalizeCutSchedulingPlan();
+
+        if ($this->selectedCuts !== []) {
+            $this->selectedCuts = array_values(array_filter(
+                $this->selectedCuts,
+                fn (string $uuid): bool => ! $this->isCutFullyLocked($uuid, $publishedTargetsByCut),
+            ));
+        }
 
         return view('livewire.videos.schedule', [
             'cuts' => $this->video->cuts,
             'platformLabels' => $registry->labels(),
             'accountsByPlatform' => $accounts,
-            'recentPosts' => $recentPosts,
-            'supportedPlatforms' => array_keys($registry->all()),
+            'publishedTargetsByCut' => $publishedTargetsByCut,
         ]);
     }
 
@@ -159,11 +302,9 @@ final class Schedule extends Component
         ), static fn (string $t): bool => $t !== ''));
     }
 
-    private function hydrateQuickFlowFromRequest(SocialPublisherRegistry $registry): void
+    private function hydrateQuickFlowFromRequest(): void
     {
         $queryCuts = mb_trim((string) request()->query('cuts', ''));
-        $queryMode = mb_trim((string) request()->query('mode', ''));
-        $queryPlatform = mb_trim((string) request()->query('platform', ''));
 
         if ($queryCuts !== '') {
             $validUuids = $this->video->cuts->pluck('uuid')->all();
@@ -176,133 +317,215 @@ final class Schedule extends Component
                 $this->selectedCuts = $selected;
             }
         }
+    }
 
-        if ($queryMode === 'publish') {
-            $this->preferredMode = 'publish';
+    public function toggleCutEdit(string $uuid): void
+    {
+        if (! array_key_exists($uuid, $this->cutMeta)) {
+            return;
         }
 
-        if ($queryPlatform !== '' && array_key_exists($queryPlatform, $registry->all())) {
-            $this->platforms[$queryPlatform] = true;
+        $this->editingCuts[$uuid] = ! (bool) ($this->editingCuts[$uuid] ?? false);
+    }
+
+    public function saveCutMeta(string $uuid): void
+    {
+        if (! array_key_exists($uuid, $this->cutMeta)) {
+            return;
         }
 
-        if (
-            $queryPlatform !== ''
-            && array_key_exists($queryPlatform, $registry->all())
-            && ($this->account[$queryPlatform] ?? '') === ''
-        ) {
-            $defaultAccount = SocialAccount::query()
-                ->where('platform', $queryPlatform)
-                ->where('is_active', true)
-                ->orderBy('name')
-                ->first();
+        $this->editingCuts[$uuid] = false;
+        Flux::toast('Legenda/descrição salvas.');
+    }
 
-            if ($defaultAccount instanceof SocialAccount) {
-                $this->account[$queryPlatform] = $defaultAccount->uuid;
+    /**
+     * @return array<string, int>
+     */
+    private function startingSequencesByPlatform(): array
+    {
+        $platforms = ['youtube', 'tiktok'];
+        $sequences = [];
+
+        foreach ($platforms as $platform) {
+            $max = ScheduledPost::query()
+                ->where('video_id', $this->video->id)
+                ->where('platform', $platform)
+                ->max('sequence');
+
+            $sequences[$platform] = (is_numeric($max) ? (int) $max : 0) + 1;
+        }
+
+        return $sequences;
+    }
+
+    /**
+     * @return array<string, array<string, bool>>
+     */
+    private function publishedTargetsByCut(): array
+    {
+        $posts = ScheduledPost::query()
+            ->where('video_id', $this->video->id)
+            ->whereNotNull('cut_id')
+            ->whereIn('status', [
+                ScheduledPost::STATUS_PENDING,
+                ScheduledPost::STATUS_SCHEDULED,
+                ScheduledPost::STATUS_PUBLISHING,
+                ScheduledPost::STATUS_POSTED,
+            ])
+            ->with('cut:id,uuid')
+            ->get();
+
+        $targets = [];
+
+        foreach ($posts as $post) {
+            $cutUuid = $post->cut?->uuid;
+            if (! is_string($cutUuid) || $cutUuid === '') {
+                continue;
             }
+
+            $targets[$cutUuid][$post->platform] = true;
+        }
+
+        return $targets;
+    }
+
+    /**
+     * @param  array<string, array<string, bool>>  $publishedTargetsByCut
+     */
+    private function defaultCutTarget(
+        string $cutUuid,
+        array $publishedTargetsByCut = [],
+        bool $hasYoutubeAccount = true,
+        bool $hasTiktokAccount = true,
+    ): string
+    {
+        $published = $publishedTargetsByCut[$cutUuid] ?? [];
+        $hasYoutube = (bool) ($published['youtube'] ?? false);
+        $hasTiktok = (bool) ($published['tiktok'] ?? false);
+
+        if ($hasYoutube && $hasTiktok) {
+            return 'both';
+        }
+
+        if ($hasYoutube) {
+            return 'tiktok';
+        }
+
+        if ($hasTiktok) {
+            return 'youtube';
+        }
+
+        if ($hasYoutubeAccount && ! $hasTiktokAccount) {
+            return 'youtube';
+        }
+
+        if ($hasTiktokAccount && ! $hasYoutubeAccount) {
+            return 'tiktok';
+        }
+
+        return 'both';
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveTargetPlatforms(string $target): array
+    {
+        return match ($target) {
+            'youtube' => ['youtube'],
+            'tiktok' => ['tiktok'],
+            'both' => ['youtube', 'tiktok'],
+            default => [],
+        };
+    }
+
+    /**
+     * @param  array<string, array<string, bool>>  $publishedTargetsByCut
+     */
+    private function isCutFullyLocked(string $cutUuid, array $publishedTargetsByCut = []): bool
+    {
+        $published = $publishedTargetsByCut[$cutUuid] ?? [];
+
+        return (bool) ($published['youtube'] ?? false) && (bool) ($published['tiktok'] ?? false);
+    }
+
+    private function hasExistingPublicationForCutPlatformAccount(int $cutId, string $platform, int $accountId): bool
+    {
+        return ScheduledPost::query()
+            ->where('cut_id', $cutId)
+            ->where('platform', $platform)
+            ->where('social_account_id', $accountId)
+            ->whereIn('status', [
+                ScheduledPost::STATUS_PENDING,
+                ScheduledPost::STATUS_SCHEDULED,
+                ScheduledPost::STATUS_PUBLISHING,
+                ScheduledPost::STATUS_POSTED,
+            ])
+            ->exists();
+    }
+
+    private function normalizeCutSchedulingPlan(): void
+    {
+        $previousEffectiveAt = Date::now();
+        $previousGapHours = 2;
+
+        foreach ($this->video->cuts()->orderBy('index')->get() as $index => $cut) {
+            $uuid = $cut->uuid;
+            $currentGapHours = $this->gapHoursForCut($uuid);
+
+            $mode = $this->cutPublishModes[$uuid] ?? ($index === 0 ? 'now' : 'scheduled');
+            if (! in_array($mode, ['now', 'scheduled'], true)) {
+                $mode = $index === 0 ? 'now' : 'scheduled';
+            }
+            $this->cutPublishModes[$uuid] = $mode;
+
+            if ($mode === 'now') {
+                $this->cutPublishAuto[$uuid] = true;
+                $this->cutPublishAt[$uuid] = Date::now()->format('Y-m-d\TH:i');
+                $previousEffectiveAt = Date::now();
+                $previousGapHours = $currentGapHours;
+
+                continue;
+            }
+
+            $currentScheduledAt = $this->parseLocalDateTime($this->cutPublishAt[$uuid] ?? '');
+            $isAuto = $this->cutPublishAuto[$uuid] ?? true;
+
+            if (! $currentScheduledAt instanceof Carbon || $isAuto) {
+                if ($index === 0 && $mode === 'scheduled') {
+                    $currentScheduledAt = Date::now()->addHours($currentGapHours);
+                } else {
+                    $currentScheduledAt = $previousEffectiveAt->copy()->addHours($previousGapHours);
+                }
+                $this->cutPublishAt[$uuid] = $currentScheduledAt->format('Y-m-d\TH:i');
+                $this->cutPublishAuto[$uuid] = true;
+            }
+
+            $previousEffectiveAt = $currentScheduledAt;
+            $previousGapHours = $currentGapHours;
         }
     }
 
-    private function createPosts(SocialPublisherRegistry $registry, bool $publishNow): int
+    private function parseLocalDateTime(?string $value): ?Carbon
     {
-        $platforms = array_keys(array_filter($this->platforms, static fn (bool $on): bool => $on));
-
-        if ($platforms === []) {
-            Flux::toast('Selecione ao menos uma plataforma.', variant: 'danger');
-
-            return 0;
+        $raw = mb_trim((string) $value);
+        if ($raw === '') {
+            return null;
         }
 
-        if ($this->selectedCuts === []) {
-            Flux::toast('Selecione ao menos um corte.', variant: 'danger');
+        try {
+            $parsed = Date::createFromFormat('Y-m-d\TH:i', $raw);
 
-            return 0;
+            return $parsed instanceof Carbon ? $parsed : null;
+        } catch (\Throwable) {
+            return null;
         }
+    }
 
-        // Cortes na ordem de publicação (segue o index do corte).
-        /** @var Collection<int, Cut> $orderedCuts */
-        $orderedCuts = $this->video->cuts()
-            ->whereIn('uuid', $this->selectedCuts)
-            ->orderBy('index')
-            ->get();
+    private function gapHoursForCut(string $uuid): int
+    {
+        $gap = $this->cutScheduleGapHours[$uuid] ?? 2;
 
-        if ($orderedCuts->isEmpty()) {
-            Flux::toast('Nenhum corte válido selecionado.', variant: 'danger');
-
-            return 0;
-        }
-
-        // Validação por plataforma: precisa de conta conectada e horário.
-        $resolvedAccounts = [];
-        foreach ($platforms as $platform) {
-            if (! $publishNow && ($this->startAt[$platform] ?? '') === '') {
-                Flux::toast(sprintf('Defina o horário de início para %s.', $platform), variant: 'danger');
-
-                return 0;
-            }
-
-            $accountUuid = $this->account[$platform] ?? '';
-            $account = $accountUuid !== ''
-                ? SocialAccount::query()->where('uuid', $accountUuid)->where('platform', $platform)->where('is_active', true)->first()
-                : null;
-
-            if (! $account instanceof SocialAccount) {
-                $label = $registry->for($platform)?->label() ?? $platform;
-                Flux::toast(sprintf('Conecte uma conta de %s antes de agendar.', $label), variant: 'danger');
-
-                return 0;
-            }
-
-            $resolvedAccounts[$platform] = $account;
-        }
-
-        $created = 0;
-        $dispatchedPostIds = [];
-
-        foreach ($platforms as $platform) {
-            $account = $resolvedAccounts[$platform];
-            $start = $publishNow ? Date::now() : Date::parse($this->startAt[$platform]);
-            $interval = max(0, (int) ($this->intervalMinutes[$platform] ?? 0));
-
-            $sequence = 0;
-            foreach ($orderedCuts as $cut) {
-                $sequence++;
-                $meta = $this->metaFor($cut);
-
-                $when = $start->copy()->addMinutes($interval * ($sequence - 1));
-
-                $post = ScheduledPost::query()->create([
-                    'video_id' => $this->video->id,
-                    'cut_id' => $cut->id,
-                    'social_account_id' => $account->id,
-                    'platform' => $platform,
-                    'sequence' => $sequence,
-                    'title' => $meta['title'] !== '' ? $meta['title'] : ($cut->name ?? null),
-                    'description' => $meta['description'],
-                    'hashtags' => $meta['hashtags'],
-                    'scheduled_for' => $when,
-                    'status' => $publishNow ? ScheduledPost::STATUS_PUBLISHING : ScheduledPost::STATUS_SCHEDULED,
-                    'created_by' => Auth::id(),
-                ]);
-
-                $post->log(
-                    'info',
-                    $publishNow
-                        ? sprintf('Envio imediato solicitado em %s.', Cast::str($account->name))
-                        : sprintf('Agendado para %s em %s.', $when->format('d/m/Y H:i'), Cast::str($account->name))
-                );
-
-                if ($publishNow) {
-                    $dispatchedPostIds[] = $post->id;
-                }
-
-                $created++;
-            }
-        }
-
-        foreach ($dispatchedPostIds as $postId) {
-            dispatch(new PublishScheduledPostJob($postId));
-        }
-
-        return $created;
+        return in_array($gap, [1, 2, 3, 4, 5, 6], true) ? $gap : 2;
     }
 }
