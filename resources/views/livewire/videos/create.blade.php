@@ -10,8 +10,8 @@
             />
 
             <flux:button type="submit" variant="primary" icon="arrow-down-tray" class="w-full cursor-pointer">
-                <span wire:loading.remove wire:target="start">Iniciar processamento</span>
-                <span wire:loading wire:target="start">Enviando...</span>
+                <span wire:loading.remove wire:target="start">Salvar vídeo</span>
+                <span wire:loading wire:target="start">Salvando...</span>
             </flux:button>
         </div>
     </form>

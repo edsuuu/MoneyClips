@@ -353,6 +353,19 @@
             <x-slot:meta>
                 <flux:badge>{{ $video->status?->label ?? '—' }}</flux:badge>
             </x-slot:meta>
+            <x-slot:actions>
+                @if(($statusKey ?? null) === 'pending' && ! $activeJobId)
+                    <flux:button wire:click="processVideo" variant="primary" icon="play" class="cursor-pointer">
+                        <span wire:loading.remove wire:target="processVideo">Processar</span>
+                        <span wire:loading wire:target="processVideo">Processando...</span>
+                    </flux:button>
+                @elseif(($statusKey ?? null) === 'failed')
+                    <flux:button wire:click="reprocessVideo" variant="subtle" icon="arrow-path" class="cursor-pointer">
+                        <span wire:loading.remove wire:target="reprocessVideo">Reprocessar</span>
+                        <span wire:loading wire:target="reprocessVideo">Reprocessando...</span>
+                    </flux:button>
+                @endif
+            </x-slot:actions>
         </x-studio.page-header>
 
         @if($activeJobId)

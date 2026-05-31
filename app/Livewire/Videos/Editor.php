@@ -65,6 +65,56 @@ final class Editor extends Component
         }
     }
 
+    public function processVideo(VideoProcessorService $videoProcessor): void
+    {
+        $this->video->refresh();
+
+        if ($this->video->status?->key !== 'pending' || $this->video->processingJobs()->exists()) {
+            Flux::toast('Este vídeo já foi enviado para processamento.', variant: 'danger');
+
+            return;
+        }
+
+        try {
+            $videoProcessor->startIngest($this->video);
+            $this->video->refresh();
+        } catch (Throwable $throwable) {
+            Flux::toast('Falha ao iniciar o processamento: '.$throwable->getMessage(), variant: 'danger');
+
+            return;
+        }
+
+        Flux::toast('Processamento iniciado.');
+    }
+
+    public function reprocessVideo(VideoProcessorService $videoProcessor): void
+    {
+        $this->video->refresh();
+
+        if ($this->video->status?->key !== 'failed') {
+            Flux::toast('Só dá pra reprocessar vídeos que falharam.', variant: 'danger');
+
+            return;
+        }
+
+        try {
+            $this->video->update([
+                'progress' => 0,
+                'current_stage' => 'ingest',
+                'status_id' => Status::idFor('pending'),
+            ]);
+
+            $videoProcessor->startIngest($this->video);
+            $this->video->refresh();
+        } catch (Throwable $throwable) {
+            Flux::toast('Falha ao reprocessar: '.$throwable->getMessage(), variant: 'danger');
+
+            return;
+        }
+
+        Flux::toast('Reprocessamento disparado.');
+    }
+
     public function addCut(): void
     {
         $this->validate([

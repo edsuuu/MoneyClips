@@ -72,6 +72,36 @@ final class Index extends Component
     }
 
     /**
+     * Dispara o ingest para um vídeo salvo no banco que ainda não foi processado.
+     */
+    public function process(string $videoUuid, VideoProcessorService $videoProcessor): void
+    {
+        $video = Video::query()->where('uuid', $videoUuid)->first();
+
+        if (! $video instanceof Video) {
+            Flux::toast('Vídeo não encontrado.', variant: 'danger');
+
+            return;
+        }
+
+        if ($video->status?->key !== 'pending' || $video->processingJobs()->exists()) {
+            Flux::toast('Este vídeo já foi enviado para processamento.', variant: 'danger');
+
+            return;
+        }
+
+        try {
+            $videoProcessor->startIngest($video);
+        } catch (Throwable $throwable) {
+            Flux::toast('Falha ao iniciar o processamento: '.$throwable->getMessage(), variant: 'danger');
+
+            return;
+        }
+
+        Flux::toast('Processamento iniciado.');
+    }
+
+    /**
      * Re-dispara o ingest pra um vídeo que falhou. Reseta progresso, marca como
      * pending e chama startIngest de novo. Os status_logs antigos ficam de
      * trilha de auditoria.
@@ -114,6 +144,7 @@ final class Index extends Component
         /** @var Collection<int, Video> $videos */
         $videos = Video::query()
             ->with(['status', 'files'])
+            ->withCount('processingJobs')
             ->latest()
             ->get();
 

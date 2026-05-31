@@ -46,8 +46,8 @@ return [
     | Os tokens das contas conectadas vivem em social_accounts.
     */
     'google' => [
-        'client_id' => env('YOUTUBE_CLIENT_ID', env('GOOGLE_AUTH_CLIENT_ID')),
-        'client_secret' => env('YOUTUBE_CLIENT_SECRET', env('GOOGLE_AUTH_CLIENT_SECRET')),
+        'client_id' => env('GOOGLE_AUTH_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_AUTH_CLIENT_SECRET'),
         'redirect' => env('YOUTUBE_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback'),
     ],
 
