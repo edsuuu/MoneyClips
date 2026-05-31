@@ -18,7 +18,6 @@ final class Seeder003Statuses extends Seeder
             ['downloading', 'Baixando'],
             ['downloaded', 'Baixado'],
             ['transcribing', 'Transcrevendo'],
-            ['waiting_transcript_review', 'Aguardando revisão da transcrição'],
             ['transcript_confirmed', 'Transcrição confirmada'],
             ['subtitling_full', 'Legendando vídeo completo'],
             ['full_subtitled', 'Vídeo completo legendado'],

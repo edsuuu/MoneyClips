@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
-use App\Jobs\RunAutoPilotJob;
 use App\Models\Status;
 use App\Models\Transcript;
 use App\Models\Video;
@@ -21,30 +20,9 @@ final class Create extends Component
     #[Validate('required|url')]
     public string $url = '';
 
-    /** Modo de processamento na tela de criação. */
-    #[Validate('required|in:manual,sequential,ai')]
-    public string $processingMode = 'manual';
-
-    /** Quantidade-alvo de clipes (opcional). Vazio = automático. */
-    #[Validate('nullable|integer|min:1|max:60')]
-    public ?int $clipCount = null;
-
-    /** Seguir o rosto (crop dinâmico). Desligue para screencast, animação, etc. */
-    #[Validate('boolean')]
-    public bool $faceTracking = true;
-
     public function start(VideoProcessorService $videoProcessor): void
     {
-        $this->validate([
-            'url' => 'required|url',
-            'processingMode' => 'required|in:manual,sequential,ai',
-            'clipCount' => 'nullable|integer|min:1|max:60',
-            'faceTracking' => 'boolean',
-        ]);
-
-        $isAuto = $this->isAutoMode();
-        $autoMode = $this->resolvedAutoMode();
-        $autoClipCount = $this->resolvedAutoClipCount();
+        $this->validate();
 
         $existingVideo = Video::query()->where('url', $this->url)
             ->whereNotIn('status_id', [
@@ -60,9 +38,9 @@ final class Create extends Component
             ->first();
 
         if ($existingVideo) {
-            $video = DB::transaction(function () use ($existingVideo, $isAuto, $autoMode, $autoClipCount) {
+            $video = DB::transaction(function () use ($existingVideo) {
                 $hasLegendado = $existingVideo->fileOfType('legendado') !== null;
-                $statusKey = $hasLegendado ? 'full_subtitled' : 'waiting_transcript_review';
+                $statusKey = $hasLegendado ? 'full_subtitled' : 'waiting_cuts';
 
                 $newVideo = Video::query()->create([
                     'url' => $this->url,
@@ -74,10 +52,7 @@ final class Create extends Component
                     'source_provider' => $existingVideo->source_provider,
                     'external_video_id' => $existingVideo->external_video_id,
                     'current_stage' => $hasLegendado ? 'subtitle_full' : 'ingest',
-                    'is_auto' => $isAuto,
-                    'auto_mode' => $autoMode,
-                    'auto_clip_count' => $autoClipCount,
-                    'face_tracking' => $this->faceTracking,
+                    'face_tracking' => (bool) ($existingVideo->face_tracking ?? true),
                 ]);
 
                 $transcript = $existingVideo->transcript;
@@ -122,15 +97,7 @@ final class Create extends Component
                 return $newVideo;
             });
 
-            if ($isAuto) {
-                // Transcrição já está em cache: o piloto automático segue direto para cortes/render.
-                dispatch(new RunAutoPilotJob($video->id));
-                $this->redirectRoute('videos.editor', ['video' => $video->uuid], navigate: true);
-            } elseif ($video->fileOfType('legendado') !== null) {
-                $this->redirectRoute('videos.editor', ['video' => $video->uuid], navigate: true);
-            } else {
-                $this->redirectRoute('videos.transcript', ['video' => $video->uuid], navigate: true);
-            }
+            $this->redirectRoute('videos.editor', ['video' => $video->uuid], navigate: true);
 
             return;
         }
@@ -140,53 +107,15 @@ final class Create extends Component
             'status_id' => Status::idFor('pending'),
             'progress' => 0,
             'created_by' => Auth::id(),
-            'is_auto' => $isAuto,
-            'auto_mode' => $autoMode,
-            'auto_clip_count' => $autoClipCount,
-            'face_tracking' => $this->faceTracking,
         ]);
 
         $videoProcessor->startIngest($video);
 
-        // No modo automático o piloto dispara sozinho quando o callback de ingestão chega;
-        // levamos o usuário ao editor para acompanhar os cortes sendo gerados/renderizados.
-        $this->redirectRoute(
-            $isAuto ? 'videos.editor' : 'videos.transcript',
-            ['video' => $video->uuid],
-            navigate: true,
-        );
-    }
-
-    public function updatedProcessingMode(string $value): void
-    {
-        if ($value !== 'ai') {
-            $this->clipCount = null;
-        }
+        $this->redirectRoute('videos.editor', ['video' => $video->uuid], navigate: true);
     }
 
     public function render(): View
     {
-        return view('livewire.videos.create', [
-            'recent' => Video::with('status')->latest()->limit(10)->get(),
-        ]);
-    }
-
-    private function isAutoMode(): bool
-    {
-        return in_array($this->processingMode, ['sequential', 'ai'], true);
-    }
-
-    private function resolvedAutoMode(): string
-    {
-        return match ($this->processingMode) {
-            'sequential' => 'sequential',
-            'ai' => 'ai',
-            default => 'auto',
-        };
-    }
-
-    private function resolvedAutoClipCount(): ?int
-    {
-        return $this->processingMode === 'ai' ? $this->clipCount : null;
+        return view('livewire.videos.create');
     }
 }

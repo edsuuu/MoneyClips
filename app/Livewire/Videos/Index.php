@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
-use App\Models\File;
 use App\Models\Status;
 use App\Models\Video;
 use App\Services\VideoProcessor\VideoProcessorService;
@@ -119,31 +118,14 @@ final class Index extends Component
             ->get();
 
         $cards = $videos->map(function (Video $video): array {
-            $legendado = $video->files->firstWhere('type', 'legendado');
-            $original = $video->files->firstWhere('type', 'original');
-            $playable = $legendado instanceof File ? $legendado : ($original instanceof File ? $original : null);
-
             return [
                 'video' => $video,
-                'thumb' => $this->resolveTemporaryUrl($playable),
+                'thumb' => route('videos.thumbnail', $video),
             ];
         });
 
         return view('livewire.videos.index', [
             'cards' => $cards,
         ]);
-    }
-
-    private function resolveTemporaryUrl(?File $file): ?string
-    {
-        if (! $file instanceof File) {
-            return null;
-        }
-
-        try {
-            return $file->temporaryUrl(120);
-        } catch (Throwable) {
-            return null;
-        }
     }
 }

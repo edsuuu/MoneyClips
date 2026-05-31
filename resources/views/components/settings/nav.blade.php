@@ -6,7 +6,7 @@
         {{ __('Contas vinculadas') }}
     </flux:navlist.item>
     <flux:navlist.item :href="route('security.edit')" :current="request()->routeIs('security.edit')" wire:navigate>
-        {{ __('Security') }}
+        {{ __('Segurança') }}
     </flux:navlist.item>
     <flux:navlist.item :href="route('appearance.edit')" :current="request()->routeIs('appearance.edit')" wire:navigate>
         {{ __('Appearance') }}

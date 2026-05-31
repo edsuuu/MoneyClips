@@ -65,7 +65,7 @@ final class TwoFactorChallenge extends Component
         if ($request->hasValidCode()) {
             Auth::login($user, $request->remember());
 
-            $request->session()->forget('login.id');
+            $request->session()->forget(['login.id', 'auth.authenticated_via_google']);
 
             $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
         } else {
@@ -92,7 +92,7 @@ final class TwoFactorChallenge extends Component
 
             Auth::login($user, $request->remember());
 
-            $request->session()->forget('login.id');
+            $request->session()->forget(['login.id', 'auth.authenticated_via_google']);
 
             $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
         } else {

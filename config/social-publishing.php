@@ -35,8 +35,9 @@ return [
     | social_accounts (criptografados).
     */
     'youtube' => [
-        'client_id' => env('YOUTUBE_CLIENT_ID'),
-        'client_secret' => env('YOUTUBE_CLIENT_SECRET'),
+        'api_key' => env('YOUTUBE_API_KEY'),
+        'client_id' => env('YOUTUBE_CLIENT_ID', env('GOOGLE_AUTH_CLIENT_ID')),
+        'client_secret' => env('YOUTUBE_CLIENT_SECRET', env('GOOGLE_AUTH_CLIENT_SECRET')),
     ],
     'tiktok' => [
         'client_key' => env('TIKTOK_CLIENT_KEY'),

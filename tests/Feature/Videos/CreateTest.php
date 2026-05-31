@@ -106,7 +106,7 @@ test('ai mode allows empty clip count and stores requested amount when provided'
     expect($videoWithCount?->auto_clip_count)->toBe(5);
 });
 
-test('reuses cached video data and redirects to transcript if no legendado file exists', function (): void {
+test('reuses cached video data and redirects to editor if no legendado file exists', function (): void {
     $mockProvider = mock(VideoProcessorProviderInterface::class);
     $mockProvider->shouldNotReceive('ingest');
 
@@ -115,7 +115,7 @@ test('reuses cached video data and redirects to transcript if no legendado file 
     // Create the existing video with original file and transcript
     $existing = Video::query()->create([
         'url' => 'https://www.youtube.com/watch?v=12345',
-        'status_id' => Status::idFor('waiting_transcript_review'),
+        'status_id' => Status::idFor('waiting_cuts'),
         'title' => 'Test Video',
         'duration_seconds' => 120.0,
         'source_provider' => 'youtube',
@@ -151,7 +151,7 @@ test('reuses cached video data and redirects to transcript if no legendado file 
     $this->assertDatabaseCount('videos', 2);
     $newVideo = Video::query()->where('id', '!=', $existing->id)->first();
     expect($newVideo->title)->toBe('Test Video');
-    expect($newVideo->status_id)->toBe(Status::idFor('waiting_transcript_review'));
+    expect($newVideo->status_id)->toBe(Status::idFor('waiting_cuts'));
     expect($newVideo->transcript->raw_text)->toBe('Hello World');
     expect($newVideo->fileOfType('original')->path)->toBe('videos/123/original.mp4');
     expect($newVideo->fileOfType('legendado'))->toBeNull();

@@ -21,6 +21,8 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/videos/{video}/transcript', [VideoController::class, 'transcript'])->name('videos.transcript');
     Route::get('/videos/{video}/editor', [VideoController::class, 'editor'])->name('videos.editor');
     Route::get('/videos/{video}/schedule', [VideoController::class, 'schedule'])->name('videos.schedule');
+    Route::get('/videos/{video}/publications', [VideoController::class, 'publications'])->name('videos.publications');
+    Route::get('/videos/{video}/thumbnail', [VideoController::class, 'thumbnail'])->name('videos.thumbnail');
     Route::get('/videos/{video}/stream/{path}', [VideoController::class, 'stream'])
         ->where('path', '.*')
         ->name('videos.stream');

@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\SocialPublishing\OAuth\SocialAccountConnector;
-use App\Support\Cast;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -105,6 +104,7 @@ final class OAuthController extends Controller
 
             Auth::login($user, remember: true);
             request()->session()->regenerate();
+            request()->session()->put('auth.authenticated_via_google', true);
 
             return redirect()->intended(route('dashboard'));
         } catch (Throwable $throwable) {
@@ -179,7 +179,8 @@ final class OAuthController extends Controller
                 return to_route('social-accounts')->with('error', 'Resposta de OAuth inesperada da plataforma.');
             }
 
-            $userId = Cast::int(config('social-publishing.account_owner_id', 1));
+            $userId = Auth::id();
+            abort_unless(is_int($userId), 403);
 
             $accounts = match ($platform) {
                 'youtube' => $connector->fromGoogle($socialUser, $userId),

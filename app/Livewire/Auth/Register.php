@@ -37,6 +37,7 @@ final class Register extends Component
         event(new Registered($user));
 
         Auth::login($user);
+        session()->forget('auth.authenticated_via_google');
 
         $this->redirect(route('dashboard', absolute: false), navigate: true);
     }

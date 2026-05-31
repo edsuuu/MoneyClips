@@ -1,3 +1,3 @@
 <x-layout :title="__('Contas vinculadas')" layout="sidebar">
-    <livewire:social.accounts />
+    <livewire:settings.accounts />
 </x-layout>

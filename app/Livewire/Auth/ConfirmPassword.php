@@ -16,6 +16,17 @@ final class ConfirmPassword extends Component
 {
     public string $password = '';
 
+    public function mount(): void
+    {
+        if (session()->get('auth.authenticated_via_google') !== true) {
+            return;
+        }
+
+        session()->put('auth.password_confirmed_at', time());
+
+        $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+    }
+
     /**
      * Confirm the user's password.
      */

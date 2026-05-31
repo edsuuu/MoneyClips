@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Models\File;
 use App\Models\Video;
+use App\Models\ScheduledPost;
+use App\Services\SocialPublishing\SocialPublisherRegistry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -24,19 +27,7 @@ final class VideoController extends Controller
 
     public function transcript(Video $video): View|RedirectResponse
     {
-        $video->loadMissing('status', 'transcript');
-
-        $statusKey = $video->status?->key;
-        $alreadyConfirmed = (bool) $video->transcript?->is_confirmed_by_user;
-
-        if (
-            $alreadyConfirmed ||
-            in_array($statusKey, ['waiting_cuts', 'recommending_cuts', 'cutting', 'full_subtitled', 'completed'], true)
-        ) {
-            return to_route('videos.editor', ['video' => $video->uuid]);
-        }
-
-        return view('videos.transcript', ['video' => $video]);
+        return to_route('videos.editor', ['video' => $video->uuid]);
     }
 
     public function editor(Video $video): View
@@ -47,6 +38,45 @@ final class VideoController extends Controller
     public function schedule(Video $video): View
     {
         return view('videos.schedule', ['video' => $video]);
+    }
+
+    public function publications(Video $video, SocialPublisherRegistry $registry): View
+    {
+        $posts = ScheduledPost::query()
+            ->where('video_id', $video->id)
+            ->with(['account', 'cut'])
+            ->latest()
+            ->paginate(20);
+
+        return view('videos.publications', [
+            'video' => $video,
+            'posts' => $posts,
+            'platformLabels' => $registry->labels(),
+        ]);
+    }
+
+    public function thumbnail(Video $video): StreamedResponse
+    {
+        $thumbnail = $video->files()->where('type', 'thumbnail')->latest()->first();
+        abort_unless($thumbnail instanceof File, 404);
+
+        $disk = Storage::disk($thumbnail->disk ?: 'minio');
+        abort_unless($disk->exists($thumbnail->path), 404);
+
+        $stream = $disk->readStream($thumbnail->path);
+        abort_if($stream === null, 404);
+
+        return new StreamedResponse(
+            static function () use ($stream): void {
+                fpassthru($stream);
+                fclose($stream);
+            },
+            200,
+            [
+                'Content-Type' => 'image/jpeg',
+                'Cache-Control' => 'private, max-age=86400, stale-while-revalidate=604800',
+            ],
+        );
     }
 
     public function stream(Video $video, string $path): StreamedResponse
@@ -65,8 +95,18 @@ final class VideoController extends Controller
                 fclose($stream);
             },
             200,
-            ['Content-Type' => $this->contentTypeFor($objectPath)],
+            [
+                'Content-Type' => $this->contentTypeFor($objectPath),
+                'Cache-Control' => $this->cacheControlFor($objectPath),
+            ],
         );
+    }
+
+    private function cacheControlFor(string $objectPath): string
+    {
+        return str_ends_with(mb_strtolower($objectPath), '.m3u8')
+            ? 'private, no-cache'
+            : 'private, max-age=3600, immutable';
     }
 
     private function contentTypeFor(string $objectPath): string
