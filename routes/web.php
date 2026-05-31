@@ -7,6 +7,8 @@ use App\Http\Controllers\VideoController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
+Route::view('/terms-of-service', 'legal.terms')->name('legal.terms');
+Route::view('/privacy-policy', 'legal.privacy')->name('legal.privacy');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/auth/google/redirect', [OAuthController::class, 'loginRedirect'])->name('auth.google.redirect');

@@ -64,8 +64,10 @@ return [
     ],
 
     'tiktok' => [
+        'client_key' => env('TIKTOK_CLIENT_KEY'),
         'client_id' => env('TIKTOK_CLIENT_KEY'),
         'client_secret' => env('TIKTOK_CLIENT_SECRET'),
+        'redirect' => env('TIKTOK_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/tiktok/callback'),
     ],
 
 ];

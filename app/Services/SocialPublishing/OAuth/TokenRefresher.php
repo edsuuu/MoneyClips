@@ -58,7 +58,7 @@ final class TokenRefresher
         $resp = Http::asForm()->post('https://open.tiktokapis.com/v2/oauth/token/', [
             'grant_type' => 'refresh_token',
             'refresh_token' => $account->refresh_token,
-            'client_key' => config('services.tiktok.client_id'),
+            'client_key' => config('services.tiktok.client_key'),
             'client_secret' => config('services.tiktok.client_secret'),
         ]);
 

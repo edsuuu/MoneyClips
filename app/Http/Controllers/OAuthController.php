@@ -6,11 +6,13 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\SocialPublishing\OAuth\SocialAccountConnector;
+use App\Support\Cast;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\AbstractProvider;
@@ -25,6 +27,12 @@ use Throwable;
  */
 final class OAuthController extends Controller
 {
+    private const string TIKTOK_AUTHORIZE_URL = 'https://www.tiktok.com/v2/auth/authorize/';
+
+    private const string TIKTOK_TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
+
+    private const string TIKTOK_USER_INFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
+
     /** Plataforma -> [driver Socialite, escopos, params extras]. */
     private const array PROVIDERS = [
         'youtube' => [
@@ -127,8 +135,24 @@ final class OAuthController extends Controller
         }
 
         if ($platform === 'tiktok') {
-            return to_route('social-accounts')
-                ->with('error', 'TikTok usa conexão manual por token nesta aplicação.');
+            if (! $this->tiktokConfigured()) {
+                return to_route('social-accounts')
+                    ->with('error', 'Configure TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET e TIKTOK_REDIRECT_URI no .env antes de conectar.');
+            }
+
+            $state = Str::random(40);
+            request()->session()->put('oauth.tiktok.state', $state);
+
+            $query = http_build_query([
+                'client_key' => config('services.tiktok.client_key'),
+                'response_type' => 'code',
+                'scope' => 'user.info.basic,video.publish',
+                'redirect_uri' => config('services.tiktok.redirect'),
+                'state' => $state,
+                'disable_auto_auth' => 0,
+            ]);
+
+            return redirect()->away(self::TIKTOK_AUTHORIZE_URL.'?'.$query);
         }
 
         $config = self::PROVIDERS[$platform] ?? null;
@@ -164,8 +188,77 @@ final class OAuthController extends Controller
         }
 
         if ($platform === 'tiktok') {
-            return to_route('social-accounts')
-                ->with('error', 'TikTok usa conexão manual por token nesta aplicação.');
+            if (! $this->tiktokConfigured()) {
+                return to_route('social-accounts')
+                    ->with('error', 'Configure TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET e TIKTOK_REDIRECT_URI no .env antes de conectar.');
+            }
+
+            $error = mb_trim((string) request()->query('error', ''));
+            if ($error !== '') {
+                $description = mb_trim((string) request()->query('error_description', ''));
+
+                return to_route('social-accounts')
+                    ->with('error', 'Falha no OAuth do TikTok: '.($description !== '' ? $description : $error));
+            }
+
+            $expectedState = (string) request()->session()->pull('oauth.tiktok.state', '');
+            $state = mb_trim((string) request()->query('state', ''));
+            if ($expectedState === '' || ! hash_equals($expectedState, $state)) {
+                return to_route('social-accounts')->with('error', 'Falha no OAuth do TikTok: state inválido.');
+            }
+
+            $code = mb_trim((string) request()->query('code', ''));
+            if ($code === '') {
+                return to_route('social-accounts')->with('error', 'Falha no OAuth do TikTok: código ausente.');
+            }
+
+            try {
+                $tokenResponse = Http::asForm()->post(self::TIKTOK_TOKEN_URL, [
+                    'client_key' => config('services.tiktok.client_key'),
+                    'client_secret' => config('services.tiktok.client_secret'),
+                    'code' => $code,
+                    'grant_type' => 'authorization_code',
+                    'redirect_uri' => config('services.tiktok.redirect'),
+                ]);
+
+                if (! $tokenResponse->successful() || ! filled($tokenResponse->json('access_token'))) {
+                    $message = Cast::str($tokenResponse->json('error_description'))
+                        ?: Cast::str($tokenResponse->json('message'))
+                        ?: Cast::str($tokenResponse->body());
+
+                    return to_route('social-accounts')
+                        ->with('error', 'Falha ao trocar o código do TikTok por token: '.$message);
+                }
+
+                $userId = Auth::id();
+                abort_unless(is_int($userId), 403);
+
+                $accessToken = Cast::str($tokenResponse->json('access_token'));
+                $profileResponse = Http::withToken($accessToken)->get(self::TIKTOK_USER_INFO_URL, [
+                    'fields' => 'open_id,display_name,avatar_url',
+                ]);
+
+                $profile = $profileResponse->successful()
+                    ? Cast::arr($profileResponse->json('data.user'))
+                    : [];
+
+                $accounts = $connector->fromTikTokTokenBundle(
+                    Cast::arr($tokenResponse->json()),
+                    $profile,
+                    $userId,
+                );
+
+                if ($accounts === []) {
+                    return to_route('social-accounts')
+                        ->with('error', 'Nenhuma conta do TikTok foi retornada.');
+                }
+
+                $names = implode(', ', array_map(static fn ($a): string => $a->name, $accounts));
+
+                return to_route('social-accounts')->with('status', 'Conta(s) conectada(s): '.$names);
+            } catch (Throwable $throwable) {
+                return to_route('social-accounts')->with('error', 'Falha no OAuth do TikTok: '.$throwable->getMessage());
+            }
         }
 
         $config = self::PROVIDERS[$platform] ?? null;
@@ -220,5 +313,12 @@ final class OAuthController extends Controller
         ]);
 
         return $provider->scopes(['openid', 'profile', 'email']);
+    }
+
+    private function tiktokConfigured(): bool
+    {
+        return filled(config('services.tiktok.client_key'))
+            && filled(config('services.tiktok.client_secret'))
+            && filled(config('services.tiktok.redirect'));
     }
 }

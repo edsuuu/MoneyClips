@@ -92,9 +92,6 @@
                         <flux:navbar.item :href="route('login')" :current="request()->routeIs('login')" wire:navigate>
                             {{ __('Log in') }}
                         </flux:navbar.item>
-                        <flux:navbar.item :href="route('register')" :current="request()->routeIs('register')" wire:navigate>
-                            {{ __('Register') }}
-                        </flux:navbar.item>
                     </div>
                 @endguest
             </flux:header>

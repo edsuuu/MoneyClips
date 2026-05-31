@@ -71,6 +71,38 @@ final class SocialAccountConnector
     }
 
     /**
+     * TikTok Login Kit v2: recebe o bundle OAuth oficial e os dados básicos do usuário.
+     *
+     * @param  array<string, mixed>  $tokenData
+     * @param  array<string, mixed>  $profile
+     * @return list<SocialAccount>
+     */
+    public function fromTikTokTokenBundle(array $tokenData, array $profile, ?int $userId): array
+    {
+        $openId = Cast::str($tokenData['open_id'] ?? $profile['open_id'] ?? '');
+        if ($openId === '') {
+            return [];
+        }
+
+        $displayName = Cast::str($profile['display_name'] ?? '') ?: 'TikTok';
+
+        $account = $this->upsert($userId, 'tiktok', $openId, $displayName, [
+            'access_token' => Cast::str($tokenData['access_token'] ?? ''),
+            'refresh_token' => Cast::str($tokenData['refresh_token'] ?? '') ?: null,
+            'token_expires_at' => isset($tokenData['expires_in']) ? now()->addSeconds(Cast::int($tokenData['expires_in'])) : null,
+            'scopes' => $this->parseScopes(Cast::str($tokenData['scope'] ?? '')),
+            'meta' => array_filter([
+                'open_id' => $openId,
+                'display_name' => Cast::str($profile['display_name'] ?? ''),
+                'avatar_url' => Cast::str($profile['avatar_url'] ?? ''),
+                'privacy_level' => 'SELF_ONLY',
+            ], static fn ($value): bool => $value !== ''),
+        ]);
+
+        return [$account];
+    }
+
+    /**
      * Meta: troca por token de longa duração, enumera Páginas e contas IG Business
      * vinculadas, criando uma conta facebook por página e uma instagram por IG.
      *
@@ -160,5 +192,18 @@ final class SocialAccountConnector
         );
 
         return $account;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function parseScopes(string $rawScopes): array
+    {
+        $scopes = array_map(
+            static fn (string $scope): string => trim($scope),
+            explode(',', $rawScopes),
+        );
+
+        return array_values(array_filter($scopes, static fn (string $scope): bool => $scope !== ''));
     }
 }

@@ -1,6 +1,6 @@
 <x-layout :title="__('Transforme vídeos longos em clipes virais')" layout="landing">
     @php
-        $startRoute = auth()->check() ? route('videos.create') : route('register');
+        $startRoute = auth()->check() ? route('videos.create') : route('login');
     @endphp
 
     <div class="landing-page">
@@ -38,9 +38,9 @@
             <section class="landing-hero">
                 <div class="landing-glow landing-glow-one"></div>
                 <div class="landing-container landing-hero-content">
-                    <p class="landing-pill"><span></span>Editor de IA profissional</p>
+                    <p class="landing-pill"><span></span>Aplicação interna para postagem única</p>
                     <h1>Transforme vídeos longos em <strong>clipes virais</strong> em segundos.</h1>
-                    <p class="landing-hero-copy">Use inteligência artificial para identificar os melhores momentos dos seus podcasts e vídeos, gerando cortes otimizados para TikTok, Reels e Shorts.</p>
+                    <p class="landing-hero-copy">Ferramenta interna para transformar vídeos longos em cortes prontos para edição, organização e postagem única nas plataformas conectadas.</p>
                     <div class="landing-actions">
                         <a class="landing-button landing-button-primary" href="{{ $startRoute }}">Começar agora grátis <svg><use href="#icon-arrow" /></svg></a>
                         <a class="landing-button landing-button-secondary" href="#como-funciona">Conhecer recursos</a>
@@ -170,8 +170,8 @@
         <footer class="landing-footer">
             <div class="landing-container landing-footer-grid">
                 <div><a class="landing-brand" href="{{ route('home') }}">Generate<span>Clips</span></a><p>Transforme vídeos longos em conteúdo vertical pronto para conquistar novas audiências.</p></div>
-                <div><b>Produto</b><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="{{ $startRoute }}">Começar agora</a></div>
-                <div><b>Conta</b><a href="{{ route('login') }}">Entrar</a><a href="{{ route('register') }}">Criar conta</a><a href="#faq">Perguntas frequentes</a></div>
+                <div><b>Produto</b><a href="#como-funciona">Como funciona</a><a href="#recursos">Recursos</a><a href="{{ $startRoute }}">Entrar</a></div>
+                <div><b>Legal</b><a href="{{ route('legal.terms') }}">Termos de Serviço</a><a href="{{ route('legal.privacy') }}">Política de Privacidade</a><a href="#faq">Perguntas frequentes</a></div>
             </div>
             <div class="landing-container landing-footer-bottom"><span>&copy; {{ date('Y') }} Generate Clips. Todos os direitos reservados.</span><span>Feito para criadores que querem produzir mais.</span></div>
         </footer>
