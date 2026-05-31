@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\VideoProcessor;
 
-use App\Jobs\RunAutoPilotJob;
 use App\Models\Cut;
 use App\Models\File;
 use App\Models\ProcessingJob;
@@ -105,34 +104,7 @@ final readonly class VideoProcessorCallbackService
             $this->status->transition($job, $finalKey, $message);
         }
 
-        $this->maybeStartAutoPilot($video, $payload);
-
         return $video;
-    }
-
-    /**
-     * Dispara o piloto automático assim que a ingestão termina (transcrição pronta)
-     * para vídeos marcados como is_auto. As demais etapas (cortes/renderização) já
-     * acontecem dentro do próprio fluxo automático.
-     *
-     * @param  array<string, mixed>  $payload
-     */
-    private function maybeStartAutoPilot(Video $video, array $payload): void
-    {
-        if (! $video->is_auto || $this->isFailure($payload)) {
-            return;
-        }
-
-        $event = is_string($payload['event'] ?? null) ? $payload['event'] : '';
-        if (! str_starts_with($event, 'ingest')) {
-            return;
-        }
-
-        if (! $video->transcript()->exists()) {
-            return;
-        }
-
-        dispatch(new RunAutoPilotJob($video->id));
     }
 
     /** @param  array<string, mixed>  $payload */
