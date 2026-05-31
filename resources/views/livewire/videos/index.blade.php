@@ -22,6 +22,7 @@
                 default => 'zinc',
             })
             @php($duration = is_numeric($video->duration_seconds) ? (int) round((float) $video->duration_seconds) : null)
+            @php($canProcess = $statusKey === 'pending' && (int) ($video->processing_jobs_count ?? 0) === 0)
             <article class="overflow-hidden rounded-3xl border border-slate-800 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.10),_rgba(15,23,42,0.95)_52%)] shadow-[0_20px_60px_rgba(2,6,23,0.35)] transition hover:border-slate-700">
                 <a href="{{ route('videos.editor', $video) }}" wire:navigate class="block cursor-pointer">
                     <div class="relative aspect-video bg-slate-950">
@@ -82,7 +83,11 @@
                             </flux:button>
                         @endif
 
-                        @if($video->status?->key === 'failed')
+                        @if($canProcess)
+                            <flux:button variant="subtle" size="sm" icon="play" class="col-span-2 cursor-pointer justify-center" wire:click="process('{{ $video->uuid }}')" wire:loading.attr="disabled" wire:target="process('{{ $video->uuid }}')">
+                                Processar
+                            </flux:button>
+                        @elseif($video->status?->key === 'failed')
                             <flux:button variant="subtle" size="sm" icon="arrow-path" class="col-span-2 cursor-pointer justify-center" wire:click="reprocess('{{ $video->uuid }}')" wire:loading.attr="disabled" wire:target="reprocess('{{ $video->uuid }}')">
                                 Reprocessar
                             </flux:button>

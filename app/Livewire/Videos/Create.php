@@ -7,8 +7,6 @@ namespace App\Livewire\Videos;
 use App\Models\Status;
 use App\Models\Transcript;
 use App\Models\Video;
-use App\Services\Status\StatusService;
-use App\Services\VideoProcessor\VideoProcessorService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -20,7 +18,7 @@ final class Create extends Component
     #[Validate('required|url')]
     public string $url = '';
 
-    public function start(VideoProcessorService $videoProcessor): void
+    public function start(): void
     {
         $this->validate();
 
@@ -90,10 +88,6 @@ final class Create extends Component
                     ]);
                 }
 
-                $statusService = resolve(StatusService::class);
-                $statusService->transition($newVideo, 'pending', 'Vídeo criado via cache de URL existente');
-                $statusService->transition($newVideo, $statusKey, 'Dados recuperados do cache da URL');
-
                 return $newVideo;
             });
 
@@ -108,8 +102,6 @@ final class Create extends Component
             'progress' => 0,
             'created_by' => Auth::id(),
         ]);
-
-        $videoProcessor->startIngest($video);
 
         $this->redirectRoute('videos.editor', ['video' => $video->uuid], navigate: true);
     }

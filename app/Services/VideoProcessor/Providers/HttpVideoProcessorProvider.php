@@ -11,6 +11,7 @@ use App\Services\VideoProcessor\Data\RenderCutsData;
 use App\Services\VideoProcessor\Data\SubtitleFullData;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
+use RuntimeException;
 
 /**
  * Implementação HTTP do contrato. Aqui ficam APENAS as chamadas de rede;
@@ -21,7 +22,7 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
     public function ingest(IngestVideoData $data): array
     {
         /** @var array<string, mixed> $res */
-        $res = $this->client()
+        $res = $this->readyClient()
             ->post('/videos/ingest', $data->toArray())
             ->throw()
             ->json();
@@ -32,7 +33,7 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
     public function subtitleFull(string $videoUuid, SubtitleFullData $data): array
     {
         /** @var array<string, mixed> $res */
-        $res = $this->client()
+        $res = $this->readyClient()
             ->post(sprintf('/videos/%s/subtitle-full', $videoUuid), $data->toArray())
             ->throw()
             ->json();
@@ -43,7 +44,7 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
     public function recommendCuts(string $videoUuid, RecommendCutsData $data): array
     {
         /** @var array<string, mixed> $res */
-        $res = $this->client()
+        $res = $this->readyClient()
             ->post(sprintf('/videos/%s/recommend-cuts', $videoUuid), $data->toArray())
             ->throw()
             ->json();
@@ -54,7 +55,7 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
     public function renderCuts(string $videoUuid, RenderCutsData $data): array
     {
         /** @var array<string, mixed> $res */
-        $res = $this->client()
+        $res = $this->readyClient()
             ->post(sprintf('/videos/%s/render-cuts', $videoUuid), $data->toArray())
             ->throw()
             ->json();
@@ -62,10 +63,17 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
         return $res;
     }
 
+    private function readyClient(): PendingRequest
+    {
+        $client = $this->client();
+        $this->ensureHeartbeat($client);
+
+        return $client;
+    }
+
     private function client(): PendingRequest
     {
-        $baseUrl = config('video-processor.base_url');
-        $baseUrlStr = is_string($baseUrl) ? $baseUrl : 'http://127.0.0.1:8765';
+        $baseUrlStr = (string) config('video-processor.base_url', 'http://127.0.0.1:8765');
 
         $timeout = config('video-processor.timeout', 120);
         $timeoutInt = is_int($timeout) || is_numeric($timeout) ? (int) $timeout : 120;
@@ -82,5 +90,18 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
         }
 
         return $request;
+    }
+
+    private function ensureHeartbeat(PendingRequest $client): void
+    {
+        $timeout = config('video-processor.timeout', 120);
+        $timeoutInt = is_int($timeout) || is_numeric($timeout) ? (int) $timeout : 120;
+        $heartbeat = $client
+            ->timeout(min($timeoutInt, 10))
+            ->get('/heart');
+
+        if (! $heartbeat->successful()) {
+            throw new RuntimeException('Microservico de video indisponivel: /heart nao respondeu corretamente.');
+        }
     }
 }
