@@ -28,6 +28,7 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/videos/{video}/stream/{path}', [VideoController::class, 'stream'])
         ->where('path', '.*')
         ->name('videos.stream');
+    Route::get('/videos/{video}/cut/{type}', [VideoController::class, 'cut'])->name('videos.cut');
 
     // Agendamento social: dashboard de publicações e gestão de contas conectadas.
     Route::view('/posts', 'posts.dashboard')->name('posts.dashboard');
