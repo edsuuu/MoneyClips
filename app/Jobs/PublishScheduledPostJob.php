@@ -15,6 +15,7 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Publica de fato um ScheduledPost na plataforma. Roda na fila; cada execução
@@ -38,12 +39,16 @@ final class PublishScheduledPostJob implements ShouldQueue
         $post = ScheduledPost::query()->with(['cut.files', 'video.files', 'account'])->find($this->scheduledPostId);
 
         if (! $post instanceof ScheduledPost) {
+            Log::warning('[PublishScheduledPostJob] ScheduledPost não encontrado.', ['scheduled_post_id' => $this->scheduledPostId]);
+
             return;
         }
 
         $lock = Cache::lock('scheduled-post:'.$post->id, $this->timeout);
 
         if (! $lock->get()) {
+            Log::warning('[PublishScheduledPostJob] Lock não adquirido; outro processo já está publicando.', ['scheduled_post_id' => $post->id]);
+
             return;
         }
 
@@ -56,11 +61,26 @@ final class PublishScheduledPostJob implements ShouldQueue
 
             // Só processa posts que o dispatcher marcou como publishing (evita corrida/duplicação).
             if ($post->status !== ScheduledPost::STATUS_PUBLISHING) {
+                Log::warning('[PublishScheduledPostJob] Post ignorado: status não é publishing.', [
+                    'scheduled_post_id' => $post->id,
+                    'status' => $post->status,
+                ]);
+
                 return;
             }
 
+            Log::info('[PublishScheduledPostJob] Iniciando publicação.', [
+                'scheduled_post_id' => $post->id,
+                'platform' => $post->platform,
+                'attempts' => $post->attempts,
+            ]);
+
             $publisher = $registry->for($post->platform);
             if (! $publisher instanceof SocialPublisher) {
+                Log::error('[PublishScheduledPostJob] Plataforma não suportada.', [
+                    'scheduled_post_id' => $post->id,
+                    'platform' => $post->platform,
+                ]);
                 $this->markFailed($post, 'Plataforma não suportada: '.$post->platform);
 
                 return;
@@ -82,10 +102,23 @@ final class PublishScheduledPostJob implements ShouldQueue
                     'payload' => $result->context ?: $post->payload,
                 ]);
                 $post->log(SocialPostLog::LEVEL_INFO, $result->message, $result->context);
+                Log::info('[PublishScheduledPostJob] Publicado com sucesso.', [
+                    'scheduled_post_id' => $post->id,
+                    'platform' => $post->platform,
+                    'external_id' => $result->externalId,
+                    'message' => $result->message,
+                    'context' => $result->context,
+                ]);
 
                 return;
             }
 
+            Log::error('[PublishScheduledPostJob] Falha na publicação.', [
+                'scheduled_post_id' => $post->id,
+                'platform' => $post->platform,
+                'message' => $result->message,
+                'context' => $result->context,
+            ]);
             $this->handleFailure($post, $result->message, $result->context);
         } finally {
             $lock->release();

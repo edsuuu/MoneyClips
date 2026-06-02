@@ -9,6 +9,7 @@ use App\Services\SocialPublishing\PublishException;
 use App\Services\SocialPublishing\PublishResult;
 use App\Support\Cast;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
@@ -48,6 +49,13 @@ final class TikTokPublisher extends AbstractPublisher
             $title = mb_trim((string) ($post->title ?: ''));
             $caption = mb_trim($title."\n".$this->hashtagsString($post));
 
+            Log::info('[TikTokPublisher] Iniciando sessão de upload.', [
+                'scheduled_post_id' => $post->id,
+                'file_path' => $file->path,
+                'file_size_bytes' => $size,
+                'privacy_level' => $privacy,
+            ]);
+
             // 1) init: cria a sessão de upload.
             $init = Http::withToken((string) $account->access_token)
                 ->timeout(60)
@@ -67,8 +75,19 @@ final class TikTokPublisher extends AbstractPublisher
                     ],
                 ]);
 
+            Log::info('[TikTokPublisher] Resposta do init.', [
+                'scheduled_post_id' => $post->id,
+                'http_status' => $init->status(),
+                'response' => $init->json() ?? $init->body(),
+            ]);
+
             $error = $init->json('error.code');
             if (! $init->successful() || ($error !== null && $error !== 'ok')) {
+                Log::error('[TikTokPublisher] Falha no init: HTTP '.$init->status().', error_code='.$error, [
+                    'scheduled_post_id' => $post->id,
+                    'response' => $init->json() ?? $init->body(),
+                ]);
+
                 return PublishResult::fail('Falha ao iniciar publicação no TikTok.', ['response' => $init->json() ?? $init->body()]);
             }
 
@@ -76,8 +95,20 @@ final class TikTokPublisher extends AbstractPublisher
             $uploadUrl = Cast::str($init->json('data.upload_url'));
 
             if ($uploadUrl === '') {
+                Log::error('[TikTokPublisher] Init bem-sucedido mas upload_url ausente.', [
+                    'scheduled_post_id' => $post->id,
+                    'response' => $init->json(),
+                ]);
+
                 return PublishResult::fail('TikTok não retornou a URL de upload.', ['response' => $init->json()]);
             }
+
+            Log::info('[TikTokPublisher] Enviando vídeo ao TikTok.', [
+                'scheduled_post_id' => $post->id,
+                'publish_id' => $publishId,
+                'upload_url' => $uploadUrl,
+                'file_size_bytes' => $size,
+            ]);
 
             // 2) envia o arquivo (chunk único).
             $upload = Http::withHeaders([
@@ -88,14 +119,39 @@ final class TikTokPublisher extends AbstractPublisher
                 ->timeout(600)
                 ->put($uploadUrl);
 
+            Log::info('[TikTokPublisher] Resposta do upload.', [
+                'scheduled_post_id' => $post->id,
+                'http_status' => $upload->status(),
+                'response_body' => $upload->body(),
+            ]);
+
             if (! $upload->successful()) {
+                Log::error('[TikTokPublisher] Falha no upload: HTTP '.$upload->status(), [
+                    'scheduled_post_id' => $post->id,
+                    'response_body' => $upload->body(),
+                ]);
+
                 return PublishResult::fail('Falha ao enviar o vídeo ao TikTok.', ['response' => $upload->body()]);
             }
 
+            Log::info('[TikTokPublisher] Vídeo enviado com sucesso.', [
+                'scheduled_post_id' => $post->id,
+                'publish_id' => $publishId,
+            ]);
+
             return PublishResult::ok($publishId ?: null, null, 'Vídeo enviado ao TikTok (processando).', ['publish_id' => $publishId]);
         } catch (PublishException $e) {
+            Log::warning('[TikTokPublisher] PublishException: '.$e->getMessage(), [
+                'scheduled_post_id' => $post->id,
+            ]);
+
             return PublishResult::fail($e->getMessage());
         } catch (Throwable $e) {
+            Log::error('[TikTokPublisher] Throwable inesperado: '.$e->getMessage(), [
+                'scheduled_post_id' => $post->id,
+                'exception' => $e,
+            ]);
+
             return PublishResult::fail('Erro inesperado ao publicar no TikTok: '.$e->getMessage());
         } finally {
             if ($tmp !== null && is_file($tmp)) {
