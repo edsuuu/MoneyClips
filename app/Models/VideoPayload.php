@@ -15,7 +15,7 @@ final class VideoPayload extends Model
     /** @use HasFactory<Factory> */
     use HasFactory;
 
-    protected $fillable = ['uuid', 'video_id', 'processing_job_id', 'type', 'payload'];
+    protected $fillable = ['uuid', 'video_id', 'type', 'payload'];
 
     public function getRouteKeyName(): string
     {
@@ -28,14 +28,6 @@ final class VideoPayload extends Model
     public function video(): BelongsTo
     {
         return $this->belongsTo(Video::class);
-    }
-
-    /**
-     * @return BelongsTo<ProcessingJob, $this>
-     */
-    public function processingJob(): BelongsTo
-    {
-        return $this->belongsTo(ProcessingJob::class);
     }
 
     protected static function booted(): void

@@ -11,7 +11,7 @@ use RuntimeException;
 
 final readonly class Downloader
 {
-    public const string FORMAT_VIDEO = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best';
+    public const string FORMAT_VIDEO = 'bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best';
 
     public const string FORMAT_AUDIO = 'bestaudio[ext=m4a]/bestaudio';
 

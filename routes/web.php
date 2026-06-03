@@ -18,8 +18,7 @@ Route::middleware('guest')->group(function (): void {
 Route::middleware(['auth'])->group(function (): void {
     Route::view('/videos', 'videos.index')->name('videos.index');
     Route::view('/videos/create', 'videos.create')->name('videos.create');
-    Route::get('/videos/{video}/transcript', [VideoController::class, 'transcript'])->name('videos.transcript');
-    Route::view('/videos/{video}/editor', 'videos.editor')->name('videos.editor');
+    Route::view('/videos/{uuid}/editor', 'videos.editor')->name('videos.editor');
     Route::view('/videos/{video}/schedule', 'videos.schedule')->name('videos.schedule');
     Route::get('/videos/{video}/publications', [VideoController::class, 'publications'])->name('videos.publications');
     Route::get('/videos/{video}/thumbnail', [VideoController::class, 'thumbnail'])->name('videos.thumbnail');

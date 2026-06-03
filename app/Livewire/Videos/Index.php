@@ -56,7 +56,6 @@ final class Index extends Component
             DB::transaction(function () use ($video): void {
                 $video->statusLogs()->delete();
                 $video->payloads()->delete();
-                $video->processingJobs()->delete();
                 $video->transcript()->delete();
                 $video->files()->delete();
                 $video->cuts()->delete();
@@ -84,7 +83,7 @@ final class Index extends Component
             return;
         }
 
-        if ($video->status?->key !== 'pending' || $video->processingJobs()->exists()) {
+        if ($video->status?->key !== 'pending') {
             Flux::toast('Este vídeo já foi enviado para processamento.', variant: 'danger');
 
             return;
