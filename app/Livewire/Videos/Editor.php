@@ -55,11 +55,22 @@ final class Editor extends Component
         $this->video = Video::query()->where('uuid', $uuid)->firstOrFail();
     }
 
+    /** Status que ainda não terminaram — mantém polling ativo. */
+    private const ACTIVE_STATUSES = [
+        'queued', 'downloading', 'processing', 'transcribing',
+        'subtitling_full', 'cutting', 'recommending_cuts',
+    ];
+
     public function refreshStatus(): void
     {
         $this->video->refresh();
 
         $this->renderJobId = null;
+    }
+
+    public function isProcessingActive(): bool
+    {
+        return in_array($this->video->status?->key, self::ACTIVE_STATUSES, true);
     }
 
     public function startDownload(): void
@@ -495,7 +506,12 @@ final class Editor extends Component
         $original = $this->video->fileOfType('original');
         $playable = $legendado ?? $original;
 
-        $activeJobId = $this->renderJobId;
+        $ingestJobId = ($statusKey === 'downloading' || $statusKey === 'queued')
+            && $this->video->current_job_id !== null
+            ? $this->video->current_job_id
+            : null;
+
+        $activeJobId = $this->renderJobId ?? $ingestJobId;
 
         $status = $this->video->status;
 

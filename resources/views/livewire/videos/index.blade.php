@@ -1,4 +1,7 @@
-<section class="mx-auto flex w-full max-w-7xl flex-col gap-6">
+<section
+    class="mx-auto flex w-full max-w-7xl flex-col gap-6"
+    wire:poll.4000ms="render"
+>
     <x-studio.page-header
         eyebrow="Biblioteca"
         title="Vídeos"
@@ -63,10 +66,20 @@
                             {{ $video->title ?? 'Vídeo sem título' }}
                         </p>
                         <div class="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            @if($video->progress !== null && $statusKey !== 'completed')
-                                <span>{{ (int) $video->progress }}% concluído</span>
+                            @if($video->progress !== null && ! in_array($statusKey, ['completed', 'pending', 'failed', 'cancelled']))
+                                <span>{{ (int) $video->progress }}%</span>
+                                @if($video->download_stage)
+                                    <span class="text-slate-600">·</span>
+                                    <span class="capitalize">{{ $video->download_stage }}</span>
+                                @endif
                             @endif
                         </div>
+                        @if(in_array($statusKey, ['queued', 'downloading', 'processing', 'transcribing', 'subtitling_full', 'cutting', 'recommending_cuts']) && $video->progress > 0)
+                            <div class="w-full bg-slate-800 rounded-full h-1 overflow-hidden mt-1">
+                                <div class="bg-indigo-500 h-1 rounded-full transition-all duration-500"
+                                     style="width: {{ min(100, (int) $video->progress) }}%"></div>
+                            </div>
+                        @endif
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">

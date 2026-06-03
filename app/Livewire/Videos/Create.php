@@ -7,6 +7,7 @@ namespace App\Livewire\Videos;
 use App\Jobs\ProcessVideoJob;
 use App\Models\Status;
 use App\Models\Video;
+use Flux\Flux;
 use Illuminate\View\View;
 use Livewire\Component;
 
@@ -49,12 +50,14 @@ final class Create extends Component
 
         $video = Video::query()->create([
             'url' => $validated['url'],
-            'status_id' => Status::idFor('pending'),
+            'status_id' => Status::idFor('queued'),
         ]);
 
         dispatch(new ProcessVideoJob($video));
 
-        $this->redirectRoute('videos.editor', ['video' => $video->uuid], navigate: true);
+        Flux::toast('Vídeo adicionado. O processamento começa em instantes.');
+
+        $this->redirectRoute('videos.editor', ['uuid' => $video->uuid], navigate: true);
     }
 
     public function render(): View

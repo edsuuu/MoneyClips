@@ -143,7 +143,6 @@ final class Index extends Component
         /** @var Collection<int, Video> $videos */
         $videos = Video::query()
             ->with(['status', 'files'])
-            ->withCount('processingJobs')
             ->latest()
             ->get();
 
