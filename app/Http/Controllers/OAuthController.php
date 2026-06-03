@@ -212,7 +212,7 @@ final class OAuthController extends Controller
                     'redirect_uri' => config('services.tiktok.redirect'),
                 ]);
 
-                if (! $tokenResponse->successful() || ! filled($tokenResponse->json('access_token'))) {
+                if (! $tokenResponse->successful() || blank($tokenResponse->json('access_token'))) {
                     $message = Cast::str($tokenResponse->json('error_description'))
                         ?: Cast::str($tokenResponse->json('message'))
                         ?: Cast::str($tokenResponse->body());

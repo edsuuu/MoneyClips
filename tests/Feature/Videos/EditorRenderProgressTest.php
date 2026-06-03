@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Services\VideoProcessor\Data\RecommendCutsData;
 use App\Livewire\Videos\Editor;
 use App\Models\ProcessingJob;
 use App\Models\Status;
@@ -126,7 +127,7 @@ test('ai recommend sends default constraints and persists returned cuts', functi
     $mockProvider = mock(VideoProcessorProviderInterface::class);
     $mockProvider->shouldReceive('recommendCuts')
         ->once()
-        ->withArgs(function (string $videoUuid, \App\Services\VideoProcessor\Data\RecommendCutsData $data): bool {
+        ->withArgs(function (string $videoUuid, RecommendCutsData $data): bool {
             expect($videoUuid)->not->toBe('');
             expect($data->constraints)->toBe([
                 'min_cuts' => 3,
@@ -171,7 +172,7 @@ test('ai recommend failure does not break the livewire request', function (): vo
     $mockProvider = mock(VideoProcessorProviderInterface::class);
     $mockProvider->shouldReceive('recommendCuts')
         ->once()
-        ->andThrow(new \RuntimeException('API de cortes indisponível'));
+        ->andThrow(new RuntimeException('API de cortes indisponível'));
     $this->app->instance(VideoProcessorProviderInterface::class, $mockProvider);
 
     $video = makeVideoWithCut();

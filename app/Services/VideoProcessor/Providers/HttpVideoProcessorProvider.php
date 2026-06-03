@@ -100,8 +100,6 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
             ->timeout(min($timeoutInt, 10))
             ->get('/heart');
 
-        if (! $heartbeat->successful()) {
-            throw new RuntimeException('Microservico de video indisponivel: /heart nao respondeu corretamente.');
-        }
+        throw_unless($heartbeat->successful(), RuntimeException::class, 'Microservico de video indisponivel: /heart nao respondeu corretamente.');
     }
 }
