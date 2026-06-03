@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Services\VideoProcessor\Data\RecommendCutsData;
 use App\Livewire\Videos\Editor;
-use App\Models\ProcessingJob;
 use App\Models\Status;
 use App\Models\User;
 use App\Models\Video;
@@ -32,8 +31,7 @@ function makeVideoWithCut(): Video
 
     $video->files()->create([
         'type' => 'original',
-        'path' => 'videos/abc123/original.mp4',
-        'disk' => 'minio',
+        'path' => 'videos/abc123/original/source.mp4',
     ]);
 
     $video->cuts()->create([
@@ -81,39 +79,13 @@ test('a finished render releases the progress bar on refresh', function (): void
         ->call('renderCuts')
         ->assertSet('renderJobId', 'render-job-done');
 
-    // Simula o webhook do Python concluindo o job.
-    ProcessingJob::query()
-        ->where('external_job_id', 'render-job-done')
-        ->update(['status_id' => Status::idFor('completed')]);
-
     $component->call('refreshStatus')
         ->assertSet('renderJobId', null)
         ->assertViewHas('activeJobId', fn ($value): bool => $value === null);
 });
 
-test('a stale stuck job superseded by a newer completed job shows no progress bar', function (): void {
+test('no progress bar is shown when no render was started in the component', function (): void {
     $video = makeVideoWithCut();
-
-    // Job antigo travado em "processing" (callback nunca chegou).
-    $stale = $video->processingJobs()->create([
-        'type' => 'subtitle_full',
-        'provider' => 'video_processor',
-        'status_id' => Status::idFor('processing'),
-        'external_job_id' => 'stale-stuck-job',
-        'progress' => 40,
-        'stage' => 'subtitle_full',
-    ]);
-    $stale->forceFill(['created_at' => now()->subDays(3)])->save();
-
-    // Job mais recente já concluído.
-    $video->processingJobs()->create([
-        'type' => 'render_cuts',
-        'provider' => 'video_processor',
-        'status_id' => Status::idFor('completed'),
-        'external_job_id' => 'recent-done-job',
-        'progress' => 100,
-        'stage' => 'render_cuts',
-    ]);
 
     Livewire::actingAs($this->user)
         ->test(Editor::class, ['video' => $video])

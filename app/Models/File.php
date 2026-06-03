@@ -17,7 +17,7 @@ final class File extends Model
     use HasFactory;
 
     protected $fillable = [
-        'uuid', 'video_id', 'cut_id', 'type', 'disk', 'bucket', 'path',
+        'uuid', 'video_id', 'cut_id', 'type', 'path',
         'mime_type', 'extension', 'size_bytes', 'checksum_sha256',
     ];
 

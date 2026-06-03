@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Override;
+use function __;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -35,9 +36,11 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
 
-        Gate::define('viewLogViewer', fn (User $user) => $user->hasRole('Administrador')
-            ? Response::allow()
-            : Response::deny(__('This action is unauthorized.')));
+//        Gate::define('viewLogViewer', fn (User $user) => $user->hasRole('Administrador')
+//            ? Response::allow()
+//            : Response::deny(__('This action is unauthorized.')));
+
+        Gate::define('viewLogViewer', fn (?User $user = null): bool => true);
     }
 
     /**

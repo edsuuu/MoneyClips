@@ -22,9 +22,9 @@ final class Uploader
             throw new RuntimeException('Arquivo local não encontrado ou vazio: ' . $localPath);
         }
 
-        $disk = config('filesystems.default');
+        $disk = 'minio';
         $extension = pathinfo($localPath, PATHINFO_EXTENSION);
-        $remotePath = sprintf('videos/%s/%s.%s', $video->uuid, $type, $extension);
+        $remotePath = sprintf('videos/%s/%s/source.%s', $video->uuid, $type, $extension);
         $mimeType = $this->mimeType($extension);
         $sizeBytes = (int) filesize($localPath);
         $checksum = hash_file('sha256', $localPath);
@@ -43,7 +43,7 @@ final class Uploader
         }
 
         try {
-            Storage::put($remotePath, $stream, [
+            Storage::disk($disk)->put($remotePath, $stream, [
                 'ContentType' => $mimeType,
             ]);
         } finally {
@@ -54,8 +54,6 @@ final class Uploader
 
         return $video->files()->create([
             'type' => $type,
-            'disk' => $disk,
-            'bucket' => config('filesystems.disks.'.$disk.'.bucket'),
             'path' => $remotePath,
             'mime_type' => $mimeType,
             'extension' => $extension,

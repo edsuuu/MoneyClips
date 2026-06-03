@@ -39,14 +39,6 @@ final class Video extends Model
     }
 
     /**
-     * @return HasMany<ProcessingJob, $this>
-     */
-    public function processingJobs(): HasMany
-    {
-        return $this->hasMany(ProcessingJob::class);
-    }
-
-    /**
      * @return HasMany<VideoPayload, $this>
      */
     public function payloads(): HasMany
