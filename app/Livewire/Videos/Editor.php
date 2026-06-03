@@ -70,7 +70,7 @@ final class Editor extends Component
     {
         $this->video->refresh();
 
-        ProcessVideoJob::dispatch($this->video);
+        dispatch(new ProcessVideoJob($this->video));
 
         Flux::toast('Download iniciado.');
     }

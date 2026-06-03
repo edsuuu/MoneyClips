@@ -41,7 +41,7 @@ final class ProcessVideoJob implements ShouldQueue
 
         try {
             $downloader = new Downloader();
-            $uploader   = new Uploader();
+            $uploader = new Uploader();
 
             // ── vídeo ─────────────────────────────────────────────────────────
             $log->info('[ProcessVideoJob] Baixando vídeo.', $ctx);
@@ -53,8 +53,8 @@ final class ProcessVideoJob implements ShouldQueue
             );
 
             $log->info('[ProcessVideoJob] Vídeo baixado.', $ctx + [
-                'title'     => $videoResult['title'],
-                'duration'  => $videoResult['duration'],
+                'title' => $videoResult['title'],
+                'duration' => $videoResult['duration'],
                 'file_path' => $videoResult['file_path'],
             ]);
 
@@ -77,18 +77,18 @@ final class ProcessVideoJob implements ShouldQueue
 
             // ── finaliza ──────────────────────────────────────────────────────
             $this->video->update([
-                'status_id'        => Status::idFor('processing'),
-                'download_stage'   => null,
-                'progress'         => 100,
-                'title'            => $this->video->title ?: $videoResult['title'],
+                'status_id' => Status::idFor('processing'),
+                'download_stage' => null,
+                'progress' => 100,
+                'title' => $this->video->title ?: $videoResult['title'],
                 'duration_seconds' => $videoResult['duration'],
             ]);
 
             $log->info('[ProcessVideoJob] Concluído com sucesso.', $ctx);
-        } catch (Throwable $exception) {
-            $log->error('[ProcessVideoJob] Falha.', $ctx + ['exception' => $exception]);
+        } catch (Throwable $throwable) {
+            $log->error('[ProcessVideoJob] Falha.', $ctx + ['exception' => $throwable]);
             $this->video->update(['status_id' => Status::idFor('failed')]);
-            $this->fail($exception);
+            $this->fail($throwable);
         }
     }
 }

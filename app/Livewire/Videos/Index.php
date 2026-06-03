@@ -148,12 +148,10 @@ final class Index extends Component
             ->latest()
             ->get();
 
-        $cards = $videos->map(function (Video $video): array {
-            return [
-                'video' => $video,
-                'thumb' => route('videos.thumbnail', $video),
-            ];
-        });
+        $cards = $videos->map(fn(Video $video): array => [
+            'video' => $video,
+            'thumb' => route('videos.thumbnail', $video),
+        ]);
 
         return view('livewire.videos.index', [
             'cards' => $cards,

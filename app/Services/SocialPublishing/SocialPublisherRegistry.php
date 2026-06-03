@@ -31,7 +31,7 @@ final class SocialPublisherRegistry
         ];
 
         $enabled = config('social-publishing.enabled_platforms', ['youtube', 'tiktok']);
-        $enabledKeys = is_array($enabled) ? array_values(array_filter($enabled, 'is_string')) : ['youtube', 'tiktok'];
+        $enabledKeys = is_array($enabled) ? array_values(array_filter($enabled, is_string(...))) : ['youtube', 'tiktok'];
 
         $this->publishers = array_intersect_key($all, array_flip($enabledKeys));
     }

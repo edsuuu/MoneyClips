@@ -52,7 +52,7 @@ final class Create extends Component
             'status_id' => Status::idFor('pending'),
         ]);
 
-        ProcessVideoJob::dispatch($video);
+        dispatch(new ProcessVideoJob($video));
 
         $this->redirectRoute('videos.editor', ['video' => $video->uuid], navigate: true);
     }
