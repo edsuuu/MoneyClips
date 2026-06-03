@@ -61,19 +61,6 @@ return [
             'throw' => false,
             'report' => false,
         ],
-
-        'minio' => [
-            'driver' => 's3',
-            'key' => env('MINIO_KEY', 'minioadmin'),
-            'secret' => env('MINIO_SECRET', 'minioadmin'),
-            'region' => env('MINIO_REGION', 'us-east-1'),
-            'bucket' => env('MINIO_BUCKET', 'auto-post'),
-            'endpoint' => env('MINIO_ENDPOINT', 'http://127.0.0.1:9000'),
-            'use_path_style_endpoint' => env('MINIO_USE_PATH_STYLE', true),
-            'throw' => true,
-            'report' => false,
-        ],
-
     ],
 
     /*

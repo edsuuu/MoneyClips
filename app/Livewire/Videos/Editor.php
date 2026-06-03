@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
+use App\Jobs\ProcessVideoJob;
 use App\Jobs\PublishScheduledPostJob;
 use App\Models\Cut;
 use App\Models\File;
@@ -63,6 +64,15 @@ final class Editor extends Component
         if ($this->renderJobId !== null && $this->renderJobFinished($this->renderJobId)) {
             $this->renderJobId = null;
         }
+    }
+
+    public function startDownload(): void
+    {
+        $this->video->refresh();
+
+        ProcessVideoJob::dispatch($this->video);
+
+        Flux::toast('Download iniciado.');
     }
 
     public function processVideo(VideoProcessorService $videoProcessor): void

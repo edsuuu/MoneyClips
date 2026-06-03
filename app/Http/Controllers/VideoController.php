@@ -16,29 +16,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class VideoController extends Controller
 {
-    public function index(): View
-    {
-        return view('videos.index');
-    }
-
-    public function create(): View
-    {
-        return view('videos.create');
-    }
-
-    public function transcript(Video $video): View|RedirectResponse
+    public function transcript(Video $video): RedirectResponse
     {
         return to_route('videos.editor', ['video' => $video->uuid]);
-    }
-
-    public function editor(Video $video): View
-    {
-        return view('videos.editor', ['video' => $video]);
-    }
-
-    public function schedule(Video $video): View
-    {
-        return view('videos.schedule', ['video' => $video]);
     }
 
     public function publications(Video $video, SocialPublisherRegistry $registry): View
