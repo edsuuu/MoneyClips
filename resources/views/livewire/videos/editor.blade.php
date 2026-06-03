@@ -354,6 +354,10 @@
                 <flux:badge>{{ $video->status?->label ?? '—' }}</flux:badge>
             </x-slot:meta>
             <x-slot:actions>
+                <flux:button wire:click="startDownload" variant="primary" icon="arrow-down-tray" class="cursor-pointer">
+                    <span wire:loading.remove wire:target="startDownload">Download & Upload</span>
+                    <span wire:loading wire:target="startDownload">Iniciando...</span>
+                </flux:button>
                 @if(($statusKey ?? null) === 'pending' && ! $activeJobId)
                     <flux:button wire:click="processVideo" variant="primary" icon="play" class="cursor-pointer">
                         <span wire:loading.remove wire:target="processVideo">Processar</span>

@@ -11,17 +11,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('videos', function (Blueprint $table): void {
-            // Quando false, o Python pula o face tracking nos cortes deste vídeo
-            // (vídeos sem rosto, screencast, animação, etc) — economiza tempo
-            // e evita crops esquisitos onde não tem ninguém pra seguir.
-            $table->boolean('face_tracking')->default(true)->after('auto_clip_count');
+            $table->unsignedTinyInteger('progress')->default(0)->after('status_id');
+            $table->string('download_stage')->nullable()->after('progress'); // video | audio
         });
     }
 
     public function down(): void
     {
         Schema::table('videos', function (Blueprint $table): void {
-            $table->dropColumn('face_tracking');
+            $table->dropColumn(['progress', 'download_stage']);
         });
     }
 };

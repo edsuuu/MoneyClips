@@ -30,7 +30,7 @@ final class Seeder003Statuses extends Seeder
         ];
 
         foreach ($statuses as $index => [$key, $label]) {
-            Status::query()->updateOrCreate(['key' => $key], ['label' => $label, 'sort_order' => $index + 1]);
+            Status::query()->updateOrCreate(['key' => $key], ['label' => $label]);
         }
     }
 }
