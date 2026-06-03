@@ -22,9 +22,7 @@ final readonly class Downloader
     ) {
         $this->outputDir = storage_path('app/private/videos');
 
-        if (! mkdir($concurrentDirectory = $this->outputDir, 0755, true) && ! is_dir($concurrentDirectory)) {
-            throw new RuntimeException(sprintf('Directory "%s" was not created', $concurrentDirectory));
-        }
+        $this->ensureDirectory($this->outputDir);
     }
 
     /** @return array{video_id: string, title: string, duration: float, file_path: string}
@@ -177,10 +175,19 @@ final readonly class Downloader
     {
         $dir = sprintf('%s/%s', $this->outputDir, $videoId);
 
-        if (! mkdir($dir, 0755, true) && ! is_dir($dir)) {
-            throw new RuntimeException(sprintf('Directory "%s" was not created', $dir));
-        }
+        $this->ensureDirectory($dir);
 
         return $dir;
+    }
+
+    private function ensureDirectory(string $dir): void
+    {
+        if (is_dir($dir)) {
+            return;
+        }
+
+        if (! @mkdir($dir, 0755, true) && ! is_dir($dir)) {
+            throw new RuntimeException(sprintf('Directory "%s" was not created', $dir));
+        }
     }
 }
