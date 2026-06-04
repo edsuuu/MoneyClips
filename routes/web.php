@@ -37,6 +37,9 @@ Route::middleware(['auth'])->group(function (): void {
     // OAuth das redes sociais (conectar contas com 1 clique).
     Route::get('/oauth/{platform}/connect', [OAuthController::class, 'connect'])->name('oauth.connect');
     Route::get('/oauth/{platform}/callback', [OAuthController::class, 'callback'])->name('oauth.callback');
+
+    // Download de Shorts de canais do YouTube (funcionalidade isolada).
+    Route::view('/youtube/shorts', 'youtube.channel')->name('youtube.shorts');
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
