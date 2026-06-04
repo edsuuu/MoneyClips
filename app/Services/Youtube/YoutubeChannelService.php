@@ -86,9 +86,10 @@ final class YoutubeChannelService
      *
      * Retorna os dados do vídeo, ou null caso já exista ou falhe.
      *
-     * @return array{youtube_id: string, title: string, description: string, hashtags: array<int, string>, minio_path: string}|null
+     * @param  (callable(float): void)|null  $onProgress  Recebe o percentual (0-100) do download.
+     * @return array{youtube_id: string, title: string, hashtags: array<int, string>, video_path: string}|null
      */
-    public function downloadShort(string $youtubeId, ?string $url = null): ?array
+    public function downloadShort(string $youtubeId, ?string $url = null, ?callable $onProgress = null): ?array
     {
         // 1. Já baixado? Pula.
         if (YoutubeShort::query()->where('youtube_id', $youtubeId)->exists()) {
@@ -104,17 +105,28 @@ final class YoutubeChannelService
             $template = $tmpDir.'/'.$youtubeId.'.%(ext)s';
 
             // 2. Baixa o vídeo (mp4) + metadados em JSON.
+            // --newline faz o yt-dlp emitir cada atualização de progresso em uma
+            // linha própria, permitindo capturar o percentual via callback.
             $result = Process::timeout(600)->run([
                 $this->bin(),
                 '-f', 'mp4/bestvideo+bestaudio/best',
                 '--merge-output-format', 'mp4',
                 '--write-info-json',
                 '--no-playlist',
+                '--newline',
                 '--sleep-requests', '2',
                 '--min-sleep-interval', '1',
                 '-o', $template,
                 $url,
-            ]);
+            ], function (string $type, string $buffer) use ($onProgress): void {
+                if ($onProgress === null) {
+                    return;
+                }
+
+                if (preg_match('/(\d+(?:\.\d+)?)%/', $buffer, $m) === 1) {
+                    $onProgress((float) $m[1]);
+                }
+            });
 
             if (! $result->successful()) {
                 Log::warning('[YoutubeChannelService] Falha ao baixar Short.', [
@@ -148,32 +160,30 @@ final class YoutubeChannelService
             }
 
             $hashtags = $this->parseHashtags($title.' '.$description);
-            $minioPath = mb_trim(Cast::str(config('youtube_shorts.path_prefix', 'shorts')), '/')."/{$youtubeId}.mp4";
+            $videoPath = mb_trim(Cast::str(config('youtube_shorts.path_prefix', 'shorts')), '/')."/{$youtubeId}.mp4";
 
             // 3. Salva no MinIO.
             $stream = fopen($videoFile, 'rb');
             if ($stream === false) {
                 return null;
             }
-            Storage::disk($this->disk())->put($minioPath, $stream);
+            Storage::disk($this->disk())->put($videoPath, $stream);
             fclose($stream);
 
             // 4. Persiste no banco.
             YoutubeShort::query()->create([
                 'youtube_id' => $youtubeId,
                 'title' => $title,
-                'description' => $description,
                 'hashtags' => $hashtags,
-                'minio_path' => $minioPath,
+                'video_path' => $videoPath,
                 'downloaded_at' => now(),
             ]);
 
             return [
                 'youtube_id' => $youtubeId,
                 'title' => $title,
-                'description' => $description,
                 'hashtags' => $hashtags,
-                'minio_path' => $minioPath,
+                'video_path' => $videoPath,
             ];
         } catch (Throwable $e) {
             Log::error('[YoutubeChannelService] Erro inesperado ao baixar Short.', [
