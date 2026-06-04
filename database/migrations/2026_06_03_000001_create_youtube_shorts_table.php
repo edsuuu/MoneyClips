@@ -14,9 +14,8 @@ return new class extends Migration
             $table->id();
             $table->string('youtube_id')->unique();
             $table->string('title')->nullable();
-            $table->text('description')->nullable();
             $table->json('hashtags')->nullable();
-            $table->string('minio_path')->nullable();
+            $table->string('video_path')->nullable();
             $table->timestamp('downloaded_at')->nullable();
             $table->timestamps();
         });
