@@ -14,16 +14,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $id
  * @property string $youtube_id
  * @property string|null $title
- * @property string|null $description
  * @property array<int, string>|null $hashtags
- * @property string|null $minio_path
+ * @property string|null $video_path
  * @property \Illuminate\Support\Carbon|null $downloaded_at
  */
 final class YoutubeShort extends Model
 {
     protected $fillable = [
-        'youtube_id', 'title', 'description', 'hashtags',
-        'minio_path', 'downloaded_at',
+        'youtube_id', 'title', 'hashtags',
+        'video_path', 'downloaded_at',
     ];
 
     /**

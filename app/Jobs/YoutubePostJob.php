@@ -74,7 +74,7 @@ final class YoutubePostJob implements ShouldQueue
     /**
      * Ponto de integração com o service de postagem existente.
      *
-     * O vídeo já está no MinIO em $job->short->minio_path. Aqui é onde o
+     * O vídeo já está no MinIO em $job->short->video_path. Aqui é onde o
      * publisher/registry existente seria invocado para enviar de fato à
      * plataforma — sem modificar aquele código.
      */
@@ -82,7 +82,7 @@ final class YoutubePostJob implements ShouldQueue
     {
         Log::info('[YoutubePostJob] Postando Short via service existente.', [
             'id' => $job->id,
-            'minio_path' => $job->short->minio_path,
+            'video_path' => $job->short->video_path,
         ]);
 
         // O service de postagem existente é acionado aqui (não alterado).
@@ -101,15 +101,14 @@ final class YoutubePostJob implements ShouldQueue
             'content' => '✅ Short postado!',
             'embeds' => [[
                 'title' => $short->title ?: $short->youtube_id,
-                'description' => mb_substr($short->description ?? '', 0, 2000),
                 'fields' => [
                     [
                         'name' => 'Agendado para',
                         'value' => $job->scheduled_at->format('Y-m-d H:i'),
                     ],
                     [
-                        'name' => 'MinIO Path',
-                        'value' => $short->minio_path ?? '-',
+                        'name' => 'Video Path',
+                        'value' => $short->video_path ?? '-',
                     ],
                 ],
                 'color' => 5763719,
