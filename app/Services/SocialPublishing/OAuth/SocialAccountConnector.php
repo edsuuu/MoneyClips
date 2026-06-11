@@ -96,7 +96,7 @@ final class SocialAccountConnector
                 'display_name' => Cast::str($profile['display_name'] ?? ''),
                 'avatar_url' => Cast::str($profile['avatar_url'] ?? ''),
                 'privacy_level' => 'SELF_ONLY',
-            ], static fn ($value): bool => $value !== ''),
+            ], static fn (string $value): bool => $value !== ''),
         ]);
 
         return [$account];

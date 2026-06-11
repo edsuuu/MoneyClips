@@ -8,14 +8,12 @@ use App\Models\User;
 use App\Services\VideoProcessor\Contracts\VideoProcessorProviderInterface;
 use App\Services\VideoProcessor\Providers\HttpVideoProcessorProvider;
 use Carbon\CarbonImmutable;
-use Illuminate\Auth\Access\Response;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Override;
-use function __;
 
 final class AppServiceProvider extends ServiceProvider
 {
@@ -36,9 +34,9 @@ final class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
 
-//        Gate::define('viewLogViewer', fn (User $user) => $user->hasRole('Administrador')
-//            ? Response::allow()
-//            : Response::deny(__('This action is unauthorized.')));
+        //        Gate::define('viewLogViewer', fn (User $user) => $user->hasRole('Administrador')
+        //            ? Response::allow()
+        //            : Response::deny(__('This action is unauthorized.')));
 
         Gate::define('viewLogViewer', fn (?User $user = null): bool => true);
     }

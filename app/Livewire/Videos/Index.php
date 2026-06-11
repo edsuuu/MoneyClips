@@ -124,7 +124,6 @@ final class Index extends Component
         try {
             $video->update([
                 'progress' => 0,
-                'current_stage' => 'ingest',
                 'status_id' => Status::idFor('pending'),
             ]);
 
@@ -146,7 +145,7 @@ final class Index extends Component
             ->latest()
             ->get();
 
-        $cards = $videos->map(fn(Video $video): array => [
+        $cards = $videos->map(fn (Video $video): array => [
             'video' => $video,
             'thumb' => route('videos.thumbnail', $video),
         ]);

@@ -61,7 +61,10 @@ final class YoutubeChannelService
 
             /** @var array<string, mixed>|null $data */
             $data = json_decode($line, true);
-            if (! is_array($data) || empty($data['id'])) {
+            if (! is_array($data)) {
+                continue;
+            }
+            if (empty($data['id'])) {
                 continue;
             }
 
@@ -74,7 +77,7 @@ final class YoutubeChannelService
                 'title' => $title,
                 'description' => $description,
                 'hashtags' => $this->parseHashtags($title.' '.$description),
-                'url' => Cast::str($data['url'] ?? "https://www.youtube.com/shorts/{$id}"),
+                'url' => Cast::str($data['url'] ?? 'https://www.youtube.com/shorts/'.$id),
             ];
         }
 
@@ -96,7 +99,7 @@ final class YoutubeChannelService
             return null;
         }
 
-        $url ??= "https://www.youtube.com/shorts/{$youtubeId}";
+        $url ??= 'https://www.youtube.com/shorts/'.$youtubeId;
         $tmpDir = mb_rtrim(sys_get_temp_dir(), '/').'/yt-short-'.Str::random(8);
 
         try {
@@ -160,13 +163,14 @@ final class YoutubeChannelService
             }
 
             $hashtags = $this->parseHashtags($title.' '.$description);
-            $videoPath = mb_trim(Cast::str(config('youtube_shorts.path_prefix', 'shorts')), '/')."/{$youtubeId}.mp4";
+            $videoPath = mb_trim(Cast::str(config('youtube_shorts.path_prefix', 'shorts')), '/').sprintf('/%s.mp4', $youtubeId);
 
             // 3. Salva no MinIO.
             $stream = fopen($videoFile, 'rb');
             if ($stream === false) {
                 return null;
             }
+
             Storage::disk($this->disk())->put($videoPath, $stream);
             fclose($stream);
 
@@ -185,10 +189,10 @@ final class YoutubeChannelService
                 'hashtags' => $hashtags,
                 'video_path' => $videoPath,
             ];
-        } catch (Throwable $e) {
+        } catch (Throwable $throwable) {
             Log::error('[YoutubeChannelService] Erro inesperado ao baixar Short.', [
                 'youtube_id' => $youtubeId,
-                'exception' => $e->getMessage(),
+                'exception' => $throwable->getMessage(),
             ]);
 
             return null;
@@ -216,7 +220,7 @@ final class YoutubeChannelService
             ]);
 
             // Enfileira a postagem com atraso até o horário agendado.
-            YoutubePostJob::dispatch($job->id)->delay($slot);
+            dispatch(new YoutubePostJob($job->id))->delay($slot);
         }
     }
 

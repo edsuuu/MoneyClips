@@ -27,7 +27,7 @@ final class DownloadChannelShorts extends Command
     {
         $channel = (string) $this->argument('channel');
 
-        $this->components->info("Listando Shorts de: {$channel}");
+        $this->components->info('Listando Shorts de: '.$channel);
 
         $videos = $service->listShorts($channel);
         $total = count($videos);
@@ -44,7 +44,7 @@ final class DownloadChannelShorts extends Command
         }
 
         $count = count($videos);
-        $this->components->info("Vídeos encontrados: {$total}. Baixando: {$count}.");
+        $this->components->info(sprintf('Vídeos encontrados: %d. Baixando: %d.', $total, $count));
 
         $downloadedIds = [];
         $skipped = 0;
@@ -55,7 +55,7 @@ final class DownloadChannelShorts extends Command
             $label = $this->truncate($video['title'] !== '' ? $video['title'] : $video['id']);
 
             $bar = $this->output->createProgressBar(100);
-            $bar->setFormat(" [{$position}/{$count}] %bar% %percent:3s%%  {$label}");
+            $bar->setFormat(sprintf(' [%d/%d] %%bar%% %%percent:3s%%%%  %s', $position, $count, $label));
             $bar->start();
 
             try {
@@ -69,7 +69,7 @@ final class DownloadChannelShorts extends Command
             } catch (Throwable $e) {
                 $result = null;
                 $this->newLine();
-                $this->components->error("Falha em {$video['id']}: {$e->getMessage()}");
+                $this->components->error(sprintf('Falha em %s: %s', $video['id'], $e->getMessage()));
             }
 
             $bar->finish();
@@ -77,18 +77,18 @@ final class DownloadChannelShorts extends Command
 
             if ($result !== null) {
                 $downloadedIds[] = $result['youtube_id'];
-                $this->components->task("✓ {$result['youtube_id']} → {$result['video_path']}", fn (): bool => true);
+                $this->components->task(sprintf('✓ %s → %s', $result['youtube_id'], $result['video_path']), fn (): bool => true);
             } elseif (YoutubeShort::query()->where('youtube_id', $video['id'])->exists()) {
                 $skipped++;
-                $this->line("  <fg=yellow>• {$video['id']} já baixado, pulado.</>");
+                $this->line(sprintf('  <fg=yellow>• %s já baixado, pulado.</>', $video['id']));
             } else {
                 $failed++;
-                $this->line("  <fg=red>• {$video['id']} falhou.</>");
+                $this->line(sprintf('  <fg=red>• %s falhou.</>', $video['id']));
             }
         }
 
         $this->newLine();
-        $this->components->info('Baixados: '.count($downloadedIds)." | Pulados: {$skipped} | Falhas: {$failed}");
+        $this->components->info('Baixados: '.count($downloadedIds).sprintf(' | Pulados: %d | Falhas: %d', $skipped, $failed));
 
         return self::SUCCESS;
     }
