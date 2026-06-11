@@ -4,12 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Youtube;
 
-use App\Jobs\YoutubePostJob;
 use App\Models\YoutubeShort;
-use App\Models\YoutubeShortJob;
 use App\Support\Cast;
-use Carbon\CarbonImmutable;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -64,6 +60,7 @@ final class YoutubeChannelService
             if (! is_array($data)) {
                 continue;
             }
+
             if (empty($data['id'])) {
                 continue;
             }
@@ -89,10 +86,11 @@ final class YoutubeChannelService
      *
      * Retorna os dados do vídeo, ou null caso já exista ou falhe.
      *
+     * @param  string  $channelUrl  URL do canal de origem (gravada no registro).
      * @param  (callable(float): void)|null  $onProgress  Recebe o percentual (0-100) do download.
      * @return array{youtube_id: string, title: string, hashtags: array<int, string>, video_path: string}|null
      */
-    public function downloadShort(string $youtubeId, ?string $url = null, ?callable $onProgress = null): ?array
+    public function downloadShort(string $youtubeId, string $channelUrl = '', ?string $url = null, ?callable $onProgress = null): ?array
     {
         // 1. Já baixado? Pula.
         if (YoutubeShort::query()->where('youtube_id', $youtubeId)->exists()) {
@@ -177,6 +175,7 @@ final class YoutubeChannelService
             // 4. Persiste no banco.
             YoutubeShort::query()->create([
                 'youtube_id' => $youtubeId,
+                'channel_url' => $channelUrl !== '' ? $channelUrl : null,
                 'title' => $title,
                 'hashtags' => $hashtags,
                 'video_path' => $videoPath,
@@ -202,29 +201,6 @@ final class YoutubeChannelService
     }
 
     /**
-     * Gera os jobs de postagem para os Shorts informados, distribuindo-os
-     * nos próximos slots disponíveis (respeitando o limite diário).
-     *
-     * @param  Collection<int, YoutubeShort>  $shorts
-     */
-    public function scheduleShorts(Collection $shorts): void
-    {
-        foreach ($shorts as $short) {
-            $slot = $this->nextAvailableSlot();
-
-            $job = YoutubeShortJob::query()->create([
-                'youtube_short_id' => $short->id,
-                'scheduled_at' => $slot,
-                'status' => YoutubeShortJob::STATUS_PENDING,
-                'discord_notified' => false,
-            ]);
-
-            // Enfileira a postagem com atraso até o horário agendado.
-            dispatch(new YoutubePostJob($job->id))->delay($slot);
-        }
-    }
-
-    /**
      * Extrai hashtags (#tag) de um texto.
      *
      * @return array<int, string>
@@ -237,62 +213,6 @@ final class YoutubeChannelService
         $tags = array_values(array_unique($matches[0]));
 
         return $tags;
-    }
-
-    /**
-     * Encontra o próximo horário livre respeitando os horários permitidos
-     * e o limite de posts por dia.
-     */
-    private function nextAvailableSlot(): CarbonImmutable
-    {
-        $allowedHours = Cast::arr(config('youtube_shorts.allowed_hours', []));
-        sort($allowedHours);
-        $maxPerDay = Cast::int(config('youtube_shorts.max_per_day', 5));
-
-        $now = CarbonImmutable::now();
-        $day = $now->startOfDay();
-
-        // Limita a busca a um horizonte razoável (60 dias).
-        for ($i = 0; $i < 60; $i++) {
-            $cursor = $day->addDays($i);
-
-            $postsThatDay = YoutubeShortJob::query()
-                ->whereBetween('scheduled_at', [$cursor->startOfDay(), $cursor->endOfDay()])
-                ->count();
-
-            if ($postsThatDay >= $maxPerDay) {
-                continue;
-            }
-
-            $remaining = $maxPerDay - $postsThatDay;
-            $picked = 0;
-
-            foreach ($allowedHours as $hour) {
-                if ($picked >= $remaining) {
-                    break;
-                }
-
-                $slot = $cursor->setTime(Cast::int($hour), 0);
-
-                // Só horários futuros.
-                if ($slot->lessThanOrEqualTo($now)) {
-                    continue;
-                }
-
-                $taken = YoutubeShortJob::query()
-                    ->where('scheduled_at', $slot->format('Y-m-d H:i:s'))
-                    ->exists();
-
-                if ($taken) {
-                    continue;
-                }
-
-                return $slot;
-            }
-        }
-
-        // Fallback improvável: agenda para a próxima hora permitida amanhã.
-        return $now->addDay()->setTime(Cast::int($allowedHours[0] ?? 9), 0);
     }
 
     private function normalizeShortsUrl(string $channelUrl): string
