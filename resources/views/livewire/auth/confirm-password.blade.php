@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-6">
     <div class="flex w-full flex-col text-center">
-        <flux:heading size="xl">{{ __('Confirm password') }}</flux:heading>
-        <flux:subheading>{{ __('This is a secure area of the application. Please confirm your password before continuing.') }}</flux:subheading>
+        <x-ui.heading size="xl">{{ __('Confirm password') }}</x-ui.heading>
+        <x-ui.subheading>{{ __('This is a secure area of the application. Please confirm your password before continuing.') }}</x-ui.subheading>
     </div>
 
     @if (session('status'))
@@ -12,7 +12,7 @@
 
     <form wire:submit="confirmPassword" class="flex flex-col gap-6">
         <!-- Password -->
-        <flux:input
+        <x-ui.input
             wire:model="password"
             :label="__('Password')"
             type="password"
@@ -23,9 +23,9 @@
         />
 
         <div class="flex justify-end">
-            <flux:button variant="primary" type="submit" class="w-full">
+            <x-ui.button variant="primary" type="submit" class="w-full">
                 {{ __('Confirm') }}
-            </flux:button>
+            </x-ui.button>
         </div>
     </form>
 </div>

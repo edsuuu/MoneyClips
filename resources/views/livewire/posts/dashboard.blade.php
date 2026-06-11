@@ -5,9 +5,9 @@
         subtitle="Acompanhe o que foi postado, o que falhou e os logs de cada envio."
     >
         <x-slot:actions>
-            <flux:button :href="route('social-accounts')" size="sm" variant="subtle" icon="user-circle" class="cursor-pointer" wire:navigate>
+            <x-ui.button :href="route('social-accounts')" size="sm" variant="subtle" icon="user-circle" class="cursor-pointer" wire:navigate>
                 Contas vinculadas
-            </flux:button>
+            </x-ui.button>
         </x-slot:actions>
     </x-studio.page-header>
 
@@ -33,7 +33,7 @@
     <x-studio.panel title="Filtros" subtitle="Refine a lista por status operacional e plataforma.">
     <div class="flex flex-wrap items-end gap-3">
         <div>
-            <flux:text class="text-xs text-slate-500">Status</flux:text>
+            <x-ui.text class="text-xs text-slate-500">Status</x-ui.text>
             <select wire:model.live="statusFilter"
                     class="cursor-pointer rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5 text-sm text-slate-100">
                 <option value="">Todos</option>
@@ -46,7 +46,7 @@
             </select>
         </div>
         <div>
-            <flux:text class="text-xs text-slate-500">Plataforma</flux:text>
+            <x-ui.text class="text-xs text-slate-500">Plataforma</x-ui.text>
             <select wire:model.live="platformFilter"
                     class="cursor-pointer rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5 text-sm text-slate-100">
                 <option value="">Todas</option>
@@ -102,14 +102,14 @@
                             </td>
                             <td class="py-2 px-3 whitespace-nowrap">
                                 <div class="flex items-center gap-1">
-                                    <flux:button size="xs" variant="ghost" wire:click="toggleLogs({{ $post->id }})">Logs</flux:button>
+                                    <x-ui.button size="xs" variant="ghost" wire:click="toggleLogs({{ $post->id }})">Logs</x-ui.button>
                                     @if(in_array($post->status, ['failed','scheduled','pending','cancelled'], true))
-                                        <flux:button size="xs" variant="ghost" wire:click="retry({{ $post->id }})"
-                                                     wire:confirm="Reenviar este post para publicação agora?">Reenviar</flux:button>
+                                        <x-ui.button size="xs" variant="ghost" wire:click="retry({{ $post->id }})"
+                                                     wire:confirm="Reenviar este post para publicação agora?">Reenviar</x-ui.button>
                                     @endif
                                     @if(! $post->isPosted() && $post->status !== 'cancelled')
-                                        <flux:button size="xs" variant="ghost" wire:click="cancel({{ $post->id }})"
-                                                     wire:confirm="Cancelar este agendamento?">Cancelar</flux:button>
+                                        <x-ui.button size="xs" variant="ghost" wire:click="cancel({{ $post->id }})"
+                                                     wire:confirm="Cancelar este agendamento?">Cancelar</x-ui.button>
                                     @endif
                                 </div>
                             </td>

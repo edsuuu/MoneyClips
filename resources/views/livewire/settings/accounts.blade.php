@@ -1,8 +1,8 @@
 <section class="w-full">
     <div class="relative mb-6 w-full">
-        <flux:heading size="xl" level="1">{{ __('Settings') }}</flux:heading>
-        <flux:subheading size="lg" class="mb-6">Gerencie o perfil e as plataformas usadas para publicar.</flux:subheading>
-        <flux:separator variant="subtle" />
+        <x-ui.heading size="xl" level="1">{{ __('Settings') }}</x-ui.heading>
+        <x-ui.subheading size="lg" class="mb-6">Gerencie o perfil e as plataformas usadas para publicar.</x-ui.subheading>
+        <x-ui.separator variant="subtle" />
     </div>
 
     <div class="flex items-start max-md:flex-col">
@@ -10,17 +10,17 @@
             <x-settings.nav />
         </div>
 
-        <flux:separator class="md:hidden" />
+        <x-ui.separator class="md:hidden" />
 
         <div class="flex-1 self-stretch max-md:pt-6">
-            <flux:heading>Contas vinculadas</flux:heading>
-            <flux:subheading>Uma lista simples por plataforma, com status e um atalho para conectar ou revisar o vínculo.</flux:subheading>
+            <x-ui.heading>Contas vinculadas</x-ui.heading>
+            <x-ui.subheading>Uma lista simples por plataforma, com status e um atalho para conectar ou revisar o vínculo.</x-ui.subheading>
 
             @if(session('status'))
-                <flux:callout class="mt-4" variant="success" icon="check-circle">{{ session('status') }}</flux:callout>
+                <x-ui.callout class="mt-4" variant="success" icon="check-circle">{{ session('status') }}</x-ui.callout>
             @endif
             @if(session('error'))
-                <flux:callout class="mt-4" variant="danger" icon="exclamation-triangle">{{ session('error') }}</flux:callout>
+                <x-ui.callout class="mt-4" variant="danger" icon="exclamation-triangle">{{ session('error') }}</x-ui.callout>
             @endif
 
             <div class="mt-6 space-y-4">
@@ -64,34 +64,34 @@
                             </div>
 
                             <div class="flex w-full flex-col items-stretch gap-2 sm:w-32">
-                                <flux:badge :color="$provider['statusColor']" size="sm" class="flex min-h-8 w-full justify-center px-3 text-center">
+                                <x-ui.badge :color="$provider['statusColor']" size="sm" class="flex min-h-8 w-full justify-center px-3 text-center">
                                     {{ $provider['status'] }}
-                                </flux:badge>
+                                </x-ui.badge>
 
                                 <div class="flex flex-col gap-2">
                                     @if($provider['usesOauth'])
                                         @unless($provider['isLinked'])
                                             @php($oauthReady = $provider['key'] === 'tiktok' ? $tiktokOAuthReady : $googleOAuthReady)
                                             @if($oauthReady)
-                                                <flux:button :href="route('oauth.connect', ['platform' => $provider['key']])" size="sm" variant="primary" class="w-full cursor-pointer justify-center">
+                                                <x-ui.button :href="route('oauth.connect', ['platform' => $provider['key']])" size="sm" variant="primary" class="w-full cursor-pointer justify-center">
                                                     Vincular
-                                                </flux:button>
+                                                </x-ui.button>
                                             @else
-                                                <flux:button size="sm" variant="filled" class="w-full justify-center" disabled>
+                                                <x-ui.button size="sm" variant="filled" class="w-full justify-center" disabled>
                                                     Configurar .env
-                                                </flux:button>
+                                                </x-ui.button>
                                             @endif
                                         @endif
                                     @else
-                                        <flux:button wire:click="manage('{{ $provider['key'] }}')" size="sm" variant="primary" class="w-full cursor-pointer justify-center">
+                                        <x-ui.button wire:click="manage('{{ $provider['key'] }}')" size="sm" variant="primary" class="w-full cursor-pointer justify-center">
                                             {{ $provider['actionLabel'] }}
-                                        </flux:button>
+                                        </x-ui.button>
                                     @endif
 
                                     @if($provider['account'])
-                                        <flux:button wire:click="disconnect('{{ $provider['key'] }}')" size="sm" variant="danger" class="w-full cursor-pointer justify-center">
+                                        <x-ui.button wire:click="disconnect('{{ $provider['key'] }}')" size="sm" variant="danger" class="w-full cursor-pointer justify-center">
                                             Desvincular
-                                        </flux:button>
+                                        </x-ui.button>
                                     @endif
                                 </div>
                             </div>
@@ -104,15 +104,15 @@
                 <div class="mt-6 rounded-2xl border border-slate-800 bg-slate-950/80 p-5">
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                            <flux:heading size="lg">Gerenciar {{ $platformLabels[$managingPlatform] ?? ucfirst($managingPlatform) }}</flux:heading>
-                            <flux:subheading>
+                            <x-ui.heading size="lg">Gerenciar {{ $platformLabels[$managingPlatform] ?? ucfirst($managingPlatform) }}</x-ui.heading>
+                            <x-ui.subheading>
                                 Para TikTok, o fluxo recomendado agora é o Login Kit, que preenche os dados automaticamente ao vincular.
-                            </flux:subheading>
+                            </x-ui.subheading>
                         </div>
 
-                        <flux:button wire:click="cancelManage" size="sm" variant="ghost" class="cursor-pointer">
+                        <x-ui.button wire:click="cancelManage" size="sm" variant="ghost" class="cursor-pointer">
                             Fechar
-                        </flux:button>
+                        </x-ui.button>
                     </div>
 
                     @if($managingPlatform === 'tiktok')
@@ -131,40 +131,40 @@
                         'mt-5 grid gap-4',
                         'md:grid-cols-2' => $managingPlatform !== 'tiktok',
                     ])>
-                        <flux:input
+                        <x-ui.input
                             wire:model="name"
                             label="Nome da conta"
                             placeholder="@canal ou nome interno"
                             @class(['md:col-span-2' => $managingPlatform === 'tiktok'])
                         />
-                        <flux:input
+                        <x-ui.input
                             wire:model="external_account_id"
                             label="ID da conta"
                             description="Para TikTok, use o open_id."
                             @class(['md:col-span-2' => $managingPlatform === 'tiktok'])
                         />
-                        <flux:input
+                        <x-ui.input
                             wire:model="token_expires_at"
                             type="datetime-local"
                             label="Token expira em (opcional)"
                             @class(['md:col-span-2' => $managingPlatform === 'tiktok'])
                         />
                         <div class="md:col-span-2">
-                            <flux:textarea wire:model="access_token" label="Access token" rows="3" />
+                            <x-ui.textarea wire:model="access_token" label="Access token" rows="3" />
                         </div>
                         <div class="md:col-span-2">
-                            <flux:textarea wire:model="refresh_token" label="Refresh token (opcional)" rows="3" />
+                            <x-ui.textarea wire:model="refresh_token" label="Refresh token (opcional)" rows="3" />
                         </div>
                         <div class="md:col-span-2">
-                            <flux:textarea wire:model="meta" label="Meta (JSON opcional)" rows="4" placeholder='{"privacy_level":"SELF_ONLY"}' />
+                            <x-ui.textarea wire:model="meta" label="Meta (JSON opcional)" rows="4" placeholder='{"privacy_level":"SELF_ONLY"}' />
                         </div>
                         <div class="md:col-span-2 flex flex-wrap gap-2">
-                            <flux:button type="submit" variant="primary" class="cursor-pointer">
+                            <x-ui.button type="submit" variant="primary" class="cursor-pointer">
                                 Salvar vínculo
-                            </flux:button>
-                            <flux:button wire:click="cancelManage" type="button" variant="ghost" class="cursor-pointer">
+                            </x-ui.button>
+                            <x-ui.button wire:click="cancelManage" type="button" variant="ghost" class="cursor-pointer">
                                 Cancelar
-                            </flux:button>
+                            </x-ui.button>
                         </div>
                     </form>
                 </div>
