@@ -27,6 +27,9 @@ Route::middleware(['auth'])->group(function (): void {
         ->name('videos.stream');
     Route::get('/videos/{video}/cut/{type}', [VideoController::class, 'cut'])->name('videos.cut');
 
+    // Auto-postagem de Shorts (pipeline unificado do auto-post).
+    Route::view('/shorts', 'shorts.index')->name('shorts.index');
+
     // Agendamento social: dashboard de publicações e gestão de contas conectadas.
     Route::view('/posts', 'posts.dashboard')->name('posts.dashboard');
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
