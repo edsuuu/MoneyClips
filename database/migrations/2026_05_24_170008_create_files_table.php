@@ -16,8 +16,6 @@ return new class extends Migration
             $table->foreignId('video_id')->constrained()->cascadeOnDelete();
             $table->foreignId('cut_id')->nullable()->constrained()->cascadeOnDelete();
             $table->string('type'); // original, audio, legendado, pt1, pt2, thumbnail
-            $table->string('disk')->default('minio');
-            $table->string('bucket')->nullable();
             $table->string('path', 1024);
             $table->string('mime_type')->nullable();
             $table->string('extension', 16)->nullable();

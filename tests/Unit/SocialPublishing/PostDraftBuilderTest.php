@@ -6,7 +6,7 @@ use App\Models\Cut;
 use App\Models\Video;
 use App\Services\SocialPublishing\PostDraftBuilder;
 
-it('builds fallback metadata with part label for a cut', function () {
+it('builds fallback metadata with part label for a cut', function (): void {
     $builder = new PostDraftBuilder;
     $video = new Video([
         'title' => 'Como crescer no YouTube',
@@ -25,7 +25,7 @@ it('builds fallback metadata with part label for a cut', function () {
     expect($draft['hashtags'])->toContain('shorts', 'cortes', 'pt1');
 });
 
-it('keeps existing metadata while ensuring the part label is present', function () {
+it('keeps existing metadata while ensuring the part label is present', function (): void {
     $builder = new PostDraftBuilder;
     $video = new Video([
         'title' => 'Titulo base',

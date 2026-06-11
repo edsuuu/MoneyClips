@@ -15,7 +15,7 @@ return new class extends Migration
             $table->morphs('statusable'); // statusable_type, statusable_id
             $table->foreignId('from_status_id')->nullable()->constrained('statuses');
             $table->foreignId('to_status_id')->constrained('statuses');
-            $table->string('message')->nullable();
+            $table->text('message')->nullable();
             $table->json('context')->nullable();
             $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamp('created_at')->useCurrent();

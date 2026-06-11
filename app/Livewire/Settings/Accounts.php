@@ -158,6 +158,47 @@ final class Accounts extends Component
         Flux::toast('Conta desvinculada.');
     }
 
+    public function render(SocialPublisherRegistry $registry): View
+    {
+        $accounts = SocialAccount::query()
+            ->where('user_id', $this->currentUserId())
+            ->latest()
+            ->get();
+
+        $accountsByPlatform = $accounts->groupBy('platform');
+
+        $providers = collect($registry->labels())
+            ->map(function (string $label, string $platform) use ($accountsByPlatform): array {
+                $account = $accountsByPlatform->get($platform)?->first();
+                $linked = $account instanceof SocialAccount;
+                $oauthPlatform = in_array($platform, ['youtube', 'tiktok'], true);
+
+                return [
+                    'key' => $platform,
+                    'label' => $label,
+                    'badge' => mb_strtoupper(mb_substr($label, 0, min(2, mb_strlen($label)))),
+                    'description' => $this->platformDescription($platform),
+                    'account' => $account,
+                    'channelUrl' => $platform === 'youtube' && filled($account?->external_account_id)
+                        ? 'https://www.youtube.com/channel/'.$account->external_account_id
+                        : null,
+                    'isLinked' => $linked,
+                    'status' => $linked ? ($account->tokenExpired() ? 'Token expirado' : 'Vinculado') : ('Nao vinculado'),
+                    'statusColor' => $linked ? ($account->tokenExpired() ? 'amber' : 'green') : ('zinc'),
+                    'actionLabel' => $linked ? 'Gerenciar' : 'Vincular',
+                    'usesOauth' => $oauthPlatform,
+                ];
+            })
+            ->values();
+
+        return view('livewire.settings.accounts', [
+            'platformLabels' => $registry->labels(),
+            'providers' => $providers,
+            'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
+            'tiktokOAuthReady' => filled(config('services.tiktok.client_key')) && filled(config('services.tiktok.client_secret')) && filled(config('services.tiktok.redirect')),
+        ]);
+    }
+
     private function currentUserId(): int
     {
         $userId = Auth::id();
@@ -193,46 +234,5 @@ final class Accounts extends Component
     private function resetForm(): void
     {
         $this->reset(['name', 'external_account_id', 'access_token', 'refresh_token', 'token_expires_at', 'meta']);
-    }
-
-    public function render(SocialPublisherRegistry $registry): View
-    {
-        $accounts = SocialAccount::query()
-            ->where('user_id', $this->currentUserId())
-            ->latest()
-            ->get();
-
-        $accountsByPlatform = $accounts->groupBy('platform');
-
-        $providers = collect($registry->labels())
-            ->map(function (string $label, string $platform) use ($accountsByPlatform): array {
-                $account = $accountsByPlatform->get($platform)?->first();
-                $linked = $account instanceof SocialAccount;
-                $oauthPlatform = in_array($platform, ['youtube', 'tiktok'], true);
-
-                return [
-                    'key' => $platform,
-                    'label' => $label,
-                    'badge' => mb_strtoupper(mb_substr($label, 0, min(2, mb_strlen($label)))),
-                    'description' => $this->platformDescription($platform),
-                    'account' => $account,
-                    'channelUrl' => $platform === 'youtube' && filled($account?->external_account_id)
-                        ? 'https://www.youtube.com/channel/'.$account->external_account_id
-                        : null,
-                    'isLinked' => $linked,
-                    'status' => ! $linked ? 'Nao vinculado' : ($account->tokenExpired() ? 'Token expirado' : 'Vinculado'),
-                    'statusColor' => ! $linked ? 'zinc' : ($account->tokenExpired() ? 'amber' : 'green'),
-                    'actionLabel' => $linked ? 'Gerenciar' : 'Vincular',
-                    'usesOauth' => $oauthPlatform,
-                ];
-            })
-            ->values();
-
-        return view('livewire.settings.accounts', [
-            'platformLabels' => $registry->labels(),
-            'providers' => $providers,
-            'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
-            'tiktokOAuthReady' => filled(config('services.tiktok.client_key')) && filled(config('services.tiktok.client_secret')) && filled(config('services.tiktok.redirect')),
-        ]);
     }
 }

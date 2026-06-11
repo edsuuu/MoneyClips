@@ -131,8 +131,7 @@ test('reuses cached video data and redirects to editor if no legendado file exis
 
     $existing->files()->create([
         'type' => 'original',
-        'path' => 'videos/123/original.mp4',
-        'disk' => 'minio',
+        'path' => 'videos/123/original/source.mp4',
     ]);
 
     $existing->payloads()->create([
@@ -153,7 +152,7 @@ test('reuses cached video data and redirects to editor if no legendado file exis
     expect($newVideo->title)->toBe('Test Video');
     expect($newVideo->status_id)->toBe(Status::idFor('waiting_cuts'));
     expect($newVideo->transcript->raw_text)->toBe('Hello World');
-    expect($newVideo->fileOfType('original')->path)->toBe('videos/123/original.mp4');
+    expect($newVideo->fileOfType('original')->path)->toBe('videos/123/original/source.mp4');
     expect($newVideo->fileOfType('legendado'))->toBeNull();
 });
 
@@ -182,14 +181,12 @@ test('reuses cached video data and redirects to editor if legendado file exists'
 
     $existing->files()->create([
         'type' => 'original',
-        'path' => 'videos/123/original.mp4',
-        'disk' => 'minio',
+        'path' => 'videos/123/original/source.mp4',
     ]);
 
     $existing->files()->create([
         'type' => 'legendado',
-        'path' => 'videos/123/legendado.mp4',
-        'disk' => 'minio',
+        'path' => 'videos/123/legendado/source.mp4',
     ]);
 
     $existing->payloads()->create([
@@ -210,6 +207,6 @@ test('reuses cached video data and redirects to editor if legendado file exists'
     $newVideo = Video::query()->where('id', '!=', $existing->id)->first();
     expect($newVideo->title)->toBe('Test Video');
     expect($newVideo->status_id)->toBe(Status::idFor('full_subtitled'));
-    expect($newVideo->fileOfType('original')->path)->toBe('videos/123/original.mp4');
-    expect($newVideo->fileOfType('legendado')->path)->toBe('videos/123/legendado.mp4');
+    expect($newVideo->fileOfType('original')->path)->toBe('videos/123/original/source.mp4');
+    expect($newVideo->fileOfType('legendado')->path)->toBe('videos/123/legendado/source.mp4');
 });

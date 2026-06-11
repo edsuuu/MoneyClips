@@ -14,7 +14,6 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
             $table->foreignId('video_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('processing_job_id')->nullable()->constrained()->nullOnDelete();
             $table->string('type'); // ingest_request, ingest_result, transcript_raw, ...
             $table->json('payload');
             $table->timestamps();
