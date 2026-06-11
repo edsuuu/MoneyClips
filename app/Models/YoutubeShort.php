@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\YoutubeShortFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -28,7 +29,7 @@ use Illuminate\Support\Carbon;
  */
 final class YoutubeShort extends Model
 {
-    /** @use HasFactory<\Database\Factories\YoutubeShortFactory> */
+    /** @use HasFactory<YoutubeShortFactory> */
     use HasFactory;
 
     protected $fillable = [
@@ -42,7 +43,7 @@ final class YoutubeShort extends Model
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    public function scopeAvailableToPost(Builder $query): Builder
+    protected function scopeAvailableToPost(Builder $query): Builder
     {
         return $query->whereNotNull('video_path')->whereNull('posted_at');
     }
