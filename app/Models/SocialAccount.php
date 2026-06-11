@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Str;
 
 /**
@@ -54,12 +53,8 @@ final class SocialAccount extends Model
 
     public function tokenExpired(): bool
     {
-        $expiresAt = $this->token_expires_at;
-        if ($expiresAt === null || $expiresAt === '') {
-            return false;
-        }
-
-        return Date::parse($expiresAt)->isPast();
+        // Cast 'datetime' garante CarbonImmutable|null aqui.
+        return $this->token_expires_at !== null && $this->token_expires_at->isPast();
     }
 
     protected static function booted(): void

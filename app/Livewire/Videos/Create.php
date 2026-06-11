@@ -15,6 +15,7 @@ final class Create extends Component
 {
     public string $url = '';
 
+    /** @return array<string, list<string>> */
     public function rules(): array
     {
         return [
@@ -22,6 +23,7 @@ final class Create extends Component
         ];
     }
 
+    /** @return array<string, string> */
     public function messages(): array
     {
         return [
@@ -30,6 +32,7 @@ final class Create extends Component
         ];
     }
 
+    /** @return array<string, string> */
     public function attributes(): array
     {
         return [
@@ -39,6 +42,7 @@ final class Create extends Component
 
     public function start(): void
     {
+        /** @var array{url: string} $validated */
         $validated = $this->validate();
 
         $existingVideo = Video::query()->where('url', $validated['url'])

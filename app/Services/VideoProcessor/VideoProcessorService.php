@@ -38,7 +38,7 @@ final readonly class VideoProcessorService
     ) {}
 
     /** Etapa 1: baixar + transcrever. */
-    public function startIngest(Video $video): object
+    public function startIngest(Video $video): stdClass
     {
         $job = $this->createJob($video, 'ingest');
 
@@ -62,7 +62,7 @@ final readonly class VideoProcessorService
     }
 
     /** Etapa 2: legendar o vídeo completo com a transcrição confirmada. */
-    public function startSubtitleFull(Video $video): object
+    public function startSubtitleFull(Video $video): stdClass
     {
         $video->files()->where('type', 'legendado')->delete();
 
@@ -136,7 +136,7 @@ final readonly class VideoProcessorService
      *
      * @param  Collection<int, Cut>  $cuts
      */
-    public function startRenderCuts(Video $video, Collection $cuts): object
+    public function startRenderCuts(Video $video, Collection $cuts): stdClass
     {
         $original = $video->fileOfType('original');
         abort_if(! $original instanceof File, 422, 'Vídeo original não encontrado no MinIO.');
@@ -196,7 +196,7 @@ final readonly class VideoProcessorService
     }
 
     /** @param  array<string, mixed>  $response */
-    private function bindExternalJob(object $job, array $response): void
+    private function bindExternalJob(stdClass $job, array $response): void
     {
         $job->external_job_id = $response['job_id'] ?? null;
     }

@@ -65,10 +65,8 @@ final readonly class VideoProcessorCallbackService
                     $video->title = $videoData['title'];
                 }
 
-                if (isset($videoData['external_video_id']) && is_string($videoData['external_video_id'])) {
-                    $video->external_video_id = $videoData['external_video_id'];
-                }
-
+                // external_video_id deixou de existir no schema consolidado de videos;
+                // gravá-lo aqui quebraria o UPDATE do save() abaixo.
                 if (isset($videoData['duration_seconds']) && (is_float($videoData['duration_seconds']) || is_numeric($videoData['duration_seconds']))) {
                     $video->duration_seconds = (float) $videoData['duration_seconds'];
                 }
