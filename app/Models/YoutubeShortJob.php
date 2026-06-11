@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Job de postagem de um Short: guarda o horário agendado e o estado da postagem.
@@ -13,14 +15,16 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property int $id
  * @property int $youtube_short_id
- * @property \Illuminate\Support\Carbon $scheduled_at
- * @property \Illuminate\Support\Carbon|null $posted_at
+ * @property Carbon $scheduled_at
+ * @property Carbon|null $posted_at
  * @property string $status
  * @property bool $discord_notified
  * @property-read YoutubeShort $short
  */
 final class YoutubeShortJob extends Model
 {
+    use HasFactory;
+
     public const string STATUS_PENDING = 'pending';
 
     public const string STATUS_POSTED = 'posted';

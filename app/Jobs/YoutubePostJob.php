@@ -61,10 +61,10 @@ final class YoutubePostJob implements ShouldQueue
             ]);
 
             $this->notifyDiscord($job);
-        } catch (Throwable $e) {
+        } catch (Throwable $throwable) {
             Log::error('[YoutubePostJob] Falha ao postar Short.', [
                 'id' => $job->id,
-                'exception' => $e->getMessage(),
+                'exception' => $throwable->getMessage(),
             ]);
 
             $job->update(['status' => YoutubeShortJob::STATUS_FAILED]);
@@ -119,10 +119,10 @@ final class YoutubePostJob implements ShouldQueue
             $response = Http::asJson()->post($webhook, $payload);
 
             $job->update(['discord_notified' => $response->successful()]);
-        } catch (Throwable $e) {
+        } catch (Throwable $throwable) {
             Log::warning('[YoutubePostJob] Falha ao notificar Discord.', [
                 'id' => $job->id,
-                'exception' => $e->getMessage(),
+                'exception' => $throwable->getMessage(),
             ]);
         }
     }

@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Services\VideoProcessor\Data\RecommendCutsData;
 use App\Livewire\Videos\Editor;
 use App\Models\Status;
 use App\Models\User;
 use App\Models\Video;
 use App\Services\VideoProcessor\Contracts\VideoProcessorProviderInterface;
+use App\Services\VideoProcessor\Data\RecommendCutsData;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Livewire;
@@ -25,8 +25,6 @@ function makeVideoWithCut(): Video
         'status_id' => Status::idFor('waiting_cuts'),
         'title' => 'Demo',
         'duration_seconds' => 120.0,
-        'source_provider' => 'youtube',
-        'external_video_id' => 'abc123',
     ]);
 
     $video->files()->create([
@@ -58,7 +56,7 @@ test('progress bar appears immediately after starting a render', function (): vo
     $video = makeVideoWithCut();
 
     Livewire::actingAs($this->user)
-        ->test(Editor::class, ['video' => $video])
+        ->test(Editor::class, ['uuid' => $video->uuid])
         ->call('renderCuts')
         ->assertHasNoErrors()
         ->assertSet('renderJobId', 'render-job-xyz')
@@ -75,7 +73,7 @@ test('a finished render releases the progress bar on refresh', function (): void
     $video = makeVideoWithCut();
 
     $component = Livewire::actingAs($this->user)
-        ->test(Editor::class, ['video' => $video])
+        ->test(Editor::class, ['uuid' => $video->uuid])
         ->call('renderCuts')
         ->assertSet('renderJobId', 'render-job-done');
 
@@ -88,14 +86,11 @@ test('no progress bar is shown when no render was started in the component', fun
     $video = makeVideoWithCut();
 
     Livewire::actingAs($this->user)
-        ->test(Editor::class, ['video' => $video])
+        ->test(Editor::class, ['uuid' => $video->uuid])
         ->assertViewHas('activeJobId', fn ($value): bool => $value === null);
 });
 
-test('ai recommend sends default constraints and persists returned cuts', function (): void {
-    config()->set('video-processor.auto.ai_min_cuts', 3);
-    config()->set('video-processor.auto.ai_max_cuts', 7);
-
+test('ai recommend sends contiguous constraints and persists returned cuts', function (): void {
     $mockProvider = mock(VideoProcessorProviderInterface::class);
     $mockProvider->shouldReceive('recommendCuts')
         ->once()
@@ -103,7 +98,9 @@ test('ai recommend sends default constraints and persists returned cuts', functi
             expect($videoUuid)->not->toBe('');
             expect($data->constraints)->toBe([
                 'min_cuts' => 3,
-                'max_cuts' => 7,
+                'max_cuts' => 12,
+                'prefer_contiguous' => true,
+                'max_gap_seconds' => 0,
             ]);
 
             return true;
@@ -127,8 +124,8 @@ test('ai recommend sends default constraints and persists returned cuts', functi
     $video = makeVideoWithCut();
 
     Livewire::actingAs($this->user)
-        ->test(Editor::class, ['video' => $video])
-        ->call('recommend')
+        ->test(Editor::class, ['uuid' => $video->uuid])
+        ->call('generateAiCuts')
         ->assertHasNoErrors();
 
     $video->refresh();
@@ -150,8 +147,8 @@ test('ai recommend failure does not break the livewire request', function (): vo
     $video = makeVideoWithCut();
 
     Livewire::actingAs($this->user)
-        ->test(Editor::class, ['video' => $video])
-        ->call('recommend')
+        ->test(Editor::class, ['uuid' => $video->uuid])
+        ->call('generateAiCuts')
         ->assertHasNoErrors();
 
     $video->refresh();

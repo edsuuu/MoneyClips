@@ -22,10 +22,15 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;
-use function dd;
 
 final class Editor extends Component
 {
+    /** Status que ainda não terminaram — mantém polling ativo. */
+    private const array ACTIVE_STATUSES = [
+        'queued', 'downloading', 'processing', 'transcribing',
+        'subtitling_full', 'cutting', 'recommending_cuts',
+    ];
+
     public Video $video;
 
     public float $newStart = 0.0;
@@ -54,12 +59,6 @@ final class Editor extends Component
     {
         $this->video = Video::query()->where('uuid', $uuid)->firstOrFail();
     }
-
-    /** Status que ainda não terminaram — mantém polling ativo. */
-    private const ACTIVE_STATUSES = [
-        'queued', 'downloading', 'processing', 'transcribing',
-        'subtitling_full', 'cutting', 'recommending_cuts',
-    ];
 
     public function refreshStatus(): void
     {
@@ -117,7 +116,6 @@ final class Editor extends Component
         try {
             $this->video->update([
                 'progress' => 0,
-                'current_stage' => 'ingest',
                 'status_id' => Status::idFor('pending'),
             ]);
 
@@ -506,14 +504,15 @@ final class Editor extends Component
         $original = $this->video->fileOfType('original');
         $playable = $legendado ?? $original;
 
+        $status = $this->video->status;
+        $statusKey = $status instanceof Status ? $status->key : null;
+
         $ingestJobId = ($statusKey === 'downloading' || $statusKey === 'queued')
             && $this->video->current_job_id !== null
             ? $this->video->current_job_id
             : null;
 
         $activeJobId = $this->renderJobId ?? $ingestJobId;
-
-        $status = $this->video->status;
 
         foreach ($this->video->cuts as $cut) {
             $this->cutEdits[$cut->uuid] ??= [
@@ -578,7 +577,7 @@ final class Editor extends Component
             'playerUrl' => $this->resolvePlayerUrl($playable),
             'transcript' => $this->video->transcript,
             'timedWords' => $timedWords,
-            'statusKey' => $status instanceof Status ? $status->key : null,
+            'statusKey' => $statusKey,
             'activeJobId' => $activeJobId,
             'wsUrl' => config('video-processor.ws_url'),
             'youtubeAccounts' => $youtubeAccounts,

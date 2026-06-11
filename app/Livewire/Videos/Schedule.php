@@ -376,6 +376,7 @@ final class Schedule extends Component
             if (! is_string($cutUuid)) {
                 continue;
             }
+
             if ($cutUuid === '') {
                 continue;
             }
