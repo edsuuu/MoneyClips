@@ -18,6 +18,7 @@ use App\Services\VideoProcessor\Data\RenderCutsData;
 use App\Services\VideoProcessor\Data\SubtitleFullData;
 use App\Support\Cast;
 use Illuminate\Support\Collection;
+use stdClass;
 use Throwable;
 
 /**
@@ -53,7 +54,6 @@ final readonly class VideoProcessorService
 
         $this->savePayload($video, 'ingest_request', $data->toArray());
         $this->status->transition($video, 'downloading', 'Ingestão enviada à API de processamento');
-        $video->update(['current_stage' => 'ingest']);
 
         $response = $this->provider->ingest($data);
         $this->bindExternalJob($job, $response);
@@ -87,7 +87,6 @@ final readonly class VideoProcessorService
 
         $this->savePayload($video, 'subtitle_request', $data->toArray());
         $this->status->transition($video, 'subtitling_full', 'Legendagem do vídeo completo enviada');
-        $video->update(['current_stage' => 'subtitle_full']);
 
         $response = $this->provider->subtitleFull($video->uuid, $data);
         $this->bindExternalJob($job, $response);
@@ -176,7 +175,6 @@ final readonly class VideoProcessorService
 
         $this->savePayload($video, 'render_request', $data->toArray());
         $this->status->transition($video, 'cutting', 'Renderização de cortes enviada');
-        $video->update(['current_stage' => 'render_cuts']);
 
         $response = $this->provider->renderCuts($video->uuid, $data);
         $this->bindExternalJob($job, $response);
@@ -184,7 +182,7 @@ final readonly class VideoProcessorService
         return $job;
     }
 
-    private function createJob(Video $video, string $type): object
+    private function createJob(Video $video, string $type): stdClass
     {
         return (object) [
             'video_id' => $video->id,

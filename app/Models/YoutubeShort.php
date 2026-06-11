@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Um Short do YouTube baixado de um canal e armazenado no MinIO.
@@ -16,10 +18,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property string|null $title
  * @property array<int, string>|null $hashtags
  * @property string|null $video_path
- * @property \Illuminate\Support\Carbon|null $downloaded_at
+ * @property Carbon|null $downloaded_at
  */
 final class YoutubeShort extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'youtube_id', 'title', 'hashtags',
         'video_path', 'downloaded_at',

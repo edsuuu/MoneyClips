@@ -19,11 +19,8 @@ final class Video extends Model
     use HasFactory;
 
     protected $fillable = [
-        'uuid', 'url', 'source_provider', 'external_video_id', 'title',
-        'duration_seconds', 'status_id', 'current_stage', 'progress',
-        'download_stage', 'current_job_id',
-        'error_message', 'created_by', 'finished_at', 'face_tracking',
-        'path',
+        'uuid', 'url', 'title', 'duration_seconds', 'status_id',
+        'progress', 'download_stage', 'current_job_id',
     ];
 
     public function getRouteKeyName(): string
@@ -100,8 +97,6 @@ final class Video extends Model
         return [
             'duration_seconds' => 'float',
             'progress' => 'integer',
-            'finished_at' => 'datetime',
-            'face_tracking' => 'boolean',
         ];
     }
 }
