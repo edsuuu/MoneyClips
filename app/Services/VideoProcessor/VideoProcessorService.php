@@ -6,7 +6,6 @@ namespace App\Services\VideoProcessor;
 
 use App\Models\Cut;
 use App\Models\File;
-use App\Models\ProcessingJob;
 use App\Models\Status;
 use App\Models\Transcript;
 use App\Models\Video;
@@ -38,7 +37,7 @@ final readonly class VideoProcessorService
     ) {}
 
     /** Etapa 1: baixar + transcrever. */
-    public function startIngest(Video $video): ProcessingJob
+    public function startIngest(Video $video): object
     {
         $job = $this->createJob($video, 'ingest');
 
@@ -52,7 +51,7 @@ final readonly class VideoProcessorService
             uploadOriginalToMinio: true,
         );
 
-        $this->savePayload($video, $job, 'ingest_request', $data->toArray());
+        $this->savePayload($video, 'ingest_request', $data->toArray());
         $this->status->transition($video, 'downloading', 'Ingestão enviada à API de processamento');
         $video->update(['current_stage' => 'ingest']);
 
@@ -63,7 +62,7 @@ final readonly class VideoProcessorService
     }
 
     /** Etapa 2: legendar o vídeo completo com a transcrição confirmada. */
-    public function startSubtitleFull(Video $video): ProcessingJob
+    public function startSubtitleFull(Video $video): object
     {
         $video->files()->where('type', 'legendado')->delete();
 
@@ -86,7 +85,7 @@ final readonly class VideoProcessorService
             callbackToken: $this->callbackToken(),
         );
 
-        $this->savePayload($video, $job, 'subtitle_request', $data->toArray());
+        $this->savePayload($video, 'subtitle_request', $data->toArray());
         $this->status->transition($video, 'subtitling_full', 'Legendagem do vídeo completo enviada');
         $video->update(['current_stage' => 'subtitle_full']);
 
@@ -117,7 +116,7 @@ final readonly class VideoProcessorService
             $response = $this->provider->recommendCuts($video->uuid, $data);
             $cuts = $response['cuts'] ?? [];
 
-            $this->savePayload($video, null, 'cuts_recommendation_result', $response);
+            $this->savePayload($video, 'cuts_recommendation_result', $response);
             $this->status->transition($video, 'waiting_cuts', 'Cortes recomendados pela IA');
 
             /** @var list<array<string, mixed>> $cutsList */
@@ -138,7 +137,7 @@ final readonly class VideoProcessorService
      *
      * @param  Collection<int, Cut>  $cuts
      */
-    public function startRenderCuts(Video $video, Collection $cuts): ProcessingJob
+    public function startRenderCuts(Video $video, Collection $cuts): object
     {
         $original = $video->fileOfType('original');
         abort_if(! $original instanceof File, 422, 'Vídeo original não encontrado no MinIO.');
@@ -175,7 +174,7 @@ final readonly class VideoProcessorService
             video: ['title' => $video->title, 'duration_seconds' => $video->duration_seconds],
         );
 
-        $this->savePayload($video, $job, 'render_request', $data->toArray());
+        $this->savePayload($video, 'render_request', $data->toArray());
         $this->status->transition($video, 'cutting', 'Renderização de cortes enviada');
         $video->update(['current_stage' => 'render_cuts']);
 
@@ -185,33 +184,30 @@ final readonly class VideoProcessorService
         return $job;
     }
 
-    private function createJob(Video $video, string $type): ProcessingJob
+    private function createJob(Video $video, string $type): object
     {
-        return ProcessingJob::query()->create([
+        return (object) [
             'video_id' => $video->id,
             'type' => $type,
             'provider' => 'video_processor',
             'status_id' => Status::idFor('queued'),
             'progress' => 0,
             'stage' => $type,
-        ]);
+            'external_job_id' => null,
+        ];
     }
 
     /** @param  array<string, mixed>  $response */
-    private function bindExternalJob(ProcessingJob $job, array $response): void
+    private function bindExternalJob(object $job, array $response): void
     {
-        $job->update([
-            'external_job_id' => $response['job_id'] ?? null,
-            'status_id' => Status::idFor('processing'),
-        ]);
+        $job->external_job_id = $response['job_id'] ?? null;
     }
 
     /** @param  array<string, mixed>  $payload */
-    private function savePayload(Video $video, ?ProcessingJob $job, string $type, array $payload): VideoPayload
+    private function savePayload(Video $video, string $type, array $payload): VideoPayload
     {
         return VideoPayload::query()->create([
             'video_id' => $video->id,
-            'processing_job_id' => $job?->id,
             'type' => $type,
             'payload' => $payload,
         ]);

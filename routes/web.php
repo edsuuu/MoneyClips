@@ -11,18 +11,15 @@ Route::view('/terms-of-service', 'legal.terms')->name('legal.terms');
 Route::view('/privacy-policy', 'legal.privacy')->name('legal.privacy');
 
 Route::middleware('guest')->group(function (): void {
-    Route::get('/auth/google/redirect', [OAuthController::class, 'loginRedirect'])->name('auth.google.redirect');
-    Route::get('/auth/google/callback', [OAuthController::class, 'loginCallback'])->name('auth.google.callback');
-    Route::get('/oauth2/google/redirect', [OAuthController::class, 'loginRedirect'])->name('auth.google.redirect.legacy');
-    Route::get('/oauth2/google/callback', [OAuthController::class, 'loginCallback'])->name('auth.google.callback.legacy');
+    Route::get('/oauth2/google/redirect', [OAuthController::class, 'loginRedirect'])->name('auth.google.redirect');
+    Route::get('/oauth2/google/callback', [OAuthController::class, 'loginCallback'])->name('auth.google.callback');
 });
 
 Route::middleware(['auth'])->group(function (): void {
-    Route::get('/videos', [VideoController::class, 'index'])->name('videos.index');
-    Route::get('/videos/create', [VideoController::class, 'create'])->name('videos.create');
-    Route::get('/videos/{video}/transcript', [VideoController::class, 'transcript'])->name('videos.transcript');
-    Route::get('/videos/{video}/editor', [VideoController::class, 'editor'])->name('videos.editor');
-    Route::get('/videos/{video}/schedule', [VideoController::class, 'schedule'])->name('videos.schedule');
+    Route::view('/videos', 'videos.index')->name('videos.index');
+    Route::view('/videos/create', 'videos.create')->name('videos.create');
+    Route::view('/videos/{uuid}/editor', 'videos.editor')->name('videos.editor');
+    Route::view('/videos/{video}/schedule', 'videos.schedule')->name('videos.schedule');
     Route::get('/videos/{video}/publications', [VideoController::class, 'publications'])->name('videos.publications');
     Route::get('/videos/{video}/thumbnail', [VideoController::class, 'thumbnail'])->name('videos.thumbnail');
     Route::get('/videos/{video}/stream/{path}', [VideoController::class, 'stream'])

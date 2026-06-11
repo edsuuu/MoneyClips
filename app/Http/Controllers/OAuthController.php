@@ -6,13 +6,13 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\SocialPublishing\OAuth\SocialAccountConnector;
-use App\Support\Cast;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Laravel\Socialite\Facades\Socialite;
 use Laravel\Socialite\Two\AbstractProvider;
@@ -53,23 +53,13 @@ final class OAuthController extends Controller
         ],
     ];
 
-    // ── Google login ──────────────────────────────────────────────────────────
-
     public function loginRedirect(): RedirectResponse
     {
-        if (! $this->googleConfigured()) {
-            return to_route('login')->with('status', 'Configure o Google OAuth antes de usar esta opcao.');
-        }
-
         return $this->googleProvider()->redirect();
     }
 
     public function loginCallback(): RedirectResponse
     {
-        if (! $this->googleConfigured()) {
-            return to_route('login')->with('status', 'Configure o Google OAuth antes de usar esta opcao.');
-        }
-
         try {
             $socialUser = $this->googleProvider()->user();
             if (! $socialUser instanceof SocialiteUser) {
@@ -99,7 +89,6 @@ final class OAuthController extends Controller
                 $isNewUser = true;
             } else {
                 $user->forceFill([
-                    'name' => $user->name !== '' ? $user->name : ($socialUser->getName() ?: 'Usuario Google'),
                     'google_id' => $socialUser->getId(),
                     'google_avatar' => $socialUser->getAvatar(),
                     'email_verified_at' => $user->email_verified_at ?? Date::now(),
@@ -116,7 +105,9 @@ final class OAuthController extends Controller
 
             return redirect()->intended(route('dashboard'));
         } catch (Throwable $throwable) {
-            return to_route('login')->with('status', 'Falha ao autenticar com Google: '.$throwable->getMessage());
+            Log::channel('daily')->error('[OAuthController] Falha no login com Google.', ['exception' => $throwable]);
+
+            return to_route('login')->with('status', 'Falha ao autenticar com Google. Tente novamente.');
         }
     }
 
@@ -221,7 +212,7 @@ final class OAuthController extends Controller
                     'redirect_uri' => config('services.tiktok.redirect'),
                 ]);
 
-                if (! $tokenResponse->successful() || ! filled($tokenResponse->json('access_token'))) {
+                if (! $tokenResponse->successful() || blank($tokenResponse->json('access_token'))) {
                     $message = Cast::str($tokenResponse->json('error_description'))
                         ?: Cast::str($tokenResponse->json('message'))
                         ?: Cast::str($tokenResponse->body());
@@ -257,7 +248,9 @@ final class OAuthController extends Controller
 
                 return to_route('social-accounts')->with('status', 'Conta(s) conectada(s): '.$names);
             } catch (Throwable $throwable) {
-                return to_route('social-accounts')->with('error', 'Falha no OAuth do TikTok: '.$throwable->getMessage());
+                Log::channel('daily')->error('[OAuthController] Falha no OAuth do TikTok.', ['exception' => $throwable]);
+
+                return to_route('social-accounts')->with('error', 'Falha no OAuth do TikTok. Tente novamente.');
             }
         }
 
@@ -290,17 +283,10 @@ final class OAuthController extends Controller
 
             return to_route('social-accounts')->with('status', 'Conta(s) conectada(s): '.$names);
         } catch (Throwable $throwable) {
-            return to_route('social-accounts')->with('error', 'Falha no OAuth: '.$throwable->getMessage());
+            Log::channel('daily')->error('[OAuthController] Falha no OAuth ('.$platform.').', ['exception' => $throwable]);
+
+            return to_route('social-accounts')->with('error', 'Falha na autenticação OAuth. Tente novamente.');
         }
-    }
-
-    // ── Helpers privados ──────────────────────────────────────────────────────
-
-    private function googleConfigured(): bool
-    {
-        return filled(config('services.google_auth.client_id'))
-            && filled(config('services.google_auth.client_secret'))
-            && filled(config('services.google_auth.redirect'));
     }
 
     private function googleProvider(): AbstractProvider

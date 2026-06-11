@@ -13,12 +13,13 @@ use App\Services\SocialPublishing\PostDraftBuilder;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
 use App\Support\Cast;
 use Flux\Flux;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
-use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 use Livewire\Component;
+use Throwable;
 
 final class Schedule extends Component
 {
@@ -108,6 +109,68 @@ final class Schedule extends Component
     public function refreshSchedulingPlan(): void
     {
         $this->normalizeCutSchedulingPlan();
+    }
+
+    public function render(SocialPublisherRegistry $registry): View
+    {
+        $this->video->refresh()->load('cuts.files');
+
+        $accounts = SocialAccount::query()
+            ->where('is_active', true)
+            ->where('user_id', Auth::id())
+            ->orderBy('platform')
+            ->orderBy('name')
+            ->get()
+            ->groupBy('platform');
+
+        $publishedTargetsByCut = $this->publishedTargetsByCut();
+
+        $hasYoutubeAccount = ($accounts['youtube'] ?? collect())->isNotEmpty();
+        $hasTiktokAccount = ($accounts['tiktok'] ?? collect())->isNotEmpty();
+
+        foreach ($this->video->cuts as $cut) {
+            $this->cutTargets[$cut->uuid] ??= $this->defaultCutTarget(
+                $cut->uuid,
+                $publishedTargetsByCut,
+                $hasYoutubeAccount,
+                $hasTiktokAccount,
+            );
+        }
+
+        $this->normalizeCutSchedulingPlan();
+
+        if ($this->selectedCuts !== []) {
+            $this->selectedCuts = array_values(array_filter(
+                $this->selectedCuts,
+                fn (string $uuid): bool => ! $this->isCutFullyLocked($uuid, $publishedTargetsByCut),
+            ));
+        }
+
+        return view('livewire.videos.schedule', [
+            'cuts' => $this->video->cuts,
+            'platformLabels' => $registry->labels(),
+            'accountsByPlatform' => $accounts,
+            'publishedTargetsByCut' => $publishedTargetsByCut,
+        ]);
+    }
+
+    public function toggleCutEdit(string $uuid): void
+    {
+        if (! array_key_exists($uuid, $this->cutMeta)) {
+            return;
+        }
+
+        $this->editingCuts[$uuid] = ! (bool) ($this->editingCuts[$uuid] ?? false);
+    }
+
+    public function saveCutMeta(string $uuid): void
+    {
+        if (! array_key_exists($uuid, $this->cutMeta)) {
+            return;
+        }
+
+        $this->editingCuts[$uuid] = false;
+        Flux::toast('Legenda/descrição salvas.');
     }
 
     private function processPublications(SocialPublisherRegistry $registry): void
@@ -201,7 +264,7 @@ final class Schedule extends Component
                 if ($isImmediate) {
                     $dispatchedPostIds[] = $post->id;
                 } else {
-                    dispatch((new PublishScheduledPostJob($post->id))->delay($scheduledFor));
+                    dispatch(new PublishScheduledPostJob($post->id)->delay($scheduledFor));
                 }
 
                 $created++;
@@ -211,56 +274,6 @@ final class Schedule extends Component
         foreach ($dispatchedPostIds as $postId) {
             dispatch(new PublishScheduledPostJob($postId));
         }
-
-        if ($created === 0) {
-            return;
-        }
-
-        Flux::toast($created.' publicação(ões) confirmada(s).');
-        $this->reset('selectedCuts');
-    }
-
-    public function render(SocialPublisherRegistry $registry): View
-    {
-        $this->video->refresh()->load('cuts.files');
-
-        $accounts = SocialAccount::query()
-            ->where('is_active', true)
-            ->where('user_id', Auth::id())
-            ->orderBy('platform')
-            ->orderBy('name')
-            ->get()
-            ->groupBy('platform');
-
-        $publishedTargetsByCut = $this->publishedTargetsByCut();
-
-        $hasYoutubeAccount = ($accounts['youtube'] ?? collect())->isNotEmpty();
-        $hasTiktokAccount = ($accounts['tiktok'] ?? collect())->isNotEmpty();
-
-        foreach ($this->video->cuts as $cut) {
-            $this->cutTargets[$cut->uuid] ??= $this->defaultCutTarget(
-                $cut->uuid,
-                $publishedTargetsByCut,
-                $hasYoutubeAccount,
-                $hasTiktokAccount,
-            );
-        }
-
-        $this->normalizeCutSchedulingPlan();
-
-        if ($this->selectedCuts !== []) {
-            $this->selectedCuts = array_values(array_filter(
-                $this->selectedCuts,
-                fn (string $uuid): bool => ! $this->isCutFullyLocked($uuid, $publishedTargetsByCut),
-            ));
-        }
-
-        return view('livewire.videos.schedule', [
-            'cuts' => $this->video->cuts,
-            'platformLabels' => $registry->labels(),
-            'accountsByPlatform' => $accounts,
-            'publishedTargetsByCut' => $publishedTargetsByCut,
-        ]);
     }
 
     /**
@@ -319,25 +332,6 @@ final class Schedule extends Component
         }
     }
 
-    public function toggleCutEdit(string $uuid): void
-    {
-        if (! array_key_exists($uuid, $this->cutMeta)) {
-            return;
-        }
-
-        $this->editingCuts[$uuid] = ! (bool) ($this->editingCuts[$uuid] ?? false);
-    }
-
-    public function saveCutMeta(string $uuid): void
-    {
-        if (! array_key_exists($uuid, $this->cutMeta)) {
-            return;
-        }
-
-        $this->editingCuts[$uuid] = false;
-        Flux::toast('Legenda/descrição salvas.');
-    }
-
     /**
      * @return array<string, int>
      */
@@ -379,7 +373,10 @@ final class Schedule extends Component
 
         foreach ($posts as $post) {
             $cutUuid = $post->cut?->uuid;
-            if (! is_string($cutUuid) || $cutUuid === '') {
+            if (! is_string($cutUuid)) {
+                continue;
+            }
+            if ($cutUuid === '') {
                 continue;
             }
 
@@ -397,8 +394,7 @@ final class Schedule extends Component
         array $publishedTargetsByCut = [],
         bool $hasYoutubeAccount = true,
         bool $hasTiktokAccount = true,
-    ): string
-    {
+    ): string {
         $published = $publishedTargetsByCut[$cutUuid] ?? [];
         $hasYoutube = (bool) ($published['youtube'] ?? false);
         $hasTiktok = (bool) ($published['tiktok'] ?? false);
@@ -477,6 +473,7 @@ final class Schedule extends Component
             if (! in_array($mode, ['now', 'scheduled'], true)) {
                 $mode = $index === 0 ? 'now' : 'scheduled';
             }
+
             $this->cutPublishModes[$uuid] = $mode;
 
             if ($mode === 'now') {
@@ -497,6 +494,7 @@ final class Schedule extends Component
                 } else {
                     $currentScheduledAt = $previousEffectiveAt->copy()->addHours($previousGapHours);
                 }
+
                 $this->cutPublishAt[$uuid] = $currentScheduledAt->format('Y-m-d\TH:i');
                 $this->cutPublishAuto[$uuid] = true;
             }
@@ -517,7 +515,7 @@ final class Schedule extends Component
             $parsed = Date::createFromFormat('Y-m-d\TH:i', $raw);
 
             return $parsed instanceof Carbon ? $parsed : null;
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
     }

@@ -56,7 +56,6 @@ final class Index extends Component
             DB::transaction(function () use ($video): void {
                 $video->statusLogs()->delete();
                 $video->payloads()->delete();
-                $video->processingJobs()->delete();
                 $video->transcript()->delete();
                 $video->files()->delete();
                 $video->cuts()->delete();
@@ -84,7 +83,7 @@ final class Index extends Component
             return;
         }
 
-        if ($video->status?->key !== 'pending' || $video->processingJobs()->exists()) {
+        if ($video->status?->key !== 'pending') {
             Flux::toast('Este vídeo já foi enviado para processamento.', variant: 'danger');
 
             return;
@@ -144,16 +143,13 @@ final class Index extends Component
         /** @var Collection<int, Video> $videos */
         $videos = Video::query()
             ->with(['status', 'files'])
-            ->withCount('processingJobs')
             ->latest()
             ->get();
 
-        $cards = $videos->map(function (Video $video): array {
-            return [
-                'video' => $video,
-                'thumb' => route('videos.thumbnail', $video),
-            ];
-        });
+        $cards = $videos->map(fn(Video $video): array => [
+            'video' => $video,
+            'thumb' => route('videos.thumbnail', $video),
+        ]);
 
         return view('livewire.videos.index', [
             'cards' => $cards,

@@ -17,7 +17,7 @@ final class File extends Model
     use HasFactory;
 
     protected $fillable = [
-        'uuid', 'video_id', 'cut_id', 'type', 'disk', 'bucket', 'path',
+        'uuid', 'video_id', 'cut_id', 'type', 'path',
         'mime_type', 'extension', 'size_bytes', 'checksum_sha256',
     ];
 
@@ -42,10 +42,9 @@ final class File extends Model
         return $this->belongsTo(Cut::class);
     }
 
-    /** URL temporária assinada do MinIO para o front exibir/baixar. */
     public function temporaryUrl(int $minutes = 60): string
     {
-        return Storage::disk($this->disk ?: 'minio')
+        return Storage::disk($this->disk ?: config('filesystems.default'))
             ->temporaryUrl($this->path, now()->addMinutes($minutes));
     }
 

@@ -200,7 +200,7 @@ final class SocialAccountConnector
     private function parseScopes(string $rawScopes): array
     {
         $scopes = array_map(
-            static fn (string $scope): string => trim($scope),
+            mb_trim(...),
             explode(',', $rawScopes),
         );
 

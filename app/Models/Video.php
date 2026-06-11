@@ -21,6 +21,7 @@ final class Video extends Model
     protected $fillable = [
         'uuid', 'url', 'source_provider', 'external_video_id', 'title',
         'duration_seconds', 'status_id', 'current_stage', 'progress',
+        'download_stage', 'current_job_id',
         'error_message', 'created_by', 'finished_at', 'face_tracking',
         'path',
     ];
@@ -36,14 +37,6 @@ final class Video extends Model
     public function status(): BelongsTo
     {
         return $this->belongsTo(Status::class);
-    }
-
-    /**
-     * @return HasMany<ProcessingJob, $this>
-     */
-    public function processingJobs(): HasMany
-    {
-        return $this->hasMany(ProcessingJob::class);
     }
 
     /**
