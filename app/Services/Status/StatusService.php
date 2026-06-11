@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Centraliza transições de status e registra status_logs.
-     * Aplica-se a qualquer model com coluna status_id (Video, Cut).
+ * Aplica-se a qualquer model com coluna status_id (Video, Cut).
  */
 final class StatusService
 {

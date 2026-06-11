@@ -121,7 +121,7 @@ final class OAuthController extends Controller
             return to_route('oauth.connect', ['platform' => 'facebook']);
         }
 
-        if (! in_array($platform, config('social-publishing.enabled_platforms', ['youtube', 'tiktok']), true)) {
+        if (! in_array($platform, Cast::arr(config('social-publishing.enabled_platforms', ['youtube', 'tiktok'])), true)) {
             return to_route('social-accounts')
                 ->with('error', 'Plataforma fora do fluxo principal desta aplicacao: '.$platform);
         }
@@ -174,7 +174,7 @@ final class OAuthController extends Controller
             $platform = 'facebook';
         }
 
-        if (! in_array($platform, config('social-publishing.enabled_platforms', ['youtube', 'tiktok']), true)) {
+        if (! in_array($platform, Cast::arr(config('social-publishing.enabled_platforms', ['youtube', 'tiktok'])), true)) {
             return to_route('social-accounts')
                 ->with('error', 'Plataforma fora do fluxo principal desta aplicacao: '.$platform);
         }
@@ -193,7 +193,7 @@ final class OAuthController extends Controller
                     ->with('error', 'Falha no OAuth do TikTok: '.($description !== '' ? $description : $error));
             }
 
-            $expectedState = (string) request()->session()->pull('oauth.tiktok.state', '');
+            $expectedState = Cast::str(request()->session()->pull('oauth.tiktok.state', ''));
             $state = mb_trim((string) request()->query('state', ''));
             if ($expectedState === '' || ! hash_equals($expectedState, $state)) {
                 return to_route('social-accounts')->with('error', 'Falha no OAuth do TikTok: state inválido.');
@@ -230,15 +230,15 @@ final class OAuthController extends Controller
                     'fields' => 'open_id,display_name,avatar_url',
                 ]);
 
+                /** @var array<string, mixed> $profile */
                 $profile = $profileResponse->successful()
                     ? Cast::arr($profileResponse->json('data.user'))
                     : [];
 
-                $accounts = $connector->fromTikTokTokenBundle(
-                    Cast::arr($tokenResponse->json()),
-                    $profile,
-                    $userId,
-                );
+                /** @var array<string, mixed> $tokenBundle */
+                $tokenBundle = Cast::arr($tokenResponse->json());
+
+                $accounts = $connector->fromTikTokTokenBundle($tokenBundle, $profile, $userId);
 
                 if ($accounts === []) {
                     return to_route('social-accounts')

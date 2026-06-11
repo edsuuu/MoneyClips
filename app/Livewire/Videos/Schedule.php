@@ -12,8 +12,8 @@ use App\Models\Video;
 use App\Services\SocialPublishing\PostDraftBuilder;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
 use App\Support\Cast;
+use Carbon\CarbonImmutable;
 use Flux\Flux;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
@@ -320,7 +320,7 @@ final class Schedule extends Component
         $queryCuts = mb_trim((string) request()->query('cuts', ''));
 
         if ($queryCuts !== '') {
-            $validUuids = $this->video->cuts->pluck('uuid')->all();
+            $validUuids = $this->video->cuts->map(fn (Cut $cut): string => Cast::str($cut->uuid))->all();
             $selected = array_values(array_intersect(
                 preg_split('/[\s,]+/', $queryCuts) ?: [],
                 $validUuids,
@@ -489,8 +489,9 @@ final class Schedule extends Component
             $currentScheduledAt = $this->parseLocalDateTime($this->cutPublishAt[$uuid] ?? '');
             $isAuto = $this->cutPublishAuto[$uuid] ?? true;
 
-            if (! $currentScheduledAt instanceof Carbon || $isAuto) {
-                if ($index === 0 && $mode === 'scheduled') {
+            if (! $currentScheduledAt instanceof CarbonImmutable || $isAuto) {
+                // $mode aqui é sempre 'scheduled' ('now' deu continue acima).
+                if ($index === 0) {
                     $currentScheduledAt = Date::now()->addHours($currentGapHours);
                 } else {
                     $currentScheduledAt = $previousEffectiveAt->copy()->addHours($previousGapHours);
@@ -505,7 +506,7 @@ final class Schedule extends Component
         }
     }
 
-    private function parseLocalDateTime(?string $value): ?Carbon
+    private function parseLocalDateTime(?string $value): ?CarbonImmutable
     {
         $raw = mb_trim((string) $value);
         if ($raw === '') {
@@ -513,9 +514,10 @@ final class Schedule extends Component
         }
 
         try {
-            $parsed = Date::createFromFormat('Y-m-d\TH:i', $raw);
-
-            return $parsed instanceof Carbon ? $parsed : null;
+            // Date::use(CarbonImmutable) está ativo (AppServiceProvider), então o
+            // factory devolve CarbonImmutable — o instanceof antigo contra o Carbon
+            // mutável nunca casava e descartava a data digitada pelo usuário.
+            return Date::createFromFormat('Y-m-d\TH:i', $raw);
         } catch (Throwable) {
             return null;
         }

@@ -9,6 +9,7 @@ use App\Services\VideoProcessor\Data\IngestVideoData;
 use App\Services\VideoProcessor\Data\RecommendCutsData;
 use App\Services\VideoProcessor\Data\RenderCutsData;
 use App\Services\VideoProcessor\Data\SubtitleFullData;
+use App\Support\Cast;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -73,7 +74,7 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
 
     private function client(): PendingRequest
     {
-        $baseUrlStr = (string) config('video-processor.base_url', 'http://127.0.0.1:8765');
+        $baseUrlStr = Cast::str(config('video-processor.base_url')) ?: 'http://127.0.0.1:8765';
 
         $timeout = config('video-processor.timeout', 120);
         $timeoutInt = is_int($timeout) || is_numeric($timeout) ? (int) $timeout : 120;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\Cast;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
+/**
+ * @property string|null $disk Disk de storage do arquivo (coluna ainda não existe no schema; sempre null hoje, com fallback para o disk padrão nos consumidores).
+ */
 final class File extends Model
 {
     /** @use HasFactory<Factory> */
@@ -44,7 +48,7 @@ final class File extends Model
 
     public function temporaryUrl(int $minutes = 60): string
     {
-        return Storage::disk($this->disk ?: config('filesystems.default'))
+        return Storage::disk($this->disk ?: Cast::str(config('filesystems.default')))
             ->temporaryUrl($this->path, now()->addMinutes($minutes));
     }
 
