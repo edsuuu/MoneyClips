@@ -8,9 +8,9 @@
         subtitle="Acompanhe tudo o que já entrou no pipeline e abra direto no editor ou no agendamento."
     >
         <x-slot:actions>
-            <flux:button :href="route('videos.create')" variant="primary" icon="plus" class="cursor-pointer" wire:navigate>
+            <x-ui.button :href="route('videos.create')" variant="primary" icon="plus" class="cursor-pointer" wire:navigate>
                 Novo vídeo
-            </flux:button>
+            </x-ui.button>
         </x-slot:actions>
     </x-studio.page-header>
 
@@ -42,7 +42,7 @@
                         @endif
 
                         <div class="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3">
-                            <flux:badge color="{{ $statusColor }}" size="sm">{{ $video->status?->label ?? '—' }}</flux:badge>
+                            <x-ui.badge color="{{ $statusColor }}" size="sm">{{ $video->status?->label ?? '—' }}</x-ui.badge>
                             <div class="rounded-full bg-slate-950/80 px-2.5 py-1 text-[11px] tabular-nums text-slate-300 backdrop-blur">
                                 {{ $video->created_at?->format('d/m H:i') }}
                             </div>
@@ -83,27 +83,27 @@
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
-                        <flux:button :href="route('videos.editor', $video)" variant="primary" size="sm" class="cursor-pointer justify-center" wire:navigate>
+                        <x-ui.button :href="route('videos.editor', $video)" variant="primary" size="sm" class="cursor-pointer justify-center" wire:navigate>
                             Abrir editor
-                        </flux:button>
+                        </x-ui.button>
                         @if($pendingDeleteUuid === $video->uuid)
-                            <flux:button variant="danger" size="sm" class="cursor-pointer justify-center" wire:click="confirmDelete">
+                            <x-ui.button variant="danger" size="sm" class="cursor-pointer justify-center" wire:click="confirmDelete">
                                 Confirmar exclusão
-                            </flux:button>
+                            </x-ui.button>
                         @else
-                            <flux:button variant="ghost" size="sm" class="cursor-pointer justify-center text-red-300 hover:text-red-200" wire:click="askDelete('{{ $video->uuid }}')">
+                            <x-ui.button variant="ghost" size="sm" class="cursor-pointer justify-center text-red-300 hover:text-red-200" wire:click="askDelete('{{ $video->uuid }}')">
                                 Excluir vídeo
-                            </flux:button>
+                            </x-ui.button>
                         @endif
 
                         @if($canProcess)
-                            <flux:button variant="subtle" size="sm" icon="play" class="col-span-2 cursor-pointer justify-center" wire:click="process('{{ $video->uuid }}')" wire:loading.attr="disabled" wire:target="process('{{ $video->uuid }}')">
+                            <x-ui.button variant="subtle" size="sm" icon="play" class="col-span-2 cursor-pointer justify-center" wire:click="process('{{ $video->uuid }}')" wire:loading.attr="disabled" wire:target="process('{{ $video->uuid }}')">
                                 Processar
-                            </flux:button>
+                            </x-ui.button>
                         @elseif($video->status?->key === 'failed')
-                            <flux:button variant="subtle" size="sm" icon="arrow-path" class="col-span-2 cursor-pointer justify-center" wire:click="reprocess('{{ $video->uuid }}')" wire:loading.attr="disabled" wire:target="reprocess('{{ $video->uuid }}')">
+                            <x-ui.button variant="subtle" size="sm" icon="arrow-path" class="col-span-2 cursor-pointer justify-center" wire:click="reprocess('{{ $video->uuid }}')" wire:loading.attr="disabled" wire:target="reprocess('{{ $video->uuid }}')">
                                 Reprocessar
-                            </flux:button>
+                            </x-ui.button>
                         @endif
                     </div>
 
@@ -114,9 +114,9 @@
                                 Isso remove vídeo, transcrição, cortes, jobs e arquivos vinculados.
                             </p>
                             <div class="mt-3">
-                                <flux:button variant="ghost" size="sm" class="cursor-pointer text-red-200 hover:text-red-100" wire:click="cancelDelete">
+                                <x-ui.button variant="ghost" size="sm" class="cursor-pointer text-red-200 hover:text-red-100" wire:click="cancelDelete">
                                     Cancelar
-                                </flux:button>
+                                </x-ui.button>
                             </div>
                         </div>
                     @endif

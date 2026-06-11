@@ -1,7 +1,7 @@
 <div class="flex flex-col gap-6">
     <div class="flex w-full flex-col text-center">
-        <flux:heading size="xl">{{ __('Forgot password') }}</flux:heading>
-        <flux:subheading>{{ __('Enter your email to receive a password reset link') }}</flux:subheading>
+        <x-ui.heading size="xl">{{ __('Forgot password') }}</x-ui.heading>
+        <x-ui.subheading>{{ __('Enter your email to receive a password reset link') }}</x-ui.subheading>
     </div>
 
     <!-- Session Status -->
@@ -13,7 +13,7 @@
 
     <form wire:submit="sendPasswordResetLink" class="flex flex-col gap-6">
         <!-- Email Address -->
-        <flux:input
+        <x-ui.input
             wire:model="email"
             :label="__('Email address')"
             type="email"
@@ -24,14 +24,14 @@
         />
 
         <div class="flex items-center justify-end">
-            <flux:button variant="primary" type="submit" class="w-full">
+            <x-ui.button variant="primary" type="submit" class="w-full">
                 {{ __('Email password reset link') }}
-            </flux:button>
+            </x-ui.button>
         </div>
     </form>
 
     <div class="space-x-1 text-sm text-center rtl:space-x-reverse text-zinc-600 dark:text-zinc-400">
         <span>{{ __('Remember your password?') }}</span>
-        <flux:link :href="route('login')" wire:navigate>{{ __('Log in') }}</flux:link>
+        <x-ui.link :href="route('login')" wire:navigate>{{ __('Log in') }}</x-ui.link>
     </div>
 </div>

@@ -1,12 +1,12 @@
 <div class="flex flex-col gap-6">
     <div class="flex w-full flex-col text-center">
-        <flux:heading size="xl">{{ __('Reset password') }}</flux:heading>
-        <flux:subheading>{{ __('Enter your new password below') }}</flux:subheading>
+        <x-ui.heading size="xl">{{ __('Reset password') }}</x-ui.heading>
+        <x-ui.subheading>{{ __('Enter your new password below') }}</x-ui.subheading>
     </div>
 
     <form wire:submit="resetPassword" class="flex flex-col gap-6">
         <!-- Email Address -->
-        <flux:input
+        <x-ui.input
             wire:model="email"
             :label="__('Email address')"
             type="email"
@@ -16,7 +16,7 @@
         />
 
         <!-- Password -->
-        <flux:input
+        <x-ui.input
             wire:model="password"
             :label="__('Password')"
             type="password"
@@ -28,7 +28,7 @@
         />
 
         <!-- Confirm Password -->
-        <flux:input
+        <x-ui.input
             wire:model="password_confirmation"
             :label="__('Confirm password')"
             type="password"
@@ -39,9 +39,9 @@
         />
 
         <div class="flex items-center justify-end">
-            <flux:button variant="primary" type="submit" class="w-full">
+            <x-ui.button variant="primary" type="submit" class="w-full">
                 {{ __('Reset password') }}
-            </flux:button>
+            </x-ui.button>
         </div>
     </form>
 </div>

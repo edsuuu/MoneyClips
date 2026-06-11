@@ -30,13 +30,13 @@
 
             <div class="mt-4 flex justify-end gap-2">
                 @if(is_string($cancelAction))
-                    <flux:button size="sm" variant="ghost" x-on:click="{{ $cancelAction }}">
+                    <x-ui.button size="sm" variant="ghost" x-on:click="{{ $cancelAction }}">
                         Cancelar
-                    </flux:button>
+                    </x-ui.button>
                 @endif
-                <flux:button size="sm" variant="filled" x-on:click="{{ $saveAction }}">
+                <x-ui.button size="sm" variant="filled" x-on:click="{{ $saveAction }}">
                     {{ $saveLabel }}
-                </flux:button>
+                </x-ui.button>
             </div>
         </div>
     </template>

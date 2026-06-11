@@ -8,7 +8,11 @@ aqui agora.
 ## Stack
 
 - PHP 8.4+ / Laravel 12+ (estrutura `bootstrap/app.php`)
-- Livewire 3 + Flux UI + Tailwind 4 + Vite (frontend)
+- Livewire 3 + Tailwind 4 + Vite (frontend) — **sem Flux UI**: kit próprio de
+  componentes Blade em `resources/views/components/ui/` (button, input, badge,
+  modal, dropdown, icon, toasts...) com Alpine (embutido no Livewire).
+  Toasts: trait `App\Livewire\Concerns\WithToasts` (`$this->toast(msg, variant)`)
+  → evento `toast` consumido por `components/ui/toasts.blade.php`.
 - Pest (testes), PHPStan/Larastan, Pint, Rector (qualidade)
 - MySQL (`DB_CONNECTION=mysql`), fila em banco (`QUEUE_CONNECTION=database`)
 - MinIO (S3-compatível) para vídeos — disk `minio`

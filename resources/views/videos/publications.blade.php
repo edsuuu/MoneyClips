@@ -6,18 +6,18 @@
             subtitle="Acompanhe o que já foi agendado, publicado ou ainda está em processamento para este vídeo."
         >
             <x-slot:meta>
-                <flux:badge>{{ $video->title ?? 'Vídeo' }}</flux:badge>
+                <x-ui.badge>{{ $video->title ?? 'Vídeo' }}</x-ui.badge>
             </x-slot:meta>
         </x-studio.page-header>
 
         <x-studio.panel>
             <div class="flex flex-wrap items-center gap-3">
-                <flux:button :href="route('videos.schedule', $video)" variant="subtle" class="cursor-pointer" wire:navigate>
+                <x-ui.button :href="route('videos.schedule', $video)" variant="subtle" class="cursor-pointer" wire:navigate>
                     Voltar ao agendamento
-                </flux:button>
-                <flux:button :href="route('posts.dashboard')" variant="ghost" class="cursor-pointer" wire:navigate>
+                </x-ui.button>
+                <x-ui.button :href="route('posts.dashboard')" variant="ghost" class="cursor-pointer" wire:navigate>
                     Ver dashboard geral
-                </flux:button>
+                </x-ui.button>
             </div>
 
             @if($posts->isEmpty())

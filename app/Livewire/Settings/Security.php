@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire\Settings;
 
 use App\Concerns\PasswordValidationRules;
+use App\Livewire\Concerns\WithToasts;
 use App\Models\User;
 use Exception;
-use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -26,6 +26,7 @@ use Livewire\Component;
 final class Security extends Component
 {
     use PasswordValidationRules;
+    use WithToasts;
 
     public string $current_password = '';
 
@@ -101,7 +102,7 @@ final class Security extends Component
 
         $this->reset('current_password', 'password', 'password_confirmation');
 
-        Flux::toast(variant: 'success', text: __('Password updated.'));
+        $this->toast(__('Password updated.'));
     }
 
     /**

@@ -9,4 +9,4 @@
     ];
     [$color, $label] = $map[$status] ?? ['zinc', $status];
 @endphp
-<flux:badge :color="$color" size="sm">{{ $label }}</flux:badge>
+<x-ui.badge :color="$color" size="sm">{{ $label }}</x-ui.badge>

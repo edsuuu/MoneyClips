@@ -352,23 +352,23 @@
             subtitle="Use a timeline para marcar com precisão os pontos do corte e revisar a fala em paralelo."
         >
             <x-slot:meta>
-                <flux:badge>{{ $video->status?->label ?? '—' }}</flux:badge>
+                <x-ui.badge>{{ $video->status?->label ?? '—' }}</x-ui.badge>
             </x-slot:meta>
             <x-slot:actions>
-                <flux:button wire:click="startDownload" variant="primary" icon="arrow-down-tray" class="cursor-pointer">
+                <x-ui.button wire:click="startDownload" variant="primary" icon="arrow-down-tray" class="cursor-pointer">
                     <span wire:loading.remove wire:target="startDownload">Download & Upload</span>
                     <span wire:loading wire:target="startDownload">Iniciando...</span>
-                </flux:button>
+                </x-ui.button>
                 @if(($statusKey ?? null) === 'pending' && ! $activeJobId)
-                    <flux:button wire:click="processVideo" variant="primary" icon="play" class="cursor-pointer">
+                    <x-ui.button wire:click="processVideo" variant="primary" icon="play" class="cursor-pointer">
                         <span wire:loading.remove wire:target="processVideo">Processar</span>
                         <span wire:loading wire:target="processVideo">Processando...</span>
-                    </flux:button>
+                    </x-ui.button>
                 @elseif(($statusKey ?? null) === 'failed')
-                    <flux:button wire:click="reprocessVideo" variant="subtle" icon="arrow-path" class="cursor-pointer">
+                    <x-ui.button wire:click="reprocessVideo" variant="subtle" icon="arrow-path" class="cursor-pointer">
                         <span wire:loading.remove wire:target="reprocessVideo">Reprocessar</span>
                         <span wire:loading wire:target="reprocessVideo">Reprocessando...</span>
-                    </flux:button>
+                    </x-ui.button>
                 @endif
             </x-slot:actions>
         </x-studio.page-header>
@@ -380,7 +380,7 @@
         @elseif(in_array($statusKey ?? '', ['queued', 'downloading', 'processing', 'transcribing', 'subtitling_full', 'cutting', 'recommending_cuts']))
             <div class="mb-6 w-full rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
                 <div class="flex items-center gap-3">
-                    <flux:icon.loading class="size-5 text-indigo-400" />
+                    <x-ui.icon name="loading" class="size-5 text-indigo-400" />
                     <span class="text-sm font-medium text-slate-300">{{ $video->status?->label ?? 'Processando...' }}</span>
                     @if($video->progress > 0)
                         <span class="ml-auto text-sm font-semibold tabular-nums text-slate-400">{{ $video->progress }}%</span>
@@ -401,7 +401,7 @@
                     @if($playerUrl)
                         <div class="relative min-h-[420px] w-full">
                             <div x-show="!playerReady || !playerPreviewReady" class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 rounded-xl border border-dashed border-slate-700 bg-slate-950/90 px-6 text-center">
-                                <flux:icon.loading class="size-6 text-slate-400" />
+                                <x-ui.icon name="loading" class="size-6 text-slate-400" />
                                 <p class="text-sm font-medium text-slate-100" x-show="!playerPreviewReady">Carregando prévia do vídeo...</p>
                             </div>
 
@@ -445,12 +445,12 @@
                 </div>
 
                 <div class="mt-5 flex flex-wrap items-center justify-center gap-2">
-                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="jumpTo(start)">ir para início</flux:button>
-                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="jumpTo(end)">ir para fim</flux:button>
-                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="nudgePlayhead(-0.05)">-50ms</flux:button>
-                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="nudgePlayhead(0.05)">+50ms</flux:button>
-                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="setStartFromCurrent()">marcar início no playhead</flux:button>
-                    <flux:button variant="filled" size="sm" class="cursor-pointer" x-on:click="setEndFromCurrent()">marcar fim no playhead</flux:button>
+                    <x-ui.button variant="filled" size="sm" class="cursor-pointer" x-on:click="jumpTo(start)">ir para início</x-ui.button>
+                    <x-ui.button variant="filled" size="sm" class="cursor-pointer" x-on:click="jumpTo(end)">ir para fim</x-ui.button>
+                    <x-ui.button variant="filled" size="sm" class="cursor-pointer" x-on:click="nudgePlayhead(-0.05)">-50ms</x-ui.button>
+                    <x-ui.button variant="filled" size="sm" class="cursor-pointer" x-on:click="nudgePlayhead(0.05)">+50ms</x-ui.button>
+                    <x-ui.button variant="filled" size="sm" class="cursor-pointer" x-on:click="setStartFromCurrent()">marcar início no playhead</x-ui.button>
+                    <x-ui.button variant="filled" size="sm" class="cursor-pointer" x-on:click="setEndFromCurrent()">marcar fim no playhead</x-ui.button>
                 </div>
 
                 <div class="mt-6 rounded-xl border border-slate-800 bg-slate-950 text-slate-100 p-4 min-w-0">
@@ -573,7 +573,7 @@
                 </div>
 
                 <div class="mt-4 flex flex-wrap gap-3">
-                    <flux:button variant="primary" size="sm" icon="plus" class="cursor-pointer" x-on:click="addCutFromTimeline()">Adicionar corte</flux:button>
+                    <x-ui.button variant="primary" size="sm" icon="plus" class="cursor-pointer" x-on:click="addCutFromTimeline()">Adicionar corte</x-ui.button>
                 </div>
             </div>
         </div>
@@ -581,10 +581,10 @@
         {{-- Gerador automático --}}
         <div class="rounded-xl border border-slate-800 bg-slate-900/70 p-5"
              x-data="{ selectedMode: @entangle('pendingAutoGenerationMode') }">
-            <flux:heading size="sm">Gerar cortes automáticos</flux:heading>
-            <flux:text class="mt-1 text-sm text-slate-400">
+            <x-ui.heading size="sm">Gerar cortes automáticos</x-ui.heading>
+            <x-ui.text class="mt-1 text-sm text-slate-400">
                 Escolha entre cortar com IA em sequência contínua ou dividir o vídeo em blocos de 1 minuto.
-            </flux:text>
+            </x-ui.text>
 
             <div class="mt-4 grid gap-3 md:grid-cols-2">
                 <button
@@ -596,7 +596,7 @@
                     class="rounded-xl p-4 text-left transition"
                 >
                     <div class="flex items-center gap-2">
-                        <flux:icon.sparkles class="size-5 text-cyan-300" />
+                        <x-ui.icon name="sparkles" class="size-5 text-cyan-300" />
                         <span class="text-sm font-semibold text-slate-50">IA contínua</span>
                     </div>
                     <p class="mt-2 text-xs leading-5 text-slate-300">
@@ -616,7 +616,7 @@
                     class="rounded-xl p-4 text-left transition"
                 >
                     <div class="flex items-center gap-2">
-                        <flux:icon.clock class="size-5 text-emerald-300" />
+                        <x-ui.icon name="clock" class="size-5 text-emerald-300" />
                         <span class="text-sm font-semibold text-slate-50">Por tempo</span>
                     </div>
                     <p class="mt-2 text-xs leading-5 text-slate-300">
@@ -634,7 +634,7 @@
                     <span x-text="selectedMode === 'ai' ? 'IA contínua' : selectedMode === 'timed' ? 'Por tempo' : 'nenhuma'"></span>
                 </div>
 
-                <flux:button
+                <x-ui.button
                     variant="primary"
                     size="sm"
                     icon="check"
@@ -646,7 +646,7 @@
                 >
                     <span wire:loading.remove wire:target="confirmAutoGeneration">Confirmar</span>
                     <span wire:loading wire:target="confirmAutoGeneration">Gerando...</span>
-                </flux:button>
+                </x-ui.button>
             </div>
         </div>
 
@@ -663,7 +663,7 @@
                             :checked="selectedCuts.length === allUuids.length && allUuids.length > 0"
                             x-on:click="selectedCuts.length === allUuids.length ? selectedCuts = [] : selectedCuts = [...allUuids]">
                     @endif
-                    <flux:heading size="lg">Cortes ({{ $cuts->count() }})</flux:heading>
+                    <x-ui.heading size="lg">Cortes ({{ $cuts->count() }})</x-ui.heading>
                 </div>
                 <div class="flex items-center gap-2">
                     @if($cuts->isNotEmpty())
@@ -721,7 +721,7 @@
                                     @if(is_array($draft))
                                         <div x-show="selectedCuts.includes('{{ $cut->uuid }}')" x-cloak class="rounded-xl border border-slate-800 bg-slate-950/80 p-3">
                                             <div class="flex items-center gap-2">
-                                                <flux:badge size="sm" color="cyan">{{ $draft['part_label'] }}</flux:badge>
+                                                <x-ui.badge size="sm" color="cyan">{{ $draft['part_label'] }}</x-ui.badge>
                                                 <span class="text-xs text-slate-400">{{ $cut->name }}</span>
                                             </div>
                                             <div class="mt-2 text-sm font-medium text-slate-100">{{ $draft['title'] }}</div>
@@ -753,12 +753,12 @@
                             </div>
 
                             <div class="flex flex-wrap gap-2">
-                                <flux:button wire:click="publishSelectedToYoutube" variant="primary" icon="paper-airplane" class="cursor-pointer">
+                                <x-ui.button wire:click="publishSelectedToYoutube" variant="primary" icon="paper-airplane" class="cursor-pointer">
                                     Publicar no YouTube agora
-                                </flux:button>
-                                <flux:button wire:click="openScheduleForSelected" variant="subtle" icon="calendar-days" class="cursor-pointer">
+                                </x-ui.button>
+                                <x-ui.button wire:click="openScheduleForSelected" variant="subtle" icon="calendar-days" class="cursor-pointer">
                                     Ajustar e agendar
-                                </flux:button>
+                                </x-ui.button>
                             </div>
                         </div>
                     </div>
@@ -766,7 +766,7 @@
             @endif
 
             @if($cuts->isEmpty())
-                <flux:text class="text-slate-500">Nenhum corte ainda. Marque o range na timeline e adicione o corte.</flux:text>
+                <x-ui.text class="text-slate-500">Nenhum corte ainda. Marque o range na timeline e adicione o corte.</x-ui.text>
             @endif
 
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -788,19 +788,19 @@
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-start justify-between gap-1 flex-wrap">
                                     <div class="flex items-center gap-2 flex-wrap">
-                                        <flux:badge color="{{ $cut->source === 'ai' ? 'purple' : 'zinc' }}" size="sm">{{ $cut->name }}</flux:badge>
-                                        @if($cut->source === 'ai')<flux:badge size="sm" color="purple">IA</flux:badge>@endif
-                                        @if($cut->rendered_at)<flux:badge size="sm" color="green">renderizado</flux:badge>@endif
+                                        <x-ui.badge color="{{ $cut->source === 'ai' ? 'purple' : 'zinc' }}" size="sm">{{ $cut->name }}</x-ui.badge>
+                                        @if($cut->source === 'ai')<x-ui.badge size="sm" color="purple">IA</x-ui.badge>@endif
+                                        @if($cut->rendered_at)<x-ui.badge size="sm" color="green">renderizado</x-ui.badge>@endif
                                     </div>
                                     <div class="flex items-center gap-1 flex-shrink-0">
-                                        <flux:button variant="ghost" icon="pencil-square" class="cursor-pointer"
+                                        <x-ui.button variant="ghost" icon="pencil-square" class="cursor-pointer"
                                             x-show="!isEditing"
                                             x-on:click="isEditing = true; loadCut({{ $cut->start_seconds }}, {{ $cut->end_seconds }})">
-                                        </flux:button>
-                                        <flux:button variant="ghost" icon="x-mark" class="cursor-pointer"
+                                        </x-ui.button>
+                                        <x-ui.button variant="ghost" icon="x-mark" class="cursor-pointer"
                                             x-show="isEditing"
                                             x-on:click="isEditing = false">
-                                        </flux:button>
+                                        </x-ui.button>
                                     </div>
                                 </div>
                                 @if($cut->reason)
@@ -811,17 +811,17 @@
 
                         {{-- Inputs de tempo --}}
                         <div class="grid grid-cols-[1fr_1fr] gap-2 items-end">
-                            <flux:input type="number" step="0.001" wire:model="cutEdits.{{ $cut->uuid }}.start" label="Início" size="sm" x-bind:disabled="!isEditing" />
-                            <flux:input type="number" step="0.001" wire:model="cutEdits.{{ $cut->uuid }}.end" label="Fim" size="sm" x-bind:disabled="!isEditing" />
+                            <x-ui.input type="number" step="0.001" wire:model="cutEdits.{{ $cut->uuid }}.start" label="Início" size="sm" x-bind:disabled="!isEditing" />
+                            <x-ui.input type="number" step="0.001" wire:model="cutEdits.{{ $cut->uuid }}.end" label="Fim" size="sm" x-bind:disabled="!isEditing" />
                         </div>
 
                         <p class="-mt-1 text-xs tabular-nums text-slate-400">{{ number_format($cut->duration_seconds, 3) }}s</p>
 
                         <div class="mt-2" x-show="isEditing" x-collapse>
-                            <flux:button variant="filled" class="w-full cursor-pointer" wire:click="saveCutEdit('{{ $cut->uuid }}')">
+                            <x-ui.button variant="filled" class="w-full cursor-pointer" wire:click="saveCutEdit('{{ $cut->uuid }}')">
                                 <span wire:loading.remove wire:target="saveCutEdit">Salvar Alterações</span>
                                 <span wire:loading wire:target="saveCutEdit">Salvando...</span>
-                            </flux:button>
+                            </x-ui.button>
                         </div>
 
                         {{-- Preview do vídeo renderizado --}}

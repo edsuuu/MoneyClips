@@ -1,46 +1,46 @@
 <section class="w-full">
     <div class="relative mb-6 w-full">
-    <flux:heading size="xl" level="1">{{ __('Settings') }}</flux:heading>
-    <flux:subheading size="lg" class="mb-6">{{ __('Manage your profile and account settings') }}</flux:subheading>
-    <flux:separator variant="subtle" />
+    <x-ui.heading size="xl" level="1">{{ __('Settings') }}</x-ui.heading>
+    <x-ui.subheading size="lg" class="mb-6">{{ __('Manage your profile and account settings') }}</x-ui.subheading>
+    <x-ui.separator variant="subtle" />
 </div>
 
-    <flux:heading class="sr-only">{{ __('Profile settings') }}</flux:heading>
+    <x-ui.heading class="sr-only">{{ __('Profile settings') }}</x-ui.heading>
 
     <div class="flex items-start max-md:flex-col">
         <div class="me-10 w-full pb-4 md:w-[220px]">
             <x-settings.nav />
         </div>
 
-        <flux:separator class="md:hidden" />
+        <x-ui.separator class="md:hidden" />
 
         <div class="flex-1 self-stretch max-md:pt-6">
-            <flux:heading>{{ __('Profile') }}</flux:heading>
-            <flux:subheading>{{ __('Update your name and email address') }}</flux:subheading>
+            <x-ui.heading>{{ __('Profile') }}</x-ui.heading>
+            <x-ui.subheading>{{ __('Update your name and email address') }}</x-ui.subheading>
 
             <div class="mt-5 w-full max-w-lg">
                 <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
-                    <flux:input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
+                    <x-ui.input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
                     <div>
-                        <flux:input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+                        <x-ui.input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
 
                         @if ($this->hasUnverifiedEmail)
                             <div>
-                                <flux:text class="mt-4">
+                                <x-ui.text class="mt-4">
                                     {{ __('Your email address is unverified.') }}
 
-                                    <flux:link class="text-sm cursor-pointer" wire:click.prevent="resendVerificationNotification">
+                                    <x-ui.link class="text-sm cursor-pointer" wire:click.prevent="resendVerificationNotification">
                                         {{ __('Click here to re-send the verification email.') }}
-                                    </flux:link>
-                                </flux:text>
+                                    </x-ui.link>
+                                </x-ui.text>
 
                             </div>
                         @endif
                     </div>
 
                     <div class="flex items-center gap-4">
-                        <flux:button variant="primary" type="submit">{{ __('Save') }}</flux:button>
+                        <x-ui.button variant="primary" type="submit">{{ __('Save') }}</x-ui.button>
                     </div>
                 </form>
 
