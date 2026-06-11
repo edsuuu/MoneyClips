@@ -25,6 +25,9 @@
         <flux:navlist.item icon="calendar-days" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('posts.dashboard')" :current="request()->routeIs('posts.dashboard')" wire:navigate>
             {{ __('Publicações') }}
         </flux:navlist.item>
+        <flux:navlist.item icon="bolt" class="rounded-lg text-slate-300 hover:bg-slate-900 hover:text-slate-50" :href="route('shorts.index')" :current="request()->routeIs('shorts.index')" wire:navigate>
+            {{ __('Shorts') }}
+        </flux:navlist.item>
         </flux:navlist>
     </div>
 

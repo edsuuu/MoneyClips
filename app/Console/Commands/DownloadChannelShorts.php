@@ -11,7 +11,8 @@ use Throwable;
 
 /**
  * Baixa os Shorts de um canal do YouTube direto pelo console, mostrando o
- * progresso (%) de cada download, e agenda as postagens ao final.
+ * progresso (%) de cada download. A postagem é feita depois, pelo comando
+ * youtube:dispatch-posts (sorteio) ou pela página /shorts.
  *
  * Uso: php artisan youtube:download-shorts "https://www.youtube.com/@canal"
  */
@@ -61,6 +62,7 @@ final class DownloadChannelShorts extends Command
             try {
                 $result = $service->downloadShort(
                     $video['id'],
+                    $channel,
                     $video['url'],
                     function (float $percent) use ($bar): void {
                         $bar->setProgress((int) min(100, max(0, $percent)));
