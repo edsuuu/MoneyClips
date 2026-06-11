@@ -30,15 +30,15 @@
     >
         <div x-show="!showRecoveryInput">
             <div class="flex w-full flex-col text-center">
-                <flux:heading size="xl">{{ __('Authentication code') }}</flux:heading>
-                <flux:subheading>{{ __('Enter the authentication code provided by your authenticator application.') }}</flux:subheading>
+                <x-ui.heading size="xl">{{ __('Authentication code') }}</x-ui.heading>
+                <x-ui.subheading>{{ __('Enter the authentication code provided by your authenticator application.') }}</x-ui.subheading>
             </div>
         </div>
 
         <div x-show="showRecoveryInput">
             <div class="flex w-full flex-col text-center">
-                <flux:heading size="xl">{{ __('Recovery code') }}</flux:heading>
-                <flux:subheading>{{ __('Please confirm access to your account by entering one of your emergency recovery codes.') }}</flux:subheading>
+                <x-ui.heading size="xl">{{ __('Recovery code') }}</x-ui.heading>
+                <x-ui.subheading>{{ __('Please confirm access to your account by entering one of your emergency recovery codes.') }}</x-ui.subheading>
             </div>
         </div>
 
@@ -46,26 +46,25 @@
             <div class="space-y-5 text-center">
                 <div x-show="!showRecoveryInput">
                     <div class="flex items-center justify-center my-5" x-ref="otp">
-                        <flux:otp
+                        <x-ui.otp
                             wire:model="code"
                             length="6"
                             name="code"
                             label="OTP Code"
-                            label:sr-only
                             class="mx-auto"
-                         />
+                        />
                     </div>
 
                     @error('code')
-                        <flux:text color="red" size="sm">
+                        <x-ui.text color="red" size="sm">
                             {{ $message }}
-                        </flux:text>
+                        </x-ui.text>
                     @enderror
                 </div>
 
                 <div x-show="showRecoveryInput">
                     <div class="my-5">
-                        <flux:input
+                        <x-ui.input
                             wire:model="recovery_code"
                             type="text"
                             name="recovery_code"
@@ -75,19 +74,19 @@
                     </div>
 
                     @error('recovery_code')
-                        <flux:text color="red" size="sm">
+                        <x-ui.text color="red" size="sm">
                             {{ $message }}
-                        </flux:text>
+                        </x-ui.text>
                     @enderror
                 </div>
 
-                <flux:button
+                <x-ui.button
                     variant="primary"
                     type="submit"
                     class="w-full"
                 >
                     {{ __('Continue') }}
-                </flux:button>
+                </x-ui.button>
             </div>
 
             <div class="mt-5 space-x-0.5 text-sm leading-5 text-center">

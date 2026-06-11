@@ -6,18 +6,18 @@
     >
         <x-slot:meta>
             @if($account)
-                <flux:badge color="green" size="sm">Canal: {{ $account->name }}</flux:badge>
+                <x-ui.badge color="green" size="sm">Canal: {{ $account->name }}</x-ui.badge>
             @else
-                <flux:badge color="red" size="sm">Nenhuma conta do YouTube conectada</flux:badge>
+                <x-ui.badge color="red" size="sm">Nenhuma conta do YouTube conectada</x-ui.badge>
             @endif
         </x-slot:meta>
         <x-slot:actions>
-            <flux:button wire:click="dispatchRandom" size="sm" variant="primary" icon="play" class="cursor-pointer">
+            <x-ui.button wire:click="dispatchRandom" size="sm" variant="primary" icon="play" class="cursor-pointer">
                 Postar 1 agora (sorteio)
-            </flux:button>
-            <flux:button :href="route('social-accounts')" size="sm" variant="subtle" icon="user-circle" class="cursor-pointer" wire:navigate>
+            </x-ui.button>
+            <x-ui.button :href="route('social-accounts')" size="sm" variant="subtle" icon="user-circle" class="cursor-pointer" wire:navigate>
                 Contas vinculadas
-            </flux:button>
+            </x-ui.button>
         </x-slot:actions>
     </x-studio.page-header>
 
@@ -79,7 +79,7 @@
                                 </td>
                                 <td class="px-3 py-2.5">
                                     @if($short->posted_at !== null)
-                                        <flux:badge color="green" size="sm">Postado</flux:badge>
+                                        <x-ui.badge color="green" size="sm">Postado</x-ui.badge>
                                         @if($short->youtube_video_id)
                                             <a
                                                 href="https://www.youtube.com/shorts/{{ $short->youtube_video_id }}"
@@ -89,14 +89,14 @@
                                             >ver</a>
                                         @endif
                                     @elseif($short->video_path !== null)
-                                        <flux:badge color="amber" size="sm">Disponível</flux:badge>
+                                        <x-ui.badge color="amber" size="sm">Disponível</x-ui.badge>
                                     @else
-                                        <flux:badge color="zinc" size="sm">Sem vídeo</flux:badge>
+                                        <x-ui.badge color="zinc" size="sm">Sem vídeo</x-ui.badge>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5 text-right">
                                     @if($short->posted_at === null && $short->video_path !== null)
-                                        <flux:button
+                                        <x-ui.button
                                             wire:click="postNow({{ $short->id }})"
                                             wire:confirm="Postar este Short no YouTube agora?"
                                             size="xs"
@@ -105,7 +105,7 @@
                                             class="cursor-pointer"
                                         >
                                             Postar
-                                        </flux:button>
+                                        </x-ui.button>
                                     @endif
                                 </td>
                             </tr>

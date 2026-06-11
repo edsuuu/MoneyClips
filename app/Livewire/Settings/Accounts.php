@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Livewire\Settings;
 
+use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
 use Carbon\CarbonInterface;
-use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\View\View;
@@ -21,6 +21,8 @@ use Throwable;
  */
 final class Accounts extends Component
 {
+    use WithToasts;
+
     public ?string $managingPlatform = null;
 
     public ?int $editingAccountId = null;
@@ -47,7 +49,7 @@ final class Accounts extends Component
     public function manage(string $platform): void
     {
         if (! in_array($platform, SocialAccount::PLATFORMS, true)) {
-            Flux::toast('Plataforma inválida.', variant: 'danger');
+            $this->toast('Plataforma inválida.', 'danger');
 
             return;
         }
@@ -85,7 +87,7 @@ final class Accounts extends Component
         $this->validate();
 
         if (! in_array($this->platform, SocialAccount::PLATFORMS, true)) {
-            Flux::toast('Plataforma inválida.', variant: 'danger');
+            $this->toast('Plataforma inválida.', 'danger');
 
             return;
         }
@@ -94,7 +96,7 @@ final class Accounts extends Component
         if (mb_trim($this->meta) !== '') {
             $decoded = json_decode($this->meta, true);
             if (! is_array($decoded)) {
-                Flux::toast('O campo Meta precisa ser um JSON válido.', variant: 'danger');
+                $this->toast('O campo Meta precisa ser um JSON válido.', 'danger');
 
                 return;
             }
@@ -106,7 +108,7 @@ final class Accounts extends Component
         $tokenExpiresAt = $this->parseTokenExpiresAt();
 
         if ($this->token_expires_at !== '' && ! $tokenExpiresAt instanceof CarbonInterface) {
-            Flux::toast('Informe uma data de expiração válida.', variant: 'danger');
+            $this->toast('Informe uma data de expiração válida.', 'danger');
 
             return;
         }
@@ -135,10 +137,10 @@ final class Accounts extends Component
 
         if ($account instanceof SocialAccount) {
             $account->update($payload);
-            Flux::toast('Conta atualizada.');
+            $this->toast('Conta atualizada.');
         } else {
             SocialAccount::query()->create($payload);
-            Flux::toast('Conta conectada.');
+            $this->toast('Conta conectada.');
         }
 
         $this->cancelManage();
@@ -155,7 +157,7 @@ final class Accounts extends Component
             $this->cancelManage();
         }
 
-        Flux::toast('Conta desvinculada.');
+        $this->toast('Conta desvinculada.');
     }
 
     public function render(SocialPublisherRegistry $registry): View

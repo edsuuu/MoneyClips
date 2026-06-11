@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
+use App\Livewire\Concerns\WithToasts;
 use App\Models\Status;
 use App\Models\Video;
 use App\Services\VideoProcessor\VideoProcessorService;
-use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -16,6 +16,8 @@ use Throwable;
 
 final class Index extends Component
 {
+    use WithToasts;
+
     public ?string $pendingDeleteUuid = null;
 
     public function askDelete(string $videoUuid): void
@@ -31,7 +33,7 @@ final class Index extends Component
     public function confirmDelete(): void
     {
         if (! is_string($this->pendingDeleteUuid) || $this->pendingDeleteUuid === '') {
-            Flux::toast('Selecione um vídeo para excluir.', variant: 'danger');
+            $this->toast('Selecione um vídeo para excluir.', 'danger');
 
             return;
         }
@@ -47,7 +49,7 @@ final class Index extends Component
             ->first();
 
         if (! $video instanceof Video) {
-            Flux::toast('Vídeo não encontrado.', variant: 'danger');
+            $this->toast('Vídeo não encontrado.', 'danger');
 
             return;
         }
@@ -62,12 +64,12 @@ final class Index extends Component
                 $video->delete();
             });
         } catch (Throwable) {
-            Flux::toast('Não foi possível excluir o vídeo.', variant: 'danger');
+            $this->toast('Não foi possível excluir o vídeo.', 'danger');
 
             return;
         }
 
-        Flux::toast('Vídeo removido com sucesso.');
+        $this->toast('Vídeo removido com sucesso.');
     }
 
     /**
@@ -78,13 +80,13 @@ final class Index extends Component
         $video = Video::query()->where('uuid', $videoUuid)->first();
 
         if (! $video instanceof Video) {
-            Flux::toast('Vídeo não encontrado.', variant: 'danger');
+            $this->toast('Vídeo não encontrado.', 'danger');
 
             return;
         }
 
         if ($video->status?->key !== 'pending') {
-            Flux::toast('Este vídeo já foi enviado para processamento.', variant: 'danger');
+            $this->toast('Este vídeo já foi enviado para processamento.', 'danger');
 
             return;
         }
@@ -92,12 +94,12 @@ final class Index extends Component
         try {
             $videoProcessor->startIngest($video);
         } catch (Throwable $throwable) {
-            Flux::toast('Falha ao iniciar o processamento: '.$throwable->getMessage(), variant: 'danger');
+            $this->toast('Falha ao iniciar o processamento: '.$throwable->getMessage(), 'danger');
 
             return;
         }
 
-        Flux::toast('Processamento iniciado.');
+        $this->toast('Processamento iniciado.');
     }
 
     /**
@@ -110,13 +112,13 @@ final class Index extends Component
         $video = Video::query()->where('uuid', $videoUuid)->first();
 
         if (! $video instanceof Video) {
-            Flux::toast('Vídeo não encontrado.', variant: 'danger');
+            $this->toast('Vídeo não encontrado.', 'danger');
 
             return;
         }
 
         if ($video->status?->key !== 'failed') {
-            Flux::toast('Só dá pra reprocessar vídeos que falharam.', variant: 'danger');
+            $this->toast('Só dá pra reprocessar vídeos que falharam.', 'danger');
 
             return;
         }
@@ -129,12 +131,12 @@ final class Index extends Component
 
             $videoProcessor->startIngest($video);
         } catch (Throwable $throwable) {
-            Flux::toast('Falha ao reprocessar: '.$throwable->getMessage(), variant: 'danger');
+            $this->toast('Falha ao reprocessar: '.$throwable->getMessage(), 'danger');
 
             return;
         }
 
-        Flux::toast('Reprocessamento disparado.');
+        $this->toast('Reprocessamento disparado.');
     }
 
     public function render(): View

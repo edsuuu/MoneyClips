@@ -6,6 +6,7 @@ namespace App\Livewire\Videos;
 
 use App\Jobs\ProcessVideoJob;
 use App\Jobs\PublishScheduledPostJob;
+use App\Livewire\Concerns\WithToasts;
 use App\Models\Cut;
 use App\Models\File;
 use App\Models\ScheduledPost;
@@ -16,7 +17,6 @@ use App\Models\VideoPayload;
 use App\Services\SocialPublishing\PostDraftBuilder;
 use App\Services\VideoProcessor\VideoProcessorService;
 use App\Support\Cast;
-use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -25,6 +25,8 @@ use Throwable;
 
 final class Editor extends Component
 {
+    use WithToasts;
+
     /** Status que ainda não terminaram — mantém polling ativo. */
     private const array ACTIVE_STATUSES = [
         'queued', 'downloading', 'processing', 'transcribing',
@@ -78,7 +80,7 @@ final class Editor extends Component
 
         dispatch(new ProcessVideoJob($this->video));
 
-        Flux::toast('Download iniciado.');
+        $this->toast('Download iniciado.');
     }
 
     public function processVideo(VideoProcessorService $videoProcessor): void
@@ -86,7 +88,7 @@ final class Editor extends Component
         $this->video->refresh();
 
         if ($this->video->status?->key !== 'pending') {
-            Flux::toast('Este vídeo já foi enviado para processamento.', variant: 'danger');
+            $this->toast('Este vídeo já foi enviado para processamento.', 'danger');
 
             return;
         }
@@ -95,12 +97,12 @@ final class Editor extends Component
             $videoProcessor->startIngest($this->video);
             $this->video->refresh();
         } catch (Throwable $throwable) {
-            Flux::toast('Falha ao iniciar o processamento: '.$throwable->getMessage(), variant: 'danger');
+            $this->toast('Falha ao iniciar o processamento: '.$throwable->getMessage(), 'danger');
 
             return;
         }
 
-        Flux::toast('Processamento iniciado.');
+        $this->toast('Processamento iniciado.');
     }
 
     public function reprocessVideo(VideoProcessorService $videoProcessor): void
@@ -108,7 +110,7 @@ final class Editor extends Component
         $this->video->refresh();
 
         if ($this->video->status?->key !== 'failed') {
-            Flux::toast('Só dá pra reprocessar vídeos que falharam.', variant: 'danger');
+            $this->toast('Só dá pra reprocessar vídeos que falharam.', 'danger');
 
             return;
         }
@@ -122,12 +124,12 @@ final class Editor extends Component
             $videoProcessor->startIngest($this->video);
             $this->video->refresh();
         } catch (Throwable $throwable) {
-            Flux::toast('Falha ao reprocessar: '.$throwable->getMessage(), variant: 'danger');
+            $this->toast('Falha ao reprocessar: '.$throwable->getMessage(), 'danger');
 
             return;
         }
 
-        Flux::toast('Reprocessamento disparado.');
+        $this->toast('Reprocessamento disparado.');
     }
 
     public function addCut(): void
@@ -151,7 +153,7 @@ final class Editor extends Component
             'status_id' => Status::idFor('pending'),
         ]);
 
-        Flux::toast('Corte adicionado.');
+        $this->toast('Corte adicionado.');
     }
 
     public function updateCut(string $uuid, float $start, float $end): void
@@ -163,7 +165,7 @@ final class Editor extends Component
             'duration_seconds' => max(0, $end - $start),
         ]);
 
-        Flux::toast('Corte atualizado.');
+        $this->toast('Corte atualizado.');
     }
 
     public function deleteCut(string $uuid): void
@@ -196,7 +198,7 @@ final class Editor extends Component
             return;
         }
 
-        Flux::toast('Escolha uma opção antes de confirmar.', variant: 'danger');
+        $this->toast('Escolha uma opção antes de confirmar.', 'danger');
     }
 
     public function generateAiCuts(VideoProcessorService $videoProcessor): void
@@ -213,7 +215,7 @@ final class Editor extends Component
                 ],
             );
         } catch (Throwable $throwable) {
-            Flux::toast('Falha ao sugerir cortes com IA: '.$throwable->getMessage(), variant: 'danger');
+            $this->toast('Falha ao sugerir cortes com IA: '.$throwable->getMessage(), 'danger');
 
             return;
         }
@@ -238,7 +240,7 @@ final class Editor extends Component
             );
         }
 
-        Flux::toast(count($cuts).' cortes recomendados pela IA.');
+        $this->toast(count($cuts).' cortes recomendados pela IA.');
     }
 
     public function generateTimedCuts(): void
@@ -246,7 +248,7 @@ final class Editor extends Component
         $duration = $this->resolveVideoDuration();
 
         if ($duration <= 0) {
-            Flux::toast('Não foi possível identificar a duração do vídeo.', variant: 'danger');
+            $this->toast('Não foi possível identificar a duração do vídeo.', 'danger');
 
             return;
         }
@@ -285,7 +287,7 @@ final class Editor extends Component
             );
         }
 
-        Flux::toast(count($segments).' cortes gerados por tempo.');
+        $this->toast(count($segments).' cortes gerados por tempo.');
     }
 
     public function renderCuts(VideoProcessorService $videoProcessor): void
@@ -296,7 +298,7 @@ final class Editor extends Component
 
         $job = $videoProcessor->startRenderCuts($this->video, $cuts);
         $this->renderJobId = Cast::str($job->external_job_id) ?: null;
-        Flux::toast('Renderização iniciada. Os arquivos aparecem ao concluir.');
+        $this->toast('Renderização iniciada. Os arquivos aparecem ao concluir.');
     }
 
     public function renderSelected(): void
@@ -304,7 +306,7 @@ final class Editor extends Component
         $uuids = $this->selectedCuts;
 
         if ($uuids === []) {
-            Flux::toast('Selecione ao menos um corte para renderizar.');
+            $this->toast('Selecione ao menos um corte para renderizar.');
 
             return;
         }
@@ -317,7 +319,7 @@ final class Editor extends Component
         $videoProcessor = resolve(VideoProcessorService::class);
         $job = $videoProcessor->startRenderCuts($this->video, $cuts);
         $this->renderJobId = Cast::str($job->external_job_id) ?: null;
-        Flux::toast(count($uuids).' corte(s) enviado(s) para renderização.');
+        $this->toast(count($uuids).' corte(s) enviado(s) para renderização.');
         $this->reset('selectedCuts');
     }
 
@@ -330,7 +332,7 @@ final class Editor extends Component
         $end = (float) $data['end'];
 
         if ($start < 0 || $end <= $start) {
-            Flux::toast('Tempos inválidos: o fim deve ser maior que o início.', variant: 'danger');
+            $this->toast('Tempos inválidos: o fim deve ser maior que o início.', 'danger');
 
             return;
         }
@@ -342,7 +344,7 @@ final class Editor extends Component
             'duration_seconds' => max(0, $end - $start),
         ]);
 
-        Flux::toast('Corte atualizado com sucesso.');
+        $this->toast('Corte atualizado com sucesso.');
         $this->dispatch('cut-saved', uuid: $uuid);
     }
 
@@ -350,13 +352,13 @@ final class Editor extends Component
     {
         $uuids = $this->selectedCuts;
         if ($uuids === []) {
-            Flux::toast('Selecione ao menos um corte para apagar.', variant: 'danger');
+            $this->toast('Selecione ao menos um corte para apagar.', 'danger');
 
             return;
         }
 
         $this->video->cuts()->whereIn('uuid', $uuids)->delete();
-        Flux::toast(count($uuids).' corte(s) apagado(s).');
+        $this->toast(count($uuids).' corte(s) apagado(s).');
         $this->reset('selectedCuts');
     }
 
@@ -368,9 +370,9 @@ final class Editor extends Component
                 'edited_text' => $text,
                 'active_text_source' => 'edited',
             ]);
-            Flux::toast('Transcrição salva.');
+            $this->toast('Transcrição salva.');
         } else {
-            Flux::toast('Nenhuma transcrição encontrada para este vídeo.');
+            $this->toast('Nenhuma transcrição encontrada para este vídeo.');
         }
     }
 
@@ -382,7 +384,7 @@ final class Editor extends Component
         $normalizedWords = $this->normalizeTimedWords($words);
 
         if ($normalizedWords === []) {
-            Flux::toast('A transcrição não pode estar vazia.', variant: 'danger');
+            $this->toast('A transcrição não pode estar vazia.', 'danger');
 
             return;
         }
@@ -421,7 +423,7 @@ final class Editor extends Component
             ]);
         }
 
-        Flux::toast('Sincronia salva e aplicada!', variant: 'success');
+        $this->toast('Sincronia salva e aplicada!', 'success');
         $this->dispatch('timed-words-saved');
     }
 
@@ -429,7 +431,7 @@ final class Editor extends Component
     {
         $uuids = $this->selectedCuts;
         if ($uuids === []) {
-            Flux::toast('Selecione ao menos um corte.', variant: 'danger');
+            $this->toast('Selecione ao menos um corte.', 'danger');
 
             return;
         }
@@ -446,14 +448,14 @@ final class Editor extends Component
     {
         $uuids = $this->selectedCuts;
         if ($uuids === []) {
-            Flux::toast('Selecione ao menos um corte.', variant: 'danger');
+            $this->toast('Selecione ao menos um corte.', 'danger');
 
             return;
         }
 
         $account = $this->resolveQuickYoutubeAccount();
         if (! $account instanceof SocialAccount) {
-            Flux::toast('Conecte uma conta do YouTube antes de publicar.', variant: 'danger');
+            $this->toast('Conecte uma conta do YouTube antes de publicar.', 'danger');
 
             return;
         }
@@ -465,7 +467,7 @@ final class Editor extends Component
             ->get();
 
         if ($cuts->isEmpty()) {
-            Flux::toast('Nenhum corte valido selecionado.', variant: 'danger');
+            $this->toast('Nenhum corte valido selecionado.', 'danger');
 
             return;
         }
@@ -491,7 +493,7 @@ final class Editor extends Component
             dispatch(new PublishScheduledPostJob($post->id));
         }
 
-        Flux::toast(count($uuids).' corte(s) enviado(s) para publicacao no YouTube.');
+        $this->toast(count($uuids).' corte(s) enviado(s) para publicacao no YouTube.');
         $this->reset('selectedCuts');
     }
 

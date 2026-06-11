@@ -1,26 +1,26 @@
 <section class="w-full">
     <div class="relative mb-6 w-full">
-        <flux:heading size="xl" level="1">{{ __('Settings') }}</flux:heading>
-        <flux:subheading size="lg" class="mb-6">{{ __('Manage your profile and account settings') }}</flux:subheading>
-        <flux:separator variant="subtle" />
+        <x-ui.heading size="xl" level="1">{{ __('Settings') }}</x-ui.heading>
+        <x-ui.subheading size="lg" class="mb-6">{{ __('Manage your profile and account settings') }}</x-ui.subheading>
+        <x-ui.separator variant="subtle" />
     </div>
 
-    <flux:heading class="sr-only">{{ __('Security settings') }}</flux:heading>
+    <x-ui.heading class="sr-only">{{ __('Security settings') }}</x-ui.heading>
 
     <div class="flex items-start max-md:flex-col">
         <div class="me-10 w-full pb-4 md:w-[220px]">
             <x-settings.nav />
         </div>
 
-        <flux:separator class="md:hidden" />
+        <x-ui.separator class="md:hidden" />
 
         <div class="flex-1 self-stretch max-md:pt-6">
-            <flux:heading>{{ __('Update password') }}</flux:heading>
-            <flux:subheading>{{ __('Ensure your account is using a long, random password to stay secure') }}</flux:subheading>
+            <x-ui.heading>{{ __('Update password') }}</x-ui.heading>
+            <x-ui.subheading>{{ __('Ensure your account is using a long, random password to stay secure') }}</x-ui.subheading>
 
             <div class="mt-5 w-full max-w-lg">
                 <form method="POST" wire:submit="updatePassword" class="mt-6 space-y-6">
-                    <flux:input
+                    <x-ui.input
                         wire:model="current_password"
                         :label="__('Current password')"
                         type="password"
@@ -28,7 +28,7 @@
                         autocomplete="current-password"
                         viewable
                     />
-                    <flux:input
+                    <x-ui.input
                         wire:model="password"
                         :label="__('New password')"
                         type="password"
@@ -36,7 +36,7 @@
                         autocomplete="new-password"
                         viewable
                     />
-                    <flux:input
+                    <x-ui.input
                         wire:model="password_confirmation"
                         :label="__('Confirm password')"
                         type="password"
@@ -46,54 +46,53 @@
                     />
 
                     <div class="flex items-center gap-4">
-                        <flux:button variant="primary" type="submit" data-test="update-password-button">{{ __('Save') }}</flux:button>
+                        <x-ui.button variant="primary" type="submit" data-test="update-password-button">{{ __('Save') }}</x-ui.button>
                     </div>
                 </form>
 
                 @if ($canManageTwoFactor)
                     <section class="mt-12">
-                        <flux:heading>{{ __('Two-factor authentication') }}</flux:heading>
-                        <flux:subheading>{{ __('Manage your two-factor authentication settings') }}</flux:subheading>
+                        <x-ui.heading>{{ __('Two-factor authentication') }}</x-ui.heading>
+                        <x-ui.subheading>{{ __('Manage your two-factor authentication settings') }}</x-ui.subheading>
 
                         <div class="flex flex-col w-full mx-auto space-y-6 text-sm" wire:cloak>
                             @if ($twoFactorEnabled)
                                 <div class="space-y-4">
-                                    <flux:text>
+                                    <x-ui.text>
                                         {{ __('You will be prompted for a secure, random pin during login, which you can retrieve from the TOTP-supported application on your phone.') }}
-                                    </flux:text>
+                                    </x-ui.text>
 
                                     <div class="flex justify-start">
-                                        <flux:button
+                                        <x-ui.button
                                             variant="danger"
                                             wire:click="disable"
                                         >
                                             {{ __('Disable 2FA') }}
-                                        </flux:button>
+                                        </x-ui.button>
                                     </div>
 
                                     <livewire:settings.two-factor.recovery-codes :$requiresConfirmation/>
                                 </div>
                             @else
                                 <div class="space-y-4">
-                                    <flux:text variant="subtle">
+                                    <x-ui.text variant="subtle">
                                         {{ __('When you enable two-factor authentication, you will be prompted for a secure pin during login. This pin can be retrieved from a TOTP-supported application on your phone.') }}
-                                    </flux:text>
+                                    </x-ui.text>
 
-                                    <flux:button
+                                    <x-ui.button
                                         variant="primary"
                                         wire:click="enable"
                                     >
                                         {{ __('Enable 2FA') }}
-                                    </flux:button>
+                                    </x-ui.button>
                                 </div>
                             @endif
                         </div>
                     </section>
 
-                    <flux:modal
+                    <x-ui.modal
                         name="two-factor-setup-modal"
-                        class="max-w-md md:min-w-md"
-                        @close="closeModal"
+                        class="max-w-md"
                         wire:model="showModal"
                     >
                         <div class="space-y-6">
@@ -112,13 +111,13 @@
                                             @endfor
                                         </div>
 
-                                        <flux:icon.qr-code class="relative z-20 dark:text-accent-foreground"/>
+                                        <x-ui.icon name="qr-code" class="relative z-20 dark:text-accent-foreground"/>
                                     </div>
                                 </div>
 
                                 <div class="space-y-2 text-center">
-                                    <flux:heading size="lg">{{ $this->modalConfig['title'] }}</flux:heading>
-                                    <flux:text>{{ $this->modalConfig['description'] }}</flux:text>
+                                    <x-ui.heading size="lg">{{ $this->modalConfig['title'] }}</x-ui.heading>
+                                    <x-ui.text>{{ $this->modalConfig['description'] }}</x-ui.text>
                                 </div>
                             </div>
 
@@ -129,68 +128,64 @@
                                         x-data
                                         x-init="$nextTick(() => $el.querySelector('input')?.focus())"
                                     >
-                                        <flux:otp
+                                        <x-ui.otp
                                             name="code"
                                             wire:model="code"
                                             length="6"
                                             label="OTP Code"
-                                            label:sr-only
                                             class="mx-auto"
                                         />
                                     </div>
 
                                     <div class="flex items-center space-x-3">
-                                        <flux:button
+                                        <x-ui.button
                                             variant="outline"
                                             class="flex-1"
                                             wire:click="resetVerification"
                                         >
                                             {{ __('Back') }}
-                                        </flux:button>
+                                        </x-ui.button>
 
-                                        <flux:button
+                                        <x-ui.button
                                             variant="primary"
                                             class="flex-1"
                                             wire:click="confirmTwoFactor"
                                             x-bind:disabled="$wire.code.length < 6"
                                         >
                                             {{ __('Confirm') }}
-                                        </flux:button>
+                                        </x-ui.button>
                                     </div>
                                 </div>
                             @else
                                 @error('setupData')
-                                    <flux:callout variant="danger" icon="x-circle" heading="{{ $message }}"/>
+                                    <x-ui.callout variant="danger" icon="x-circle" heading="{{ $message }}"/>
                                 @enderror
 
                                 <div class="flex justify-center">
                                     <div class="relative w-64 overflow-hidden border rounded-lg border-stone-200 dark:border-stone-700 aspect-square">
                                         @empty($qrCodeSvg)
                                             <div class="absolute inset-0 flex items-center justify-center bg-white dark:bg-stone-700 animate-pulse">
-                                                <flux:icon.loading/>
+                                                <x-ui.icon name="loading"/>
                                             </div>
                                         @else
-                                        <div x-data class="flex items-center justify-center h-full p-4">
-                                            <div
-                                                class="bg-white p-3 rounded"
-                                                :style="($flux.appearance === 'dark' || ($flux.appearance === 'system' && $flux.dark)) ? 'filter: invert(1) brightness(1.5)' : ''"
-                                            >
-                                                    {!! $qrCodeSvg !!}
-                                                </div>
+                                        <div class="flex items-center justify-center h-full p-4">
+                                            <div class="bg-white p-3 rounded">
+                                                {!! $qrCodeSvg !!}
                                             </div>
+                                        </div>
                                         @endempty
                                     </div>
                                 </div>
 
                                 <div>
-                                    <flux:button
+                                    <x-ui.button
                                         :disabled="$errors->has('setupData')"
                                         variant="primary"
                                         class="w-full"
                                         wire:click="showVerificationIfNecessary"
                                     >
                                         {{ $this->modalConfig['buttonText'] }}
-                                    </flux:button>
+                                    </x-ui.button>
                                 </div>
 
                                 <div class="space-y-4">
@@ -219,7 +214,7 @@
                                         <div class="flex items-stretch w-full border rounded-xl dark:border-stone-700">
                                             @empty($manualSetupKey)
                                                 <div class="flex items-center justify-center w-full p-3 bg-stone-100 dark:bg-stone-700">
-                                                    <flux:icon.loading variant="mini"/>
+                                                    <x-ui.icon name="loading" variant="mini"/>
                                                 </div>
                                             @else
                                                 <input
@@ -233,12 +228,8 @@
                                                     @click="copy()"
                                                     class="px-3 transition-colors border-l cursor-pointer border-stone-200 dark:border-stone-600"
                                                 >
-                                                    <flux:icon.document-duplicate x-show="!copied" variant="outline"></flux:icon>
-                                                    <flux:icon.check
-                                                        x-show="copied"
-                                                        variant="solid"
-                                                        class="text-green-500"
-                                                    ></flux:icon>
+                                                    <x-ui.icon name="document-duplicate" x-show="!copied" />
+                                                    <x-ui.icon name="check" x-show="copied" x-cloak class="text-green-500" />
                                                 </button>
                                             @endempty
                                         </div>
@@ -246,7 +237,7 @@
                                 </div>
                             @endif
                         </div>
-                    </flux:modal>
+                    </x-ui.modal>
                 @endif
             </div>
         </div>
