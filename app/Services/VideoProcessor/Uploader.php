@@ -19,7 +19,7 @@ final class Uploader
 
         if (! file_exists($localPath) || filesize($localPath) === 0) {
             $log->error('[Uploader] Arquivo local não encontrado ou vazio.', $ctx);
-            throw new RuntimeException('Arquivo local não encontrado ou vazio: ' . $localPath);
+            throw new RuntimeException('Arquivo local não encontrado ou vazio: '.$localPath);
         }
 
         $disk = 'minio';
@@ -39,7 +39,7 @@ final class Uploader
         $stream = fopen($localPath, 'rb');
         if ($stream === false) {
             $log->error('[Uploader] Não foi possível abrir o arquivo.', $ctx);
-            throw new RuntimeException('Não foi possível abrir o arquivo: ' . $localPath);
+            throw new RuntimeException('Não foi possível abrir o arquivo: '.$localPath);
         }
 
         try {

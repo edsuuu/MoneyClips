@@ -40,6 +40,7 @@ final readonly class RecommendCutsData
     }
 
     /**
+     * @param  array<string, mixed>  $value
      * @return array<string, mixed>|stdClass
      */
     private function dictionary(array $value): array|stdClass

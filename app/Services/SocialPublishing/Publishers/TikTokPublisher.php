@@ -83,7 +83,7 @@ final class TikTokPublisher extends AbstractPublisher
 
             $error = $init->json('error.code');
             if (! $init->successful() || ($error !== null && $error !== 'ok')) {
-                Log::error('[TikTokPublisher] Falha no init: HTTP '.$init->status().', error_code='.$error, [
+                Log::error('[TikTokPublisher] Falha no init: HTTP '.$init->status().', error_code='.Cast::str($error), [
                     'scheduled_post_id' => $post->id,
                     'response' => $init->json() ?? $init->body(),
                 ]);

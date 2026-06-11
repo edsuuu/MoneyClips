@@ -295,7 +295,7 @@ final class Editor extends Component
         abort_if($cuts->isEmpty(), 422, 'Nenhum corte para renderizar.');
 
         $job = $videoProcessor->startRenderCuts($this->video, $cuts);
-        $this->renderJobId = $job->external_job_id;
+        $this->renderJobId = Cast::str($job->external_job_id) ?: null;
         Flux::toast('Renderização iniciada. Os arquivos aparecem ao concluir.');
     }
 
@@ -316,7 +316,7 @@ final class Editor extends Component
         /** @var VideoProcessorService $videoProcessor */
         $videoProcessor = resolve(VideoProcessorService::class);
         $job = $videoProcessor->startRenderCuts($this->video, $cuts);
-        $this->renderJobId = $job->external_job_id;
+        $this->renderJobId = Cast::str($job->external_job_id) ?: null;
         Flux::toast(count($uuids).' corte(s) enviado(s) para renderização.');
         $this->reset('selectedCuts');
     }

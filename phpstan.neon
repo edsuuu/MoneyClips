@@ -15,6 +15,11 @@ parameters:
 
     level: max
 
+    # Os models declaram casts via método casts(); sem isto o larastan não os
+    # enxerga (instancia o model sem construtor) e tipa as colunas casteadas
+    # como string|null cru do schema.
+    parseModelCastsMethod: true
+
     tmpDir: /tmp/phpstan
 
     excludePaths:

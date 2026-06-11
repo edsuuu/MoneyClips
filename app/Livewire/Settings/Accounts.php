@@ -63,10 +63,10 @@ final class Accounts extends Component
             ->first();
 
         $this->editingAccountId = $account?->id;
-        $this->name = $account?->name ?? '';
-        $this->external_account_id = $account?->external_account_id ?? '';
-        $this->access_token = $account?->access_token ?? '';
-        $this->refresh_token = $account?->refresh_token ?? '';
+        $this->name = $account->name ?? '';
+        $this->external_account_id = $account->external_account_id ?? '';
+        $this->access_token = $account->access_token ?? '';
+        $this->refresh_token = $account->refresh_token ?? '';
         $this->token_expires_at = $account?->token_expires_at?->format('Y-m-d\TH:i') ?? '';
         $this->meta = is_array($account?->meta) && $account->meta !== []
             ? (string) json_encode($account->meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)

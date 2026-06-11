@@ -5,6 +5,8 @@ declare(strict_types=1);
 use App\Jobs\PostYoutubeShortJob;
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;
+use App\Services\DiscordNotifier;
+use App\Services\Youtube\ShortsPoster;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
@@ -40,9 +42,9 @@ test('posts an available short and marks it as posted', function (): void {
         'https://upload.example/session-1' => Http::response(['id' => 'novo-video-id'], 200),
     ]);
 
-    (new PostYoutubeShortJob($short->id))->handle(
-        app(App\Services\Youtube\ShortsPoster::class),
-        app(App\Services\DiscordNotifier::class),
+    new PostYoutubeShortJob($short->id)->handle(
+        resolve(ShortsPoster::class),
+        resolve(DiscordNotifier::class),
     );
 
     $short->refresh();
@@ -59,9 +61,9 @@ test('skips a short that was already posted', function (): void {
 
     Http::fake();
 
-    (new PostYoutubeShortJob($short->id))->handle(
-        app(App\Services\Youtube\ShortsPoster::class),
-        app(App\Services\DiscordNotifier::class),
+    new PostYoutubeShortJob($short->id)->handle(
+        resolve(ShortsPoster::class),
+        resolve(DiscordNotifier::class),
     );
 
     Http::assertNothingSent();
@@ -74,8 +76,8 @@ test('fails clearly when no youtube account is connected', function (): void {
 
     Http::fake();
 
-    expect(fn () => (new PostYoutubeShortJob($short->id))->handle(
-        app(App\Services\Youtube\ShortsPoster::class),
-        app(App\Services\DiscordNotifier::class),
+    expect(fn () => new PostYoutubeShortJob($short->id)->handle(
+        resolve(ShortsPoster::class),
+        resolve(DiscordNotifier::class),
     ))->toThrow(RuntimeException::class, 'Nenhuma conta do YouTube conectada');
 });
