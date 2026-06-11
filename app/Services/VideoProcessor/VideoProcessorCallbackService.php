@@ -6,7 +6,6 @@ namespace App\Services\VideoProcessor;
 
 use App\Models\Cut;
 use App\Models\File;
-use App\Models\ProcessingJob;
 use App\Models\Status;
 use App\Models\Video;
 use App\Services\Status\StatusService;
@@ -27,8 +26,6 @@ final readonly class VideoProcessorCallbackService
         $videoId = $payload['video_id'] ?? '';
         $videoIdStr = is_string($videoId) ? $videoId : '';
         $video = Video::query()->where('uuid', $videoIdStr)->firstOrFail();
-
-        $job = $this->resolveJob($video, $payload);
 
         $files = $payload['files'] ?? null;
         /** @var list<array<string, mixed>> $filesList */
@@ -56,10 +53,10 @@ final readonly class VideoProcessorCallbackService
         // Salva dados do vídeo, transcrição, arquivos e payloads numa transação própria.
         // Separada da transição de status para garantir que os dados chegam ao banco
         // mesmo que o status_logs falhe (ex.: message muito longa em ambientes legados).
-        $video = DB::transaction(function () use ($video, $job, $filesList, $transcriptArr, $payloadsList, $payload, $message, $isFailure): Video {
+        $video = DB::transaction(function () use ($video, $filesList, $transcriptArr, $payloadsList, $payload, $isFailure): Video {
             $this->saveFiles($video, $filesList);
             $this->saveTranscript($video, $transcriptArr);
-            $this->savePayloads($video, $job, $payloadsList);
+            $this->savePayloads($video, $payloadsList);
             $this->markRenderedCuts($filesList);
 
             $videoData = $payload['video'] ?? null;
@@ -80,16 +77,6 @@ final readonly class VideoProcessorCallbackService
             $video->progress = $isFailure ? $video->progress : 100;
             $video->save();
 
-            if ($job instanceof ProcessingJob) {
-                $finalKey = $isFailure ? 'failed' : 'completed';
-                $job->update([
-                    'status_id' => Status::idFor($finalKey),
-                    'progress' => $isFailure ? $job->progress : 100,
-                    'error_message' => $isFailure ? $message : null,
-                    'finished_at' => now(),
-                ]);
-            }
-
             return $video->refresh();
         });
 
@@ -99,27 +86,7 @@ final readonly class VideoProcessorCallbackService
             $this->status->transition($video, $statusKey, $message, ['event' => $eventStr]);
         }
 
-        if ($job instanceof ProcessingJob) {
-            $finalKey = $isFailure ? 'failed' : 'completed';
-            $this->status->transition($job, $finalKey, $message);
-        }
-
         return $video;
-    }
-
-    /** @param  array<string, mixed>  $payload */
-    private function resolveJob(Video $video, array $payload): ?ProcessingJob
-    {
-        $jobId = $payload['job_id'] ?? null;
-        if ($jobId === null) {
-            return null;
-        }
-
-        $jobIdStr = is_string($jobId) || is_numeric($jobId) ? (string) $jobId : '';
-
-        return ProcessingJob::query()->where('video_id', $video->id)
-            ->where('external_job_id', $jobIdStr)
-            ->first();
     }
 
     /** @param  list<array<string, mixed>>  $files */
@@ -143,8 +110,6 @@ final readonly class VideoProcessorCallbackService
                 'path' => $pathStr,
             ], [
                 'cut_id' => $cutId,
-                'disk' => $file['disk'] ?? 'minio',
-                'bucket' => $file['bucket'] ?? null,
                 'mime_type' => $file['mime_type'] ?? null,
                 'extension' => $file['extension'] ?? null,
                 'size_bytes' => $file['size_bytes'] ?? null,
@@ -176,13 +141,12 @@ final readonly class VideoProcessorCallbackService
     /**
      * @param  list<array<string, mixed>>  $payloads
      */
-    private function savePayloads(Video $video, ?ProcessingJob $job, array $payloads): void
+    private function savePayloads(Video $video, array $payloads): void
     {
         foreach ($payloads as $payload) {
             $type = $payload['type'] ?? null;
             $typeStr = is_string($type) ? $type : '';
             $video->payloads()->create([
-                'processing_job_id' => $job?->id,
                 'type' => $typeStr,
                 'payload' => is_array($payload['payload'] ?? null) ? $payload['payload'] : [],
             ]);

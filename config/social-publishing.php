@@ -8,7 +8,7 @@ return [
     | mas por ora o fluxo operacional fica simples: YouTube + TikTok.
     */
     'enabled_platforms' => array_values(array_filter(array_map(
-        static fn (string $platform): string => trim($platform),
+        mb_trim(...),
         explode(',', (string) env('SOCIAL_ENABLED_PLATFORMS', 'youtube,tiktok')),
     ), static fn (string $platform): bool => $platform !== '')),
 

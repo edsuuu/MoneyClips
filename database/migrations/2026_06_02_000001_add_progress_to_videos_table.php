@@ -11,16 +11,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('videos', function (Blueprint $table): void {
-            // Quando true, o vídeo segue o pipeline automático (piloto automático):
-            // transcrição -> confirmação -> geração de cortes -> renderização, sem etapas manuais.
-            $table->boolean('is_auto')->default(false)->after('current_stage');
+            $table->unsignedTinyInteger('progress')->default(0)->after('status_id');
+            $table->string('download_stage')->nullable()->after('progress'); // video | audio
         });
     }
 
     public function down(): void
     {
         Schema::table('videos', function (Blueprint $table): void {
-            $table->dropColumn('is_auto');
+            $table->dropColumn(['progress', 'download_stage']);
         });
     }
 };

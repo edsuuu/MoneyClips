@@ -14,8 +14,6 @@ return new class extends Migration
             $table->id();
             $table->string('key')->unique();
             $table->string('label');
-            $table->string('description')->nullable();
-            $table->unsignedInteger('sort_order')->nullable();
             $table->timestamps();
         });
     }

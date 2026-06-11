@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\File;
-use App\Models\Video;
 use App\Models\ScheduledPost;
+use App\Models\Video;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -16,29 +16,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class VideoController extends Controller
 {
-    public function index(): View
-    {
-        return view('videos.index');
-    }
-
-    public function create(): View
-    {
-        return view('videos.create');
-    }
-
-    public function transcript(Video $video): View|RedirectResponse
+    public function transcript(Video $video): RedirectResponse
     {
         return to_route('videos.editor', ['video' => $video->uuid]);
-    }
-
-    public function editor(Video $video): View
-    {
-        return view('videos.editor', ['video' => $video]);
-    }
-
-    public function schedule(Video $video): View
-    {
-        return view('videos.schedule', ['video' => $video]);
     }
 
     public function publications(Video $video, SocialPublisherRegistry $registry): View
@@ -133,6 +113,7 @@ final class VideoController extends Controller
             if ($m[1] !== '') {
                 $start = (int) $m[1];
             }
+
             if ($m[2] !== '') {
                 $end = (int) $m[2];
             }
@@ -166,11 +147,12 @@ final class VideoController extends Controller
                 $remaining = $length;
                 $chunkSize = 1024 * 1024; // 1 MB por iteração
                 while ($remaining > 0 && ! feof($stream)) {
-                    $read = (int) min($chunkSize, $remaining);
+                    $read = min($chunkSize, $remaining);
                     $buffer = fread($stream, $read);
                     if ($buffer === false) {
                         break;
                     }
+
                     echo $buffer;
                     flush();
                     $remaining -= mb_strlen($buffer, '8bit');

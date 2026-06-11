@@ -29,8 +29,8 @@ final class Seeder003Statuses extends Seeder
             ['cancelled', 'Cancelado'],
         ];
 
-        foreach ($statuses as $index => [$key, $label]) {
-            Status::query()->updateOrCreate(['key' => $key], ['label' => $label, 'sort_order' => $index + 1]);
+        foreach ($statuses as [$key, $label]) {
+            Status::query()->updateOrCreate(['key' => $key], ['label' => $label]);
         }
     }
 }

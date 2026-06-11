@@ -1,5 +1,6 @@
 <section
     class="mx-auto w-full max-w-7xl"
+    @if($this->isProcessingActive()) wire:poll.3000ms="refreshStatus" @endif
     x-data="{
         player: null,
         playerReady: false,
@@ -354,6 +355,10 @@
                 <flux:badge>{{ $video->status?->label ?? '—' }}</flux:badge>
             </x-slot:meta>
             <x-slot:actions>
+                <flux:button wire:click="startDownload" variant="primary" icon="arrow-down-tray" class="cursor-pointer">
+                    <span wire:loading.remove wire:target="startDownload">Download & Upload</span>
+                    <span wire:loading wire:target="startDownload">Iniciando...</span>
+                </flux:button>
                 @if(($statusKey ?? null) === 'pending' && ! $activeJobId)
                     <flux:button wire:click="processVideo" variant="primary" icon="play" class="cursor-pointer">
                         <span wire:loading.remove wire:target="processVideo">Processar</span>
@@ -369,8 +374,24 @@
         </x-studio.page-header>
 
         @if($activeJobId)
-            <div class="mb-6" wire:key="render-progress-{{ $activeJobId }}">
+            <div class="mb-6" wire:key="progress-{{ $activeJobId }}">
                 @include('livewire.videos._progress', ['jobId' => $activeJobId, 'wsUrl' => $wsUrl])
+            </div>
+        @elseif(in_array($statusKey ?? '', ['queued', 'downloading', 'processing', 'transcribing', 'subtitling_full', 'cutting', 'recommending_cuts']))
+            <div class="mb-6 w-full rounded-xl border border-zinc-200 dark:border-zinc-700 p-5">
+                <div class="flex items-center gap-3">
+                    <flux:icon.loading class="size-5 text-indigo-400" />
+                    <span class="text-sm font-medium text-slate-300">{{ $video->status?->label ?? 'Processando...' }}</span>
+                    @if($video->progress > 0)
+                        <span class="ml-auto text-sm font-semibold tabular-nums text-slate-400">{{ $video->progress }}%</span>
+                    @endif
+                </div>
+                @if($video->progress > 0)
+                    <div class="mt-3 w-full bg-zinc-700 rounded-full h-2 overflow-hidden">
+                        <div class="bg-indigo-500 h-2 rounded-full transition-all duration-500"
+                             style="width: {{ $video->progress }}%"></div>
+                    </div>
+                @endif
             </div>
         @endif
 
