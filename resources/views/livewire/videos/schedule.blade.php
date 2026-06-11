@@ -4,7 +4,7 @@
         subtitle="Revise os metadados sugeridos por corte e publique agora."
     >
         <x-slot:meta>
-            <flux:badge>{{ $video->title ?? 'Vídeo' }}</flux:badge>
+            <x-ui.badge>{{ $video->title ?? 'Vídeo' }}</x-ui.badge>
         </x-slot:meta>
     </x-studio.page-header>
 
@@ -19,11 +19,11 @@
                 ])>
                     <div class="flex items-center justify-between gap-2">
                         <div class="font-medium">{{ $label }}</div>
-                        <flux:badge size="sm" color="{{ $account ? 'green' : 'zinc' }}">{{ $account ? 'Conectada' : 'Sem conta' }}</flux:badge>
+                        <x-ui.badge size="sm" color="{{ $account ? 'green' : 'zinc' }}">{{ $account ? 'Conectada' : 'Sem conta' }}</x-ui.badge>
                     </div>
 
                     <div>
-                        <flux:text class="text-xs text-slate-500">Conta</flux:text>
+                        <x-ui.text class="text-xs text-slate-500">Conta</x-ui.text>
                         @if($account)
                             <div class="truncate text-sm text-slate-100">{{ $account->name }}</div>
                         @else
@@ -72,31 +72,31 @@
                             </div>
                             <div class="mt-2 flex flex-wrap items-center gap-2">
                                 @if($target === 'youtube')
-                                    <flux:badge color="red" size="sm">YouTube</flux:badge>
+                                    <x-ui.badge color="red" size="sm">YouTube</x-ui.badge>
                                 @elseif($target === 'tiktok')
-                                    <flux:badge color="pink" size="sm">TikTok</flux:badge>
+                                    <x-ui.badge color="pink" size="sm">TikTok</x-ui.badge>
                                 @else
-                                    <flux:badge color="sky" size="sm">YouTube + TikTok</flux:badge>
+                                    <x-ui.badge color="sky" size="sm">YouTube + TikTok</x-ui.badge>
                                 @endif
 
-                                <flux:badge size="sm" color="{{ $publishMode === 'scheduled' ? 'amber' : 'green' }}">
+                                <x-ui.badge size="sm" color="{{ $publishMode === 'scheduled' ? 'amber' : 'green' }}">
                                     {{ $publishMode === 'scheduled' ? 'Agendado' : 'Agora' }}
-                                </flux:badge>
+                                </x-ui.badge>
 
-                                <flux:badge size="sm" color="zinc">{{ ($cutScheduleGapHours[$cut->uuid] ?? 2) }}h</flux:badge>
+                                <x-ui.badge size="sm" color="zinc">{{ ($cutScheduleGapHours[$cut->uuid] ?? 2) }}h</x-ui.badge>
 
                                 @if($fullyPublished)
-                                    <flux:badge color="green" size="sm">já publicado nos 2</flux:badge>
+                                    <x-ui.badge color="green" size="sm">já publicado nos 2</x-ui.badge>
                                 @elseif($alreadyPublishedOnYoutube)
-                                    <flux:badge color="amber" size="sm">já publicado no YouTube</flux:badge>
+                                    <x-ui.badge color="amber" size="sm">já publicado no YouTube</x-ui.badge>
                                 @elseif($alreadyPublishedOnTiktok)
-                                    <flux:badge color="amber" size="sm">já publicado no TikTok</flux:badge>
+                                    <x-ui.badge color="amber" size="sm">já publicado no TikTok</x-ui.badge>
                                 @elseif($blockedByMissingAccount)
-                                    <flux:badge color="zinc" size="sm">falta vincular conta</flux:badge>
+                                    <x-ui.badge color="zinc" size="sm">falta vincular conta</x-ui.badge>
                                 @elseif($cut->rendered_at)
-                                    <flux:badge color="green" size="sm">renderizado</flux:badge>
+                                    <x-ui.badge color="green" size="sm">renderizado</x-ui.badge>
                                 @else
-                                    <flux:badge color="zinc" size="sm">pendente</flux:badge>
+                                    <x-ui.badge color="zinc" size="sm">pendente</x-ui.badge>
                                 @endif
                             </div>
                         </div>
@@ -108,7 +108,7 @@
                             x-bind:aria-expanded="open"
                         >
                             <span x-text="open ? 'Fechar' : 'Abrir'"></span>
-                            <flux:icon.chevron-down class="size-4 transition" x-bind:class="{ 'rotate-180': open }" />
+                            <x-ui.icon name="chevron-down" class="size-4 transition" x-bind:class="{ 'rotate-180': open }" />
                         </button>
                     </div>
 
@@ -116,13 +116,13 @@
                         <div class="flex items-center justify-between gap-2">
                             <div class="text-xs text-slate-500">Destino</div>
                             @if($fullyPublished)
-                                <flux:badge color="green" size="sm">publicado</flux:badge>
+                                <x-ui.badge color="green" size="sm">publicado</x-ui.badge>
                             @elseif($blockedByMissingAccount)
-                                <flux:badge color="zinc" size="sm">sem conta vinculada</flux:badge>
+                                <x-ui.badge color="zinc" size="sm">sem conta vinculada</x-ui.badge>
                             @else
-                                <flux:button variant="ghost" size="xs" icon="pencil-square" class="cursor-pointer" x-on:click="editing = true">
+                                <x-ui.button variant="ghost" size="xs" icon="pencil-square" class="cursor-pointer" x-on:click="editing = true">
                                     Editar
-                                </flux:button>
+                                </x-ui.button>
                             @endif
                         </div>
 
@@ -144,9 +144,9 @@
                         <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
                             <div class="flex items-center justify-between gap-2">
                                 <div class="text-xs text-slate-500">Quando publicar</div>
-                                <flux:badge size="sm" color="{{ ($cutPublishModes[$cut->uuid] ?? 'now') === 'scheduled' ? 'amber' : 'green' }}">
+                                <x-ui.badge size="sm" color="{{ ($cutPublishModes[$cut->uuid] ?? 'now') === 'scheduled' ? 'amber' : 'green' }}">
                                     {{ ($cutPublishModes[$cut->uuid] ?? 'now') === 'scheduled' ? 'Agendado' : 'Agora' }}
-                                </flux:badge>
+                                </x-ui.badge>
                             </div>
 
                             <select
@@ -182,7 +182,7 @@
                             <div class="mt-3 border-t border-slate-800 pt-3">
                                 <div class="flex items-center justify-between gap-2">
                                     <div class="text-xs text-slate-500">Intervalo para o próximo corte</div>
-                                    <flux:badge size="sm" color="zinc">{{ ($cutScheduleGapHours[$cut->uuid] ?? 2) }}h</flux:badge>
+                                    <x-ui.badge size="sm" color="zinc">{{ ($cutScheduleGapHours[$cut->uuid] ?? 2) }}h</x-ui.badge>
                                 </div>
                                 <select
                                     wire:model.live="cutScheduleGapHours.{{ $cut->uuid }}"
@@ -219,27 +219,27 @@
 
                         <div x-show="editing" x-cloak class="flex flex-col gap-3">
                             <div>
-                                <flux:text class="text-xs text-slate-500">Título</flux:text>
+                                <x-ui.text class="text-xs text-slate-500">Título</x-ui.text>
                                 <input type="text" wire:model="cutMeta.{{ $cut->uuid }}.title"
                                        class="w-full rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
                                        placeholder="Título chamativo">
                             </div>
                             <div>
-                                <flux:text class="text-xs text-slate-500">Descrição</flux:text>
+                                <x-ui.text class="text-xs text-slate-500">Descrição</x-ui.text>
                                 <textarea rows="7" wire:model="cutMeta.{{ $cut->uuid }}.description"
                                           class="w-full rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
                                           placeholder="Legenda do post"></textarea>
                             </div>
                             <div>
-                                <flux:text class="text-xs text-slate-500">Hashtags</flux:text>
+                                <x-ui.text class="text-xs text-slate-500">Hashtags</x-ui.text>
                                 <textarea rows="5" wire:model="cutMeta.{{ $cut->uuid }}.hashtags"
                                           class="w-full rounded-lg border border-slate-800 bg-slate-900 px-2 py-1.5 text-sm text-slate-100"
                                           placeholder="#viral #fyp #cortes"></textarea>
                             </div>
                             <div class="flex justify-end">
-                                <flux:button wire:click="saveCutMeta('{{ $cut->uuid }}')" variant="primary" size="sm" class="cursor-pointer" icon="check">
+                                <x-ui.button wire:click="saveCutMeta('{{ $cut->uuid }}')" variant="primary" size="sm" class="cursor-pointer" icon="check">
                                     Salvar
-                                </flux:button>
+                                </x-ui.button>
                             </div>
                         </div>
                     </div>
@@ -251,15 +251,15 @@
     </x-studio.panel>
 
     <div class="flex flex-wrap items-center gap-3">
-        <flux:button wire:click="confirmPublications" variant="primary" class="cursor-pointer" icon="check">
+        <x-ui.button wire:click="confirmPublications" variant="primary" class="cursor-pointer" icon="check">
             <span wire:loading.remove wire:target="confirmPublications">Confirmar publicações</span>
             <span wire:loading wire:target="confirmPublications">Confirmando...</span>
-        </flux:button>
-        <flux:button :href="route('videos.publications', $video)" variant="subtle" class="cursor-pointer" wire:navigate>
+        </x-ui.button>
+        <x-ui.button :href="route('videos.publications', $video)" variant="subtle" class="cursor-pointer" wire:navigate>
             Ver publicações deste vídeo
-        </flux:button>
-        <flux:button :href="route('videos.editor', $video)" variant="subtle" class="cursor-pointer" wire:navigate>
+        </x-ui.button>
+        <x-ui.button :href="route('videos.editor', $video)" variant="subtle" class="cursor-pointer" wire:navigate>
             Voltar ao editor
-        </flux:button>
+        </x-ui.button>
     </div>
 </section>

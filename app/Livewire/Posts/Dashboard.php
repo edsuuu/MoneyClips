@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire\Posts;
 
 use App\Jobs\PublishScheduledPostJob;
+use App\Livewire\Concerns\WithToasts;
 use App\Models\ScheduledPost;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
-use Flux\Flux;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -19,6 +19,7 @@ use Livewire\WithPagination;
 final class Dashboard extends Component
 {
     use WithPagination;
+    use WithToasts;
 
     public string $statusFilter = '';
 
@@ -41,7 +42,7 @@ final class Dashboard extends Component
         }
 
         if (in_array($post->status, [ScheduledPost::STATUS_POSTED, ScheduledPost::STATUS_PUBLISHING], true)) {
-            Flux::toast('Este post não pode ser reprocessado agora.', variant: 'danger');
+            $this->toast('Este post não pode ser reprocessado agora.', 'danger');
 
             return;
         }
@@ -50,7 +51,7 @@ final class Dashboard extends Component
         $post->log('info', 'Reprocessamento manual solicitado.');
         dispatch(new PublishScheduledPostJob($post->id));
 
-        Flux::toast('Post reenviado para publicação.');
+        $this->toast('Post reenviado para publicação.');
     }
 
     public function cancel(int $postId): void
@@ -61,7 +62,7 @@ final class Dashboard extends Component
         }
 
         if ($post->status === ScheduledPost::STATUS_POSTED) {
-            Flux::toast('Não é possível cancelar um post já publicado.', variant: 'danger');
+            $this->toast('Não é possível cancelar um post já publicado.', 'danger');
 
             return;
         }
@@ -69,7 +70,7 @@ final class Dashboard extends Component
         $post->update(['status' => ScheduledPost::STATUS_CANCELLED]);
         $post->log('warning', 'Agendamento cancelado manualmente.');
 
-        Flux::toast('Agendamento cancelado.');
+        $this->toast('Agendamento cancelado.');
     }
 
     public function updatingStatusFilter(): void

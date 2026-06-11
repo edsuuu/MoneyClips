@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Videos;
 
 use App\Jobs\PublishScheduledPostJob;
+use App\Livewire\Concerns\WithToasts;
 use App\Models\Cut;
 use App\Models\ScheduledPost;
 use App\Models\SocialAccount;
@@ -13,7 +14,6 @@ use App\Services\SocialPublishing\PostDraftBuilder;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
 use App\Support\Cast;
 use Carbon\CarbonImmutable;
-use Flux\Flux;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
@@ -23,6 +23,8 @@ use Throwable;
 
 final class Schedule extends Component
 {
+    use WithToasts;
+
     public Video $video;
 
     /** @var array<int, string> Cut uuids selecionados (a ordem de postagem segue o index do corte). */
@@ -170,13 +172,13 @@ final class Schedule extends Component
         }
 
         $this->editingCuts[$uuid] = false;
-        Flux::toast('Legenda/descrição salvas.');
+        $this->toast('Legenda/descrição salvas.');
     }
 
     private function processPublications(SocialPublisherRegistry $registry): void
     {
         if ($this->selectedCuts === []) {
-            Flux::toast('Selecione ao menos um corte.', variant: 'danger');
+            $this->toast('Selecione ao menos um corte.', 'danger');
 
             return;
         }
@@ -189,7 +191,7 @@ final class Schedule extends Component
             ->get();
 
         if ($orderedCuts->isEmpty()) {
-            Flux::toast('Nenhum corte válido selecionado.', variant: 'danger');
+            $this->toast('Nenhum corte válido selecionado.', 'danger');
 
             return;
         }
@@ -203,7 +205,7 @@ final class Schedule extends Component
             $platforms = $this->resolveTargetPlatforms($target);
 
             if ($platforms === []) {
-                Flux::toast(sprintf('Escolha o destino do corte %s.', $cut->name ?? $cut->uuid), variant: 'danger');
+                $this->toast(sprintf('Escolha o destino do corte %s.', $cut->name ?? $cut->uuid), 'danger');
 
                 return;
             }
@@ -223,19 +225,19 @@ final class Schedule extends Component
 
                 if (! $account instanceof SocialAccount) {
                     $label = $registry->for($platform)?->label() ?? $platform;
-                    Flux::toast(sprintf('Conecte uma conta de %s antes de publicar.', $label), variant: 'danger');
+                    $this->toast(sprintf('Conecte uma conta de %s antes de publicar.', $label), 'danger');
 
                     return;
                 }
 
                 if ($this->hasExistingPublicationForCutPlatformAccount($cut->id, $platform, $account->id)) {
                     $label = $registry->for($platform)?->label() ?? $platform;
-                    Flux::toast(sprintf(
+                    $this->toast(sprintf(
                         'O corte %s já foi publicado em %s usando a conta %s.',
                         $cut->name ?? $cut->uuid,
                         $label,
                         Cast::str($account->name)
-                    ), variant: 'danger');
+                    ), 'danger');
 
                     return;
                 }

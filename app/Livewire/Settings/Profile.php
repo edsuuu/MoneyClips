@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace App\Livewire\Settings;
 
 use App\Concerns\ProfileValidationRules;
+use App\Livewire\Concerns\WithToasts;
 use App\Models\User;
-use Flux\Flux;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -18,6 +18,7 @@ use Livewire\Component;
 final class Profile extends Component
 {
     use ProfileValidationRules;
+    use WithToasts;
 
     public string $name = '';
 
@@ -54,7 +55,7 @@ final class Profile extends Component
 
         $user->save();
 
-        Flux::toast(variant: 'success', text: __('Profile updated.'));
+        $this->toast(__('Profile updated.'));
     }
 
     /**
@@ -73,7 +74,7 @@ final class Profile extends Component
 
         $user->sendEmailVerificationNotification();
 
-        Flux::toast(text: __('A new verification link has been sent to your email address.'));
+        $this->toast(__('A new verification link has been sent to your email address.'));
     }
 
     #[Computed]

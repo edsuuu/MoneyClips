@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace App\Livewire\Videos;
 
 use App\Jobs\ProcessVideoJob;
+use App\Livewire\Concerns\WithToasts;
 use App\Models\Status;
 use App\Models\Video;
-use Flux\Flux;
 use Illuminate\View\View;
 use Livewire\Component;
 
 final class Create extends Component
 {
+    use WithToasts;
+
     public string $url = '';
 
     /** @return array<string, list<string>> */
@@ -59,7 +61,7 @@ final class Create extends Component
 
         dispatch(new ProcessVideoJob($video));
 
-        Flux::toast('Vídeo adicionado. O processamento começa em instantes.');
+        $this->toast('Vídeo adicionado. O processamento começa em instantes.');
 
         $this->redirectRoute('videos.editor', ['uuid' => $video->uuid], navigate: true);
     }

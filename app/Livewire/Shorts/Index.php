@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Livewire\Shorts;
 
 use App\Jobs\PostYoutubeShortJob;
+use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;
-use Flux\Flux;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -22,6 +22,7 @@ use Livewire\WithPagination;
 final class Index extends Component
 {
     use WithPagination;
+    use WithToasts;
 
     /** Filtro: all | available | posted */
     public string $filter = 'all';
@@ -42,32 +43,32 @@ final class Index extends Component
         $short = YoutubeShort::query()->find($shortId);
 
         if ($short === null) {
-            Flux::toast('Short não encontrado.', variant: 'danger');
+            $this->toast('Short não encontrado.', 'danger');
 
             return;
         }
 
         if ($short->posted_at !== null) {
-            Flux::toast('Este Short já foi postado.', variant: 'danger');
+            $this->toast('Este Short já foi postado.', 'danger');
 
             return;
         }
 
         if ($short->video_path === null) {
-            Flux::toast('Este Short ainda não foi baixado.', variant: 'danger');
+            $this->toast('Este Short ainda não foi baixado.', 'danger');
 
             return;
         }
 
         if (! $this->hasYoutubeAccount()) {
-            Flux::toast('Conecte uma conta do YouTube em "Contas vinculadas" antes de postar.', variant: 'danger');
+            $this->toast('Conecte uma conta do YouTube em "Contas vinculadas" antes de postar.', 'danger');
 
             return;
         }
 
         dispatch(new PostYoutubeShortJob($short->id));
 
-        Flux::toast('Postagem enfileirada. Acompanhe o resultado em instantes.');
+        $this->toast('Postagem enfileirada. Acompanhe o resultado em instantes.');
     }
 
     /** Sorteia um Short do estoque e enfileira a postagem (igual ao scheduler). */
@@ -76,20 +77,20 @@ final class Index extends Component
         $short = YoutubeShort::query()->availableToPost()->inRandomOrder()->first();
 
         if ($short === null) {
-            Flux::toast('Nenhum Short disponível para postar.', variant: 'danger');
+            $this->toast('Nenhum Short disponível para postar.', 'danger');
 
             return;
         }
 
         if (! $this->hasYoutubeAccount()) {
-            Flux::toast('Conecte uma conta do YouTube em "Contas vinculadas" antes de postar.', variant: 'danger');
+            $this->toast('Conecte uma conta do YouTube em "Contas vinculadas" antes de postar.', 'danger');
 
             return;
         }
 
         dispatch(new PostYoutubeShortJob($short->id));
 
-        Flux::toast('Short sorteado e enfileirado: '.($short->title ?? $short->youtube_id));
+        $this->toast('Short sorteado e enfileirado: '.($short->title ?? $short->youtube_id));
     }
 
     public function render(): View

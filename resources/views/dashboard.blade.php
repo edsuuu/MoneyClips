@@ -19,9 +19,9 @@
             subtitle="Visão consolidada do pipeline de ingestão, edição e distribuição social."
         >
             <x-slot:actions>
-                <flux:button :href="route('videos.create')" variant="primary" icon="plus" class="cursor-pointer" wire:navigate>
+                <x-ui.button :href="route('videos.create')" variant="primary" icon="plus" class="cursor-pointer" wire:navigate>
                     Novo vídeo
-                </flux:button>
+                </x-ui.button>
             </x-slot:actions>
         </x-studio.page-header>
 
@@ -78,7 +78,7 @@
                     <a href="{{ route('videos.editor', $video) }}" wire:navigate class="rounded-xl border border-slate-800 bg-slate-950/70 p-4 transition hover:border-slate-700 hover:bg-slate-900">
                         <p class="line-clamp-2 text-sm font-medium text-slate-100">{{ $video->title ?? $video->url }}</p>
                         <div class="mt-3 flex items-center justify-between gap-2">
-                            <flux:badge size="sm">{{ $video->status?->label ?? '—' }}</flux:badge>
+                            <x-ui.badge size="sm">{{ $video->status?->label ?? '—' }}</x-ui.badge>
                             <span class="text-xs tabular-nums text-slate-500">{{ $video->created_at?->format('d/m H:i') }}</span>
                         </div>
                     </a>
