@@ -28,6 +28,7 @@ use Illuminate\Support\Carbon;
  */
 final class YoutubeShort extends Model
 {
+    /** @use HasFactory<\Database\Factories\YoutubeShortFactory> */
     use HasFactory;
 
     protected $fillable = [
