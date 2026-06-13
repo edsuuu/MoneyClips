@@ -12,8 +12,21 @@
             @endif
         </x-slot:meta>
         <x-slot:actions>
+            <x-ui.button :href="route('shorts.download')" size="sm" variant="primary" icon="arrow-down-tray" class="cursor-pointer" wire:navigate>
+                Baixar de um canal
+            </x-ui.button>
             <x-ui.button wire:click="dispatchRandom" size="sm" variant="primary" icon="play" class="cursor-pointer">
                 Postar 1 agora (sorteio)
+            </x-ui.button>
+            <x-ui.button
+                wire:click="dispatchTiktok"
+                wire:confirm="Sortear um Short e postar no TikTok agora?"
+                size="sm"
+                variant="subtle"
+                icon="arrow-up-tray"
+                class="cursor-pointer"
+            >
+                Postar 1 no TikTok
             </x-ui.button>
             <x-ui.button :href="route('social-accounts')" size="sm" variant="subtle" icon="user-circle" class="cursor-pointer" wire:navigate>
                 Contas vinculadas
@@ -29,7 +42,7 @@
         <x-studio.metric-card label="Postados" :value="$counts['posted']" tone="green" />
     </div>
 
-    <x-studio.panel title="Shorts" subtitle="Baixe mais com: php artisan youtube:download-shorts &quot;url-do-canal&quot;">
+    <x-studio.panel title="Shorts" subtitle="Baixe mais pela tela &quot;Baixar de um canal&quot; ou com: php artisan youtube:download-shorts &quot;url-do-canal&quot; — os downloads ficam no microserviço até o despacho.">
         <div class="mb-4 inline-flex flex-wrap items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/70 p-1.5">
             @foreach(['all' => 'Todos', 'available' => 'Disponíveis', 'posted' => 'Postados'] as $key => $label)
                 <button
@@ -44,7 +57,9 @@
 
         @if($shorts->isEmpty())
             <div class="rounded-xl border border-dashed border-slate-800 p-10 text-center text-sm text-slate-400">
-                Nenhum Short por aqui ainda. Baixe os Shorts de um canal com
+                Nenhum Short por aqui ainda. Baixe os Shorts de um canal pela tela
+                <a href="{{ route('shorts.download') }}" wire:navigate class="text-slate-200 underline hover:text-slate-50">Baixar de um canal</a>
+                ou com
                 <code class="rounded bg-slate-900 px-1.5 py-0.5 text-slate-200">php artisan youtube:download-shorts "https://www.youtube.com/@canal"</code>
             </div>
         @else

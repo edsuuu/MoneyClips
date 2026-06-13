@@ -41,8 +41,8 @@ no MinIO e responde via webhook (`POST /api/video-processor/callbacks`,
 ### 2. Publicação social (cortes → redes)
 
 - `app/Services/SocialPublishing/` — `SocialPublisherRegistry` + publishers
-  reais (`YouTubePublisher`, `TikTokPublisher`, `InstagramPublisher`,
-  `FacebookPublisher`), `PostDraftBuilder`, OAuth (`SocialAccountConnector`,
+  reais (`YouTubePublisher`, `InstagramPublisher`, `FacebookPublisher`),
+  `PostDraftBuilder`, OAuth (`SocialAccountConnector`,
   `TokenRefresher`).
 - Contas conectadas em **`social_accounts`** (tokens criptografados) via
   OAuth 1-click em `/social-accounts` (`OAuthController`, rotas
@@ -89,7 +89,7 @@ posta automaticamente no canal conectado.
 | --- | --- |
 | `videos`, `cuts`, `files`, `transcripts`, `video_payloads` | pipeline de clipes |
 | `statuses`, `status_logs` | máquina de estados + auditoria (polimórfico) |
-| `social_accounts` | contas OAuth conectadas (YouTube/TikTok/IG/FB) — **fonte única de credenciais** |
+| `social_accounts` | contas OAuth conectadas (YouTube/IG/FB) — **fonte única de credenciais** |
 | `scheduled_posts`, `social_post_logs` | agendamento/publicação de cortes |
 | `youtube_shorts` | estoque de Shorts do pipeline de auto-postagem |
 | `users` (+ colunas google_*) | login via Google OAuth |
@@ -118,7 +118,7 @@ php artisan schedule:work   # agendamentos (publicações + shorts)
 ```
 
 Para postar de verdade é preciso conectar contas com OAuth (credenciais
-`GOOGLE_AUTH_*`/`META_*`/`TIKTOK_*` no `.env`) — ver seções do `.env.example`.
+`GOOGLE_AUTH_*`/`META_*` no `.env`) — ver seções do `.env.example`.
 
 ## Qualidade / CI
 
@@ -142,3 +142,6 @@ php artisan test    # suíte Pest
 - `edsuuu/auto-post` — **absorvido por este repo** (mantido só como histórico).
 - Serviço Python de processamento de vídeo — projeto separado local
   (FastAPI + MinIO + webhook), não versionado aqui.
+- `download-shorts` — microserviço Python local (`~/projects/download-shorts`,
+  FastAPI porta 8770) que baixa Shorts de canais para o storage Contabo e
+  mantém os itens no banco próprio até o despacho.

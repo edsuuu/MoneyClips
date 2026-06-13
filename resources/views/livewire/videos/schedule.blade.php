@@ -44,13 +44,9 @@
             @forelse($cuts as $cut)
                 @php($publishedTargets = $publishedTargetsByCut[$cut->uuid] ?? [])
                 @php($hasYoutubeAccount = ($accountsByPlatform['youtube'] ?? collect())->isNotEmpty())
-                @php($hasTiktokAccount = ($accountsByPlatform['tiktok'] ?? collect())->isNotEmpty())
-                @php($target = $cutTargets[$cut->uuid] ?? 'both')
                 @php($alreadyPublishedOnYoutube = (bool) ($publishedTargets['youtube'] ?? false))
-                @php($alreadyPublishedOnTiktok = (bool) ($publishedTargets['tiktok'] ?? false))
-                @php($blockedByMissingAccount = ($target === 'tiktok' && ! $hasTiktokAccount) || ($target === 'both' && (! $hasYoutubeAccount || ! $hasTiktokAccount)) || ($target === 'youtube' && ! $hasYoutubeAccount))
-                @php($fullyPublished = $alreadyPublishedOnYoutube && $alreadyPublishedOnTiktok)
-                @php($locked = $fullyPublished || $blockedByMissingAccount)
+                @php($blockedByMissingAccount = ! $hasYoutubeAccount)
+                @php($locked = $alreadyPublishedOnYoutube || $blockedByMissingAccount)
                 @php($publishMode = $cutPublishModes[$cut->uuid] ?? 'now')
                 <div
                     class="mb-3 break-inside-avoid rounded-xl border border-slate-800 bg-slate-950/70 p-3"
@@ -71,13 +67,7 @@
                                 {{ number_format((float) $cut->start_seconds, 1) }}s – {{ number_format((float) $cut->end_seconds, 1) }}s
                             </div>
                             <div class="mt-2 flex flex-wrap items-center gap-2">
-                                @if($target === 'youtube')
-                                    <x-ui.badge color="red" size="sm">YouTube</x-ui.badge>
-                                @elseif($target === 'tiktok')
-                                    <x-ui.badge color="pink" size="sm">TikTok</x-ui.badge>
-                                @else
-                                    <x-ui.badge color="sky" size="sm">YouTube + TikTok</x-ui.badge>
-                                @endif
+                                <x-ui.badge color="red" size="sm">YouTube</x-ui.badge>
 
                                 <x-ui.badge size="sm" color="{{ $publishMode === 'scheduled' ? 'amber' : 'green' }}">
                                     {{ $publishMode === 'scheduled' ? 'Agendado' : 'Agora' }}
@@ -85,12 +75,8 @@
 
                                 <x-ui.badge size="sm" color="zinc">{{ ($cutScheduleGapHours[$cut->uuid] ?? 2) }}h</x-ui.badge>
 
-                                @if($fullyPublished)
-                                    <x-ui.badge color="green" size="sm">já publicado nos 2</x-ui.badge>
-                                @elseif($alreadyPublishedOnYoutube)
+                                @if($alreadyPublishedOnYoutube)
                                     <x-ui.badge color="amber" size="sm">já publicado no YouTube</x-ui.badge>
-                                @elseif($alreadyPublishedOnTiktok)
-                                    <x-ui.badge color="amber" size="sm">já publicado no TikTok</x-ui.badge>
                                 @elseif($blockedByMissingAccount)
                                     <x-ui.badge color="zinc" size="sm">falta vincular conta</x-ui.badge>
                                 @elseif($cut->rendered_at)
@@ -115,29 +101,26 @@
                     <div x-show="open" x-cloak x-transition.opacity class="mt-3 flex flex-col gap-3">
                         <div class="flex items-center justify-between gap-2">
                             <div class="text-xs text-slate-500">Destino</div>
-                            @if($fullyPublished)
+                            @if($alreadyPublishedOnYoutube)
                                 <x-ui.badge color="green" size="sm">publicado</x-ui.badge>
                             @elseif($blockedByMissingAccount)
                                 <x-ui.badge color="zinc" size="sm">sem conta vinculada</x-ui.badge>
                             @else
-                                <x-ui.button variant="ghost" size="xs" icon="pencil-square" class="cursor-pointer" x-on:click="editing = true">
-                                    Editar
-                                </x-ui.button>
+                                <x-ui.badge color="red" size="sm">YouTube</x-ui.badge>
                             @endif
                         </div>
 
                         <div class="rounded-lg border border-slate-800 bg-slate-900/50 p-3">
-                            <select
-                                wire:model.live="cutTargets.{{ $cut->uuid }}"
-                                class="w-full rounded-lg border border-slate-800 bg-slate-900 px-2 py-2 text-sm text-slate-100"
-                                @disabled($locked)
-                            >
-                                <option value="youtube" @disabled($alreadyPublishedOnYoutube || ! $hasYoutubeAccount)>Só YouTube</option>
-                                <option value="tiktok" @disabled($alreadyPublishedOnTiktok || ! $hasTiktokAccount)>Só TikTok</option>
-                                <option value="both" @disabled($alreadyPublishedOnYoutube || $alreadyPublishedOnTiktok || ! $hasYoutubeAccount || ! $hasTiktokAccount)>YouTube + TikTok</option>
-                            </select>
-                            <div class="mt-2 text-xs text-slate-500">
-                                Se já existir publicação neste corte ou faltar conta para o destino escolhido, essa opção fica bloqueada.
+                            <div class="flex items-center justify-between gap-3">
+                                <div>
+                                    <div class="text-sm font-medium text-slate-100">YouTube</div>
+                                    <div class="mt-1 text-xs text-slate-500">
+                                        As publicações de cortes são enviadas apenas para a conta YouTube conectada.
+                                    </div>
+                                </div>
+                                <x-ui.badge size="sm" color="{{ $hasYoutubeAccount ? 'green' : 'zinc' }}">
+                                    {{ $hasYoutubeAccount ? 'Disponível' : 'Sem conta' }}
+                                </x-ui.badge>
                             </div>
                         </div>
 
@@ -203,6 +186,14 @@
                         </div>
 
                         <div x-show="!editing" x-cloak class="space-y-3 rounded-lg border border-slate-800 bg-slate-900/50 p-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="text-xs text-slate-500">Metadados</div>
+                                @unless($locked)
+                                    <x-ui.button variant="ghost" size="xs" icon="pencil-square" class="cursor-pointer" x-on:click="editing = true">
+                                        Editar
+                                    </x-ui.button>
+                                @endunless
+                            </div>
                             <div>
                                 <div class="text-[11px] uppercase tracking-wide text-slate-500">Título</div>
                                 <p class="mt-1 text-sm text-slate-100">{{ $cutMeta[$cut->uuid]['title'] ?? '—' }}</p>

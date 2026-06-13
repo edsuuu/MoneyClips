@@ -37,9 +37,6 @@ final class Schedule extends Component
     public array $editingCuts = [];
 
     /** @var array<string, string> */
-    public array $cutTargets = [];
-
-    /** @var array<string, string> */
     public array $cutPublishModes = [];
 
     /** @var array<string, string> */
@@ -128,23 +125,13 @@ final class Schedule extends Component
         $publishedTargetsByCut = $this->publishedTargetsByCut();
 
         $hasYoutubeAccount = ($accounts['youtube'] ?? collect())->isNotEmpty();
-        $hasTiktokAccount = ($accounts['tiktok'] ?? collect())->isNotEmpty();
-
-        foreach ($this->video->cuts as $cut) {
-            $this->cutTargets[$cut->uuid] ??= $this->defaultCutTarget(
-                $cut->uuid,
-                $publishedTargetsByCut,
-                $hasYoutubeAccount,
-                $hasTiktokAccount,
-            );
-        }
 
         $this->normalizeCutSchedulingPlan();
 
         if ($this->selectedCuts !== []) {
             $this->selectedCuts = array_values(array_filter(
                 $this->selectedCuts,
-                fn (string $uuid): bool => ! $this->isCutFullyLocked($uuid, $publishedTargetsByCut),
+                fn (string $uuid): bool => ! $this->isCutPublishedOnYoutube($uuid, $publishedTargetsByCut) && $hasYoutubeAccount,
             ));
         }
 
@@ -198,14 +185,30 @@ final class Schedule extends Component
 
         $created = 0;
         $dispatchedPostIds = [];
-        $sequenceByPlatform = $this->startingSequencesByPlatform();
+        $sequence = $this->startingYoutubeSequence();
+
+        $account = SocialAccount::query()
+            ->where('user_id', Auth::id())
+            ->where('platform', 'youtube')
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->first();
+
+        if (! $account instanceof SocialAccount) {
+            $label = $registry->for('youtube')?->label() ?? 'YouTube';
+            $this->toast(sprintf('Conecte uma conta de %s antes de publicar.', $label), 'danger');
+
+            return;
+        }
+
+        $publishedTargetsByCut = $this->publishedTargetsByCut();
 
         foreach ($orderedCuts as $cut) {
-            $target = $this->cutTargets[$cut->uuid] ?? $this->defaultCutTarget($cut->uuid);
-            $platforms = $this->resolveTargetPlatforms($target);
-
-            if ($platforms === []) {
-                $this->toast(sprintf('Escolha o destino do corte %s.', $cut->name ?? $cut->uuid), 'danger');
+            if ($this->isCutPublishedOnYoutube($cut->uuid, $publishedTargetsByCut)) {
+                $this->toast(sprintf(
+                    'O corte %s já tem publicação no YouTube.',
+                    $cut->name ?? $cut->uuid,
+                ), 'danger');
 
                 return;
             }
@@ -215,62 +218,46 @@ final class Schedule extends Component
             $scheduledFor = $this->parseLocalDateTime($this->cutPublishAt[$cut->uuid] ?? '') ?? Date::now();
             $isImmediate = $mode !== 'scheduled';
 
-            foreach ($platforms as $platform) {
-                $account = SocialAccount::query()
-                    ->where('user_id', Auth::id())
-                    ->where('platform', $platform)
-                    ->where('is_active', true)
-                    ->orderBy('name')
-                    ->first();
+            if ($this->hasExistingPublicationForCutPlatformAccount($cut->id, 'youtube', $account->id)) {
+                $label = $registry->for('youtube')?->label() ?? 'YouTube';
+                $this->toast(sprintf(
+                    'O corte %s já foi publicado em %s usando a conta %s.',
+                    $cut->name ?? $cut->uuid,
+                    $label,
+                    Cast::str($account->name)
+                ), 'danger');
 
-                if (! $account instanceof SocialAccount) {
-                    $label = $registry->for($platform)?->label() ?? $platform;
-                    $this->toast(sprintf('Conecte uma conta de %s antes de publicar.', $label), 'danger');
-
-                    return;
-                }
-
-                if ($this->hasExistingPublicationForCutPlatformAccount($cut->id, $platform, $account->id)) {
-                    $label = $registry->for($platform)?->label() ?? $platform;
-                    $this->toast(sprintf(
-                        'O corte %s já foi publicado em %s usando a conta %s.',
-                        $cut->name ?? $cut->uuid,
-                        $label,
-                        Cast::str($account->name)
-                    ), 'danger');
-
-                    return;
-                }
-
-                $post = ScheduledPost::query()->create([
-                    'video_id' => $this->video->id,
-                    'cut_id' => $cut->id,
-                    'social_account_id' => $account->id,
-                    'platform' => $platform,
-                    'sequence' => $sequenceByPlatform[$platform]++,
-                    'title' => $meta['title'] !== '' ? $meta['title'] : ($cut->name ?? null),
-                    'description' => $meta['description'],
-                    'hashtags' => $meta['hashtags'],
-                    'scheduled_for' => $scheduledFor,
-                    'status' => $isImmediate ? ScheduledPost::STATUS_PUBLISHING : ScheduledPost::STATUS_SCHEDULED,
-                    'created_by' => Auth::id(),
-                ]);
-
-                $post->log(
-                    'info',
-                    $isImmediate
-                        ? sprintf('Envio imediato solicitado em %s.', Cast::str($account->name))
-                        : sprintf('Agendado para %s em %s.', $scheduledFor->format('d/m/Y H:i'), Cast::str($account->name))
-                );
-
-                if ($isImmediate) {
-                    $dispatchedPostIds[] = $post->id;
-                } else {
-                    dispatch(new PublishScheduledPostJob($post->id)->delay($scheduledFor));
-                }
-
-                $created++;
+                return;
             }
+
+            $post = ScheduledPost::query()->create([
+                'video_id' => $this->video->id,
+                'cut_id' => $cut->id,
+                'social_account_id' => $account->id,
+                'platform' => 'youtube',
+                'sequence' => $sequence++,
+                'title' => $meta['title'] !== '' ? $meta['title'] : ($cut->name ?? null),
+                'description' => $meta['description'],
+                'hashtags' => $meta['hashtags'],
+                'scheduled_for' => $scheduledFor,
+                'status' => $isImmediate ? ScheduledPost::STATUS_PUBLISHING : ScheduledPost::STATUS_SCHEDULED,
+                'created_by' => Auth::id(),
+            ]);
+
+            $post->log(
+                'info',
+                $isImmediate
+                    ? sprintf('Envio imediato solicitado em %s.', Cast::str($account->name))
+                    : sprintf('Agendado para %s em %s.', $scheduledFor->format('d/m/Y H:i'), Cast::str($account->name))
+            );
+
+            if ($isImmediate) {
+                $dispatchedPostIds[] = $post->id;
+            } else {
+                dispatch(new PublishScheduledPostJob($post->id)->delay($scheduledFor));
+            }
+
+            $created++;
         }
 
         foreach ($dispatchedPostIds as $postId) {
@@ -334,24 +321,14 @@ final class Schedule extends Component
         }
     }
 
-    /**
-     * @return array<string, int>
-     */
-    private function startingSequencesByPlatform(): array
+    private function startingYoutubeSequence(): int
     {
-        $platforms = ['youtube', 'tiktok'];
-        $sequences = [];
+        $max = ScheduledPost::query()
+            ->where('video_id', $this->video->id)
+            ->where('platform', 'youtube')
+            ->max('sequence');
 
-        foreach ($platforms as $platform) {
-            $max = ScheduledPost::query()
-                ->where('video_id', $this->video->id)
-                ->where('platform', $platform)
-                ->max('sequence');
-
-            $sequences[$platform] = (is_numeric($max) ? (int) $max : 0) + 1;
-        }
-
-        return $sequences;
+        return (is_numeric($max) ? (int) $max : 0) + 1;
     }
 
     /**
@@ -392,60 +369,11 @@ final class Schedule extends Component
     /**
      * @param  array<string, array<string, bool>>  $publishedTargetsByCut
      */
-    private function defaultCutTarget(
-        string $cutUuid,
-        array $publishedTargetsByCut = [],
-        bool $hasYoutubeAccount = true,
-        bool $hasTiktokAccount = true,
-    ): string {
-        $published = $publishedTargetsByCut[$cutUuid] ?? [];
-        $hasYoutube = (bool) ($published['youtube'] ?? false);
-        $hasTiktok = (bool) ($published['tiktok'] ?? false);
-
-        if ($hasYoutube && $hasTiktok) {
-            return 'both';
-        }
-
-        if ($hasYoutube) {
-            return 'tiktok';
-        }
-
-        if ($hasTiktok) {
-            return 'youtube';
-        }
-
-        if ($hasYoutubeAccount && ! $hasTiktokAccount) {
-            return 'youtube';
-        }
-
-        if ($hasTiktokAccount && ! $hasYoutubeAccount) {
-            return 'tiktok';
-        }
-
-        return 'both';
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function resolveTargetPlatforms(string $target): array
-    {
-        return match ($target) {
-            'youtube' => ['youtube'],
-            'tiktok' => ['tiktok'],
-            'both' => ['youtube', 'tiktok'],
-            default => [],
-        };
-    }
-
-    /**
-     * @param  array<string, array<string, bool>>  $publishedTargetsByCut
-     */
-    private function isCutFullyLocked(string $cutUuid, array $publishedTargetsByCut = []): bool
+    private function isCutPublishedOnYoutube(string $cutUuid, array $publishedTargetsByCut = []): bool
     {
         $published = $publishedTargetsByCut[$cutUuid] ?? [];
 
-        return (bool) ($published['youtube'] ?? false) && (bool) ($published['tiktok'] ?? false);
+        return (bool) ($published['youtube'] ?? false);
     }
 
     private function hasExistingPublicationForCutPlatformAccount(int $cutId, string $platform, int $accountId): bool

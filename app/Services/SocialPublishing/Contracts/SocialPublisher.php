@@ -9,7 +9,7 @@ use App\Services\SocialPublishing\PublishResult;
 
 interface SocialPublisher
 {
-    /** Chave da plataforma (youtube, tiktok, instagram, facebook). */
+    /** Chave da plataforma (youtube, instagram, facebook). */
     public function key(): string;
 
     /** Rótulo amigável para a UI. */
