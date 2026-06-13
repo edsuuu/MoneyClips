@@ -14,7 +14,7 @@ return new class extends Migration
             $table->id();
             $table->uuid('uuid')->unique();
             $table->foreignId('user_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('platform', 32);                 // youtube, tiktok, instagram, facebook
+            $table->string('platform', 32);                 // youtube, instagram, facebook
             $table->string('name');                         // rótulo: canal / @handle / página
             $table->string('external_account_id')->nullable(); // channel_id / ig_user_id / page_id / open_id
             $table->text('access_token')->nullable();       // criptografado (cast 'encrypted')

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Http;
 
 /**
  * Renova o access_token de uma conta usando o refresh_token quando ele expira.
- * Google (YouTube) e TikTok têm refresh; tokens de Página da Meta não expiram.
+ * Google (YouTube) tem refresh; tokens de Página da Meta não expiram.
  */
 final class TokenRefresher
 {
@@ -27,7 +27,6 @@ final class TokenRefresher
 
         return match ($account->platform) {
             'youtube' => $this->refreshGoogle($account),
-            'tiktok' => $this->refreshTikTok($account),
             default => false,
         };
     }
@@ -47,28 +46,6 @@ final class TokenRefresher
 
         $account->update([
             'access_token' => Cast::str($resp->json('access_token')),
-            'token_expires_at' => now()->addSeconds(Cast::int($resp->json('expires_in') ?? 3600)),
-        ]);
-
-        return true;
-    }
-
-    private function refreshTikTok(SocialAccount $account): bool
-    {
-        $resp = Http::asForm()->post('https://open.tiktokapis.com/v2/oauth/token/', [
-            'grant_type' => 'refresh_token',
-            'refresh_token' => $account->refresh_token,
-            'client_key' => config('services.tiktok.client_key'),
-            'client_secret' => config('services.tiktok.client_secret'),
-        ]);
-
-        if (! $resp->successful() || ! $resp->json('access_token')) {
-            return false;
-        }
-
-        $account->update([
-            'access_token' => Cast::str($resp->json('access_token')),
-            'refresh_token' => Cast::str($resp->json('refresh_token')) ?: $account->refresh_token,
             'token_expires_at' => now()->addSeconds(Cast::int($resp->json('expires_in') ?? 3600)),
         ]);
 

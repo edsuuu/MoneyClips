@@ -7,7 +7,6 @@ namespace App\Services\SocialPublishing;
 use App\Services\SocialPublishing\Contracts\SocialPublisher;
 use App\Services\SocialPublishing\Publishers\FacebookPublisher;
 use App\Services\SocialPublishing\Publishers\InstagramPublisher;
-use App\Services\SocialPublishing\Publishers\TikTokPublisher;
 use App\Services\SocialPublishing\Publishers\YouTubePublisher;
 
 final class SocialPublisherRegistry
@@ -19,19 +18,17 @@ final class SocialPublisherRegistry
 
     public function __construct(
         YouTubePublisher $youtube,
-        TikTokPublisher $tiktok,
         InstagramPublisher $instagram,
         FacebookPublisher $facebook,
     ) {
         $all = [
             $youtube->key() => $youtube,
-            $tiktok->key() => $tiktok,
             $instagram->key() => $instagram,
             $facebook->key() => $facebook,
         ];
 
-        $enabled = config('social-publishing.enabled_platforms', ['youtube', 'tiktok']);
-        $enabledKeys = is_array($enabled) ? array_values(array_filter($enabled, is_string(...))) : ['youtube', 'tiktok'];
+        $enabled = config('social-publishing.enabled_platforms', ['youtube']);
+        $enabledKeys = is_array($enabled) ? array_values(array_filter($enabled, is_string(...))) : ['youtube'];
 
         $this->publishers = array_intersect_key($all, array_flip($enabledKeys));
     }
