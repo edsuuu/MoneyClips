@@ -8,9 +8,11 @@ use App\Jobs\PostYoutubeShortJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;
+use App\Services\TikTok\TikTokPostDispatcher;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Throwable;
 
 /**
  * Painel do estoque de Shorts (pipeline de auto-postagem): lista os Shorts
@@ -69,6 +71,22 @@ final class Index extends Component
         dispatch(new PostYoutubeShortJob($short->id));
 
         $this->toast('Postagem enfileirada. Acompanhe o resultado em instantes.');
+    }
+
+    /** Sorteia um Short e enfileira a postagem no TikTok (igual ao scheduler). */
+    public function dispatchTiktok(TikTokPostDispatcher $dispatcher): void
+    {
+        try {
+            $result = $dispatcher->dispatchOne();
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $this->toast('Não foi possível enfileirar: '.$throwable->getMessage(), 'danger');
+
+            return;
+        }
+
+        $label = $result['title'] ?? 'sorteio dentro do uploader';
+        $this->toast(sprintf('Post no TikTok enfileirado (%s): %s', $result['source'], $label));
     }
 
     /** Sorteia um Short do estoque e enfileira a postagem (igual ao scheduler). */

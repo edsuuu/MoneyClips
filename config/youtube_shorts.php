@@ -8,21 +8,16 @@ declare(strict_types=1);
 |--------------------------------------------------------------------------
 |
 | Configuração do pipeline de Shorts (unificado do projeto auto-post):
-| download de Shorts de canais via yt-dlp → estoque no MinIO → sorteio e
-| postagem automática no canal conectado (social_accounts, platform=youtube).
+| download de Shorts de canais via microserviço download-shorts (ver
+| config/shorts-downloader.php) → sorteio e postagem automática no canal
+| conectado (social_accounts, platform=youtube).
 |
 */
 
 return [
 
-    // Binário do yt-dlp (ajuste se não estiver no PATH).
-    'yt_dlp_bin' => env('YT_DLP_BIN', 'yt-dlp'),
-
-    // Disk do MinIO onde os vídeos baixados são salvos.
+    // Disk de onde os vídeos do estoque são lidos para postagem.
     'disk' => env('YOUTUBE_SHORTS_DISK', 'minio'),
-
-    // Pasta dentro do bucket.
-    'path_prefix' => env('YOUTUBE_SHORTS_PATH_PREFIX', 'shorts'),
 
     /*
     |--------------------------------------------------------------------------

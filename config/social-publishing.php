@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 return [
     /*
-    | Plataformas ativas na UX principal. Mantemos o restante do código pronto,
-    | mas por ora o fluxo operacional fica simples: YouTube + TikTok.
+    | Plataformas ativas na UX principal.
     */
     'enabled_platforms' => array_values(array_filter(array_map(
         mb_trim(...),
-        explode(',', (string) env('SOCIAL_ENABLED_PLATFORMS', 'youtube,tiktok')),
+        explode(',', (string) env('SOCIAL_ENABLED_PLATFORMS', 'youtube')),
     ), static fn (string $platform): bool => $platform !== '')),
 
     /*
@@ -38,10 +37,6 @@ return [
         'api_key' => env('YOUTUBE_API_KEY'),
         'client_id' => env('YOUTUBE_CLIENT_ID', env('GOOGLE_AUTH_CLIENT_ID')),
         'client_secret' => env('YOUTUBE_CLIENT_SECRET', env('GOOGLE_AUTH_CLIENT_SECRET')),
-    ],
-    'tiktok' => [
-        'client_key' => env('TIKTOK_CLIENT_KEY'),
-        'client_secret' => env('TIKTOK_CLIENT_SECRET'),
     ],
     'meta' => [
         'app_id' => env('META_APP_ID'),

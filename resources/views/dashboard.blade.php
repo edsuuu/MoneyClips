@@ -45,7 +45,7 @@
                     </a>
                     <a href="{{ route('social-accounts') }}" wire:navigate class="rounded-xl border border-slate-800 bg-slate-950/70 p-4 transition hover:border-slate-700 hover:bg-slate-900">
                         <p class="text-sm font-medium text-slate-100">Contas vinculadas</p>
-                        <p class="mt-1 text-sm text-slate-400">Gerencie YouTube por Google OAuth e TikTok por token manual.</p>
+                        <p class="mt-1 text-sm text-slate-400">Gerencie o canal YouTube conectado por Google OAuth.</p>
                     </a>
                     <a href="{{ route('videos.create') }}" wire:navigate class="rounded-xl border border-slate-800 bg-slate-950/70 p-4 transition hover:border-slate-700 hover:bg-slate-900">
                         <p class="text-sm font-medium text-slate-100">Nova ingestão</p>
