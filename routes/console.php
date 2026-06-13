@@ -37,3 +37,17 @@ foreach ($hours as $hour) {
         ->at($hour)
         ->withoutOverlapping();
 }
+
+/*
+| Auto-postagem no TikTok via microserviço tiktok-uploader (porta 8780).
+| Horários deslocados dos do YouTube para espalhar a atividade. O uploader
+| posta em série (navegador único) e grava o status em tiktok_posts.
+*/
+$tiktokHours = ['10:00', '13:00', '16:00', '19:00', '21:00'];
+
+foreach ($tiktokHours as $hour) {
+    Schedule::command('tiktok:dispatch-posts')
+        ->timezone('America/Sao_Paulo')
+        ->at($hour)
+        ->withoutOverlapping();
+}

@@ -127,8 +127,8 @@
                         </article>
                         <article class="landing-feature">
                             <svg><use href="#icon-share" /></svg>
-                            <h3>Multi-plataforma</h3>
-                            <p>Organize vídeos para YouTube Shorts, Instagram Reels e TikTok em um só lugar.</p>
+                            <h3>Publicação no YouTube</h3>
+                            <p>Organize vídeos para YouTube Shorts em um só lugar.</p>
                         </article>
                         <article class="landing-feature landing-feature-wide">
                             <svg><use href="#icon-edit" /></svg>

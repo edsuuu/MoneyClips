@@ -71,8 +71,7 @@
                                 <div class="flex flex-col gap-2">
                                     @if($provider['usesOauth'])
                                         @unless($provider['isLinked'])
-                                            @php($oauthReady = $provider['key'] === 'tiktok' ? $tiktokOAuthReady : $googleOAuthReady)
-                                            @if($oauthReady)
+                                            @if($googleOAuthReady)
                                                 <x-ui.button :href="route('oauth.connect', ['platform' => $provider['key']])" size="sm" variant="primary" class="w-full cursor-pointer justify-center">
                                                     Vincular
                                                 </x-ui.button>
@@ -105,9 +104,7 @@
                     <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
                             <x-ui.heading size="lg">Gerenciar {{ $platformLabels[$managingPlatform] ?? ucfirst($managingPlatform) }}</x-ui.heading>
-                            <x-ui.subheading>
-                                Para TikTok, o fluxo recomendado agora é o Login Kit, que preenche os dados automaticamente ao vincular.
-                            </x-ui.subheading>
+                            <x-ui.subheading>Revise as credenciais usadas para publicar nesta plataforma.</x-ui.subheading>
                         </div>
 
                         <x-ui.button wire:click="cancelManage" size="sm" variant="ghost" class="cursor-pointer">
@@ -115,39 +112,20 @@
                         </x-ui.button>
                     </div>
 
-                    @if($managingPlatform === 'tiktok')
-                        <div class="mt-5 rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-                            <div class="text-sm font-medium text-slate-100">Campos esperados pelo TikTok</div>
-                            <div class="mt-2 space-y-1 text-sm text-slate-400">
-                                <div><code>Nome da conta</code>: apelido só para identificar internamente.</div>
-                                <div><code>ID da conta</code>: use o <code>open_id</code> retornado pelo TikTok.</div>
-                                <div><code>Access token</code>: token atual do usuário.</div>
-                                <div><code>Refresh token</code>: necessário para renovar o acesso depois.</div>
-                            </div>
-                        </div>
-                    @endif
-
-                    <form wire:submit="save" @class([
-                        'mt-5 grid gap-4',
-                        'md:grid-cols-2' => $managingPlatform !== 'tiktok',
-                    ])>
+                    <form wire:submit="save" class="mt-5 grid gap-4 md:grid-cols-2">
                         <x-ui.input
                             wire:model="name"
                             label="Nome da conta"
                             placeholder="@canal ou nome interno"
-                            @class(['md:col-span-2' => $managingPlatform === 'tiktok'])
                         />
                         <x-ui.input
                             wire:model="external_account_id"
                             label="ID da conta"
-                            description="Para TikTok, use o open_id."
-                            @class(['md:col-span-2' => $managingPlatform === 'tiktok'])
                         />
                         <x-ui.input
                             wire:model="token_expires_at"
                             type="datetime-local"
                             label="Token expira em (opcional)"
-                            @class(['md:col-span-2' => $managingPlatform === 'tiktok'])
                         />
                         <div class="md:col-span-2">
                             <x-ui.textarea wire:model="access_token" label="Access token" rows="3" />

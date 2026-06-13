@@ -4,101 +4,130 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\YoutubeShort;
-use App\Services\Youtube\YoutubeChannelService;
+use App\Services\Shorts\ShortsDownloaderClient;
+use App\Support\Cast;
 use Illuminate\Console\Command;
+use Illuminate\Support\Sleep;
 use Throwable;
 
 /**
- * Baixa os Shorts de um canal do YouTube direto pelo console, mostrando o
- * progresso (%) de cada download. A postagem é feita depois, pelo comando
- * youtube:dispatch-posts (sorteio) ou pela página /shorts.
+ * Cria um job no microserviço Python download-shorts para baixar todos os
+ * Shorts de um canal. O microserviço lista, baixa, sobe para o storage
+ * S3-compatible (Contabo) e guarda os itens no banco DELE — nada é enviado
+ * de volta ao Laravel quando o lote termina (dispatch_on_complete=false).
  *
  * Uso: php artisan youtube:download-shorts "https://www.youtube.com/@canal"
  */
 final class DownloadChannelShorts extends Command
 {
+    /** Status do job que indicam que o microserviço ainda está trabalhando. */
+    private const array RUNNING_STATUSES = ['queued', 'listing', 'processing'];
+
     protected $signature = 'youtube:download-shorts
         {channel : URL do canal do YouTube}
-        {--limit= : Baixar apenas os N primeiros Shorts}';
+        {--no-wait : Apenas cria o job, sem acompanhar o progresso}
+        {--poll=5 : Intervalo (segundos) entre consultas de status}';
 
-    protected $description = 'Baixa os Shorts de um canal do YouTube com progresso, salvando no MinIO.';
+    protected $description = 'Envia um canal ao microserviço download-shorts, que baixa os Shorts para o storage (Contabo) e mantém tudo no banco dele.';
 
-    public function handle(YoutubeChannelService $service): int
+    public function handle(ShortsDownloaderClient $client): int
     {
         $channel = (string) $this->argument('channel');
 
-        $this->components->info('Listando Shorts de: '.$channel);
-
-        $videos = $service->listShorts($channel);
-        $total = count($videos);
-
-        if ($total === 0) {
-            $this->components->warn('Nenhum Short encontrado para este canal.');
+        if (! $client->isHealthy()) {
+            $this->components->error('Microserviço download-shorts indisponível. Suba-o (porta 8770) e tente de novo.');
 
             return self::FAILURE;
         }
 
-        $limit = $this->option('limit');
-        if ($limit !== null && (int) $limit > 0) {
-            $videos = array_slice($videos, 0, (int) $limit);
+        try {
+            $jobId = $client->createJob($channel);
+        } catch (Throwable $throwable) {
+            $this->components->error('Falha ao criar o job: '.$throwable->getMessage());
+
+            return self::FAILURE;
         }
 
-        $count = count($videos);
-        $this->components->info(sprintf('Vídeos encontrados: %d. Baixando: %d.', $total, $count));
+        $this->components->info(sprintf('Job criado no microserviço: %s', $jobId));
 
-        $downloadedIds = [];
-        $skipped = 0;
-        $failed = 0;
+        if ((bool) $this->option('no-wait')) {
+            $this->components->info(sprintf('Acompanhe com: curl %s/shorts/download/%s', Cast::str(config('shorts-downloader.base_url')), $jobId));
 
-        foreach ($videos as $i => $video) {
-            $position = $i + 1;
-            $label = $this->truncate($video['title'] !== '' ? $video['title'] : $video['id']);
-
-            $bar = $this->output->createProgressBar(100);
-            $bar->setFormat(sprintf(' [%d/%d] %%bar%% %%percent:3s%%%%  %s', $position, $count, $label));
-            $bar->start();
-
-            try {
-                $result = $service->downloadShort(
-                    $video['id'],
-                    $channel,
-                    $video['url'],
-                    function (float $percent) use ($bar): void {
-                        $bar->setProgress((int) min(100, max(0, $percent)));
-                    },
-                );
-            } catch (Throwable $e) {
-                $result = null;
-                $this->newLine();
-                $this->components->error(sprintf('Falha em %s: %s', $video['id'], $e->getMessage()));
-            }
-
-            $bar->finish();
-            $this->newLine();
-
-            if ($result !== null) {
-                $downloadedIds[] = $result['youtube_id'];
-                $this->components->task(sprintf('✓ %s → %s', $result['youtube_id'], $result['video_path']), fn (): bool => true);
-            } elseif (YoutubeShort::query()->where('youtube_id', $video['id'])->exists()) {
-                $skipped++;
-                $this->line(sprintf('  <fg=yellow>• %s já baixado, pulado.</>', $video['id']));
-            } else {
-                $failed++;
-                $this->line(sprintf('  <fg=red>• %s falhou.</>', $video['id']));
-            }
+            return self::SUCCESS;
         }
 
-        $this->newLine();
-        $this->components->info('Baixados: '.count($downloadedIds).sprintf(' | Pulados: %d | Falhas: %d', $skipped, $failed));
-
-        return self::SUCCESS;
+        return $this->watch($client, $jobId);
     }
 
-    private function truncate(string $text, int $max = 40): string
+    /** Consulta o status do job em loop até o microserviço finalizar o lote. */
+    private function watch(ShortsDownloaderClient $client, string $jobId): int
     {
-        $text = mb_trim($text);
+        $poll = max(1, Cast::int($this->option('poll')));
+        $bar = null;
+        $status = [];
 
-        return mb_strlen($text) > $max ? mb_substr($text, 0, $max - 1).'…' : $text;
+        while (true) {
+            try {
+                $status = $client->jobStatus($jobId);
+            } catch (Throwable $e) {
+                $this->components->warn('Falha ao consultar status (tentando de novo): '.$e->getMessage());
+                Sleep::sleep($poll);
+
+                continue;
+            }
+
+            $state = Cast::str($status['status'] ?? '');
+            $total = Cast::int($status['total'] ?? 0);
+            $done = Cast::int($status['completed'] ?? 0) + Cast::int($status['failed'] ?? 0);
+
+            if ($bar === null && $total > 0) {
+                $bar = $this->output->createProgressBar($total);
+                $bar->setFormat(' %current%/%max% [%bar%] %percent:3s%%');
+                $bar->start();
+            }
+
+            if ($bar !== null) {
+                $bar->setProgress(min($done, $total));
+            }
+
+            if (! in_array($state, self::RUNNING_STATUSES, true)) {
+                break;
+            }
+
+            Sleep::sleep($poll);
+        }
+
+        if ($bar !== null) {
+            $bar->finish();
+            $this->newLine(2);
+        }
+
+        return $this->summarize($jobId, $status);
+    }
+
+    /** @param array<string, mixed> $status */
+    private function summarize(string $jobId, array $status): int
+    {
+        $state = Cast::str($status['status'] ?? '');
+        $completed = Cast::int($status['completed'] ?? 0);
+        $failed = Cast::int($status['failed'] ?? 0);
+        $total = Cast::int($status['total'] ?? 0);
+
+        $this->components->info(sprintf(
+            'Job %s finalizado com status "%s": %d/%d baixados | %d falhas.',
+            $jobId,
+            $state,
+            $completed,
+            $total,
+            $failed,
+        ));
+        $this->line('  Os vídeos estão no storage (Contabo) e os metadados no banco do microserviço.');
+
+        $lastError = Cast::str($status['last_error'] ?? '');
+        if ($lastError !== '') {
+            $this->components->warn('Último erro registrado: '.$lastError);
+        }
+
+        return $state === 'failed' ? self::FAILURE : self::SUCCESS;
     }
 }
