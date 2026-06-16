@@ -5,6 +5,9 @@
         subtitle="Acompanhe o que foi postado, o que falhou e os logs de cada envio."
     >
         <x-slot:actions>
+            <x-ui.button x-data x-on:click="$dispatch('modal-show', { name: 'instant-post' })" size="sm" variant="primary" icon="paper-airplane" class="cursor-pointer">
+                Postagem instantânea
+            </x-ui.button>
             <x-ui.button :href="route('social-accounts')" size="sm" variant="subtle" icon="user-circle" class="cursor-pointer" wire:navigate>
                 Contas vinculadas
             </x-ui.button>
@@ -140,4 +143,8 @@
     </x-studio.panel>
 
     <div>{{ $posts->links() }}</div>
+
+    <x-ui.modal name="instant-post" class="max-w-3xl">
+        <livewire:posts.instant />
+    </x-ui.modal>
 </section>

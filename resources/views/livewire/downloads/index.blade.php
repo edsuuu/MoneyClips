@@ -18,7 +18,7 @@
                 <span wire:loading.remove wire:target="importFromMicroservice">Importar do microserviço</span>
                 <span wire:loading wire:target="importFromMicroservice">Importando...</span>
             </x-ui.button>
-            <x-ui.button :href="route('downloads.create')" size="sm" variant="primary" icon="arrow-down-tray" class="cursor-pointer" wire:navigate>
+            <x-ui.button x-data x-on:click="$dispatch('modal-show', { name: 'new-download' })" size="sm" variant="primary" icon="arrow-down-tray" class="cursor-pointer">
                 Novo download
             </x-ui.button>
             <x-ui.button wire:click="$refresh" size="sm" variant="subtle" icon="arrow-path" class="cursor-pointer">
@@ -49,7 +49,7 @@
         @if($items->isEmpty())
             <div class="rounded-lg border border-dashed border-slate-800 p-10 text-center text-sm text-slate-400">
                 Nenhum vídeo local encontrado. Importe um lote do microserviço ou crie um download pela tela
-                <a href="{{ route('downloads.create') }}" wire:navigate class="text-slate-200 underline hover:text-slate-50">Novo download</a>.
+                <button type="button" x-data x-on:click="$dispatch('modal-show', { name: 'new-download' })" class="cursor-pointer text-slate-200 underline hover:text-slate-50">Novo download</button>.
             </div>
         @else
             <div class="overflow-x-auto">
@@ -130,4 +130,8 @@
             </div>
         @endif
     </x-studio.panel>
+
+    <x-ui.modal name="new-download" class="max-w-2xl">
+        <livewire:downloads.new-download />
+    </x-ui.modal>
 </section>
