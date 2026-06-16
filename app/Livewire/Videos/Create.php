@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
-use App\Jobs\ProcessVideoJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\Status;
 use App\Models\Video;
@@ -58,8 +57,6 @@ final class Create extends Component
             'url' => $validated['url'],
             'status_id' => Status::idFor('queued'),
         ]);
-
-        dispatch(new ProcessVideoJob($video));
 
         $this->toast('Vídeo adicionado. O processamento começa em instantes.');
 

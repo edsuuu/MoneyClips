@@ -1,15 +1,8 @@
-<section class="mx-auto flex w-full max-w-4xl flex-col gap-6">
-    <x-studio.page-header
-        eyebrow="Downloads"
-        title="Novo download"
-        subtitle="Informe a URL de um canal do YouTube para o microserviço baixar os Shorts e salvar no storage."
-    >
-        <x-slot:actions>
-            <x-ui.button :href="route('downloads.index')" size="sm" variant="subtle" icon="film" class="cursor-pointer" wire:navigate>
-                Ver estoque
-            </x-ui.button>
-        </x-slot:actions>
-    </x-studio.page-header>
+<div class="flex w-full flex-col gap-5">
+    <div>
+        <h2 class="text-lg font-semibold text-slate-50">Novo download</h2>
+        <p class="text-sm text-slate-400">URL de um canal do YouTube para o microserviço baixar os Shorts.</p>
+    </div>
 
     <x-studio.panel title="Baixar vídeos" subtitle="O Laravel apenas cria o job; o download e o upload ficam no microserviço download-youtube.">
         <form wire:submit="start" class="flex flex-col gap-4 md:flex-row md:items-end">
@@ -74,4 +67,4 @@
             </x-studio.panel>
         </div>
     @endif
-</section>
+</div>

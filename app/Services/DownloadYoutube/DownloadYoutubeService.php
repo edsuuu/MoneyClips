@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\DownloadYoutube;
 
-use App\Support\Cast;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -24,7 +23,7 @@ final class DownloadYoutubeService
             ->throw()
             ->json();
 
-        $jobId = Cast::str($response['job_id'] ?? '');
+        $jobId = (string) ($response['job_id'] ?? '');
 
         throw_if($jobId === '', RuntimeException::class, 'Microserviço download-youtube não retornou job_id.');
 
@@ -61,10 +60,10 @@ final class DownloadYoutubeService
             ->json();
 
         /** @var list<array<string, mixed>> $items */
-        $items = array_values(array_filter(Cast::arr($response['items'] ?? []), is_array(...)));
+        $items = array_values(array_filter((array) ($response['items'] ?? []), is_array(...)));
 
         return [
-            'total' => Cast::int($response['total'] ?? 0),
+            'total' => (int) ($response['total'] ?? 0),
             'items' => $items,
         ];
     }
@@ -102,8 +101,8 @@ final class DownloadYoutubeService
 
     private function client(): PendingRequest
     {
-        $baseUrl = Cast::str(config('microservices.download_youtube.base_url')) ?: 'http://127.0.0.1:8770';
-        $timeout = Cast::int(config('microservices.download_youtube.timeout')) ?: 30;
+        $baseUrl = (string) (config('microservices.download_youtube.base_url')) ?: 'http://127.0.0.1:8770';
+        $timeout = (int) (config('microservices.download_youtube.timeout')) ?: 30;
 
         return Http::baseUrl($baseUrl)
             ->timeout($timeout)
@@ -113,7 +112,7 @@ final class DownloadYoutubeService
 
     private function webhookUrl(): string
     {
-        return Cast::str(config('microservices.download_youtube.webhook_url'))
+        return (string) (config('microservices.download_youtube.webhook_url'))
             ?: url('/api/download-youtube/webhook');
     }
 }

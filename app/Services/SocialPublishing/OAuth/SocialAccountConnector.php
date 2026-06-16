@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\SocialPublishing\OAuth;
 
 use App\Models\SocialAccount;
-use App\Support\Cast;
 use Illuminate\Support\Facades\Http;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Throwable;
@@ -28,25 +27,25 @@ final class SocialAccountConnector
 
         // Busca o canal para guardar o id/título (não é obrigatório para publicar).
         try {
-            $resp = Http::withToken(Cast::str($user->token))->get('https://www.googleapis.com/youtube/v3/channels', [
+            $resp = Http::withToken((string) ($user->token))->get('https://www.googleapis.com/youtube/v3/channels', [
                 'part' => 'id,snippet',
                 'mine' => 'true',
             ]);
             $items = $resp->json('items');
             if ($resp->successful() && is_array($items)) {
-                $item = Cast::arr($items[0] ?? []);
-                $channelId = Cast::str($item['id'] ?? '');
-                $snippet = Cast::arr($item['snippet'] ?? []);
-                $channelTitle = Cast::str($snippet['title'] ?? '') ?: $channelTitle;
+                $item = (array) ($items[0] ?? []);
+                $channelId = (string) ($item['id'] ?? '');
+                $snippet = (array) ($item['snippet'] ?? []);
+                $channelTitle = (string) ($snippet['title'] ?? '') ?: $channelTitle;
             }
         } catch (Throwable) {
             // segue sem o canal; o token já é suficiente para o upload
         }
 
         $account = $this->upsert($userId, 'youtube', $channelId ?: $user->getId(), $channelTitle, [
-            'access_token' => Cast::str($user->token),
-            'refresh_token' => Cast::str($user->refreshToken) ?: null,
-            'token_expires_at' => $user->expiresIn !== null ? now()->addSeconds(Cast::int($user->expiresIn)) : null,
+            'access_token' => (string) ($user->token),
+            'refresh_token' => (string) ($user->refreshToken) ?: null,
+            'token_expires_at' => $user->expiresIn !== null ? now()->addSeconds((int) ($user->expiresIn)) : null,
             'meta' => ['channel_id' => $channelId, 'privacy_status' => 'public'],
         ]);
 
@@ -61,10 +60,10 @@ final class SocialAccountConnector
      */
     public function fromMeta(SocialiteUser $user, ?int $userId): array
     {
-        $version = Cast::str(config('social-publishing.graph_version', 'v21.0'));
+        $version = (string) (config('social-publishing.graph_version', 'v21.0'));
         $base = 'https://graph.facebook.com/'.$version;
 
-        $longLived = $this->exchangeLongLivedMetaToken($base, Cast::str($user->token));
+        $longLived = $this->exchangeLongLivedMetaToken($base, (string) ($user->token));
 
         $resp = Http::get($base.'/me/accounts', [
             'fields' => 'id,name,access_token,instagram_business_account{id,username}',
@@ -73,14 +72,14 @@ final class SocialAccountConnector
 
         $accounts = [];
 
-        foreach (Cast::arr($resp->json('data')) as $page) {
+        foreach ((array) ($resp->json('data')) as $page) {
             if (! is_array($page)) {
                 continue;
             }
 
-            $pageId = Cast::str($page['id'] ?? '');
-            $pageToken = Cast::str($page['access_token'] ?? '');
-            $pageName = Cast::str($page['name'] ?? '') ?: 'Página';
+            $pageId = (string) ($page['id'] ?? '');
+            $pageToken = (string) ($page['access_token'] ?? '');
+            $pageName = (string) ($page['name'] ?? '') ?: 'Página';
             if ($pageId === '') {
                 continue;
             }
@@ -96,10 +95,10 @@ final class SocialAccountConnector
                 'meta' => ['page_id' => $pageId],
             ]);
 
-            $ig = Cast::arr($page['instagram_business_account'] ?? []);
-            $igId = Cast::str($ig['id'] ?? '');
+            $ig = (array) ($page['instagram_business_account'] ?? []);
+            $igId = (string) ($ig['id'] ?? '');
             if ($igId !== '') {
-                $igName = '@'.(Cast::str($ig['username'] ?? '') ?: $pageName);
+                $igName = '@'.((string) ($ig['username'] ?? '') ?: $pageName);
 
                 $accounts[] = $this->upsert($userId, 'instagram', $igId, $igName, [
                     'access_token' => $pageToken,
@@ -122,7 +121,7 @@ final class SocialAccountConnector
             'fb_exchange_token' => $shortToken,
         ]);
 
-        $long = Cast::str($resp->json('access_token'));
+        $long = (string) ($resp->json('access_token'));
 
         return $long !== '' ? $long : $shortToken;
     }

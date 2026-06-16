@@ -7,7 +7,6 @@ namespace App\Services\Youtube;
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;
 use App\Services\SocialPublishing\OAuth\TokenRefresher;
-use App\Support\Cast;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -58,7 +57,7 @@ final readonly class ShortsPoster
                     'title' => $this->buildTitle($short),
                     'description' => $this->buildDescription($short),
                     'tags' => $this->buildTags($short),
-                    'categoryId' => Cast::str(config('youtube_shorts.posting.category_id')) ?: '22',
+                    'categoryId' => (string) (config('youtube_shorts.posting.category_id')) ?: '22',
                 ],
                 'status' => [
                     'privacyStatus' => $this->privacyStatus(),
@@ -69,7 +68,7 @@ final readonly class ShortsPoster
             $size = (int) filesize($localFile);
 
             // 1) Inicia a sessão resumível e pega a URL de upload no header Location.
-            $init = Http::withToken(Cast::str($account->access_token))
+            $init = Http::withToken((string) ($account->access_token))
                 ->withHeaders([
                     'X-Upload-Content-Length' => (string) $size,
                     'X-Upload-Content-Type' => 'video/*',
@@ -85,7 +84,7 @@ final readonly class ShortsPoster
             throw_if($uploadUrl === '', RuntimeException::class, 'O YouTube não retornou a URL de upload.');
 
             // 2) Envia os bytes do vídeo.
-            $upload = Http::withToken(Cast::str($account->access_token))
+            $upload = Http::withToken((string) ($account->access_token))
                 ->withBody((string) file_get_contents($localFile), 'video/mp4')
                 ->timeout(900)
                 ->put($uploadUrl);
@@ -94,7 +93,7 @@ final readonly class ShortsPoster
                 throw new RuntimeException('Falha ao enviar o vídeo ao YouTube: '.Str::limit($upload->body(), 300));
             }
 
-            $videoId = Cast::str($upload->json('id'));
+            $videoId = (string) ($upload->json('id'));
             throw_if($videoId === '', RuntimeException::class, 'O YouTube não retornou o ID do vídeo após o upload.');
 
             $short->forceFill([
@@ -116,7 +115,7 @@ final readonly class ShortsPoster
      */
     private function pullToTemp(string $path): string
     {
-        $disk = Storage::disk(Cast::str(config('youtube_shorts.disk', 'minio')));
+        $disk = Storage::disk((string) (config('youtube_shorts.disk', 'minio')));
 
         throw_unless($disk->exists($path), RuntimeException::class, 'Vídeo não encontrado no storage: '.$path);
 
@@ -185,7 +184,7 @@ final readonly class ShortsPoster
      */
     private function privacyStatus(): string
     {
-        return match (Cast::str(config('youtube_shorts.posting.privacy_status'))) {
+        return match ((string) (config('youtube_shorts.posting.privacy_status'))) {
             'unlisted' => 'unlisted',
             'private' => 'private',
             default => 'public',

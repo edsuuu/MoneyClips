@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\TiktokPost;
 
 use App\Models\TiktokPost;
-use App\Support\Cast;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -39,7 +38,7 @@ final class TiktokPostService
             ->throw()
             ->json();
 
-        $jobId = Cast::str($response['job_id'] ?? '');
+        $jobId = (string) ($response['job_id'] ?? '');
 
         throw_if($jobId === '', RuntimeException::class, 'Microserviço tiktok-post não retornou job_id.');
 
@@ -144,15 +143,15 @@ final class TiktokPostService
 
     private function callbackUrl(): string
     {
-        return Cast::str(config('microservices.tiktok_post.callback_url'))
+        return (string) (config('microservices.tiktok_post.callback_url'))
             ?: url('/api/tiktok-posts/callback');
     }
 
     private function client(): PendingRequest
     {
-        $baseUrl = Cast::str(config('microservices.tiktok_post.base_url')) ?: 'http://127.0.0.1:8090';
-        $timeout = Cast::int(config('microservices.tiktok_post.timeout')) ?: 30;
-        $token = Cast::str(config('microservices.tiktok_post.api_token'));
+        $baseUrl = (string) (config('microservices.tiktok_post.base_url')) ?: 'http://127.0.0.1:8090';
+        $timeout = (int) (config('microservices.tiktok_post.timeout')) ?: 30;
+        $token = (string) (config('microservices.tiktok_post.api_token'));
 
         $request = Http::baseUrl($baseUrl)
             ->timeout($timeout)

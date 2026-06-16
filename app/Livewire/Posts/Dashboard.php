@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Posts;
 
-use App\Jobs\PublishScheduledPostJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\ScheduledPost;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
@@ -49,7 +48,6 @@ final class Dashboard extends Component
 
         $post->update(['status' => ScheduledPost::STATUS_PUBLISHING, 'error_message' => null]);
         $post->log('info', 'Reprocessamento manual solicitado.');
-        dispatch(new PublishScheduledPostJob($post->id));
 
         $this->toast('Post reenviado para publicação.');
     }

@@ -18,7 +18,6 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware(['auth'])->group(function (): void {
     Route::view('/downloads', 'downloads.index')->name('downloads.index');
-    Route::view('/downloads/new', 'downloads.create')->name('downloads.create');
 
     Route::view('/videos', 'videos.index')->name('videos.index');
     Route::view('/videos/create', 'videos.create')->name('videos.create');
@@ -37,8 +36,10 @@ Route::middleware(['auth'])->group(function (): void {
 
     // Agendamento social: dashboard de publicações e gestão de contas conectadas.
     Route::view('/posts', 'posts.dashboard')->name('posts.dashboard');
-    Route::view('/posts/instant', 'posts.instant')->name('posts.instant');
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
+
+    // Monitor local dos microserviços (status /health + logs dos containers).
+    Route::view('/microservices', 'microservices.index')->name('microservices.index');
 
     // OAuth das redes sociais (conectar contas com 1 clique).
     Route::get('/oauth/{platform}/connect', [OAuthController::class, 'connect'])->name('oauth.connect');

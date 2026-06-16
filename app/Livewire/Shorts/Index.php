@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Shorts;
 
-use App\Jobs\PostYoutubeShortJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;
@@ -68,8 +67,6 @@ final class Index extends Component
             return;
         }
 
-        dispatch(new PostYoutubeShortJob($short->id));
-
         $this->toast('Postagem enfileirada. Acompanhe o resultado em instantes.');
     }
 
@@ -105,8 +102,6 @@ final class Index extends Component
 
             return;
         }
-
-        dispatch(new PostYoutubeShortJob($short->id));
 
         $this->toast('Short sorteado e enfileirado: '.($short->title ?? $short->youtube_id));
     }
