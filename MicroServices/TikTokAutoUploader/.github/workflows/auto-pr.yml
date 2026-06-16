@@ -1,0 +1,37 @@
+# === DESATIVADO no monorepo ===
+# O CI/CD próprio deste microserviço foi comentado; o GitHub Actions
+# só lê .github/workflows na RAIZ do repo. Será reavaliado depois.
+# Conteúdo original preservado abaixo (comentado):
+#
+# name: Auto PR
+# 
+# # Abre automaticamente uma PR para a main quando uma branch é empurrada
+# # (se ainda não existir uma). Combinado com o auto-merge, o fluxo vira:
+# # push na branch -> PR aberta -> CI roda -> merge automático ao passar.
+# on:
+#   push:
+#     branches-ignore: [main]
+# 
+# permissions:
+#   contents: read
+#   pull-requests: write
+# 
+# jobs:
+#   open-pr:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v4
+# 
+#       - name: Abrir PR (se não existir)
+#         env:
+#           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#         run: |
+#           if gh pr view "$GITHUB_REF_NAME" --json number >/dev/null 2>&1; then
+#             echo "PR já existe para $GITHUB_REF_NAME — nada a fazer."
+#             exit 0
+#           fi
+#           # Sem --fill: ele exige o ref da base (origin/main), que o checkout raso
+#           # não tem. Usa o assunto do último commit como título.
+#           gh pr create --base main --head "$GITHUB_REF_NAME" \
+#             --title "$(git log -1 --pretty=%s)" \
+#             --body "PR automática do push em \`$GITHUB_REF_NAME\`."

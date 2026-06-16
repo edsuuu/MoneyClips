@@ -86,6 +86,48 @@ final class TiktokPostService
     }
 
     /**
+     * Dispara o login explícito no uploader (POST /login). O serviço abre um
+     * navegador e loga por email/senha — pode demorar, daí o timeout estendido.
+     * Devolve a SessionView resultante (account, has_cookies, expired, valid).
+     *
+     * @return array<string, mixed>
+     */
+    public function login(bool $force = false, ?bool $headless = null): array
+    {
+        $payload = ['force' => $force];
+        if ($headless !== null) {
+            $payload['headless'] = $headless;
+        }
+
+        /** @var array<string, mixed> $response */
+        $response = $this->client()
+            ->timeout(180)
+            ->post('/login', $payload)
+            ->throw()
+            ->json();
+
+        return $response;
+    }
+
+    /**
+     * Injeta uma sessão (cookies exportados de um login local) no uploader via
+     * POST /session — o login pode ser gerido no Laravel e empurrado para cá.
+     *
+     * @param  array<int, array<string, mixed>>  $cookies
+     * @return array<string, mixed>
+     */
+    public function injectSession(array $cookies): array
+    {
+        /** @var array<string, mixed> $response */
+        $response = $this->client()
+            ->post('/session', ['cookies' => $cookies])
+            ->throw()
+            ->json();
+
+        return $response;
+    }
+
+    /**
      * @param  array<int, string>  $hashtags
      * @return array<int, string>
      */

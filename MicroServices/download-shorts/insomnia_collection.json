@@ -1,0 +1,147 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2026-06-13T00:00:00.000Z",
+  "__export_source": "download-shorts",
+  "resources": [
+    {
+      "_id": "wrk_download_shorts",
+      "_type": "workspace",
+      "parentId": null,
+      "name": "Download Shorts API",
+      "description": "Microsserviço FastAPI que baixa Shorts de um canal, sobe no storage S3-compatible e despacha para webhook.",
+      "scope": "collection"
+    },
+    {
+      "_id": "env_base",
+      "_type": "environment",
+      "parentId": "wrk_download_shorts",
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:8770",
+        "job_id": "",
+        "webhook_url": "https://example.com/webhook"
+      },
+      "dataPropertyOrder": {
+        "&": ["base_url", "job_id", "webhook_url"]
+      },
+      "metaSortKey": 1
+    },
+    {
+      "_id": "fld_shorts",
+      "_type": "request_group",
+      "parentId": "wrk_download_shorts",
+      "name": "Shorts",
+      "metaSortKey": -100
+    },
+    {
+      "_id": "req_health",
+      "_type": "request",
+      "parentId": "wrk_download_shorts",
+      "name": "Health",
+      "method": "GET",
+      "url": "{{ _.base_url }}/health",
+      "body": {},
+      "headers": [],
+      "metaSortKey": -200
+    },
+    {
+      "_id": "req_download_create",
+      "_type": "request",
+      "parentId": "fld_shorts",
+      "name": "POST /shorts/download — criar job",
+      "method": "POST",
+      "url": "{{ _.base_url }}/shorts/download",
+      "description": "Cria um job de download. webhook_url é opcional; se dispatch_on_complete=true ele é obrigatório.",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"channel_url\": \"https://www.youtube.com/@CANAL/shorts\",\n  \"webhook_url\": \"{{ _.webhook_url }}\",\n  \"dispatch_on_complete\": true\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": -190
+    },
+    {
+      "_id": "req_download_create_nowebhook",
+      "_type": "request",
+      "parentId": "fld_shorts",
+      "name": "POST /shorts/download — sem webhook (pull)",
+      "method": "POST",
+      "url": "{{ _.base_url }}/shorts/download",
+      "description": "Sem webhook: dispatch_on_complete deve ser false. Os itens ficam no banco para um orquestrador externo puxar via GET /shorts/items.",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"channel_url\": \"https://www.youtube.com/@CANAL/shorts\",\n  \"dispatch_on_complete\": false\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": -185
+    },
+    {
+      "_id": "req_download_status",
+      "_type": "request",
+      "parentId": "fld_shorts",
+      "name": "GET /shorts/download/{job_id} — status",
+      "method": "GET",
+      "url": "{{ _.base_url }}/shorts/download/{{ _.job_id }}",
+      "description": "Status do job + contagem de itens por status. Defina job_id no environment.",
+      "body": {},
+      "headers": [],
+      "metaSortKey": -180
+    },
+    {
+      "_id": "req_items",
+      "_type": "request",
+      "parentId": "fld_shorts",
+      "name": "GET /shorts/items — listar itens",
+      "method": "GET",
+      "url": "{{ _.base_url }}/shorts/items",
+      "description": "Itens deduplicados por youtube_id (fica o mais recente). Para orquestradores externos.",
+      "parameters": [
+        {
+          "name": "status",
+          "value": "completed"
+        },
+        {
+          "name": "limit",
+          "value": "100"
+        },
+        {
+          "name": "offset",
+          "value": "0"
+        }
+      ],
+      "body": {},
+      "headers": [],
+      "metaSortKey": -170
+    },
+    {
+      "_id": "req_dispatch",
+      "_type": "request",
+      "parentId": "fld_shorts",
+      "name": "POST /shorts/download/{job_id}/dispatch",
+      "method": "POST",
+      "url": "{{ _.base_url }}/shorts/download/{{ _.job_id }}/dispatch",
+      "description": "Despacha itens completos+pendentes para o webhook. mode=batch (com batch_size) ou all. webhook_url no body supre/sobrescreve o do job.",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"mode\": \"batch\",\n  \"batch_size\": 50,\n  \"webhook_url\": \"{{ _.webhook_url }}\"\n}"
+      },
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "metaSortKey": -160
+    }
+  ]
+}

@@ -11,7 +11,7 @@ test('linked accounts page is displayed inside settings navigation', function ()
         ->assertOk()
         ->assertSee('Contas vinculadas')
         ->assertSee('YouTube')
-        ->assertDontSee('TikTok')
+        ->assertSee('Sessão do TikTok')
         ->assertSee('/settings/accounts', escape: false)
         ->assertDontSee('/social-accounts', escape: false);
 });
@@ -23,5 +23,5 @@ test('legacy linked accounts route still resolves for authenticated users', func
         ->assertOk()
         ->assertSee('Contas vinculadas')
         ->assertSee('YouTube')
-        ->assertDontSee('TikTok');
+        ->assertSee('Sessão do TikTok');
 });
