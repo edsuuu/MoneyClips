@@ -8,10 +8,11 @@ use App\Jobs\PostYoutubeShortJob;
 use App\Models\YoutubeShort;
 use App\Services\DiscordNotifier;
 use App\Services\TiktokPost\TiktokPostService;
+use App\Support\Cast;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
@@ -27,6 +28,9 @@ use Throwable;
  */
 final class DispatchSocialPosts extends Command
 {
+    /** Quantos candidatos sortear por busca ao procurar um com arquivo no storage. */
+    private const int PROBE_LIMIT = 50;
+
     protected $signature = 'social:dispatch-posts
         {--count=1 : Quantos vídeos sortear/publicar nesta execução}';
 
@@ -53,6 +57,7 @@ final class DispatchSocialPosts extends Command
                     $short->youtube_id,
                     $short->title ?? $short->youtube_id,
                     $short->hashtags ?? [],
+                    $short->video_path,
                 );
             } catch (Throwable $e) {
                 $this->components->error('Falha ao enfileirar no TikTok: '.$e->getMessage());
@@ -75,26 +80,39 @@ final class DispatchSocialPosts extends Command
     }
 
     /**
-     * Sorteia e RESERVA o próximo Short disponível de forma atômica
-     * (lockForUpdate evita que duas execuções concorrentes peguem o mesmo).
+     * Sorteia e RESERVA o próximo Short disponível CUJO ARQUIVO existe no
+     * storage. Pula "fantasmas" (linha com video_path mas sem objeto no MinIO,
+     * ex.: ainda não sincronizado) sem queimá-los. A reserva é atômica (update
+     * condicional em dispatched_at) para duas execuções não pegarem o mesmo.
      */
     private function reserveNext(): ?YoutubeShort
     {
-        return DB::transaction(function (): ?YoutubeShort {
-            $short = YoutubeShort::query()
-                ->availableToPost()
-                ->inRandomOrder()
-                ->lockForUpdate()
-                ->first();
+        $disk = Storage::disk(Cast::str(config('youtube_shorts.disk', 'minio')));
 
-            if ($short === null) {
-                return null;
+        $candidates = YoutubeShort::query()
+            ->availableToPost()
+            ->inRandomOrder()
+            ->limit(self::PROBE_LIMIT)
+            ->get();
+
+        foreach ($candidates as $short) {
+            $path = Cast::str($short->video_path);
+            if ($path === '' || ! $disk->exists($path)) {
+                continue;
             }
 
-            $short->forceFill(['dispatched_at' => now()])->save();
+            // Reserva atômica: só vence quem ainda vê dispatched_at nulo.
+            $reserved = YoutubeShort::query()
+                ->whereKey($short->id)
+                ->whereNull('dispatched_at')
+                ->update(['dispatched_at' => now()]);
 
-            return $short;
-        });
+            if ($reserved === 1) {
+                return $short->refresh();
+            }
+        }
+
+        return null;
     }
 
     /**
