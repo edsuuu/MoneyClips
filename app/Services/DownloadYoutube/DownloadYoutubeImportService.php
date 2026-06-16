@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\DownloadYoutube;
 
 use App\Models\YoutubeShort;
-use App\Support\Cast;
 use Illuminate\Support\Facades\Date;
 
 final class DownloadYoutubeImportService
@@ -16,13 +15,13 @@ final class DownloadYoutubeImportService
      */
     public function importWebhookPayload(array $payload): array
     {
-        $channelUrl = Cast::str($payload['channel_url'] ?? '');
-        $items = $this->items(Cast::arr($payload['items'] ?? []));
+        $channelUrl = (string) ($payload['channel_url'] ?? '');
+        $items = $this->items((array) ($payload['items'] ?? []));
         $imported = 0;
         $skipped = 0;
 
         foreach ($items as $item) {
-            $youtubeId = Cast::str($item['youtube_id'] ?? '');
+            $youtubeId = (string) ($item['youtube_id'] ?? '');
             $storagePath = $this->storagePath($item);
 
             if ($youtubeId === '' || $storagePath === '') {
@@ -34,8 +33,8 @@ final class DownloadYoutubeImportService
             $short = YoutubeShort::query()->firstOrNew(['youtube_id' => $youtubeId]);
             $short->fill([
                 'channel_url' => $channelUrl ?: $short->channel_url,
-                'title' => Cast::str($item['title'] ?? '') ?: $short->title ?: $youtubeId,
-                'hashtags' => $this->normalizeHashtags(Cast::arr($item['hashtags'] ?? [])),
+                'title' => (string) ($item['title'] ?? '') ?: $short->title ?: $youtubeId,
+                'hashtags' => $this->normalizeHashtags((array) ($item['hashtags'] ?? [])),
                 'video_path' => $storagePath,
                 'downloaded_at' => $short->downloaded_at ?? Date::now(),
             ]);
@@ -55,12 +54,14 @@ final class DownloadYoutubeImportService
      */
     private function storagePath(array $item): string
     {
-        $storagePath = Cast::str($item['storage_path'] ?? '');
+        $storagePath = (string) ($item['storage_path'] ?? '');
         if ($storagePath !== '') {
             return $storagePath;
         }
 
-        return Cast::str(Cast::arr($item['storage'] ?? [])['path'] ?? '');
+        $storage = (array) ($item['storage'] ?? []);
+
+        return (string) ($storage['path'] ?? '');
     }
 
     /**

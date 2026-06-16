@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Support\Cast;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -96,7 +95,7 @@ final class ScheduledPost extends Model
     /** @return list<string> */
     public function hashtagList(): array
     {
-        $tags = Cast::arr($this->hashtags);
+        $tags = (array) ($this->hashtags);
 
         return array_values(array_filter($tags, static fn ($t): bool => is_string($t) && $t !== ''));
     }

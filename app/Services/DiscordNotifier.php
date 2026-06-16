@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Support\Cast;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -49,7 +48,7 @@ final class DiscordNotifier
 
     private function send(string $title, string $message, int $color, ?string $url = null): void
     {
-        $webhook = Cast::str(config('youtube_shorts.discord_webhook'));
+        $webhook = (string) (config('youtube_shorts.discord_webhook'));
         if ($webhook === '') {
             return;
         }

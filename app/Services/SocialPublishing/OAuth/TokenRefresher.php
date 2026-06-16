@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\SocialPublishing\OAuth;
 
 use App\Models\SocialAccount;
-use App\Support\Cast;
 use Illuminate\Support\Facades\Http;
 
 /**
@@ -45,8 +44,8 @@ final class TokenRefresher
         }
 
         $account->update([
-            'access_token' => Cast::str($resp->json('access_token')),
-            'token_expires_at' => now()->addSeconds(Cast::int($resp->json('expires_in') ?? 3600)),
+            'access_token' => (string) ($resp->json('access_token')),
+            'token_expires_at' => now()->addSeconds((int) ($resp->json('expires_in') ?? 3600)),
         ]);
 
         return true;

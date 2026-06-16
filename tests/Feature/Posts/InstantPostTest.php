@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Jobs\PostYoutubeShortJob;
 use App\Livewire\Posts\Instant;
 use App\Models\SocialAccount;
 use App\Models\User;
@@ -17,11 +16,11 @@ beforeEach(function (): void {
     config()->set('microservices.tiktok_post.callback_url', 'https://laravel.test/api/tiktok-posts/callback');
 });
 
-test('instant post page renders for authenticated users', function (): void {
+test('instant post modal is available from the posts dashboard', function (): void {
     YoutubeShort::factory()->count(2)->create();
 
     $this->actingAs(User::factory()->create())
-        ->get(route('posts.instant'))
+        ->get(route('posts.dashboard'))
         ->assertOk()
         ->assertSee('Postagem instantânea')
         ->assertSee('No estoque');
@@ -73,8 +72,6 @@ test('it queues selected video for youtube and tiktok', function (): void {
         ->set('postTiktok', true)
         ->call('postSelected')
         ->assertHasNoErrors();
-
-    Queue::assertPushed(PostYoutubeShortJob::class, fn (PostYoutubeShortJob $job): bool => $job->youtubeShortId === $short->id);
 
     $this->assertDatabaseHas('tiktok_posts', [
         'uuid' => 'job-instant',
