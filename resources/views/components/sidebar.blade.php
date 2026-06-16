@@ -66,7 +66,7 @@
         <div class="flex-1"></div>
 
         @auth
-            <x-user-menu />
+            <x-user-menu placement="top" />
         @endauth
     </aside>
 </div>

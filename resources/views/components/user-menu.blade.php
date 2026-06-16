@@ -1,5 +1,7 @@
 {{-- Menu do usuário autenticado (avatar + dropdown) — usado na sidebar e no navbar --}}
-<x-ui.dropdown align="start" {{ $attributes }}>
+@props(['placement' => 'bottom'])
+
+<x-ui.dropdown align="start" :placement="$placement" {{ $attributes }}>
     <x-slot:trigger>
         <div class="flex w-full items-center gap-2 rounded-lg p-2 text-start transition hover:bg-slate-900" data-test="sidebar-menu-button">
             <x-ui.avatar :initials="auth()->user()->initials()" :name="auth()->user()->name" />
