@@ -18,6 +18,7 @@ final class DownloadYoutubeService
         $response = $this->client()
             ->post('/shorts/download', [
                 'channel_url' => $channelUrl,
+                'webhook_url' => $this->webhookUrl(),
                 'dispatch_on_complete' => false,
             ])
             ->throw()
@@ -68,6 +69,25 @@ final class DownloadYoutubeService
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function dispatchPending(int $batchSize = 100, bool $deleteAfterDispatch = true): array
+    {
+        /** @var array<string, mixed> $response */
+        $response = $this->client()
+            ->post('/shorts/dispatch', [
+                'mode' => 'batch',
+                'batch_size' => max(1, min($batchSize, 1000)),
+                'webhook_url' => $this->webhookUrl(),
+                'delete_after_dispatch' => $deleteAfterDispatch,
+            ])
+            ->throw()
+            ->json();
+
+        return $response;
+    }
+
     public function health(): bool
     {
         try {
@@ -89,5 +109,11 @@ final class DownloadYoutubeService
             ->timeout($timeout)
             ->acceptJson()
             ->asJson();
+    }
+
+    private function webhookUrl(): string
+    {
+        return Cast::str(config('microservices.download_youtube.webhook_url'))
+            ?: url('/api/download-youtube/webhook');
     }
 }
