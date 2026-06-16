@@ -6,6 +6,7 @@ namespace App\Livewire\Downloads;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Models\TiktokPost;
+use App\Models\YoutubeShort;
 use App\Services\DownloadYoutube\DownloadYoutubeService;
 use App\Services\TiktokPost\TiktokPostService;
 use App\Support\Cast;
@@ -24,6 +25,29 @@ final class Index extends Component
     private const int PER_PAGE = 15;
 
     public ?string $loadError = null;
+
+    public function importFromMicroservice(): void
+    {
+        try {
+            $result = resolve(DownloadYoutubeService::class)->dispatchPending(1000);
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $this->toast('Não foi possível importar os vídeos do microserviço download-youtube.', 'danger');
+
+            return;
+        }
+
+        $sentItems = Cast::int($result['sent_items'] ?? 0);
+
+        if ($sentItems === 0) {
+            $this->toast('Nenhum vídeo pendente para importar do microserviço.');
+
+            return;
+        }
+
+        $this->resetPage();
+        $this->toast(sprintf('%d vídeo(s) importados para youtube_shorts.', $sentItems));
+    }
 
     /**
      * @param  array<int, string>  $hashtags
@@ -67,49 +91,49 @@ final class Index extends Component
 
     public function render(): View
     {
-        $page = max(1, Cast::int($this->getPage()));
-        $response = ['total' => 0, 'items' => []];
         $this->loadError = null;
+        $microserviceStock = null;
 
         try {
-            $response = resolve(DownloadYoutubeService::class)->listItems(
-                self::PER_PAGE,
-                ($page - 1) * self::PER_PAGE,
-            );
+            $microserviceStock = resolve(DownloadYoutubeService::class)->listItems(1, 0)['total'];
         } catch (Throwable $throwable) {
             report($throwable);
-            $this->loadError = 'Não foi possível carregar o estoque do microserviço download-youtube.';
+            $this->loadError = 'Não foi possível consultar o estoque pendente do microserviço download-youtube.';
         }
 
-        $items = $this->decorateItems($response['items']);
+        $page = max(1, Cast::int($this->getPage()));
+        $shorts = YoutubeShort::query()
+            ->whereNotNull('video_path')
+            ->latest('id')
+            ->paginate(self::PER_PAGE, ['*'], 'page', $page);
+
+        $items = new LengthAwarePaginator(
+            $this->decorateItems($shorts->getCollection()),
+            $shorts->total(),
+            self::PER_PAGE,
+            $shorts->currentPage(),
+            ['path' => request()->url()],
+        );
 
         return view('livewire.downloads.index', [
-            'items' => new LengthAwarePaginator(
-                $items,
-                $response['total'],
-                self::PER_PAGE,
-                $page,
-                ['path' => request()->url()],
-            ),
+            'items' => $items,
             'counts' => [
-                'downloaded' => $response['total'],
+                'downloaded' => YoutubeShort::query()->whereNotNull('video_path')->count(),
                 'queued' => TiktokPost::query()->whereIn('status', ['queued', 'processing'])->count(),
                 'posted' => TiktokPost::query()->where('status', 'completed')->count(),
                 'failed' => TiktokPost::query()->where('status', 'failed')->count(),
             ],
+            'microserviceStock' => $microserviceStock,
         ]);
     }
 
     /**
-     * @param  list<array<string, mixed>>  $items
+     * @param  Collection<int, YoutubeShort>  $items
      * @return list<array<string, mixed>>
      */
-    private function decorateItems(array $items): array
+    private function decorateItems(Collection $items): array
     {
-        $youtubeIds = collect($items)
-            ->map(static fn (array $item): string => Cast::str($item['youtube_id'] ?? ''))
-            ->filter()
-            ->values();
+        $youtubeIds = $items->pluck('youtube_id')->filter()->values();
 
         /** @var Collection<string, TiktokPost> $posts */
         $posts = TiktokPost::query()
@@ -119,26 +143,25 @@ final class Index extends Component
             ->unique('youtube_id')
             ->keyBy('youtube_id');
 
-        return array_map(
-            function (array $item) use ($posts): array {
-                $youtubeId = Cast::str($item['youtube_id'] ?? '');
+        return array_values($items
+            ->map(function (YoutubeShort $item) use ($posts): array {
+                $youtubeId = $item->youtube_id;
                 $post = $posts->get($youtubeId);
 
                 return [
                     'youtube_id' => $youtubeId,
-                    'title' => Cast::str($item['title'] ?? '') ?: $youtubeId,
-                    'hashtags' => $this->normalizeHashtags(Cast::arr($item['hashtags'] ?? [])),
-                    'storage_path' => Cast::str($item['storage_path'] ?? ''),
-                    'storage_size_bytes' => Cast::int($item['storage_size_bytes'] ?? 0),
-                    'download_status' => Cast::str($item['status'] ?? ''),
-                    'dispatch_status' => Cast::str($item['dispatch_status'] ?? ''),
+                    'title' => Cast::str($item->title) ?: $youtubeId,
+                    'hashtags' => $this->normalizeHashtags(Cast::arr($item->hashtags ?? [])),
+                    'storage_path' => Cast::str($item->video_path),
+                    'storage_size_bytes' => 0,
+                    'download_status' => 'imported',
+                    'dispatch_status' => 'local',
                     'post' => $post,
                     'can_post' => ! $post instanceof TiktokPost
                         || ! in_array($post->status, TiktokPost::ACTIVE_STATUSES, true),
                 ];
-            },
-            $items,
-        );
+            })
+            ->all());
     }
 
     /**

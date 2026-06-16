@@ -6,6 +6,10 @@ return [
     'download_youtube' => [
         'base_url' => env('DOWNLOAD_YOUTUBE_URL', 'http://127.0.0.1:8770'),
         'timeout' => (int) env('DOWNLOAD_YOUTUBE_TIMEOUT', 30),
+        'webhook_url' => env(
+            'DOWNLOAD_YOUTUBE_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/download-youtube/webhook',
+        ),
     ],
 
     'tiktok_post' => [
