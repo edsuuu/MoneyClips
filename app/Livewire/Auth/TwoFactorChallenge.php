@@ -67,7 +67,7 @@ final class TwoFactorChallenge extends Component
 
             $request->session()->forget(['login.id', 'auth.authenticated_via_google']);
 
-            $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+            $this->redirectIntended(default: route('downloads.index', absolute: false), navigate: true);
         } else {
             event(new TwoFactorAuthenticationFailed($user));
 
@@ -94,7 +94,7 @@ final class TwoFactorChallenge extends Component
 
             $request->session()->forget(['login.id', 'auth.authenticated_via_google']);
 
-            $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+            $this->redirectIntended(default: route('downloads.index', absolute: false), navigate: true);
         } else {
             event(new TwoFactorAuthenticationFailed($user));
 

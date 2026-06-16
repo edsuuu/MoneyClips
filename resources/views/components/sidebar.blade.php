@@ -46,8 +46,13 @@
                     </x-nav-item>
                 </li>
                 <li>
-                    <x-nav-item icon="bolt" :href="route('shorts.index')" :current="request()->routeIs('shorts.index')">
-                        {{ __('Shorts') }}
+                    <x-nav-item icon="film" :href="route('downloads.index')" :current="request()->routeIs('downloads.index')">
+                        {{ __('Downloads') }}
+                    </x-nav-item>
+                </li>
+                <li>
+                    <x-nav-item icon="arrow-down-tray" :href="route('downloads.create')" :current="request()->routeIs('downloads.create')">
+                        {{ __('Novo download') }}
                     </x-nav-item>
                 </li>
             </ul>
