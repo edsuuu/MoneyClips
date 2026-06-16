@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Support\PostingSchedule;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -24,30 +25,19 @@ Artisan::command('inspire', function (): void {
 Schedule::command('social:publish-due')->everyMinute()->withoutOverlapping();
 
 /*
-| Auto-postagem de Shorts nos horários de maior engajamento (fuso de São
-| Paulo). Edite os horários abaixo à vontade. Cada execução também checa o
-| estoque e avisa no Discord quando os Shorts a postar ficam abaixo do
-| limiar (ex.: 20%).
+| Auto-postagem unificada: o MESMO vídeo vai pro YouTube e pro TikTok, 5x/dia.
+| Quem sorteia é o Laravel (fonte única: tabela youtube_shorts) — o uploader do
+| TikTok só posta o vídeo que recebe. O Short é reservado no sorteio para nunca
+| repetir; o sucesso de cada plataforma é gravado em posted_youtube_at /
+| posted_tiktok_at.
+|
+| Em vez da hora cheia, cada janela de 1h posta num MINUTO ALEATÓRIO estável
+| por dia (ex.: hoje 09:14, amanhã 09:37). As janelas ficam em
+| App\Support\PostingSchedule::WINDOWS (09/12/15/18/21, fuso São Paulo). O
+| comando roda a cada minuto, mas o ->when() só libera no minuto sorteado.
 */
-$hours = ['09:00', '12:00', '15:00', '18:00', '20:00', '22:00'];
-
-foreach ($hours as $hour) {
-    Schedule::command('youtube:dispatch-posts')
-        ->timezone('America/Sao_Paulo')
-        ->at($hour)
-        ->withoutOverlapping();
-}
-
-/*
-| Auto-postagem no TikTok via microserviço tiktok-uploader (porta 8780).
-| Horários deslocados dos do YouTube para espalhar a atividade. O uploader
-| posta em série (navegador único) e grava o status em tiktok_posts.
-*/
-$tiktokHours = ['10:00', '13:00', '16:00', '19:00', '21:00'];
-
-foreach ($tiktokHours as $hour) {
-    Schedule::command('tiktok:dispatch-posts')
-        ->timezone('America/Sao_Paulo')
-        ->at($hour)
-        ->withoutOverlapping();
-}
+Schedule::command('social:dispatch-posts')
+    ->everyMinute()
+    ->timezone(PostingSchedule::TIMEZONE)
+    ->when(static fn (): bool => PostingSchedule::dueWindow() !== null)
+    ->withoutOverlapping();

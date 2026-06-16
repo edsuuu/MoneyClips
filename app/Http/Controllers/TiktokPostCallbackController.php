@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\TiktokPost;
+use App\Models\YoutubeShort;
 use App\Support\Cast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,6 +44,15 @@ final class TiktokPostCallbackController extends Controller
                 'posted_at' => $status === 'completed' ? $finishedAt : null,
             ],
         );
+
+        // Confirmação explícita de sucesso no TikTok na fonte única (youtube_shorts),
+        // casando pelo youtube_id. Só conta publicação real (completed), não dry-run.
+        if ($status === 'completed') {
+            YoutubeShort::query()
+                ->where('youtube_id', $validated['video_id'])
+                ->whereNull('posted_tiktok_at')
+                ->update(['posted_tiktok_at' => $finishedAt]);
+        }
 
         return response()->json(['ok' => true]);
     }

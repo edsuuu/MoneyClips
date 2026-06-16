@@ -26,6 +26,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $youtube_video_id
  * @property Carbon|null $downloaded_at
  * @property Carbon|null $posted_at
+ * @property Carbon|null $dispatched_at
+ * @property Carbon|null $posted_youtube_at
+ * @property Carbon|null $posted_tiktok_at
  */
 final class YoutubeShort extends Model
 {
@@ -35,17 +38,22 @@ final class YoutubeShort extends Model
     protected $fillable = [
         'youtube_id', 'channel_url', 'title', 'hashtags',
         'video_path', 'youtube_video_id', 'downloaded_at', 'posted_at',
+        'dispatched_at', 'posted_youtube_at', 'posted_tiktok_at',
     ];
 
     /**
-     * Shorts baixados (têm vídeo no storage) e ainda não postados.
+     * Shorts baixados (têm vídeo no storage), ainda não postados e ainda não
+     * reservados pelo sorteio automático (dispatched_at).
      *
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
     protected function scopeAvailableToPost(Builder $query): Builder
     {
-        return $query->whereNotNull('video_path')->whereNull('posted_at');
+        return $query
+            ->whereNotNull('video_path')
+            ->whereNull('posted_at')
+            ->whereNull('dispatched_at');
     }
 
     protected function casts(): array
@@ -54,6 +62,9 @@ final class YoutubeShort extends Model
             'hashtags' => 'array',
             'downloaded_at' => 'datetime',
             'posted_at' => 'datetime',
+            'dispatched_at' => 'datetime',
+            'posted_youtube_at' => 'datetime',
+            'posted_tiktok_at' => 'datetime',
         ];
     }
 }
