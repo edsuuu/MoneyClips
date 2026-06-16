@@ -2,7 +2,7 @@
  * Único workflow do microserviço: baixa um vídeo do S3 pelo id e publica no
  * TikTok com o título/hashtags recebidos no payload da API.
  *
- * O id vira a chave `${S3_PREFIX}${id}/${id}.mp4` (layout aninhado que o
+ * O id vira a chave `${S3_PREFIX}${id}/short_${id}.mp4` (layout aninhado que o
  * microserviço download-shorts sobe). Sem JSON sidecar, sem tracker —
  * o ciclo de vida de cada post fica do lado do Laravel, via callback de webhook.
  */
@@ -36,8 +36,8 @@ export class UploadWorkflow {
         videoKey: string | null = null,
     ): Promise<WorkflowResult> {
         // Chave exata do storage quando o Laravel a envia; senão, monta o layout
-        // ANINHADO do download-shorts: `${S3_PREFIX}{id}/{id}.mp4`.
-        const objectKey = videoKey ?? `${settings.s3Prefix}${videoId}/${videoId}.mp4`;
+        // ANINHADO do download-shorts: `${S3_PREFIX}{id}/short_{id}.mp4`.
+        const objectKey = videoKey ?? `${settings.s3Prefix}${videoId}/short_${videoId}.mp4`;
         logger.info('='.repeat(50));
         logger.info(`Vídeo: ${videoId} (${objectKey})`);
         logger.info(`  Título   : ${metadata.title}`);
