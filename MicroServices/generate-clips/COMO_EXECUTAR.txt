@@ -1,0 +1,29 @@
+AUTO-POST - COMO EXECUTAR
+
+Microsservico stateless de processamento de video, orquestrado pelo Laravel.
+So existe a API HTTP - nao ha mais CLI.
+
+1. Terminal
+
+Subir a API HTTP:
+.venv/bin/python main.py
+
+Com auto-reload em mudanca de codigo:
+AUTO_POST_RELOAD=1 .venv/bin/python main.py
+
+Host/porta vem do .env (API_HOST / API_PORT). Da pra sobrescrever via:
+AUTO_POST_HOST=0.0.0.0 AUTO_POST_PORT=8765 .venv/bin/python main.py
+
+
+2. PyCharm - botao Play
+
+Aponte a Run Configuration para main.py. Ele sobe a API direto no Play.
+
+
+3. Observacoes
+
+- Use sempre o Python da pasta .venv do projeto.
+- Se a porta 8765 estiver ocupada, finalize o processo antigo antes:
+  lsof -ti :8765 | xargs kill -9
+- Acompanhe um job via SSE (o job_id volta no 202 do endpoint que disparou):
+  curl -sN http://localhost:8765/jobs/<job_id>/events
