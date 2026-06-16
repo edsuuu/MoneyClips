@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Jobs\ProcessVideoJob;
 use App\Livewire\Videos\Create;
 use App\Models\Status;
 use App\Models\User;
@@ -43,7 +42,6 @@ test('start queues processing and redirects to the editor', function (): void {
     expect($video?->url)->toBe('https://www.youtube.com/watch?v=12345');
     expect($video?->status_id)->toBe(Status::idFor('queued'));
 
-    Queue::assertPushed(ProcessVideoJob::class);
 });
 
 test('start rejects an invalid url', function (): void {

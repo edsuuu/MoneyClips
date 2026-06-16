@@ -7,7 +7,6 @@ namespace App\Services\SocialPublishing\Publishers;
 use App\Models\ScheduledPost;
 use App\Services\SocialPublishing\PublishException;
 use App\Services\SocialPublishing\PublishResult;
-use App\Support\Cast;
 use Illuminate\Support\Facades\Http;
 use Throwable;
 
@@ -38,8 +37,8 @@ final class YouTubePublisher extends AbstractPublisher
             $file = $this->requireVideoFile($post);
             $tmp = $this->downloadToTemp($file);
 
-            $meta = Cast::arr($account->meta);
-            $privacy = Cast::str($meta['privacy_status'] ?? '') ?: 'public';
+            $meta = (array) ($account->meta);
+            $privacy = (string) ($meta['privacy_status'] ?? '') ?: 'public';
 
             $title = mb_trim((string) ($post->title ?: 'Short'));
             // Reforça que é Short para o YouTube classificar corretamente.
@@ -52,7 +51,7 @@ final class YouTubePublisher extends AbstractPublisher
                     'title' => mb_substr($title, 0, 100),
                     'description' => $this->caption($post),
                     'tags' => array_slice($post->hashtagList(), 0, 15),
-                    'categoryId' => Cast::str($meta['category_id'] ?? '') ?: '22',
+                    'categoryId' => (string) ($meta['category_id'] ?? '') ?: '22',
                 ],
                 'status' => [
                     'privacyStatus' => $privacy,
@@ -90,7 +89,7 @@ final class YouTubePublisher extends AbstractPublisher
                 return PublishResult::fail('Falha ao enviar o vídeo ao YouTube.', ['response' => $upload->json() ?? $upload->body()]);
             }
 
-            $videoId = Cast::str($upload->json('id'));
+            $videoId = (string) ($upload->json('id'));
             $url = $videoId !== '' ? 'https://youtube.com/shorts/'.$videoId : null;
 
             return PublishResult::ok($videoId ?: null, $url, 'Vídeo publicado no YouTube.', ['response' => $upload->json()]);

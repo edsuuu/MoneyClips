@@ -95,11 +95,12 @@ export class TikTokAuth {
         await this.loginAndSave(accountName, options.headless ?? settings.headless);
     }
 
-    private async loginAndSave(accountName: string, headless = false): Promise<void> {
-        // Por padrão o navegador fica visível (ajuda a resolver captcha no login
-        // local). No container, o Laravel pede headless=true. A sessão é gravada:
-        // se o login falhar, runRecordedSession manda o vídeo ao Discord e
-        // relança — a fila/endpoint reporta `login_failed`.
+    private async loginAndSave(accountName: string, headless = settings.headless): Promise<void> {
+        // Default segue HEADLESS do .env: no container/servidor (sem X server)
+        // tem que ser headless, senão o Chromium morre com "Missing X server".
+        // Local (HEADLESS=false) abre o navegador para resolver captcha. A sessão
+        // é gravada: se o login falhar, runRecordedSession manda o vídeo ao
+        // Discord e relança — a fila/endpoint reporta `login_failed`.
         await runRecordedSession(headless, 'login no TikTok', async (context) => {
             const page = await context.newPage();
 

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Posts;
 
-use App\Jobs\PostYoutubeShortJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
 use App\Models\TiktokPost;
@@ -141,8 +140,6 @@ final class Instant extends Component
 
             return null;
         }
-
-        dispatch(new PostYoutubeShortJob($short->id));
 
         return 'YouTube enfileirado.';
     }

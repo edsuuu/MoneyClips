@@ -7,7 +7,6 @@ namespace App\Services\SocialPublishing\Publishers;
 use App\Models\ScheduledPost;
 use App\Services\SocialPublishing\PublishException;
 use App\Services\SocialPublishing\PublishResult;
-use App\Support\Cast;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Sleep;
 use Throwable;
@@ -37,8 +36,8 @@ final class InstagramPublisher extends AbstractPublisher
     {
         try {
             $account = $this->requireAccount($post);
-            $meta = Cast::arr($account->meta);
-            $igUserId = Cast::str($meta['ig_user_id'] ?? $account->external_account_id ?? '');
+            $meta = (array) ($account->meta);
+            $igUserId = (string) ($meta['ig_user_id'] ?? $account->external_account_id ?? '');
 
             throw_if($igUserId === '', PublishException::class, 'IG User ID ausente. Configure external_account_id ou meta.ig_user_id na conta.');
 
@@ -59,7 +58,7 @@ final class InstagramPublisher extends AbstractPublisher
                 return PublishResult::fail('Falha ao criar o container do Reels.', ['response' => $container->json() ?? $container->body()]);
             }
 
-            $creationId = Cast::str($container->json('id'));
+            $creationId = (string) ($container->json('id'));
             if ($creationId === '') {
                 return PublishResult::fail('Instagram não retornou o id do container.', ['response' => $container->json()]);
             }
@@ -80,7 +79,7 @@ final class InstagramPublisher extends AbstractPublisher
                 return PublishResult::fail('Falha ao publicar o Reels.', ['response' => $publish->json() ?? $publish->body()]);
             }
 
-            $mediaId = Cast::str($publish->json('id'));
+            $mediaId = (string) ($publish->json('id'));
 
             return PublishResult::ok($mediaId ?: null, null, 'Reels publicado no Instagram.', ['response' => $publish->json()]);
         } catch (PublishException $e) {
@@ -98,7 +97,7 @@ final class InstagramPublisher extends AbstractPublisher
                 'access_token' => $token,
             ]);
 
-            $code = Cast::str($status->json('status_code'));
+            $code = (string) ($status->json('status_code'));
             if ($code === 'FINISHED') {
                 return true;
             }
@@ -115,7 +114,7 @@ final class InstagramPublisher extends AbstractPublisher
 
     private function graphBase(): string
     {
-        $version = Cast::str(config('social-publishing.graph_version', 'v21.0'));
+        $version = (string) (config('social-publishing.graph_version', 'v21.0'));
 
         return 'https://graph.facebook.com/'.$version;
     }

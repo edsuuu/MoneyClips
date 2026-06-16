@@ -6,7 +6,6 @@ namespace App\Services\TikTok;
 
 use App\Models\TiktokPost;
 use App\Services\Shorts\ShortsDownloaderClient;
-use App\Support\Cast;
 use Illuminate\Support\Arr;
 use RuntimeException;
 
@@ -51,15 +50,15 @@ final readonly class TikTokPostDispatcher
         }
 
         $jobId = $this->uploader->createPost(
-            Cast::str($candidate['storage_path']),
-            Cast::str($candidate['title'] ?? '') ?: Cast::str($candidate['youtube_id']),
-            array_values(array_filter(Cast::arr($candidate['hashtags'] ?? []), is_string(...))),
-            Cast::str($candidate['youtube_id']),
+            (string) ($candidate['storage_path']),
+            (string) ($candidate['title'] ?? '') ?: (string) ($candidate['youtube_id']),
+            array_values(array_filter((array) ($candidate['hashtags'] ?? []), is_string(...))),
+            (string) ($candidate['youtube_id']),
         );
 
         return [
             'job_id' => $jobId,
-            'title' => Cast::str($candidate['title'] ?? '') ?: null,
+            'title' => (string) ($candidate['title'] ?? '') ?: null,
             'source' => 'estoque',
         ];
     }
@@ -84,8 +83,8 @@ final readonly class TikTokPostDispatcher
         $candidates = array_values(array_filter(
             $items,
             function (array $item) use ($blockedSet): bool {
-                $youtubeId = Cast::str($item['youtube_id'] ?? '');
-                $storagePath = Cast::str($item['storage_path'] ?? '');
+                $youtubeId = (string) ($item['youtube_id'] ?? '');
+                $storagePath = (string) ($item['storage_path'] ?? '');
 
                 return $youtubeId !== ''
                     && $storagePath !== ''

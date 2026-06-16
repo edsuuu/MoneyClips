@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Support\Cast;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -48,7 +47,7 @@ final class File extends Model
 
     public function temporaryUrl(int $minutes = 60): string
     {
-        return Storage::disk($this->disk ?: Cast::str(config('filesystems.default')))
+        return Storage::disk($this->disk ?: (string) (config('filesystems.default')))
             ->temporaryUrl($this->path, now()->addMinutes($minutes));
     }
 

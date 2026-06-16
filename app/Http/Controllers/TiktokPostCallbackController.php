@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Models\TiktokPost;
 use App\Models\YoutubeShort;
-use App\Support\Cast;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
@@ -28,7 +27,7 @@ final class TiktokPostCallbackController extends Controller
         ]);
 
         $status = $validated['status'];
-        $finishedAtValue = Cast::str($validated['finished_at'] ?? '');
+        $finishedAtValue = (string) ($validated['finished_at'] ?? '');
         $finishedAt = $finishedAtValue !== ''
             ? Date::parse($finishedAtValue)
             : now();
@@ -38,9 +37,9 @@ final class TiktokPostCallbackController extends Controller
             [
                 'youtube_id' => $validated['video_id'],
                 'video_key' => sprintf('shorts/%s.mp4', $validated['video_id']),
-                'title' => Cast::str($validated['title'] ?? '') ?: null,
+                'title' => (string) ($validated['title'] ?? '') ?: null,
                 'status' => $status,
-                'error' => Cast::str($validated['error'] ?? '') ?: null,
+                'error' => (string) ($validated['error'] ?? '') ?: null,
                 'posted_at' => $status === 'completed' ? $finishedAt : null,
             ],
         );
