@@ -16,7 +16,6 @@ use App\Services\VideoProcessor\Data\IngestVideoData;
 use App\Services\VideoProcessor\Data\RecommendCutsData;
 use App\Services\VideoProcessor\Data\RenderCutsData;
 use App\Services\VideoProcessor\Data\SubtitleFullData;
-use App\Support\Cast;
 use Illuminate\Support\Collection;
 use stdClass;
 use Throwable;
@@ -261,8 +260,8 @@ final readonly class VideoProcessorService
         }
 
         return [
-            'min_cuts' => Cast::int(config('video-processor.auto.ai_min_cuts', 8)),
-            'max_cuts' => Cast::int(config('video-processor.auto.ai_max_cuts', 20)),
+            'min_cuts' => (int) (config('video-processor.auto.ai_min_cuts', 8)),
+            'max_cuts' => (int) (config('video-processor.auto.ai_max_cuts', 20)),
         ];
     }
 }

@@ -22,5 +22,13 @@ parameters:
 
     tmpDir: /tmp/phpstan
 
+    # Casts diretos de valores `mixed` (config, JSON de API, payloads) são aceitos:
+    # trocamos o helper App\Support\Cast por (string)/(int)/(float)/(array) e
+    # relaxamos só estas regras de cast — o resto segue no nível max.
+    ignoreErrors:
+        - identifier: cast.string
+        - identifier: cast.int
+        - identifier: cast.double
+
     excludePaths:
         - database/migrations/*

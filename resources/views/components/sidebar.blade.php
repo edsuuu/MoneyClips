@@ -46,18 +46,13 @@
                     </x-nav-item>
                 </li>
                 <li>
-                    <x-nav-item icon="paper-airplane" :href="route('posts.instant')" :current="request()->routeIs('posts.instant')">
-                        {{ __('Postagem instantânea') }}
-                    </x-nav-item>
-                </li>
-                <li>
                     <x-nav-item icon="film" :href="route('downloads.index')" :current="request()->routeIs('downloads.index')">
                         {{ __('Downloads') }}
                     </x-nav-item>
                 </li>
                 <li>
-                    <x-nav-item icon="arrow-down-tray" :href="route('downloads.create')" :current="request()->routeIs('downloads.create')">
-                        {{ __('Novo download') }}
+                    <x-nav-item icon="computer-desktop" :href="route('microservices.index')" :current="request()->routeIs('microservices.index')">
+                        {{ __('Microserviços') }}
                     </x-nav-item>
                 </li>
             </ul>

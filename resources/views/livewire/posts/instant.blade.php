@@ -1,15 +1,13 @@
-<section class="mx-auto flex w-full max-w-5xl flex-col gap-6">
-    <x-studio.page-header
-        eyebrow="Postagens"
-        title="Postagem instantânea"
-        subtitle="Sorteie um vídeo do estoque S3 e envie para YouTube, TikTok ou ambos."
-    >
-        <x-slot:actions>
-            <x-ui.button wire:click="pickRandom" variant="primary" icon="sparkles" class="cursor-pointer">
-                Pegar vídeo aleatório
-            </x-ui.button>
-        </x-slot:actions>
-    </x-studio.page-header>
+<div class="flex w-full flex-col gap-5">
+    <div class="flex items-start justify-between gap-3">
+        <div>
+            <h2 class="text-lg font-semibold text-slate-50">Postagem instantânea</h2>
+            <p class="text-sm text-slate-400">Sorteie um vídeo do estoque e envie para YouTube/TikTok.</p>
+        </div>
+        <x-ui.button wire:click="pickRandom" variant="primary" icon="sparkles" size="sm" class="shrink-0 cursor-pointer">
+            Pegar aleatório
+        </x-ui.button>
+    </div>
 
     <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
         <x-studio.metric-card label="No estoque" :value="$counts['stock']" tone="blue" />
@@ -103,4 +101,4 @@
             </div>
         @endif
     </x-studio.panel>
-</section>
+</div>

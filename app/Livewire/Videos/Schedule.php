@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
-use App\Jobs\PublishScheduledPostJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\Cut;
 use App\Models\ScheduledPost;
@@ -12,7 +11,6 @@ use App\Models\SocialAccount;
 use App\Models\Video;
 use App\Services\SocialPublishing\PostDraftBuilder;
 use App\Services\SocialPublishing\SocialPublisherRegistry;
-use App\Support\Cast;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -184,7 +182,6 @@ final class Schedule extends Component
         }
 
         $created = 0;
-        $dispatchedPostIds = [];
         $sequence = $this->startingYoutubeSequence();
 
         $account = SocialAccount::query()
@@ -224,7 +221,7 @@ final class Schedule extends Component
                     'O corte %s já foi publicado em %s usando a conta %s.',
                     $cut->name ?? $cut->uuid,
                     $label,
-                    Cast::str($account->name)
+                    (string) ($account->name)
                 ), 'danger');
 
                 return;
@@ -247,21 +244,11 @@ final class Schedule extends Component
             $post->log(
                 'info',
                 $isImmediate
-                    ? sprintf('Envio imediato solicitado em %s.', Cast::str($account->name))
-                    : sprintf('Agendado para %s em %s.', $scheduledFor->format('d/m/Y H:i'), Cast::str($account->name))
+                    ? sprintf('Envio imediato solicitado em %s.', (string) ($account->name))
+                    : sprintf('Agendado para %s em %s.', $scheduledFor->format('d/m/Y H:i'), (string) ($account->name))
             );
 
-            if ($isImmediate) {
-                $dispatchedPostIds[] = $post->id;
-            } else {
-                dispatch(new PublishScheduledPostJob($post->id)->delay($scheduledFor));
-            }
-
             $created++;
-        }
-
-        foreach ($dispatchedPostIds as $postId) {
-            dispatch(new PublishScheduledPostJob($postId));
         }
     }
 
@@ -288,7 +275,7 @@ final class Schedule extends Component
             return '';
         }
 
-        return implode(' ', array_map(static fn ($t): string => '#'.mb_ltrim(Cast::str($t), '#'), $hashtags));
+        return implode(' ', array_map(static fn ($t): string => '#'.mb_ltrim((string) ($t), '#'), $hashtags));
     }
 
     /**
@@ -309,7 +296,7 @@ final class Schedule extends Component
         $queryCuts = mb_trim((string) request()->query('cuts', ''));
 
         if ($queryCuts !== '') {
-            $validUuids = $this->video->cuts->map(fn (Cut $cut): string => Cast::str($cut->uuid))->all();
+            $validUuids = $this->video->cuts->map(fn (Cut $cut): string => (string) ($cut->uuid))->all();
             $selected = array_values(array_intersect(
                 preg_split('/[\s,]+/', $queryCuts) ?: [],
                 $validUuids,

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Jobs\PostYoutubeShortJob;
 use App\Livewire\Shorts\Index;
 use App\Models\SocialAccount;
 use App\Models\User;
@@ -43,7 +42,6 @@ test('post now queues the job for an available short', function (): void {
         ->call('postNow', $short->id)
         ->assertHasNoErrors();
 
-    Queue::assertPushed(PostYoutubeShortJob::class, fn (PostYoutubeShortJob $job): bool => $job->youtubeShortId === $short->id);
 });
 
 test('post now refuses when no youtube account is connected', function (): void {

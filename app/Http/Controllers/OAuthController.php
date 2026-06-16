@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use App\Services\SocialPublishing\OAuth\SocialAccountConnector;
-use App\Support\Cast;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -114,7 +113,7 @@ final class OAuthController extends Controller
             return to_route('oauth.connect', ['platform' => 'facebook']);
         }
 
-        if (! in_array($platform, Cast::arr(config('social-publishing.enabled_platforms', ['youtube'])), true)) {
+        if (! in_array($platform, (array) (config('social-publishing.enabled_platforms', ['youtube'])), true)) {
             return to_route('social-accounts')
                 ->with('error', 'Plataforma fora do fluxo principal desta aplicacao: '.$platform);
         }
@@ -146,7 +145,7 @@ final class OAuthController extends Controller
             $platform = 'facebook';
         }
 
-        if (! in_array($platform, Cast::arr(config('social-publishing.enabled_platforms', ['youtube'])), true)) {
+        if (! in_array($platform, (array) (config('social-publishing.enabled_platforms', ['youtube'])), true)) {
             return to_route('social-accounts')
                 ->with('error', 'Plataforma fora do fluxo principal desta aplicacao: '.$platform);
         }

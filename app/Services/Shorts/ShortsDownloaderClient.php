@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Shorts;
 
-use App\Support\Cast;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -33,7 +32,7 @@ final class ShortsDownloaderClient
             ->throw()
             ->json();
 
-        $jobId = Cast::str($res['job_id'] ?? '');
+        $jobId = (string) ($res['job_id'] ?? '');
 
         throw_if($jobId === '', RuntimeException::class, 'Microserviço download-shorts não retornou job_id.');
 
@@ -71,7 +70,7 @@ final class ShortsDownloaderClient
             ->json();
 
         /** @var list<array<string, mixed>> $items */
-        $items = array_values(array_filter(Cast::arr($res['items'] ?? []), is_array(...)));
+        $items = array_values(array_filter((array) ($res['items'] ?? []), is_array(...)));
 
         return $items;
     }
@@ -91,8 +90,8 @@ final class ShortsDownloaderClient
 
     private function client(): PendingRequest
     {
-        $baseUrl = Cast::str(config('shorts-downloader.base_url')) ?: 'http://127.0.0.1:8770';
-        $timeout = Cast::int(config('shorts-downloader.timeout')) ?: 30;
+        $baseUrl = (string) (config('shorts-downloader.base_url')) ?: 'http://127.0.0.1:8770';
+        $timeout = (int) (config('shorts-downloader.timeout')) ?: 30;
 
         return Http::baseUrl($baseUrl)
             ->timeout($timeout)
