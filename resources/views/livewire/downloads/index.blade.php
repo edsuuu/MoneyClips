@@ -2,9 +2,22 @@
     <x-studio.page-header
         eyebrow="Downloads"
         title="Estoque e postagens"
-        subtitle="Vídeos baixados pelo microserviço download-youtube e status das postagens enviadas ao TikTok."
+        subtitle="Vídeos importados para youtube_shorts e status das postagens enviadas ao TikTok."
     >
         <x-slot:actions>
+            <x-ui.button
+                wire:click="importFromMicroservice"
+                wire:confirm="Importar o próximo lote do microserviço para youtube_shorts e remover os itens importados de lá?"
+                wire:loading.attr="disabled"
+                wire:target="importFromMicroservice"
+                size="sm"
+                variant="primary"
+                icon="arrow-down-tray"
+                class="cursor-pointer"
+            >
+                <span wire:loading.remove wire:target="importFromMicroservice">Importar do microserviço</span>
+                <span wire:loading wire:target="importFromMicroservice">Importando...</span>
+            </x-ui.button>
             <x-ui.button :href="route('downloads.create')" size="sm" variant="primary" icon="arrow-down-tray" class="cursor-pointer" wire:navigate>
                 Novo download
             </x-ui.button>
@@ -21,16 +34,21 @@
         <x-studio.metric-card label="Falhas" :value="$counts['failed']" tone="red" />
     </div>
 
+    <div class="rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
+        Pendentes no microserviço:
+        <span class="font-semibold text-slate-100">{{ $microserviceStock ?? 'indisponível' }}</span>
+    </div>
+
     @if($loadError)
         <div class="rounded-lg border border-red-900/60 bg-red-950/40 p-4 text-sm text-red-200">
             {{ $loadError }}
         </div>
     @endif
 
-    <x-studio.panel title="Vídeos baixados" subtitle="A lista vem de GET /shorts/items no microserviço download-youtube.">
+    <x-studio.panel title="Vídeos baixados" subtitle="A lista vem da tabela local youtube_shorts. Use o botão de importação para trazer novos lotes do microserviço.">
         @if($items->isEmpty())
             <div class="rounded-lg border border-dashed border-slate-800 p-10 text-center text-sm text-slate-400">
-                Nenhum vídeo baixado encontrado. Crie um download pela tela
+                Nenhum vídeo local encontrado. Importe um lote do microserviço ou crie um download pela tela
                 <a href="{{ route('downloads.create') }}" wire:navigate class="text-slate-200 underline hover:text-slate-50">Novo download</a>.
             </div>
         @else
