@@ -6,7 +6,6 @@ namespace App\Services\SocialPublishing;
 
 use App\Models\Cut;
 use App\Models\Video;
-use App\Support\Cast;
 use Illuminate\Support\Str;
 
 /**
@@ -46,7 +45,7 @@ final class PostDraftBuilder
     private function normalizeHashtags(Cut $cut, string $partLabel): array
     {
         $existing = array_values(array_filter(array_map(
-            static fn ($tag): string => mb_strtolower(mb_ltrim(mb_trim(Cast::str($tag)), '#')),
+            static fn ($tag): string => mb_strtolower(mb_ltrim(mb_trim((string) ($tag)), '#')),
             is_array($cut->hashtags) ? $cut->hashtags : [],
         ), static fn (string $tag): bool => $tag !== ''));
 

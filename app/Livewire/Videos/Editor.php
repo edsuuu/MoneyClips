@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
-use App\Jobs\ProcessVideoJob;
-use App\Jobs\PublishScheduledPostJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\Cut;
 use App\Models\File;
@@ -16,7 +14,6 @@ use App\Models\Video;
 use App\Models\VideoPayload;
 use App\Services\SocialPublishing\PostDraftBuilder;
 use App\Services\VideoProcessor\VideoProcessorService;
-use App\Support\Cast;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -77,8 +74,6 @@ final class Editor extends Component
     public function startDownload(): void
     {
         $this->video->refresh();
-
-        dispatch(new ProcessVideoJob($this->video));
 
         $this->toast('Download iniciado.');
     }
@@ -253,7 +248,7 @@ final class Editor extends Component
             return;
         }
 
-        $clipSeconds = max(1, Cast::int(config('video-processor.auto.clip_seconds', 60)));
+        $clipSeconds = max(1, (int) (config('video-processor.auto.clip_seconds', 60)));
         $segments = [];
         $start = 0.0;
         $index = 0;
@@ -297,7 +292,7 @@ final class Editor extends Component
         abort_if($cuts->isEmpty(), 422, 'Nenhum corte para renderizar.');
 
         $job = $videoProcessor->startRenderCuts($this->video, $cuts);
-        $this->renderJobId = Cast::str($job->external_job_id) ?: null;
+        $this->renderJobId = (string) ($job->external_job_id) ?: null;
         $this->toast('Renderização iniciada. Os arquivos aparecem ao concluir.');
     }
 
@@ -318,7 +313,7 @@ final class Editor extends Component
         /** @var VideoProcessorService $videoProcessor */
         $videoProcessor = resolve(VideoProcessorService::class);
         $job = $videoProcessor->startRenderCuts($this->video, $cuts);
-        $this->renderJobId = Cast::str($job->external_job_id) ?: null;
+        $this->renderJobId = (string) ($job->external_job_id) ?: null;
         $this->toast(count($uuids).' corte(s) enviado(s) para renderização.');
         $this->reset('selectedCuts');
     }
@@ -394,7 +389,7 @@ final class Editor extends Component
             ['payload' => []]
         );
 
-        $fullText = Cast::str(collect($normalizedWords)->pluck('text')->join(' '));
+        $fullText = (string) (collect($normalizedWords)->pluck('text')->join(' '));
         $lastWord = $normalizedWords[array_key_last($normalizedWords)];
         $duration = (float) $lastWord['end'];
 
@@ -489,8 +484,7 @@ final class Editor extends Component
                 'created_by' => Auth::id(),
             ]);
 
-            $post->log('info', sprintf('Envio imediato solicitado em %s.', Cast::str($account->name)));
-            dispatch(new PublishScheduledPostJob($post->id));
+            $post->log('info', sprintf('Envio imediato solicitado em %s.', (string) ($account->name)));
         }
 
         $this->toast(count($uuids).' corte(s) enviado(s) para publicacao no YouTube.');
@@ -540,15 +534,15 @@ final class Editor extends Component
                         continue;
                     }
 
-                    foreach (Cast::arr($seg['words'] ?? []) as $w) {
+                    foreach ((array) ($seg['words'] ?? []) as $w) {
                         if (! is_array($w)) {
                             continue;
                         }
 
                         $timedWords[] = [
-                            'text' => Cast::str($w['text'] ?? ''),
-                            'start' => Cast::float($w['start'] ?? 0),
-                            'end' => Cast::float($w['end'] ?? 0),
+                            'text' => (string) ($w['text'] ?? ''),
+                            'start' => (float) ($w['start'] ?? 0),
+                            'end' => (float) ($w['end'] ?? 0),
                         ];
                     }
                 }
@@ -611,14 +605,14 @@ final class Editor extends Component
 
     private function resolveVideoDuration(): float
     {
-        $duration = Cast::float($this->video->duration_seconds ?? 0);
+        $duration = (float) ($this->video->duration_seconds ?? 0);
         if ($duration > 0) {
             return $duration;
         }
 
         $transcriptDuration = $this->video->transcript?->duration_seconds;
 
-        return is_numeric($transcriptDuration) ? Cast::float($transcriptDuration) : 0.0;
+        return is_numeric($transcriptDuration) ? (float) ($transcriptDuration) : 0.0;
     }
 
     private function resolvePlayerUrl(?File $playable): ?string
@@ -654,7 +648,7 @@ final class Editor extends Component
     private function payloadData(VideoPayload $payload): array
     {
         /** @var array<string, mixed> $data */
-        $data = Cast::arr($payload->payload);
+        $data = (array) ($payload->payload);
 
         return $data;
     }
@@ -668,7 +662,7 @@ final class Editor extends Component
         $normalized = [];
 
         foreach ($words as $word) {
-            $text = mb_trim(Cast::str($word['text'] ?? ''));
+            $text = mb_trim((string) ($word['text'] ?? ''));
             $start = $word['start'] ?? null;
             $end = $word['end'] ?? null;
             if ($text === '') {

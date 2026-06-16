@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\TikTok;
 
-use App\Support\Cast;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -76,7 +75,7 @@ final class TikTokUploaderClient
     /** @param array<string, mixed> $res */
     private function jobIdFrom(array $res): string
     {
-        $jobId = Cast::str($res['job_id'] ?? '');
+        $jobId = (string) ($res['job_id'] ?? '');
 
         throw_if($jobId === '', RuntimeException::class, 'Microserviço tiktok-uploader não retornou job_id.');
 
@@ -85,8 +84,8 @@ final class TikTokUploaderClient
 
     private function client(): PendingRequest
     {
-        $baseUrl = Cast::str(config('tiktok-uploader.base_url')) ?: 'http://127.0.0.1:8780';
-        $timeout = Cast::int(config('tiktok-uploader.timeout')) ?: 30;
+        $baseUrl = (string) (config('tiktok-uploader.base_url')) ?: 'http://127.0.0.1:8780';
+        $timeout = (int) (config('tiktok-uploader.timeout')) ?: 30;
 
         return Http::baseUrl($baseUrl)
             ->timeout($timeout)

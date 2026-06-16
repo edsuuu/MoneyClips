@@ -9,7 +9,6 @@ use App\Models\TiktokPost;
 use App\Models\YoutubeShort;
 use App\Services\DownloadYoutube\DownloadYoutubeService;
 use App\Services\TiktokPost\TiktokPostService;
-use App\Support\Cast;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -37,7 +36,7 @@ final class Index extends Component
             return;
         }
 
-        $sentItems = Cast::int($result['sent_items'] ?? 0);
+        $sentItems = (int) ($result['sent_items'] ?? 0);
 
         if ($sentItems === 0) {
             $this->toast('Nenhum vídeo pendente para importar do microserviço.');
@@ -101,7 +100,7 @@ final class Index extends Component
             $this->loadError = 'Não foi possível consultar o estoque pendente do microserviço download-youtube.';
         }
 
-        $page = max(1, Cast::int($this->getPage()));
+        $page = max(1, (int) ($this->getPage()));
         $shorts = YoutubeShort::query()
             ->whereNotNull('video_path')
             ->latest('id')
@@ -150,9 +149,9 @@ final class Index extends Component
 
                 return [
                     'youtube_id' => $youtubeId,
-                    'title' => Cast::str($item->title) ?: $youtubeId,
-                    'hashtags' => $this->normalizeHashtags(Cast::arr($item->hashtags ?? [])),
-                    'storage_path' => Cast::str($item->video_path),
+                    'title' => (string) ($item->title) ?: $youtubeId,
+                    'hashtags' => $this->normalizeHashtags((array) ($item->hashtags ?? [])),
+                    'storage_path' => (string) ($item->video_path),
                     'storage_size_bytes' => 0,
                     'download_status' => 'imported',
                     'dispatch_status' => 'local',

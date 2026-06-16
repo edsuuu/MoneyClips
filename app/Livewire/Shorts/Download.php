@@ -6,7 +6,6 @@ namespace App\Livewire\Shorts;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Services\Shorts\ShortsDownloaderClient;
-use App\Support\Cast;
 use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;
@@ -53,7 +52,7 @@ final class Download extends Component
 
     public function mount(): void
     {
-        $lastJobId = Cast::str(session(self::SESSION_KEY));
+        $lastJobId = (string) (session(self::SESSION_KEY));
         if ($lastJobId !== '') {
             $this->jobId = $lastJobId;
             $this->refreshStatus();
@@ -105,20 +104,20 @@ final class Download extends Component
 
     public function render(): View
     {
-        $state = Cast::str($this->status['status'] ?? '');
+        $state = (string) ($this->status['status'] ?? '');
 
         return view('livewire.shorts.download', [
             'state' => $state,
             'isRunning' => $this->jobId !== null
                 && ($this->status === null || in_array($state, self::RUNNING_STATUSES, true)),
             'counts' => [
-                'total' => Cast::int($this->status['total'] ?? 0),
-                'pending' => Cast::int($this->status['pending'] ?? 0),
-                'processing' => Cast::int($this->status['processing'] ?? 0),
-                'completed' => Cast::int($this->status['completed'] ?? 0),
-                'failed' => Cast::int($this->status['failed'] ?? 0),
+                'total' => (int) ($this->status['total'] ?? 0),
+                'pending' => (int) ($this->status['pending'] ?? 0),
+                'processing' => (int) ($this->status['processing'] ?? 0),
+                'completed' => (int) ($this->status['completed'] ?? 0),
+                'failed' => (int) ($this->status['failed'] ?? 0),
             ],
-            'lastError' => Cast::str($this->status['last_error'] ?? ''),
+            'lastError' => (string) ($this->status['last_error'] ?? ''),
         ]);
     }
 }
