@@ -46,6 +46,11 @@
                     </x-nav-item>
                 </li>
                 <li>
+                    <x-nav-item icon="paper-airplane" :href="route('posts.instant')" :current="request()->routeIs('posts.instant')">
+                        {{ __('Postagem instantânea') }}
+                    </x-nav-item>
+                </li>
+                <li>
                     <x-nav-item icon="film" :href="route('downloads.index')" :current="request()->routeIs('downloads.index')">
                         {{ __('Downloads') }}
                     </x-nav-item>
