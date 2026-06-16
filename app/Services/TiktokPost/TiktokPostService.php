@@ -15,19 +15,27 @@ final class TiktokPostService
 {
     /**
      * @param  array<int, string>  $hashtags
+     * @param  string|null  $videoKey  Chave exata do objeto no storage (layout
+     *                                 aninhado do download-shorts). Quando null,
+     *                                 o uploader cai no layout plano shorts/{id}.mp4.
      */
-    public function queuePost(string $youtubeId, string $title, array $hashtags): string
+    public function queuePost(string $youtubeId, string $title, array $hashtags, ?string $videoKey = null): string
     {
         $title = mb_trim($title) !== '' ? $title : $youtubeId;
 
+        $payload = [
+            'video_id' => $youtubeId,
+            'webhook_url' => $this->callbackUrl(),
+            'title' => $title,
+            'hashtags' => $this->normalizeHashtags($hashtags),
+        ];
+        if ($videoKey !== null && $videoKey !== '') {
+            $payload['video_key'] = $videoKey;
+        }
+
         /** @var array<string, mixed> $response */
         $response = $this->client()
-            ->post('/posts', [
-                'video_id' => $youtubeId,
-                'webhook_url' => $this->callbackUrl(),
-                'title' => $title,
-                'hashtags' => $this->normalizeHashtags($hashtags),
-            ])
+            ->post('/posts', $payload)
             ->throw()
             ->json();
 
@@ -39,7 +47,7 @@ final class TiktokPostService
             ['uuid' => $jobId],
             [
                 'youtube_id' => $youtubeId,
-                'video_key' => sprintf('shorts/%s.mp4', $youtubeId),
+                'video_key' => $videoKey ?? sprintf('shorts/%s.mp4', $youtubeId),
                 'title' => $title,
                 'hashtags' => $this->normalizeHashtags($hashtags),
                 'status' => 'queued',
