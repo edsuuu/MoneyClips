@@ -147,6 +147,8 @@
                     </form>
                 </div>
             @endif
+
+            <livewire:settings.tiktok-session />
         </div>
     </div>
 </section>

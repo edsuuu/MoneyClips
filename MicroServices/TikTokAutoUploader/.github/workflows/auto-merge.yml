@@ -1,0 +1,44 @@
+# === DESATIVADO no monorepo ===
+# O CI/CD próprio deste microserviço foi comentado; o GitHub Actions
+# só lê .github/workflows na RAIZ do repo. Será reavaliado depois.
+# Conteúdo original preservado abaixo (comentado):
+#
+# name: Auto Merge
+# 
+# # Mescla a PR (squash) automaticamente DEPOIS que o CI passa.
+# #
+# # Repo privado no plano free não permite branch protection (logo, não dá para
+# # usar o auto-merge nativo do GitHub, que exige um check obrigatório). Então o
+# # gate é feito aqui: este workflow dispara quando o "CI" termina e só mescla se
+# # a conclusão foi `success`. Precisa estar na main para valer (workflow_run roda
+# # sempre a versão do default branch).
+# on:
+#   workflow_run:
+#     workflows: [CI]
+#     types: [completed]
+# 
+# permissions:
+#   contents: write
+#   pull-requests: write
+# 
+# jobs:
+#   merge:
+#     runs-on: ubuntu-latest
+#     if: >
+#       github.event.workflow_run.conclusion == 'success' &&
+#       github.event.workflow_run.head_branch != 'main'
+#     steps:
+#       - name: Mesclar a PR da branch (se houver, aberta)
+#         env:
+#           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#           BRANCH: ${{ github.event.workflow_run.head_branch }}
+#           REPO: ${{ github.repository }}
+#         run: |
+#           number=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open \
+#             --json number --jq '.[0].number')
+#           if [ -z "$number" ]; then
+#             echo "Nenhuma PR aberta para $BRANCH — nada a mesclar."
+#             exit 0
+#           fi
+#           echo "Mesclando PR #$number ($BRANCH)..."
+#           gh pr merge "$number" --repo "$REPO" --squash --delete-branch
