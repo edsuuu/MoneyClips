@@ -34,7 +34,7 @@ test('users can authenticate with google and a local account is created', functi
     Socialite::shouldReceive('buildProvider')->once()->andReturn($provider);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('downloads.index'));
 
     $this->assertAuthenticated();
 
@@ -72,7 +72,7 @@ test('existing users are linked to google by email', function (): void {
     Socialite::shouldReceive('buildProvider')->once()->andReturn($provider);
 
     $this->get(route('auth.google.callback'))
-        ->assertRedirect(route('dashboard'));
+        ->assertRedirect(route('downloads.index'));
 
     $user->refresh();
 

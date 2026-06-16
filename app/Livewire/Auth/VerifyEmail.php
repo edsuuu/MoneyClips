@@ -22,7 +22,7 @@ final class VerifyEmail extends Component
         $user = Auth::user();
 
         if ($user->hasVerifiedEmail()) {
-            $this->redirectIntended(default: route('dashboard', absolute: false), navigate: true);
+            $this->redirectIntended(default: route('downloads.index', absolute: false), navigate: true);
 
             return;
         }

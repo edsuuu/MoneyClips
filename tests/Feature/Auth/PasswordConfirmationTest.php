@@ -19,5 +19,5 @@ test('google authenticated sessions skip the password confirmation screen', func
         ->withSession(['auth.authenticated_via_google' => true])
         ->get(route('password.confirm'));
 
-    $response->assertRedirect(route('dashboard'));
+    $response->assertRedirect(route('downloads.index'));
 });
