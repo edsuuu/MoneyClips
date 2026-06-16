@@ -99,7 +99,10 @@ final readonly class ShortsPoster
 
             $short->forceFill([
                 'youtube_video_id' => $videoId,
+                // posted_at: marcador legado usado pela UI; posted_youtube_at é
+                // a confirmação explícita de sucesso no YouTube.
                 'posted_at' => now(),
+                'posted_youtube_at' => now(),
             ])->save();
 
             return $videoId;
