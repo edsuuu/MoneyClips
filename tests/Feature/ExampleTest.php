@@ -5,5 +5,7 @@ declare(strict_types=1);
 test('returns a successful response', function (): void {
     $response = $this->get(route('home'));
 
-    $response->assertOk();
+    $response
+        ->assertOk()
+        ->assertSee('Entrar na sua conta');
 });

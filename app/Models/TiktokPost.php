@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
@@ -30,6 +32,9 @@ use Illuminate\Support\Carbon;
  */
 final class TiktokPost extends Model
 {
+    /** @use HasFactory<Factory> */
+    use HasFactory;
+
     /** Status que contam como "já postado/em andamento" para o sorteio. */
     public const array ACTIVE_STATUSES = ['queued', 'processing', 'completed', 'dry-run'];
 
