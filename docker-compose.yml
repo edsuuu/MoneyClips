@@ -1,0 +1,74 @@
+# docker-compose.yml — orquestra os microserviços do generate-clips-laravel.
+#
+# Sobe 2 containers (o terceiro, generate-clips, roda nativo no host por usar
+# GPU Metal/videotoolbox, indisponível em container no macOS):
+#
+#   download-shorts  (FastAPI)          → http://127.0.0.1:8770
+#   tiktok-uploader  (Node + Playwright) → http://127.0.0.1:8090
+#
+# Banco (MySQL) e storage (MinIO) NÃO sobem aqui: os containers acessam os do
+# host via host.docker.internal. Por isso cada serviço carrega seu próprio .env
+# (em MicroServices/<serviço>/.env) e este arquivo sobrescreve só os endpoints
+# de rede (127.0.0.1/localhost dentro do container = o próprio container).
+#
+# Subir:  make micro-up        (ou: docker compose up -d --build)
+# Logs:   make micro-logs
+# Parar:  make micro-down
+#
+# Pré-requisitos no host: MySQL com o banco `download_shorts`, MinIO no ar, e o
+# Laravel servindo em 0.0.0.0:8000 (php artisan serve --host=0.0.0.0) para
+# receber os callbacks de webhook em host.docker.internal:8000.
+
+services:
+  download-shorts:
+    build:
+      context: ./MicroServices/download-shorts
+      target: runtime
+    image: gcl-download-shorts
+    restart: unless-stopped
+    ports:
+      - "8770:8770"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./MicroServices/download-shorts/.env
+    environment:
+      # Overrides de rede: dentro do container, 127.0.0.1 é o próprio container.
+      API_HOST: "0.0.0.0"
+      API_PORT: "8770"
+      DB_HOST: "host.docker.internal"
+      STORAGE_ENDPOINT: "http://host.docker.internal:9000"
+    command: >
+      sh -c "python -m alembic upgrade head && python -m app.main"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8770/health')\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  tiktok-uploader:
+    build:
+      context: ./MicroServices/TikTokAutoUploader
+    image: gcl-tiktok-uploader
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - ./MicroServices/TikTokAutoUploader/.env
+    environment:
+      # MinIO/S3 do host; o container é headless (sem display, sem QR Code).
+      AWS_ENDPOINT: "http://host.docker.internal:9000"
+      HEADLESS: "true"
+      API_PORT: "8090"
+    volumes:
+      # Sessão do TikTok gerada fora do container (login local com HEADLESS=false).
+      - ./MicroServices/TikTokAutoUploader/cookies:/app/cookies
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:8090/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
