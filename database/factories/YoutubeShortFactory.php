@@ -32,9 +32,12 @@ final class YoutubeShortFactory extends Factory
 
     public function posted(): self
     {
+        $postedAt = now();
+
         return $this->state(fn (): array => [
             'youtube_video_id' => $this->faker->regexify('[A-Za-z0-9_-]{11}'),
-            'posted_at' => now(),
+            'posted_at' => $postedAt,
+            'posted_youtube_at' => $postedAt,
         ]);
     }
 

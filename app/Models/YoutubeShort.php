@@ -14,8 +14,8 @@ use Illuminate\Support\Carbon;
  * Um Short do YouTube baixado de um canal e armazenado no MinIO.
  *
  * O ciclo de vida é: baixado (video_path + downloaded_at preenchidos) →
- * sorteado pelo comando youtube:dispatch-posts → postado (posted_at +
- * youtube_video_id preenchidos pelo ShortsPoster).
+ * sorteado pelo comando youtube:dispatch-posts → postado
+ * (posted_youtube_at + youtube_video_id preenchidos pelo ShortsPoster).
  *
  * @property int $id
  * @property string $youtube_id
@@ -41,9 +41,14 @@ final class YoutubeShort extends Model
         'dispatched_at', 'posted_youtube_at', 'posted_tiktok_at',
     ];
 
+    public function wasPostedToYoutube(): bool
+    {
+        return $this->posted_youtube_at !== null;
+    }
+
     /**
-     * Shorts baixados (têm vídeo no storage), ainda não postados e ainda não
-     * reservados pelo sorteio automático (dispatched_at).
+     * Shorts baixados (têm vídeo no storage), ainda não postados no YouTube e
+     * ainda não reservados pelo sorteio automático (dispatched_at).
      *
      * @param  Builder<self>  $query
      * @return Builder<self>
@@ -52,7 +57,7 @@ final class YoutubeShort extends Model
     {
         return $query
             ->whereNotNull('video_path')
-            ->whereNull('posted_at')
+            ->whereNull('posted_youtube_at')
             ->whereNull('dispatched_at');
     }
 

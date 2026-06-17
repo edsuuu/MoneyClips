@@ -49,7 +49,7 @@ final class Index extends Component
             return;
         }
 
-        if ($short->posted_at !== null) {
+        if ($short->wasPostedToYoutube()) {
             $this->toast('Este Short já foi postado.', 'danger');
 
             return;
@@ -110,11 +110,11 @@ final class Index extends Component
     {
         $downloaded = YoutubeShort::query()->whereNotNull('video_path')->count();
         $available = YoutubeShort::query()->availableToPost()->count();
-        $posted = YoutubeShort::query()->whereNotNull('posted_at')->count();
+        $posted = YoutubeShort::query()->whereNotNull('posted_youtube_at')->count();
 
         $shorts = YoutubeShort::query()
             ->when($this->filter === 'available', fn ($q) => $q->availableToPost())
-            ->when($this->filter === 'posted', fn ($q) => $q->whereNotNull('posted_at'))
+            ->when($this->filter === 'posted', fn ($q) => $q->whereNotNull('posted_youtube_at'))
             ->latest('id')
             ->paginate(15);
 
