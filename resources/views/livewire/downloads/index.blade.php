@@ -5,6 +5,9 @@
         subtitle="Vídeos importados para youtube_shorts e status das postagens enviadas ao TikTok."
     >
         <x-slot:actions>
+            <x-ui.button x-data x-on:click="$dispatch('modal-show', { name: 'instant-post' })" size="sm" variant="primary" icon="paper-airplane" class="cursor-pointer">
+                Postagem instantânea
+            </x-ui.button>
             <x-ui.button
                 wire:click="importFromMicroservice"
                 wire:confirm="Importar o próximo lote do microserviço para youtube_shorts e remover os itens importados de lá?"
@@ -133,5 +136,9 @@
 
     <x-ui.modal name="new-download" class="max-w-2xl">
         <livewire:downloads.new-download />
+    </x-ui.modal>
+
+    <x-ui.modal name="instant-post" class="max-w-3xl">
+        <livewire:downloads.instant-post />
     </x-ui.modal>
 </section>
