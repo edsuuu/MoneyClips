@@ -1,4 +1,4 @@
-x	# Makefile — atalhos para os microserviços em container (docker-compose.yml).
+# Makefile — atalhos para os microserviços em container (docker-compose.yml).
 #
 #   make micro-setup   # cria os .env faltantes a partir dos .env.example
 #   make micro-up      # build + sobe os containers em background
