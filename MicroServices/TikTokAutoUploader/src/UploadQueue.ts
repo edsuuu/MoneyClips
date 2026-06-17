@@ -86,6 +86,14 @@ export class UploadQueue {
                 title: result.title,
                 error: null,
             });
+
+            // Publicação real concluída (não dry-run): avisa no Discord, no mesmo
+            // webhook usado para erros (DISCORD_WEBHOOK_URL). Sem webhook = no-op.
+            if (result.status === 'completed') {
+                await sendDiscordMessage(
+                    `✅ Postado no TikTok: ${result.title || job.videoId} (job ${job.jobId})`,
+                );
+            }
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             const loginFailed = error instanceof LoginFailedError;
