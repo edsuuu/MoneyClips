@@ -2,31 +2,28 @@
 
 declare(strict_types=1);
 
-namespace App\Services\SocialPublishing\Publishers;
+namespace App\Services\Youtube;
 
+use App\Models\File;
 use App\Models\ScheduledPost;
-use App\Services\SocialPublishing\PublishException;
-use App\Services\SocialPublishing\PublishResult;
+use App\Models\SocialAccount;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 /**
  * Publica no YouTube (Shorts) via YouTube Data API v3 com upload resumível.
  * Requer SocialAccount com access_token OAuth de escopo youtube.upload.
  */
-final class YouTubePublisher extends AbstractPublisher
+final class YoutubePublisher
 {
+    public const string PLATFORM = 'youtube';
+
+    public const string LABEL = 'YouTube Shorts';
+
     private const string UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status';
 
-    public function key(): string
-    {
-        return 'youtube';
-    }
-
-    public function label(): string
-    {
-        return 'YouTube Shorts';
-    }
+    public function __construct(private readonly YoutubeTokenRefresher $tokenRefresher) {}
 
     public function publish(ScheduledPost $post): PublishResult
     {
@@ -102,5 +99,71 @@ final class YouTubePublisher extends AbstractPublisher
                 @unlink($tmp);
             }
         }
+    }
+
+    private function requireAccount(ScheduledPost $post): SocialAccount
+    {
+        $account = $post->account;
+
+        throw_unless($account instanceof SocialAccount, PublishException::class, 'Nenhuma conta conectada para esta plataforma. Conecte uma conta em "Contas vinculadas".');
+
+        throw_unless($account->is_active, PublishException::class, 'A conta conectada está inativa.');
+
+        throw_if(empty($account->access_token), PublishException::class, 'A conta conectada não tem access token configurado.');
+
+        // Tenta renovar via refresh_token antes de desistir.
+        throw_if($account->tokenExpired() && ! $this->tokenRefresher->ensureFresh($account), PublishException::class, 'O token da conta expirou e não foi possível renovar. Reconecte a conta.');
+
+        return $account;
+    }
+
+    private function requireVideoFile(ScheduledPost $post): File
+    {
+        $cut = $post->cut;
+
+        if ($cut !== null) {
+            $file = $cut->files()
+                ->where(fn ($q) => $q->where('mime_type', 'like', 'video/%')->orWhere('type', $cut->type))
+                ->latest()
+                ->first();
+
+            if ($file instanceof File) {
+                return $file;
+            }
+        }
+
+        $video = $post->video;
+        $fallback = $video?->fileOfType('legendado') ?? $video?->fileOfType('original');
+
+        if ($fallback instanceof File) {
+            return $fallback;
+        }
+
+        throw new PublishException('Arquivo de vídeo do corte não encontrado (o corte foi renderizado?).');
+    }
+
+    private function downloadToTemp(File $file): string
+    {
+        $disk = Storage::disk($file->disk ?: 'minio');
+        $contents = $disk->get($file->path);
+
+        throw_if($contents === null, PublishException::class, 'Falha ao ler o arquivo de vídeo do storage.');
+
+        $ext = $file->extension ?: 'mp4';
+        $tmp = tempnam(sys_get_temp_dir(), 'pub_').'.'.$ext;
+        file_put_contents($tmp, $contents);
+
+        return $tmp;
+    }
+
+    private function caption(ScheduledPost $post): string
+    {
+        $description = mb_trim((string) $post->description);
+        $tags = implode(' ', array_map(
+            static fn (string $t): string => '#'.mb_ltrim($t, '#'),
+            $post->hashtagList(),
+        ));
+
+        return mb_trim($description.($tags !== '' ? "\n\n".$tags : ''));
     }
 }

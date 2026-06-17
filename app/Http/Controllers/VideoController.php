@@ -7,7 +7,7 @@ namespace App\Http\Controllers;
 use App\Models\File;
 use App\Models\ScheduledPost;
 use App\Models\Video;
-use App\Services\SocialPublishing\SocialPublisherRegistry;
+use App\Services\Youtube\YoutubePublisher;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -21,7 +21,7 @@ final class VideoController extends Controller
         return to_route('videos.editor', ['video' => $video->uuid]);
     }
 
-    public function publications(Video $video, SocialPublisherRegistry $registry): View
+    public function publications(Video $video): View
     {
         $posts = ScheduledPost::query()
             ->where('video_id', $video->id)
@@ -32,7 +32,7 @@ final class VideoController extends Controller
         return view('videos.publications', [
             'video' => $video,
             'posts' => $posts,
-            'platformLabels' => $registry->labels(),
+            'platformLabels' => [YoutubePublisher::PLATFORM => YoutubePublisher::LABEL],
         ]);
     }
 

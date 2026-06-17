@@ -9,8 +9,8 @@ use App\Models\Cut;
 use App\Models\ScheduledPost;
 use App\Models\SocialAccount;
 use App\Models\Video;
-use App\Services\SocialPublishing\PostDraftBuilder;
-use App\Services\SocialPublishing\SocialPublisherRegistry;
+use App\Services\Youtube\PostDraftBuilder;
+use App\Services\Youtube\YoutubePublisher;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -46,7 +46,7 @@ final class Schedule extends Component
     /** @var array<string, int> */
     public array $cutScheduleGapHours = [];
 
-    public function mount(Video $video, SocialPublisherRegistry $registry, PostDraftBuilder $draftBuilder): void
+    public function mount(Video $video, PostDraftBuilder $draftBuilder): void
     {
         $this->video = $video;
         $this->video->load('cuts');
@@ -65,10 +65,10 @@ final class Schedule extends Component
         $this->normalizeCutSchedulingPlan();
     }
 
-    public function confirmPublications(SocialPublisherRegistry $registry): void
+    public function confirmPublications(): void
     {
         $this->normalizeCutSchedulingPlan();
-        $this->processPublications($registry);
+        $this->processPublications();
     }
 
     public function updatedCutPublishModes(string $value, string $key): void
@@ -108,7 +108,7 @@ final class Schedule extends Component
         $this->normalizeCutSchedulingPlan();
     }
 
-    public function render(SocialPublisherRegistry $registry): View
+    public function render(): View
     {
         $this->video->refresh()->load('cuts.files');
 
@@ -135,7 +135,7 @@ final class Schedule extends Component
 
         return view('livewire.videos.schedule', [
             'cuts' => $this->video->cuts,
-            'platformLabels' => $registry->labels(),
+            'platformLabels' => [YoutubePublisher::PLATFORM => YoutubePublisher::LABEL],
             'accountsByPlatform' => $accounts,
             'publishedTargetsByCut' => $publishedTargetsByCut,
         ]);
@@ -160,7 +160,7 @@ final class Schedule extends Component
         $this->toast('Legenda/descrição salvas.');
     }
 
-    private function processPublications(SocialPublisherRegistry $registry): void
+    private function processPublications(): void
     {
         if ($this->selectedCuts === []) {
             $this->toast('Selecione ao menos um corte.', 'danger');
@@ -192,7 +192,7 @@ final class Schedule extends Component
             ->first();
 
         if (! $account instanceof SocialAccount) {
-            $label = $registry->for('youtube')?->label() ?? 'YouTube';
+            $label = YoutubePublisher::LABEL;
             $this->toast(sprintf('Conecte uma conta de %s antes de publicar.', $label), 'danger');
 
             return;
@@ -216,7 +216,7 @@ final class Schedule extends Component
             $isImmediate = $mode !== 'scheduled';
 
             if ($this->hasExistingPublicationForCutPlatformAccount($cut->id, 'youtube', $account->id)) {
-                $label = $registry->for('youtube')?->label() ?? 'YouTube';
+                $label = YoutubePublisher::LABEL;
                 $this->toast(sprintf(
                     'O corte %s já foi publicado em %s usando a conta %s.',
                     $cut->name ?? $cut->uuid,

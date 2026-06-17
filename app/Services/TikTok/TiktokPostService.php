@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\TiktokPost;
+namespace App\Services\TikTok;
 
 use App\Models\TiktokPost;
 use Illuminate\Http\Client\PendingRequest;
