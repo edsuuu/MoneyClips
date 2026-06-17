@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\YoutubeShort;
 use App\Services\AutoPost\AutoPostDispatcher;
 use Illuminate\Support\Facades\Date;
 
@@ -33,4 +34,17 @@ test('minuteFor é estável para o mesmo dia/hora e fica em 0–59', function ()
     $b = AutoPostDispatcher::minuteFor($day, 9);
 
     expect($a)->toBe($b)->and($a)->toBeGreaterThanOrEqual(0)->and($a)->toBeLessThan(60);
+});
+
+test('run não reserva nem posta quando YouTube e TikTok estão desativados', function (): void {
+    config([
+        'youtube_shorts.posting.youtube_enabled' => false,
+        'youtube_shorts.posting.tiktok_enabled' => false,
+    ]);
+
+    $short = YoutubeShort::factory()->create(['video_path' => 'shorts/abc/short_abc.mp4']);
+
+    resolve(AutoPostDispatcher::class)->run();
+
+    expect($short->fresh()->dispatched_at)->toBeNull();
 });
