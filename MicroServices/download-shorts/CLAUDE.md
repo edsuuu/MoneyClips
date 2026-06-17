@@ -4,88 +4,66 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this service is
 
-Independent Python (FastAPI) microservice that downloads all YouTube Shorts of a channel, uploads each file to S3-compatible storage, verifies the object exists, and dispatches completed items to a webhook (automatically or on demand). Default port `8770`.
+Independent Python (FastAPI) microservice that downloads all YouTube Shorts of a channel, uploads each file to S3-compatible storage, and POSTs a webhook **per item finished** (success or failure). Default port `8770`. **No database** — the orchestrator (Laravel) persists the items it receives.
 
-**Hard constraint:** this repo must stay independent from the parent `generate-clips` pipeline — never import its modules. In API contracts, payloads, docs, and comments use generic `storage` terminology; do not expose provider-specific names (the real backend is Contabo S3, but that stays in `.env`). See `AGENTS.md` for the full constraint list.
+**Hard constraint:** este repo deve ficar independente do pipeline `generate-clips`. Não importe módulos dele. Use terminologia `storage` genérica nos contratos; nomes de provedor (Contabo etc) ficam só no `.env`.
 
 ## Commands
 
-Always use the local virtualenv (`.venv/bin/...`).
+Sempre usar o virtualenv local (`.venv/bin/...`).
 
 ```bash
 # Setup
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 cp .env.example .env
-.venv/bin/alembic upgrade head
 
 # Run
-.venv/bin/python -m app.main          # serves on $API_HOST:$API_PORT (default 8770)
+.venv/bin/python -m app.main          # serve em $API_HOST:$API_PORT (default 8770)
 
-# Lint / format / types (pre-commit gate)
-.venv/bin/ruff check app alembic
-.venv/bin/ruff format app alembic
-.venv/bin/mypy app                    # alembic/ is excluded; mypy disallow_untyped_defs is on
+# Lint / format / types
+.venv/bin/ruff check app
+.venv/bin/ruff format app
+.venv/bin/mypy app
 
-# Minimum validation (there is no test suite)
-.venv/bin/python -m compileall app alembic
-.venv/bin/alembic upgrade head --sql  # render migrations without touching the DB
-
-# Migrations
-.venv/bin/alembic revision -m "description"
-.venv/bin/alembic upgrade head
+# Mínimo de validação (sem suite de testes)
+.venv/bin/python -m compileall app
 ```
 
-Docker (MySQL and storage are external services, credentials from `.env`):
+Docker:
 
 ```bash
-docker compose --profile local up --build   # built image + alembic upgrade + app
-docker compose --profile dev up             # mounted volume, uvicorn --reload, 2 workers
+docker compose up --build
 ```
-
-There is **no automated test suite**. Validate by compiling, rendering migrations, and running an integration job against real MySQL + storage.
 
 ## Configuration
 
-Settings load from `.env` via pydantic-settings (`app/config/settings.py`). DB config uses Laravel-style split vars (`DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`); the SQLAlchemy URL (`mysql+pymysql`) is built internally in `Settings.database_url`. Storage uses `STORAGE_*` vars; worker tuning via `DOWNLOAD_WORKERS` (default 4), `MAX_ATTEMPTS` (default 3), `WEBHOOK_TIMEOUT_SECONDS`.
-
-`AUTO_CREATE_TABLES=true` creates tables at startup (dev only). For production set it `false` and run `alembic upgrade head`.
+Settings via `.env` em `pydantic-settings` (`app/config/settings.py`). Storage usa vars `STORAGE_*`; tuning via `DOWNLOAD_WORKERS` (default 4), `MAX_ATTEMPTS` (default 3), `WEBHOOK_TIMEOUT_SECONDS` (default 30).
 
 ## Architecture
 
-Request → DB row → background thread → thread pool → optional webhook. Everything is persisted in MySQL so jobs survive restarts; there is no external queue/broker.
+`POST /shorts/download` → `start_download` lista os Shorts (síncrono) → resposta `202 {count}` → thread em background dispara o pool (`DOWNLOAD_WORKERS`) → cada thread baixa + sobe + dispara webhook do item (retry 1s/5s/15s).
 
-- `app/main.py` — FastAPI routes + `lifespan` startup. On boot it calls `resume_unfinished_jobs()` to relaunch any job left in `queued`/`listing`/`processing`.
-- `app/jobs/worker.py` — the core engine. `start_job()` spawns a daemon thread guarded by an in-process `_running_jobs` set (prevents the same job running twice in one process). `process_job` runs the pipeline: `_seed_items` → `_reset_active_items` → `_process_items` (`ThreadPoolExecutor`, `DOWNLOAD_WORKERS` threads) → `_finish_job`.
-- `app/jobs/dispatcher.py` — `dispatch_completed_items()` posts completed+`dispatch_status=pending` items to the webhook (`mode="batch"` with `batch_size`, or `"all"`).
-- `app/youtube/client.py` — `yt_dlp` wrappers: `list_shorts()`, `download_short()`.
-- `app/storage/client.py` — `boto3` S3 wrapper (`exists`, `stat`, `upload_file`) and `storage_path_for(youtube_id)`.
-- `app/database/` — `session.py` (engine, `SessionLocal`, `Base`, `init_db`) and `models.py`.
-- `alembic/versions/` — migrations.
+- `app/main.py` — FastAPI: `GET /health` e `POST /shorts/download`.
+- `app/jobs/worker.py` — `start_download(channel_url, webhook_url)`, pool, item processor, retry de webhook. Mantém um set em memória (`_active_channels`) que impede 2 jobs concorrentes pro mesmo canal.
+- `app/youtube/client.py` — wrappers `yt_dlp`: `list_shorts`, `download_short`.
+- `app/storage/client.py` — wrapper `boto3` (`exists`, `stat`, `upload_file`) e `storage_path_for(youtube_id)`.
 
-### Job & item state machines (the load-bearing logic)
+### Item state machine
 
-A `ShortDownloadJob` (1) has many `ShortDownloadItem` (N), unique on `(job_id, youtube_id)`. Each request creates one job; each Short becomes one item.
+`downloading → uploading → verifying → completed | failed` (interno à thread; não persiste).
 
-Job status: `queued → listing → processing → completed | completed_partial | failed`. `_finish_job` picks the terminal state from item counts (all ok → `completed`; some completed + some failed → `completed_partial`; none completed → `failed`).
-
-Item status: `pending → downloading → uploading → verifying → completed | failed`.
-
-Critical invariants when editing the worker — keep these intact:
-
-- **An item is `completed` only after the storage object exists with positive size.** `_process_item` re-stats after upload and raises if `size_bytes <= 0`. If the object already exists before download, it short-circuits to completed (idempotent re-runs).
-- **Retries:** each attempt increments `attempts`; on failure the item goes back to `pending` (and sleeps 1s) while `attempts < MAX_ATTEMPTS`, otherwise `failed`.
-- **`_reset_active_items`** flips any item stuck in `downloading/uploading/verifying` (from a crash) back to `pending` before reprocessing, making restart safe.
-- **Webhook failure must never fail downloaded items.** Dispatch errors set `dispatch_status` to `failed`/`partial` (job + items stay intact) so dispatch can be retried; `_finish_job` swallows auto-dispatch exceptions.
+Invariantes ao editar o worker:
+- Item só vira `completed` depois que o objeto existe no storage com `size_bytes > 0`. Se já existir antes do download, curto-circuita pra `completed` (idempotência).
+- 3 tentativas (`MAX_ATTEMPTS`). Falhou tudo? Webhook com `status: "failed"` + `error`.
+- Falha de webhook nunca derruba o serviço — log + segue.
+- `_active_channels`: trava 2º disparo pro mesmo canal. Reinício do processo limpa.
 
 ### Webhook decoupling
 
-`webhook_url` is optional. When omitted, `dispatch_on_complete` must be `false` — items stay in this DB with `dispatch_status=pending`, and `/dispatch` then requires a `webhook_url` in the request body (which overrides/supplies the job's). This supports an external orchestrator (Laravel) that pulls from `GET /shorts/items` instead of receiving pushes. Dispatch tracking: item `dispatch_status` `pending → dispatched`; job `dispatch_status` `pending → partial → dispatched` (or `failed`).
+`webhook_url` é **obrigatório**. Cada item completado/falhado vira 1 POST. Payload: `{ channel_url, items: [item] }` — o orquestrador (Laravel) trata `items[]` como uma lista (que aqui sempre tem 1 elemento), o que mantém compat com o receiver atual.
 
 ## Endpoints
 
 - `GET /health`
-- `POST /shorts/download` — `{channel_url, webhook_url?, dispatch_on_complete}` → `202 {job_id, status}`
-- `GET /shorts/download/{job_id}` — status + per-status item counts
-- `GET /shorts/items?status=completed&limit=&offset=` — items deduped by `youtube_id` (latest kept); for external orchestrators
-- `POST /shorts/download/{job_id}/dispatch` — `{mode: batch|all, batch_size?, webhook_url?}`
+- `POST /shorts/download` — `{channel_url, webhook_url}` → `202 {status, count, channel_url}`. `409` se já há download ativo pro canal.
