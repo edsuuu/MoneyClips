@@ -8,19 +8,6 @@
             <x-ui.button x-data x-on:click="$dispatch('modal-show', { name: 'instant-post' })" size="sm" variant="primary" icon="paper-airplane" class="cursor-pointer">
                 Postagem instantânea
             </x-ui.button>
-            <x-ui.button
-                wire:click="importFromMicroservice"
-                wire:confirm="Importar o próximo lote do microserviço para youtube_shorts e remover os itens importados de lá?"
-                wire:loading.attr="disabled"
-                wire:target="importFromMicroservice"
-                size="sm"
-                variant="primary"
-                icon="arrow-down-tray"
-                class="cursor-pointer"
-            >
-                <span wire:loading.remove wire:target="importFromMicroservice">Importar do microserviço</span>
-                <span wire:loading wire:target="importFromMicroservice">Importando...</span>
-            </x-ui.button>
             <x-ui.button x-data x-on:click="$dispatch('modal-show', { name: 'new-download' })" size="sm" variant="primary" icon="arrow-down-tray" class="cursor-pointer">
                 Novo download
             </x-ui.button>
@@ -37,21 +24,10 @@
         <x-studio.metric-card label="Falhas" :value="$counts['failed']" tone="red" />
     </div>
 
-    <div class="rounded-lg border border-slate-800 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
-        Pendentes no microserviço:
-        <span class="font-semibold text-slate-100">{{ $microserviceStock ?? 'indisponível' }}</span>
-    </div>
-
-    @if($loadError)
-        <div class="rounded-lg border border-red-900/60 bg-red-950/40 p-4 text-sm text-red-200">
-            {{ $loadError }}
-        </div>
-    @endif
-
-    <x-studio.panel title="Vídeos baixados" subtitle="A lista vem da tabela local youtube_shorts. Use o botão de importação para trazer novos lotes do microserviço.">
+    <x-studio.panel title="Vídeos baixados" subtitle="A lista vem da tabela local youtube_shorts (alimentada pelo webhook do microserviço).">
         @if($items->isEmpty())
             <div class="rounded-lg border border-dashed border-slate-800 p-10 text-center text-sm text-slate-400">
-                Nenhum vídeo local encontrado. Importe um lote do microserviço ou crie um download pela tela
+                Nenhum vídeo local encontrado. Dispare um download pela tela
                 <button type="button" x-data x-on:click="$dispatch('modal-show', { name: 'new-download' })" class="cursor-pointer text-slate-200 underline hover:text-slate-50">Novo download</button>.
             </div>
         @else
