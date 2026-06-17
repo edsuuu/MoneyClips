@@ -39,9 +39,9 @@
                         <p class="text-sm font-medium text-slate-100">Biblioteca de vídeos</p>
                         <p class="mt-1 text-sm text-slate-400">Abra qualquer vídeo já processado e retome o editor.</p>
                     </a>
-                    <a href="{{ route('posts.dashboard') }}" wire:navigate class="rounded-xl border border-slate-800 bg-slate-950/70 p-4 transition hover:border-slate-700 hover:bg-slate-900">
-                        <p class="text-sm font-medium text-slate-100">Monitoramento de posts</p>
-                        <p class="mt-1 text-sm text-slate-400">Acompanhe falhas, retries e histórico de publicações.</p>
+                    <a href="{{ route('downloads.index') }}" wire:navigate class="rounded-xl border border-slate-800 bg-slate-950/70 p-4 transition hover:border-slate-700 hover:bg-slate-900">
+                        <p class="text-sm font-medium text-slate-100">Estoque e postagens</p>
+                        <p class="mt-1 text-sm text-slate-400">Abra downloads, estoque local e postagem instantânea.</p>
                     </a>
                     <a href="{{ route('social-accounts') }}" wire:navigate class="rounded-xl border border-slate-800 bg-slate-950/70 p-4 transition hover:border-slate-700 hover:bg-slate-900">
                         <p class="text-sm font-medium text-slate-100">Contas vinculadas</p>

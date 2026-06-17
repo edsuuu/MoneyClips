@@ -34,9 +34,6 @@ Route::middleware(['auth'])->group(function (): void {
     Route::view('/shorts', 'shorts.index')->name('shorts.index');
     Route::view('/shorts/download', 'shorts.download')->name('shorts.download');
 
-    // Agendamento social: dashboard de publicações e gestão de contas conectadas.
-    Route::view('/posts', 'posts.dashboard')->name('posts.dashboard');
-    Route::view('/posts/instant', 'posts.instant')->name('posts.instant');
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
     // Monitor local dos microserviços (status /health + logs dos containers).

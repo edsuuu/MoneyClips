@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Livewire\Posts;
+namespace App\Livewire\Downloads;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
@@ -14,7 +14,7 @@ use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;
 
-final class Instant extends Component
+final class InstantPost extends Component
 {
     use WithToasts;
 
@@ -92,7 +92,7 @@ final class Instant extends Component
     {
         $short = $this->selectedShort();
 
-        return view('livewire.posts.instant', [
+        return view('livewire.downloads.instant-post', [
             'short' => $short,
             'counts' => [
                 'stock' => YoutubeShort::query()->whereNotNull('video_path')->count(),

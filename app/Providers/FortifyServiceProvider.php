@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
-use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\View\Factory;
@@ -43,7 +42,6 @@ final class FortifyServiceProvider extends ServiceProvider
     private function configureActions(): void
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
-        Fortify::createUsersUsing(CreateNewUser::class);
     }
 
     /**
@@ -55,7 +53,6 @@ final class FortifyServiceProvider extends ServiceProvider
         Fortify::verifyEmailView(fn (): Factory|View => view('auth.verify-email'));
         Fortify::twoFactorChallengeView(fn (): Factory|View => view('auth.two-factor-challenge'));
         Fortify::confirmPasswordView(fn (): Factory|View => view('auth.confirm-password'));
-        Fortify::registerView(fn (): Factory|View => view('auth.register'));
         Fortify::resetPasswordView(fn (): Factory|View => view('auth.reset-password'));
         Fortify::requestPasswordResetLinkView(fn (): Factory|View => view('auth.forgot-password'));
     }
