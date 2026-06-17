@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\SocialPublishing;
+namespace App\Services\Youtube;
 
 use App\Models\Cut;
 use App\Models\Video;

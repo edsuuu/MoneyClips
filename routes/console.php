@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Services\AutoPost\AutoPostDispatcher;
+use App\Services\AutoPostDispatcher;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -17,7 +17,7 @@ Artisan::command('inspire', function (): void {
 |--------------------------------------------------------------------------
 |
 | O MESMO vídeo do estoque (youtube_shorts) vai pro YouTube e pro TikTok,
-| 5x/dia. As janelas ficam em App\Services\AutoPost\AutoPostDispatcher::WINDOWS
+| 5x/dia. As janelas ficam em App\Services\AutoPostDispatcher::WINDOWS
 | (09/12/15/18/21, fuso São Paulo); cada janela dispara num MINUTO ALEATÓRIO
 | estável por dia. O scheduler roda a cada minuto, mas o ->when() só libera no
 | minuto sorteado. Sem jobs/commands: o dispatcher faz tudo (síncrono no

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\SocialPublishing;
+namespace App\Services\Youtube;
 
 /**
  * Resultado de uma tentativa de publicação em uma plataforma.

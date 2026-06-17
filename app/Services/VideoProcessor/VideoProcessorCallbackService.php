@@ -8,7 +8,7 @@ use App\Models\Cut;
 use App\Models\File;
 use App\Models\Status;
 use App\Models\Video;
-use App\Services\Status\StatusService;
+use App\Services\StatusService;
 use Illuminate\Support\Facades\DB;
 
 /**
