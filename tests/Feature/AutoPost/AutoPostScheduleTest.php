@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Models\YoutubeShort;
-use App\Services\AutoPost\AutoPostDispatcher;
+use App\Services\AutoPostDispatcher;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 

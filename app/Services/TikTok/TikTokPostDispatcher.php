@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Services\TikTok;
 
 use App\Models\TiktokPost;
-use App\Services\Shorts\ShortsDownloaderClient;
+use App\Services\Youtube\ShortsDownloaderClient;
 use Illuminate\Support\Arr;
 use RuntimeException;
 

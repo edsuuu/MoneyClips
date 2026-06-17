@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('video_id')->constrained()->cascadeOnDelete();
             $table->foreignId('cut_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('social_account_id')->nullable()->constrained()->nullOnDelete();
-            $table->string('platform', 32);                 // youtube, instagram, facebook
+            $table->string('platform', 32);                 // youtube
             $table->unsignedInteger('sequence')->default(0); // ordem de publicação
             $table->string('title')->nullable();
             $table->text('description')->nullable();

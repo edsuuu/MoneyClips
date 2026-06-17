@@ -73,7 +73,7 @@
         <div
             wire:loading.class="opacity-50"
             x-data
-            x-init="$nextTick(() => $el.scrollTop = $el.scrollHeight)"
+            x-init="$nextTick(() => $el.scrollTop = 0)"
             class="mt-2 h-[28rem] overflow-auto rounded-2xl border border-slate-800 bg-black/80 p-4 font-mono text-xs leading-relaxed text-emerald-200/90"
         >
             <pre class="whitespace-pre-wrap break-words">{{ $logs }}</pre>

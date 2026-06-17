@@ -10,7 +10,7 @@ use App\Models\Status;
 use App\Models\Transcript;
 use App\Models\Video;
 use App\Models\VideoPayload;
-use App\Services\Status\StatusService;
+use App\Services\StatusService;
 use App\Services\VideoProcessor\Contracts\VideoProcessorProviderInterface;
 use App\Services\VideoProcessor\Data\IngestVideoData;
 use App\Services\VideoProcessor\Data\RecommendCutsData;

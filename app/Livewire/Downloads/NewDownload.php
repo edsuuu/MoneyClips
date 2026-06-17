@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Downloads;
 
 use App\Livewire\Concerns\WithToasts;
-use App\Services\DownloadYoutube\DownloadYoutubeService;
+use App\Services\Youtube\DownloadYoutubeService;
 use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;
