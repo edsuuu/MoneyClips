@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Microservices;
+namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
@@ -82,7 +82,11 @@ final class MicroserviceMonitor
 
             $output = mb_trim($result->output()."\n".$result->errorOutput());
 
-            return $output !== '' ? $output : '(sem logs)';
+            if ($output === '') {
+                return '(sem logs)';
+            }
+
+            return implode("\n", array_reverse(explode("\n", $output)));
         } catch (Throwable $throwable) {
             return 'Falha ao ler os logs: '.$throwable->getMessage();
         }

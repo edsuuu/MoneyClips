@@ -36,7 +36,6 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
-    // Monitor local dos microserviços (status /health + logs dos containers).
     Route::view('/microservices', 'microservices.index')->name('microservices.index');
 
     // OAuth das redes sociais (conectar contas com 1 clique).

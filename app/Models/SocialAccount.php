@@ -20,7 +20,7 @@ final class SocialAccount extends Model
     /** @use HasFactory<Factory> */
     use HasFactory;
 
-    public const array PLATFORMS = ['youtube', 'instagram', 'facebook'];
+    public const array PLATFORMS = ['youtube'];
 
     protected $fillable = [
         'uuid', 'user_id', 'platform', 'name', 'external_account_id',

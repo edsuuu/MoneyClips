@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Settings;
 
 use App\Livewire\Concerns\WithToasts;
-use App\Services\TiktokPost\TiktokPostService;
+use App\Services\TikTok\TiktokPostService;
 use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;

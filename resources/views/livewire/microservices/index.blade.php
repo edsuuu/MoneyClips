@@ -74,20 +74,20 @@
             wire:loading.class="opacity-50"
             x-data="{
                 cleanupScrollHook: null,
-                scrollToEnd() {
+                scrollToTop() {
                     this.$nextTick(() => {
-                        this.$el.scrollTop = this.$el.scrollHeight;
+                        this.$el.scrollTop = 0;
                     });
                 },
                 init() {
-                    this.scrollToEnd();
+                    this.scrollToTop();
 
                     this.cleanupScrollHook = window.Livewire?.hook('morphed', ({ el }) => {
                         if (! this.$el.isConnected || ! el.contains(this.$el)) {
                             return;
                         }
 
-                        this.scrollToEnd();
+                        this.scrollToTop();
                     });
                 },
                 destroy() {
