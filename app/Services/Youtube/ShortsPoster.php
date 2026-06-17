@@ -6,7 +6,6 @@ namespace App\Services\Youtube;
 
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;
-use App\Services\SocialPublishing\OAuth\TokenRefresher;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -18,7 +17,7 @@ use RuntimeException;
  *
  * Usa a mesma SocialAccount (platform=youtube) do fluxo de publicação de
  * cortes — conectada em /social-accounts ou via `php artisan youtube:link` —
- * renovando o access token pelo TokenRefresher quando necessário.
+ * renovando o access token pelo YoutubeTokenRefresher quando necessário.
  *
  * Baixa o vídeo do MinIO para um arquivo temporário, sobe para o YouTube e
  * marca o Short como postado (guardando o ID do vídeo gerado).
@@ -27,7 +26,7 @@ final readonly class ShortsPoster
 {
     private const string UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status';
 
-    public function __construct(private TokenRefresher $tokenRefresher) {}
+    public function __construct(private YoutubeTokenRefresher $tokenRefresher) {}
 
     /**
      * Posta o Short e retorna o ID do vídeo criado no YouTube.

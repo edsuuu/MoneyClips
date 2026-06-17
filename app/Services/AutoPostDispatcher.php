@@ -2,11 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Services\AutoPost;
+namespace App\Services;
 
 use App\Models\YoutubeShort;
-use App\Services\DiscordNotifier;
-use App\Services\TiktokPost\TiktokPostService;
+use App\Services\TikTok\TiktokPostService;
 use App\Services\Youtube\ShortsPoster;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;

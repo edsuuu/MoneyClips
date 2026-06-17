@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Services\SocialPublishing\OAuth;
+namespace App\Services\Youtube;
 
 use App\Models\SocialAccount;
 use Illuminate\Support\Facades\Http;
 
 /**
  * Renova o access_token de uma conta usando o refresh_token quando ele expira.
- * Google (YouTube) tem refresh; tokens de Página da Meta não expiram.
+ * Hoje só YouTube (Google).
  */
-final class TokenRefresher
+final class YoutubeTokenRefresher
 {
     /** Renova se necessário. Devolve true se a conta está utilizável depois. */
     public function ensureFresh(SocialAccount $account): bool

@@ -6,7 +6,7 @@ namespace App\Livewire\Settings;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
-use App\Services\SocialPublishing\SocialPublisherRegistry;
+use App\Services\Youtube\YoutubePublisher;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
@@ -17,7 +17,7 @@ use Throwable;
 
 /**
  * Conecta contas das plataformas guardando tokens criptografados.
- * YouTube entra via OAuth; Meta cobre Facebook/Instagram.
+ * Hoje só YouTube (Google OAuth).
  */
 final class Accounts extends Component
 {
@@ -160,7 +160,7 @@ final class Accounts extends Component
         $this->toast('Conta desvinculada.');
     }
 
-    public function render(SocialPublisherRegistry $registry): View
+    public function render(): View
     {
         $accounts = SocialAccount::query()
             ->where('user_id', $this->currentUserId())
@@ -169,7 +169,9 @@ final class Accounts extends Component
 
         $accountsByPlatform = $accounts->groupBy('platform');
 
-        $providers = collect($registry->labels())
+        $platformLabels = [YoutubePublisher::PLATFORM => YoutubePublisher::LABEL];
+
+        $providers = collect($platformLabels)
             ->map(function (string $label, string $platform) use ($accountsByPlatform): array {
                 $account = $accountsByPlatform->get($platform)?->first();
                 $linked = $account instanceof SocialAccount;
@@ -194,7 +196,7 @@ final class Accounts extends Component
             ->values();
 
         return view('livewire.settings.accounts', [
-            'platformLabels' => $registry->labels(),
+            'platformLabels' => $platformLabels,
             'providers' => $providers,
             'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
         ]);
@@ -225,8 +227,6 @@ final class Accounts extends Component
     {
         return match ($platform) {
             'youtube' => 'Google OAuth para conectar o canal e publicar no YouTube.',
-            'instagram' => 'OAuth Meta para publicar reels e conteudo no Instagram.',
-            'facebook' => 'OAuth Meta para publicar no Facebook.',
             default => 'Conecte a conta para liberar a publicacao automatica.',
         };
     }

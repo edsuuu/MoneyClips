@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 use App\Models\Cut;
 use App\Models\Video;
-use App\Services\SocialPublishing\PostDraftBuilder;
+use App\Services\Youtube\PostDraftBuilder;
 
 it('builds fallback metadata with part label for a cut', function (): void {
     $builder = new PostDraftBuilder;

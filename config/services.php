@@ -56,10 +56,4 @@ return [
         'redirect' => env('GOOGLE_AUTH_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/auth/google/callback'),
     ],
 
-    'facebook' => [
-        'client_id' => env('META_APP_ID'),
-        'client_secret' => env('META_APP_SECRET'),
-        'redirect' => env('META_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/facebook/callback'),
-    ],
-
 ];

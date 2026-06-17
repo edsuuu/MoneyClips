@@ -6,7 +6,7 @@ namespace App\Livewire\Posts;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Models\ScheduledPost;
-use App\Services\SocialPublishing\SocialPublisherRegistry;
+use App\Services\Youtube\YoutubePublisher;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -81,7 +81,7 @@ final class Dashboard extends Component
         $this->resetPage();
     }
 
-    public function render(SocialPublisherRegistry $registry): View
+    public function render(): View
     {
         $base = ScheduledPost::query();
         $statuses = ['pending', 'scheduled', 'publishing', 'posted', 'failed', 'cancelled'];
@@ -108,7 +108,7 @@ final class Dashboard extends Component
         return view('livewire.posts.dashboard', [
             'posts' => $posts,
             'counts' => $counts,
-            'platformLabels' => $registry->labels(),
+            'platformLabels' => [YoutubePublisher::PLATFORM => YoutubePublisher::LABEL],
         ]);
     }
 }
