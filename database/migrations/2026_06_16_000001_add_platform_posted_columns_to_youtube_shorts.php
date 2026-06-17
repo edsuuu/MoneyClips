@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -24,10 +23,8 @@ return new class extends Migration
             $table->timestamp('posted_tiktok_at')->nullable()->after('posted_youtube_at');
         });
 
-        // Backfill: o posted_at existente já significava "postado no YouTube".
-        DB::table('youtube_shorts')
-            ->whereNotNull('posted_at')
-            ->update(['posted_youtube_at' => DB::raw('posted_at')]);
+        // Sem backfill: posted_at é legado. A UI deve contar só confirmações
+        // explícitas gravadas daqui em diante por plataforma.
     }
 
     public function down(): void
