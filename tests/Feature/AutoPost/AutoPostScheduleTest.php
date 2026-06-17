@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Models\YoutubeShort;
 use App\Services\AutoPost\AutoPostDispatcher;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 
 test('isDueWindow libera no minuto sorteado de cada janela', function (): void {
@@ -46,5 +47,19 @@ test('run não reserva nem posta quando YouTube e TikTok estão desativados', fu
 
     resolve(AutoPostDispatcher::class)->run();
 
+    expect($short->fresh()->dispatched_at)->toBeNull();
+});
+
+test('run não posta de novo na mesma janela (lock de idempotência)', function (): void {
+    config(['youtube_shorts.posting.youtube_enabled' => false, 'youtube_shorts.posting.tiktok_enabled' => true]);
+
+    // Simula que a janela atual JÁ foi processada (lock ocupado).
+    Cache::add(AutoPostDispatcher::windowKey(), true, now()->addHour());
+
+    $short = YoutubeShort::factory()->create(['video_path' => 'shorts/abc/short_abc.mp4']);
+
+    resolve(AutoPostDispatcher::class)->run();
+
+    // Lock segurou: não reservou nem postou nada.
     expect($short->fresh()->dispatched_at)->toBeNull();
 });
