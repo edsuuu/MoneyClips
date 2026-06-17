@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Microservices;
 
 use App\Livewire\Concerns\WithToasts;
-use App\Services\Microservices\MicroserviceMonitor;
+use App\Services\MicroserviceMonitor;
 use Illuminate\View\View;
 use Livewire\Component;
 

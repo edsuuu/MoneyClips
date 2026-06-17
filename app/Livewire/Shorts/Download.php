@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Shorts;
 
 use App\Livewire\Concerns\WithToasts;
-use App\Services\Shorts\ShortsDownloaderClient;
+use App\Services\Youtube\ShortsDownloaderClient;
 use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;

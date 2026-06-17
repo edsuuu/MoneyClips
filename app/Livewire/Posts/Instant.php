@@ -8,7 +8,7 @@ use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
 use App\Models\TiktokPost;
 use App\Models\YoutubeShort;
-use App\Services\TiktokPost\TiktokPostService;
+use App\Services\TikTok\TiktokPostService;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Component;
