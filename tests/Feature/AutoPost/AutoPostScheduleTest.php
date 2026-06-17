@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Services\AutoPost\AutoPostDispatcher;
+use Illuminate\Support\Facades\Date;
+
+test('isDueWindow libera no minuto sorteado de cada janela', function (): void {
+    $day = Date::create(2026, 6, 17, 0, 0, 0, AutoPostDispatcher::TIMEZONE);
+
+    foreach (AutoPostDispatcher::WINDOWS as $hour) {
+        $minute = AutoPostDispatcher::minuteFor($day, $hour);
+
+        $due = $day->copy()->setTime($hour, $minute);
+        expect(AutoPostDispatcher::isDueWindow($due))->toBeTrue();
+
+        // Mesma janela, minuto diferente do sorteado → não libera.
+        $off = $day->copy()->setTime($hour, ($minute + 1) % 60);
+        expect(AutoPostDispatcher::isDueWindow($off))->toBeFalse();
+    }
+});
+
+test('isDueWindow é falso fora das janelas', function (): void {
+    $fora = Date::create(2026, 6, 17, 3, 30, 0, AutoPostDispatcher::TIMEZONE);
+
+    expect(AutoPostDispatcher::isDueWindow($fora))->toBeFalse();
+});
+
+test('minuteFor é estável para o mesmo dia/hora e fica em 0–59', function (): void {
+    $day = Date::create(2026, 6, 17, 0, 0, 0, AutoPostDispatcher::TIMEZONE);
+
+    $a = AutoPostDispatcher::minuteFor($day, 9);
+    $b = AutoPostDispatcher::minuteFor($day, 9);
+
+    expect($a)->toBe($b)->and($a)->toBeGreaterThanOrEqual(0)->and($a)->toBeLessThan(60);
+});
