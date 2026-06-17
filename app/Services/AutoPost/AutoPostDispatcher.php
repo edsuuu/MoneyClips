@@ -59,6 +59,14 @@ final readonly class AutoPostDispatcher
         return abs(crc32($day->format('Y-m-d').':'.$hour)) % 60;
     }
 
+    /** Chave do lock de idempotência por janela (1 postagem por hora-janela). */
+    public static function windowKey(?CarbonInterface $now = null): string
+    {
+        $now ??= Date::now(self::TIMEZONE);
+
+        return 'auto-post:window:'.$now->format('Y-m-d:H');
+    }
+
     /**
      * Sorteia/reserva N Shorts e publica cada um no YouTube + TikTok.
      * Default de N: youtube_shorts.posting.posts_per_run (1).
@@ -70,6 +78,15 @@ final readonly class AutoPostDispatcher
 
         if (! $youtubeEnabled && ! $tiktokEnabled) {
             Log::warning('[AutoPost] YouTube e TikTok desativados — nada a postar.');
+
+            return;
+        }
+
+        // Idempotência por janela: no MÁXIMO 1 execução por hora-janela, mesmo que
+        // o scheduler dispare 2x (overlap, 2 schedulers, retry). Cache::add é
+        // atômico — só o 1º vencedor passa; os demais saem aqui.
+        if (! Cache::add(self::windowKey(), true, now()->addHour())) {
+            Log::info('[AutoPost] Janela já processada — ignorando execução duplicada.');
 
             return;
         }
