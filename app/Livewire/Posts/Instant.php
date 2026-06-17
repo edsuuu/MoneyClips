@@ -31,7 +31,7 @@ final class Instant extends Component
         $short = YoutubeShort::query()
             ->whereNotNull('video_path')
             ->where(function ($query) use ($blockedOnTiktok): void {
-                $query->whereNull('posted_at');
+                $query->whereNull('posted_youtube_at');
 
                 if ($blockedOnTiktok !== []) {
                     $query->orWhereNotIn('youtube_id', $blockedOnTiktok);
@@ -50,7 +50,7 @@ final class Instant extends Component
         }
 
         $this->selectedShortId = $short->id;
-        $this->postYoutube = $short->posted_at === null;
+        $this->postYoutube = ! $short->wasPostedToYoutube();
         $this->postTiktok = ! $this->hasActiveTiktokPost($short->youtube_id);
 
         $this->toast('Vídeo aleatório selecionado: '.($short->title ?? $short->youtube_id));
@@ -96,7 +96,7 @@ final class Instant extends Component
             'short' => $short,
             'counts' => [
                 'stock' => YoutubeShort::query()->whereNotNull('video_path')->count(),
-                'youtubePosted' => YoutubeShort::query()->whereNotNull('posted_at')->count(),
+                'youtubePosted' => YoutubeShort::query()->whereNotNull('posted_youtube_at')->count(),
                 'tiktokQueued' => TiktokPost::query()->whereIn('status', ['queued', 'processing'])->count(),
                 'tiktokPosted' => TiktokPost::query()->where('status', 'completed')->count(),
             ],
@@ -123,7 +123,7 @@ final class Instant extends Component
 
     private function queueYoutube(YoutubeShort $short): ?string
     {
-        if ($short->posted_at !== null) {
+        if ($short->wasPostedToYoutube()) {
             $this->toast('Este vídeo já foi postado no YouTube.', 'danger');
 
             return null;
