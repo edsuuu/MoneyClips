@@ -15,8 +15,8 @@
                 <x-ui.button :href="route('videos.schedule', $video)" variant="subtle" class="cursor-pointer" wire:navigate>
                     Voltar ao agendamento
                 </x-ui.button>
-                <x-ui.button :href="route('posts.dashboard')" variant="ghost" class="cursor-pointer" wire:navigate>
-                    Ver dashboard geral
+                <x-ui.button :href="route('downloads.index')" variant="ghost" class="cursor-pointer" wire:navigate>
+                    Ver downloads e postagens
                 </x-ui.button>
             </div>
 

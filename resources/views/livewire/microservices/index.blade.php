@@ -72,9 +72,30 @@
 
         <div
             wire:loading.class="opacity-50"
-            x-data
-            x-init="$nextTick(() => $el.scrollTop = 0)"
+            x-data="{
+                cleanupScrollHook: null,
+                scrollToTop() {
+                    this.$nextTick(() => {
+                        this.$el.scrollTop = 0;
+                    });
+                },
+                init() {
+                    this.scrollToTop();
+
+                    this.cleanupScrollHook = window.Livewire?.hook('morphed', ({ el }) => {
+                        if (! this.$el.isConnected || ! el.contains(this.$el)) {
+                            return;
+                        }
+
+                        this.scrollToTop();
+                    });
+                },
+                destroy() {
+                    this.cleanupScrollHook?.();
+                },
+            }"
             class="mt-2 h-[28rem] overflow-auto rounded-2xl border border-slate-800 bg-black/80 p-4 font-mono text-xs leading-relaxed text-emerald-200/90"
+            data-test="microservices-logs"
         >
             <pre class="whitespace-pre-wrap break-words">{{ $logs }}</pre>
         </div>
