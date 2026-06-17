@@ -8,7 +8,6 @@ use App\Livewire\Concerns\WithToasts;
 use App\Models\TiktokPost;
 use App\Models\YoutubeShort;
 use App\Services\TikTok\TiktokPostService;
-use App\Services\Youtube\DownloadYoutubeService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -22,31 +21,6 @@ final class Index extends Component
     use WithToasts;
 
     private const int PER_PAGE = 15;
-
-    public ?string $loadError = null;
-
-    public function importFromMicroservice(): void
-    {
-        try {
-            $result = resolve(DownloadYoutubeService::class)->dispatchPending(1000);
-        } catch (Throwable $throwable) {
-            report($throwable);
-            $this->toast('Não foi possível importar os vídeos do microserviço download-youtube.', 'danger');
-
-            return;
-        }
-
-        $sentItems = (int) ($result['sent_items'] ?? 0);
-
-        if ($sentItems === 0) {
-            $this->toast('Nenhum vídeo pendente para importar do microserviço.');
-
-            return;
-        }
-
-        $this->resetPage();
-        $this->toast(sprintf('%d vídeo(s) importados para youtube_shorts.', $sentItems));
-    }
 
     /**
      * @param  array<int, string>  $hashtags
@@ -90,16 +64,6 @@ final class Index extends Component
 
     public function render(): View
     {
-        $this->loadError = null;
-        $microserviceStock = null;
-
-        try {
-            $microserviceStock = resolve(DownloadYoutubeService::class)->listItems(1, 0)['total'];
-        } catch (Throwable $throwable) {
-            report($throwable);
-            $this->loadError = 'Não foi possível consultar o estoque pendente do microserviço download-youtube.';
-        }
-
         $page = max(1, (int) ($this->getPage()));
         $shorts = YoutubeShort::query()
             ->whereNotNull('video_path')
@@ -122,7 +86,6 @@ final class Index extends Component
                 'posted' => TiktokPost::query()->where('status', 'completed')->count(),
                 'failed' => TiktokPost::query()->where('status', 'failed')->count(),
             ],
-            'microserviceStock' => $microserviceStock,
         ]);
     }
 

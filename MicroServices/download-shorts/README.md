@@ -1,6 +1,8 @@
 # download-shorts
 
-Microservico independente para baixar YouTube Shorts, enviar os arquivos para um storage S3-compativel e despachar o resultado para um webhook.
+Microservico independente para baixar YouTube Shorts de um canal, enviar os arquivos para um storage S3-compativel e disparar um webhook por item terminado.
+
+Sem banco, sem migrations, sem polling. Tudo vive na thread.
 
 ## Rodar
 
@@ -9,113 +11,70 @@ cd download-shorts
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 cp .env.example .env
-.venv/bin/alembic upgrade head
 .venv/bin/python -m app.main
 ```
 
-`AUTO_CREATE_TABLES=true` tambem cria as tabelas no startup. Em producao, prefira `AUTO_CREATE_TABLES=false` e rode `alembic upgrade head`.
+Default port: `8770`.
 
-Configuracao de banco segue o formato separado:
-
-```env
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=download_shorts
-DB_USERNAME=root
-DB_PASSWORD=root
-```
-
-## Criar download
+## Disparar download
 
 ```bash
 curl -X POST http://127.0.0.1:8770/shorts/download \
   -H 'Content-Type: application/json' \
   -d '{
     "channel_url": "https://www.youtube.com/@canal",
-    "webhook_url": "https://app.com/api/shorts/callback",
-    "dispatch_on_complete": true
+    "webhook_url": "https://app.com/api/shorts/callback"
   }'
 ```
 
-Resposta:
+Resposta sincrona (apos listar via yt-dlp):
 
 ```json
-{"job_id":"uuid","status":"accepted"}
+{"status":"started","count":42,"channel_url":"https://www.youtube.com/@canal"}
 ```
+
+A partir dai, cada Short concluido (ou falhado) cai como uma chamada POST no `webhook_url`.
+
+Se o canal ja tem um download ativo no processo, responde `409 channel already downloading`.
 
 ## Estrutura
 
 ```text
 app/
-  main.py
+  main.py            # /health + POST /shorts/download
   schemas.py
-  config/
-  database/
-  jobs/
-  storage/
-  youtube/
+  jobs/worker.py     # pool de download e webhook por item
+  youtube/client.py  # wrappers yt_dlp
+  storage/client.py  # wrapper boto3 S3
+  config/settings.py
 ```
 
-## Consultar status
-
-```bash
-curl http://127.0.0.1:8770/shorts/download/<job_id>
-```
-
-## Disparar manualmente
-
-Quando `dispatch_on_complete=false`, os itens concluidos ficam com `dispatch_status=pending`.
-
-Enviar em lote de 50:
-
-```bash
-curl -X POST http://127.0.0.1:8770/shorts/download/<job_id>/dispatch \
-  -H 'Content-Type: application/json' \
-  -d '{"mode":"batch","batch_size":50}'
-```
-
-Enviar todos os pendentes:
-
-```bash
-curl -X POST http://127.0.0.1:8770/shorts/download/<job_id>/dispatch \
-  -H 'Content-Type: application/json' \
-  -d '{"mode":"all"}'
-```
-
-Enviar o proximo lote pendente de todos os jobs para um webhook e remover do
-banco do microservico apenas apos sucesso no webhook:
-
-```bash
-curl -X POST http://127.0.0.1:8770/shorts/dispatch \
-  -H 'Content-Type: application/json' \
-  -d '{"mode":"batch","batch_size":1000,"webhook_url":"http://app.test/api/download-youtube/webhook","delete_after_dispatch":true}'
-```
-
-## Payload do webhook
+## Payload do webhook (1 item por chamada)
 
 ```json
 {
-  "event": "shorts.download.dispatched",
-  "job_id": "uuid",
   "channel_url": "https://www.youtube.com/@canal",
-  "summary": {
-    "total": 500,
-    "completed": 492,
-    "failed": 8
-  },
   "items": [
     {
       "youtube_id": "abc123",
-      "download_url": "https://www.youtube.com/shorts/abc123",
-      "title": "Titulo",
-      "hashtags": ["#shorts"],
+      "title": "Titulo do video",
+      "hashtags": ["#a", "#b"],
+      "status": "completed",
       "storage_path": "shorts/abc123.mp4",
-      "storage": {
-        "path": "shorts/abc123.mp4",
-        "size_bytes": 123456,
-        "mime_type": "video/mp4"
-      }
+      "storage_size_bytes": 123456,
+      "storage_mime_type": "video/mp4"
     }
   ]
 }
 ```
+
+Para falhas, `status: "failed"` e `error` no item. O webhook usa retry com backoff (1s/5s/15s) antes de desistir.
+
+## Configuracao
+
+| Var | Default | O que faz |
+| --- | --- | --- |
+| `DOWNLOAD_WORKERS` | `4` | tamanho do `ThreadPoolExecutor` |
+| `MAX_ATTEMPTS` | `3` | tentativas por item (download+upload+verify) |
+| `WEBHOOK_TIMEOUT_SECONDS` | `30` | timeout de cada POST do webhook |
+| `STORAGE_*` | — | credenciais e bucket S3-compativel |

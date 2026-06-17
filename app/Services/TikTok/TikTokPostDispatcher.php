@@ -5,24 +5,21 @@ declare(strict_types=1);
 namespace App\Services\TikTok;
 
 use App\Models\TiktokPost;
-use App\Services\Youtube\ShortsDownloaderClient;
-use Illuminate\Support\Arr;
+use App\Models\YoutubeShort;
 use RuntimeException;
 
 /**
  * Sorteia um Short do estoque e enfileira a postagem no TikTok.
  *
- * Fonte do estoque: o banco do microserviço download-shorts (via API). Os já
- * postados/enfileirados são excluídos consultando o ledger tiktok_posts.
- * Sem candidatos no estoque novo, cai no modo legado do uploader (sorteio
- * das pastas antigas do bucket, controladas pelo uploaded_ids.json de lá).
+ * Fonte do estoque: tabela local youtube_shorts (alimentada pelo webhook do
+ * microserviço download-shorts). Os já postados/enfileirados são excluídos
+ * consultando o ledger tiktok_posts. Sem candidatos, cai no modo legado do
+ * uploader (sorteio das pastas antigas do bucket, controladas pelo
+ * uploaded_ids.json de lá).
  */
 final readonly class TikTokPostDispatcher
 {
-    public function __construct(
-        private ShortsDownloaderClient $shorts,
-        private TikTokUploaderClient $uploader,
-    ) {}
+    public function __construct(private TikTokUploaderClient $uploader) {}
 
     /**
      * Enfileira 1 postagem. Retorna ['job_id' => ..., 'title' => ...,
@@ -40,7 +37,7 @@ final readonly class TikTokPostDispatcher
 
         $candidate = $this->pickCandidate();
 
-        if ($candidate === null) {
+        if (! $candidate instanceof YoutubeShort) {
             // Estoque novo esgotado — tenta o estoque legado (pastas no bucket).
             return [
                 'job_id' => $this->uploader->postNext(),
@@ -49,56 +46,42 @@ final readonly class TikTokPostDispatcher
             ];
         }
 
+        $title = (string) ($candidate->title) ?: $candidate->youtube_id;
+        $hashtags = array_values(array_filter(
+            (array) ($candidate->hashtags ?? []),
+            is_string(...),
+        ));
+
         $jobId = $this->uploader->createPost(
-            (string) ($candidate['storage_path']),
-            (string) ($candidate['title'] ?? '') ?: (string) ($candidate['youtube_id']),
-            array_values(array_filter((array) ($candidate['hashtags'] ?? []), is_string(...))),
-            (string) ($candidate['youtube_id']),
+            (string) ($candidate->video_path),
+            $title,
+            $hashtags,
+            $candidate->youtube_id,
         );
 
         return [
             'job_id' => $jobId,
-            'title' => (string) ($candidate['title'] ?? '') ?: null,
+            'title' => (string) ($candidate->title) ?: null,
             'source' => 'estoque',
         ];
     }
 
     /**
-     * Sorteia um item baixado que ainda não foi postado nem está na fila.
-     *
-     * @return array<string, mixed>|null
+     * Sorteia um Short baixado que ainda não foi postado nem está na fila.
      */
-    private function pickCandidate(): ?array
+    private function pickCandidate(): ?YoutubeShort
     {
-        $items = $this->shorts->listItems();
-
         /** @var list<string> $blocked */
         $blocked = TiktokPost::query()
             ->whereIn('status', TiktokPost::ACTIVE_STATUSES)
             ->whereNotNull('youtube_id')
             ->pluck('youtube_id')
             ->all();
-        $blockedSet = array_flip($blocked);
 
-        $candidates = array_values(array_filter(
-            $items,
-            function (array $item) use ($blockedSet): bool {
-                $youtubeId = (string) ($item['youtube_id'] ?? '');
-                $storagePath = (string) ($item['storage_path'] ?? '');
-
-                return $youtubeId !== ''
-                    && $storagePath !== ''
-                    && ! isset($blockedSet[$youtubeId]);
-            },
-        ));
-
-        if ($candidates === []) {
-            return null;
-        }
-
-        /** @var array<string, mixed> $picked */
-        $picked = Arr::random($candidates);
-
-        return $picked;
+        return YoutubeShort::query()
+            ->whereNotNull('video_path')
+            ->when($blocked !== [], fn ($q) => $q->whereNotIn('youtube_id', $blocked))
+            ->inRandomOrder()
+            ->first();
     }
 }
