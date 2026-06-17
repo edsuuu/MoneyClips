@@ -65,6 +65,15 @@ final readonly class AutoPostDispatcher
      */
     public function run(?int $count = null): void
     {
+        $youtubeEnabled = (bool) config('youtube_shorts.posting.youtube_enabled', true);
+        $tiktokEnabled = (bool) config('youtube_shorts.posting.tiktok_enabled', true);
+
+        if (! $youtubeEnabled && ! $tiktokEnabled) {
+            Log::warning('[AutoPost] YouTube e TikTok desativados — nada a postar.');
+
+            return;
+        }
+
         $count = max(1, $count ?? (int) config('youtube_shorts.posting.posts_per_run', 1));
 
         for ($i = 0; $i < $count; $i++) {
@@ -74,8 +83,13 @@ final readonly class AutoPostDispatcher
                 break;
             }
 
-            $this->postYoutube($short);
-            $this->queueTiktok($short);
+            if ($youtubeEnabled) {
+                $this->postYoutube($short);
+            }
+
+            if ($tiktokEnabled) {
+                $this->queueTiktok($short);
+            }
         }
 
         $this->warnIfLowStock();
