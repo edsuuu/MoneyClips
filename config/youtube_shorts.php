@@ -38,6 +38,11 @@ return [
         'category_id' => env('YOUTUBE_CATEGORY_ID', '22'),
         'posts_per_run' => (int) env('YOUTUBE_POSTS_PER_RUN', 1),
         'low_stock_threshold' => (float) env('YOUTUBE_LOW_STOCK_THRESHOLD', 0.20),
+
+        // Liga/desliga cada plataforma na auto-postagem (cron). Para pausar uma,
+        // defina a env como false no .env e rode `php artisan config:clear`.
+        'youtube_enabled' => (bool) env('AUTO_POST_YOUTUBE_ENABLED', true),
+        'tiktok_enabled' => (bool) env('AUTO_POST_TIKTOK_ENABLED', true),
     ],
 
     // Webhook do Discord para notificar postagens, falhas e estoque baixo.
