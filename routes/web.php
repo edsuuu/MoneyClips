@@ -32,7 +32,6 @@ Route::middleware(['auth'])->group(function (): void {
 
     // Auto-postagem de Shorts (pipeline unificado do auto-post).
     Route::view('/shorts', 'shorts.index')->name('shorts.index');
-    Route::view('/shorts/download', 'shorts.download')->name('shorts.download');
 
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
