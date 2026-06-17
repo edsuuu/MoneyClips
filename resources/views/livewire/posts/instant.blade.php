@@ -35,7 +35,7 @@
                             >{{ $short->youtube_id }}</a>
                         </div>
                         <div class="flex flex-wrap gap-2">
-                            @if($short->posted_at)
+                            @if($short->wasPostedToYoutube())
                                 <x-ui.badge color="green" size="sm">YouTube postado</x-ui.badge>
                             @else
                                 <x-ui.badge color="zinc" size="sm">YouTube disponível</x-ui.badge>
@@ -75,7 +75,7 @@
                         <x-ui.checkbox
                             wire:model="postYoutube"
                             label="YouTube"
-                            :disabled="$short->posted_at !== null || ! $youtubeReady"
+                            :disabled="$short->wasPostedToYoutube() || ! $youtubeReady"
                         />
                         <x-ui.checkbox
                             wire:model="postTiktok"

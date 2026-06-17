@@ -93,7 +93,7 @@
                                     {{ $short->downloaded_at?->format('d/m/Y H:i') ?? '—' }}
                                 </td>
                                 <td class="px-3 py-2.5">
-                                    @if($short->posted_at !== null)
+                                    @if($short->wasPostedToYoutube())
                                         <x-ui.badge color="green" size="sm">Postado</x-ui.badge>
                                         @if($short->youtube_video_id)
                                             <a
@@ -110,7 +110,7 @@
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5 text-right">
-                                    @if($short->posted_at === null && $short->video_path !== null)
+                                    @if(! $short->wasPostedToYoutube() && $short->video_path !== null)
                                         <x-ui.button
                                             wire:click="postNow({{ $short->id }})"
                                             wire:confirm="Postar este Short no YouTube agora?"
