@@ -21,7 +21,7 @@ pra rodar via compose.
 **Standalone (sem Docker):**
 
 ```bash
-cd MicroServices/download-shorts
+cd MicroServices/DownloadShorts
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 cp .env.example .env   # ajuste se precisar de credenciais diferentes

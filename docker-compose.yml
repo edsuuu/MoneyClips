@@ -1,7 +1,7 @@
 services:
   download-shorts:
     build:
-      context: ./MicroServices/download-shorts
+      context: ./MicroServices/DownloadShorts
       target: runtime
     image: gcl-download-shorts
     restart: unless-stopped
@@ -42,7 +42,7 @@ services:
 
   tiktok-uploader:
     build:
-      context: ./MicroServices/TikTokAutoUploader
+      context: ./MicroServices/TikTokUploader
     image: gcl-tiktok-uploader
     restart: unless-stopped
     ports:
@@ -50,7 +50,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     env_file:
-      - ./MicroServices/TikTokAutoUploader/.env
+      - ./MicroServices/TikTokUploader/.env
     environment:
       # MinIO/S3 do host; o container é headless (sem display, sem QR Code).
       AWS_ENDPOINT: "http://host.docker.internal:9000"
@@ -58,7 +58,7 @@ services:
       API_PORT: "8090"
     volumes:
       # Sessão do TikTok gerada fora do container (login local com HEADLESS=false).
-      - ./MicroServices/TikTokAutoUploader/cookies:/app/cookies
+      - ./MicroServices/TikTokUploader/cookies:/app/cookies
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:8090/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
       interval: 30s
