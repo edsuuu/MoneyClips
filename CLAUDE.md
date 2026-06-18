@@ -161,6 +161,46 @@ item terminado** (success ou failed). Sem banco — estado vive na thread.
   `/api/download-youtube/webhook` → `DownloadYoutubeImportService` insere em
   `youtube_shorts`.
 
+## Microserviço tiktok-uploader (Node + Playwright, porta 8090)
+
+Vive em `MicroServices/TikTokUploader/`. Publica Shorts no TikTok via
+navegador (Playwright headless), com login automático por email/senha ou
+cookies pré-gerados. Sem banco — devolve o ciclo de vida do post pelo
+webhook configurado.
+
+- `POST /posts` (body: `{ video_id, webhook_url, title, hashtags, video_key? }`)
+  enfileira; `GET /session` confere expiração de cookie; `POST /login`
+  dispara login explícito; `POST /session` injeta cookies exportados.
+- `cookies/` montado como volume: gere o login local com `HEADLESS=false`
+  fora do container e o resultado é carregado pelo container headless.
+- `DRY_RUN=true` (default) executa tudo menos publicar. Pra produção,
+  setar `false` no `.env` raiz ou via shell.
+- Subir: `docker compose up -d --build tiktok-uploader` na raiz; defaults
+  apontam pra MinIO local em `host.docker.internal:9000`, bucket `video`,
+  prefix `shorts/`.
+- Lado Laravel: cliente `App\Services\TikTok\TiktokPostService::queuePost()`.
+
+## Rodar tudo (Laravel + microserviços)
+
+Tudo via 1 compose na raiz (Sail no Laravel; MySQL e MinIO continuam
+externos no host):
+
+```bash
+docker compose up -d --build
+```
+
+Sobe:
+- `laravel` (Sail PHP 8.4) → `http://127.0.0.1:8000`
+- `download-shorts` (FastAPI) → `http://127.0.0.1:8770`
+- `tiktok-uploader` (Node) → `http://127.0.0.1:8090`
+
+O container `laravel` injeta `DB_HOST=host.docker.internal` e
+`MINIO_ENDPOINT=http://host.docker.internal:9000` por cima do `.env` —
+o `.env` continua valendo `127.0.0.1` pra `php artisan` nativo no host.
+
+`generate-clips` continua nativo no host (GPU Metal/MLX, ffmpeg
+videotoolbox; macOS não passa GPU pro container).
+
 ## Repositórios relacionados
 
 - `edsuuu/auto-post` — **absorvido por este repo** (mantido só como histórico).

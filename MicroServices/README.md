@@ -21,19 +21,24 @@ local. A pasta é versionada — só `.env`, `cookies/*.json`, `.venv/`,
 ## Como subir (a partir da RAIZ do projeto Laravel)
 
 ```bash
-make micro-setup     # cria os .env faltantes a partir dos .env.example
-# revise MicroServices/*/.env (segredos, contas, DRY_RUN...)
-make micro-up        # build + sobe download-shorts (8770) e tiktok-uploader (8090)
-make micro-ps        # status
-make micro-logs      # logs ao vivo
+docker compose up -d --build       # sobe laravel + download-shorts + tiktok-uploader
+docker compose ps                  # status
+docker compose logs -f             # logs ao vivo
+docker compose down                # derruba
 ```
+
+Sobe 3 containers: `laravel` (Sail PHP 8.4, porta 8000), `download-shorts`
+(8770) e `tiktok-uploader` (8090). MySQL e MinIO ficam externos no host
+(acessados via `host.docker.internal`).
 
 ### Pré-requisitos no host
 - **Docker Desktop**.
+- **MySQL** no ar (banco do `.env` do Laravel já criado).
 - **MinIO** no ar (S3-compatível) com o bucket esperado pelos serviços
-  (o compose default usa `auto-post` com `minioadmin/minioadmin`).
-- **Laravel** servindo em `0.0.0.0` para receber os callbacks dos containers:
-  `php artisan serve --host=0.0.0.0` (o `composer dev` já levanta o restante).
+  (compose default: bucket `video`, `minioadmin/minioadmin`).
+- O Laravel agora roda no próprio compose (service `laravel`, Sail PHP 8.4),
+  então não precisa `php artisan serve` à parte. Pra dev nativo no host
+  (sem container), siga rodando com `composer dev`.
 
 ### Rede (importante)
 Os containers usam bridge networking + `host.docker.internal`:

@@ -52,24 +52,38 @@ Pré-requisitos de infra no host (reaproveitados pelos containers via
 
 ## Rodando localmente
 
-### 1. Laravel
+Pré-requisitos no host: **Docker Desktop**, **MySQL** com o banco do `.env`
+criado e **MinIO** no ar com o bucket `video`.
+
+### Tudo em container (recomendado)
+
 ```bash
-composer setup                         # install + env + key + pnpm + build
-php artisan serve --host=0.0.0.0       # 0.0.0.0 p/ os containers alcançarem os callbacks
-composer dev                           # queue:listen + pail + vite (em paralelo)
-php artisan schedule:work              # agendamentos (publicações + shorts)
+docker compose up -d --build       # sobe laravel + download-shorts + tiktok-uploader
+docker compose ps                  # status
+docker compose logs -f laravel     # logs do Laravel
+docker compose down                # derruba
 ```
 
-### 2. Microserviços
-```bash
-make micro-setup     # cria os MicroServices/*/.env a partir dos .env.example
-# revise os .env (segredos, contas, DRY_RUN)
-make micro-up        # build + sobe download-shorts (8770) e tiktok-uploader (8090)
-make micro-ps        # status   |   make micro-logs (logs)   |   make micro-down (parar)
-```
-E o generate-clips nativo:
+Sobe 3 containers: **laravel** (Sail PHP 8.4, `127.0.0.1:8000`),
+**download-shorts** (`8770`), **tiktok-uploader** (`8090`). MySQL e MinIO
+ficam externos no host (`host.docker.internal:3306` e `:9000`).
+
+`generate-clips` continua nativo no host (GPU Metal não passa pra container):
+
 ```bash
 cd MicroServices/GenerateClips && python main.py   # API em 127.0.0.1:8765
+```
+
+### Dev nativo (sem container do Laravel)
+
+```bash
+composer setup                         # install + env + key + pnpm + build
+composer dev                           # serve + queue:listen + pail + vite
+php artisan schedule:work              # agendamentos (publicações + shorts)
+```
+Microserviços containerizados continuam funcionando:
+```bash
+docker compose up -d --build download-shorts tiktok-uploader
 ```
 
 > **TikTok:** o container é headless (sem QR Code). Gere os cookies de sessão
