@@ -10,7 +10,18 @@ from urllib.parse import parse_qs, urlparse
 
 import yt_dlp
 
+from app.config.settings import settings
+
 logger = logging.getLogger("shorts.youtube")
+
+
+def _video_encoder_args() -> list[str]:
+    encoder = settings.gpu_encoder
+    if encoder == "nvenc":
+        return ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "23", "-c:a", "copy"]
+    if encoder == "videotoolbox":
+        return ["-c:v", "h264_videotoolbox", "-b:v", "8M", "-c:a", "copy"]
+    return []
 
 
 @dataclass(frozen=True)
@@ -118,7 +129,12 @@ def _progress_hook(label: str) -> Callable[[dict[str, Any]], None]:
 def download_short(download_url: str, output_dir: Path, label: str | None = None) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     options = {
-        "format": "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "format": (
+            "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]"
+            "/bestvideo+bestaudio"
+            "/best"
+        ),
+        "format_sort": ["res", "fps", "vbr", "abr"],
         "merge_output_format": "mp4",
         "outtmpl": str(output_dir / "source.%(ext)s"),
         "quiet": True,
@@ -126,6 +142,7 @@ def download_short(download_url: str, output_dir: Path, label: str | None = None
         "noplaylist": True,
         "progress_hooks": [_progress_hook(label or download_url)],
         "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
+        "postprocessor_args": {"FFmpegVideoConvertor": _video_encoder_args()},
     }
 
     with yt_dlp.YoutubeDL(options) as ydl:
