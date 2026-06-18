@@ -11,26 +11,28 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    api_host: str = "0.0.0.0"
-    api_port: int = 8770
+    api_host: str
+    api_port: int
 
-    log_level: str = "INFO"
+    log_level: str
 
-    storage_endpoint: str = "http://127.0.0.1:9000"
-    storage_access_key: str = "storageadmin"
-    storage_secret_key: str = "storageadmin"
-    storage_bucket: str = "auto-post"
-    storage_secure: bool = False
-    storage_region: str = "us-east-1"
-    storage_use_path_style: bool = True
-    storage_path_prefix: str = "shorts"
+    storage_endpoint: str
+    storage_access_key: str
+    storage_secret_key: str
+    storage_bucket: str
+    storage_secure: bool
+    storage_region: str
+    storage_use_path_style: bool
+    storage_path_prefix: str
 
-    temp_dir: Path = Path("/tmp/download-shorts")
-    download_workers: int = 4
-    max_attempts: int = 3
+    temp_dir: Path
+    download_workers: int
+    max_attempts: int
 
-    webhook_timeout_seconds: float = 30.0
-    webhook_retry_delays_seconds: tuple[float, ...] = (1.0, 5.0, 15.0)
+    webhook_timeout_seconds: float
+    # Atrasos (segundos) entre tentativas de webhook. Passar como JSON no env:
+    # WEBHOOK_RETRY_DELAYS_SECONDS=[1.0,5.0,15.0]
+    webhook_retry_delays_seconds: list[float]
 
 
 @lru_cache

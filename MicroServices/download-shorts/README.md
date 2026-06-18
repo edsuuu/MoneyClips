@@ -6,11 +6,25 @@ Sem banco, sem migrations, sem polling. Tudo vive na thread.
 
 ## Rodar
 
+**Via Docker (recomendado, sobe junto com os outros microservicos):**
+
 ```bash
-cd download-shorts
+# A partir da RAIZ do generate-clips-laravel:
+docker compose up -d --build download-shorts
+```
+
+O compose ja vem com defaults de dev (MinIO local `minioadmin/minioadmin`,
+bucket `auto-post`). Para producao, sobrescreva as variaveis `STORAGE_*` no
+shell ou edite o `docker-compose.yml`. Nao precisa de `.env` neste diretorio
+pra rodar via compose.
+
+**Standalone (sem Docker):**
+
+```bash
+cd MicroServices/download-shorts
 python -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
-cp .env.example .env
+cp .env.example .env   # ajuste se precisar de credenciais diferentes
 .venv/bin/python -m app.main
 ```
 
