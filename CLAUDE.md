@@ -137,11 +137,32 @@ php artisan test    # suíte Pest
 - Convenções: `declare(strict_types=1)`, classes `final`, comentários e UI em
   pt-BR.
 
+## Microserviço download-shorts (FastAPI, porta 8770)
+
+Vive em `MicroServices/download-shorts/`. Magro e síncrono: recebe um
+`channel_url` + `webhook_url`, lista os Shorts via `yt-dlp`, baixa em pool
+(`ThreadPoolExecutor`, `DOWNLOAD_WORKERS=4-8`) e dispara **1 webhook por
+item terminado** (success ou failed). Sem banco — estado vive na thread.
+
+- `POST /shorts/download` → `202 {status: "started", count, channel_url}`
+  (síncrono na listagem). `409` se já há download ativo pro canal.
+- `GET /health`.
+- Payload do webhook (sempre 1 item):
+  `{ channel_url, items: [{ youtube_id, title, hashtags, status, storage_path?, storage_size_bytes?, storage_mime_type?, error? }] }`.
+- Retry de webhook embutido: 3 tentativas com backoff 1s/5s/15s.
+- Subir: `docker compose up -d --build download-shorts` na raiz (defaults de
+  dev no compose: MinIO local em `host.docker.internal:9000`, bucket `video`,
+  `minioadmin/minioadmin`). Standalone: `cd MicroServices/download-shorts &&
+  .venv/bin/python -m app.main`.
+- Settings (em `app/config/settings.py`) **sem defaults** — falha cedo se
+  faltar env. Lista completa em `.env.example`.
+- Lado Laravel: cliente único `App\Services\Youtube\DownloadShortsClient`
+  (`createDownload(channelUrl): int`, retorna `count`). Webhook recebido em
+  `/api/download-youtube/webhook` → `DownloadYoutubeImportService` insere em
+  `youtube_shorts`.
+
 ## Repositórios relacionados
 
 - `edsuuu/auto-post` — **absorvido por este repo** (mantido só como histórico).
 - Serviço Python de processamento de vídeo — projeto separado local
   (FastAPI + MinIO + webhook), não versionado aqui.
-- `download-shorts` — microserviço Python local (`~/projects/download-shorts`,
-  FastAPI porta 8770) que baixa Shorts de canais para o storage Contabo e
-  mantém os itens no banco próprio até o despacho.

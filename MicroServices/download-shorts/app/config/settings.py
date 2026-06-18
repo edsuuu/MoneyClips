@@ -30,8 +30,6 @@ class Settings(BaseSettings):
     max_attempts: int
 
     webhook_timeout_seconds: float
-    # Atrasos (segundos) entre tentativas de webhook. Passar como JSON no env:
-    # WEBHOOK_RETRY_DELAYS_SECONDS=[1.0,5.0,15.0]
     webhook_retry_delays_seconds: list[float]
 
 

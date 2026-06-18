@@ -21,7 +21,7 @@ _active_lock = threading.Lock()
 
 
 class ChannelAlreadyDownloading(Exception):
-    """Disparado quando há outro download em andamento para o mesmo canal."""
+    pass
 
 
 def start_download(channel_url: str, webhook_url: str) -> int:
@@ -98,7 +98,6 @@ def _process_one(
     work_dir = settings.temp_dir / video.youtube_id
 
     try:
-        # Idempotência: se já existe no storage, só notifica.
         if storage.exists(object_path):
             stat = storage.stat(object_path)
             _send_webhook(
