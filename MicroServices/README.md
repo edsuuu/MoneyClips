@@ -11,7 +11,7 @@ local. A pasta é versionada — só `.env`, `cookies/*.json`, `.venv/`,
 | Serviço | Stack | Porta | Docker? | Acessa |
 | --- | --- | --- | --- | --- |
 | `download-shorts` | Python / FastAPI | 8770 | ✅ (compose) | S3/MinIO (sem banco — webhook por item) |
-| `TikTokAutoUploader` | Node 22 + Playwright | 8090 | ✅ (compose) | S3/MinIO, TikTok (web), Discord |
+| `tiktok-uploader` | Node 22 + Playwright | 8090 | ✅ (compose) | S3/MinIO, TikTok (web), Discord |
 | `generate-clips` | Python / FastAPI | 8765 | ❌ nativo no host | MinIO, LLMs, Whisper, ffmpeg |
 
 > **generate-clips não está no Docker.** Usa GPU (Whisper MLX/Metal e ffmpeg
@@ -47,7 +47,7 @@ Os containers usam bridge networking + `host.docker.internal`:
 ## generate-clips (nativo no host)
 
 ```bash
-cd MicroServices/generate-clips
+cd MicroServices/GenerateClips
 python -m venv .venv && source .venv/bin/activate   # primeira vez
 pip install -r requirements.txt
 cp .env.example .env   # se ainda não existir
@@ -58,7 +58,7 @@ python main.py         # sobe a API em 127.0.0.1:8765
 
 O container é **headless** (sem QR Code). Gere os cookies de sessão **fora** do
 container (login local com `HEADLESS=false`) e eles são carregados pelo volume
-`MicroServices/TikTokAutoUploader/cookies/`. Mantenha `DRY_RUN=true` enquanto
+`MicroServices/TikTokUploader/cookies/`. Mantenha `DRY_RUN=true` enquanto
 testa — publicação é irreversível.
 
 ## Voltou a divergir do repo original?

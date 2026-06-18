@@ -24,7 +24,7 @@ versionados em [`MicroServices/`](MicroServices/) (ver
 | Serviço | Stack | Porta | Como roda | Papel | Acessa |
 | --- | --- | --- | --- | --- | --- |
 | **download-shorts** | Python / FastAPI | 8770 | Docker (compose) | baixa Shorts de canais p/ o storage e cria jobs de download | MySQL `download_shorts`, S3/MinIO |
-| **TikTokAutoUploader** | Node 22 + Playwright | 8090 | Docker (compose) | publica vídeos no TikTok via navegador; devolve o resultado por webhook | S3/MinIO, TikTok (web), Discord |
+| **tiktok-uploader** | Node 22 + Playwright | 8090 | Docker (compose) | publica vídeos no TikTok via navegador; devolve o resultado por webhook | S3/MinIO, TikTok (web), Discord |
 | **generate-clips** (video processor) | Python / FastAPI | 8765 | **Nativo no host** | download/transcrição/render dos cortes; responde via webhook | MinIO, LLMs, Whisper, ffmpeg |
 
 > **Por que generate-clips fica fora do Docker?** Usa GPU (Whisper MLX/Metal e
@@ -45,7 +45,7 @@ Pré-requisitos de infra no host (reaproveitados pelos containers via
    OAuth em `social_accounts`; agendamento em `scheduled_posts`
    (`social:publish-due`, scheduler). Dashboard em `/posts`.
 3. **Auto-postagem de Shorts** — baixa Shorts (**download-shorts**, 8770) → estoque
-   no MinIO → sorteia e posta no YouTube/TikTok (**TikTokAutoUploader**, 8090).
+   no MinIO → sorteia e posta no YouTube/TikTok (**tiktok-uploader**, 8090).
    Página `/shorts`.
 
 (Detalhes de tabelas, serviços e comandos artisan em `CLAUDE.md`.)
@@ -69,7 +69,7 @@ make micro-ps        # status   |   make micro-logs (logs)   |   make micro-down
 ```
 E o generate-clips nativo:
 ```bash
-cd MicroServices/generate-clips && python main.py   # API em 127.0.0.1:8765
+cd MicroServices/GenerateClips && python main.py   # API em 127.0.0.1:8765
 ```
 
 > **TikTok:** o container é headless (sem QR Code). Gere os cookies de sessão

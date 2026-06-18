@@ -139,7 +139,7 @@ php artisan test    # suíte Pest
 
 ## Microserviço download-shorts (FastAPI, porta 8770)
 
-Vive em `MicroServices/download-shorts/`. Magro e síncrono: recebe um
+Vive em `MicroServices/DownloadShorts/`. Magro e síncrono: recebe um
 `channel_url` + `webhook_url`, lista os Shorts via `yt-dlp`, baixa em pool
 (`ThreadPoolExecutor`, `DOWNLOAD_WORKERS=4-8`) e dispara **1 webhook por
 item terminado** (success ou failed). Sem banco — estado vive na thread.
@@ -152,7 +152,7 @@ item terminado** (success ou failed). Sem banco — estado vive na thread.
 - Retry de webhook embutido: 3 tentativas com backoff 1s/5s/15s.
 - Subir: `docker compose up -d --build download-shorts` na raiz (defaults de
   dev no compose: MinIO local em `host.docker.internal:9000`, bucket `video`,
-  `minioadmin/minioadmin`). Standalone: `cd MicroServices/download-shorts &&
+  `minioadmin/minioadmin`). Standalone: `cd MicroServices/DownloadShorts &&
   .venv/bin/python -m app.main`.
 - Settings (em `app/config/settings.py`) **sem defaults** — falha cedo se
   faltar env. Lista completa em `.env.example`.
