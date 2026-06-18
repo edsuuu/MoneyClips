@@ -10,7 +10,7 @@ local. A pasta é versionada — só `.env`, `cookies/*.json`, `.venv/`,
 
 | Serviço | Stack | Porta | Docker? | Acessa |
 | --- | --- | --- | --- | --- |
-| `download-shorts` | Python / FastAPI | 8770 | ✅ (compose) | MySQL (`download_shorts`), S3/MinIO |
+| `download-shorts` | Python / FastAPI | 8770 | ✅ (compose) | S3/MinIO (sem banco — webhook por item) |
 | `TikTokAutoUploader` | Node 22 + Playwright | 8090 | ✅ (compose) | S3/MinIO, TikTok (web), Discord |
 | `generate-clips` | Python / FastAPI | 8765 | ❌ nativo no host | MinIO, LLMs, Whisper, ffmpeg |
 
@@ -30,10 +30,8 @@ make micro-logs      # logs ao vivo
 
 ### Pré-requisitos no host
 - **Docker Desktop**.
-- **MySQL** no ar com o banco `download_shorts` criado (o serviço roda as
-  migrations Alembic, mas não cria o database):
-  `CREATE DATABASE IF NOT EXISTS download_shorts;`
-- **MinIO** no ar (S3-compatível) com o bucket esperado pelos serviços.
+- **MinIO** no ar (S3-compatível) com o bucket esperado pelos serviços
+  (o compose default usa `auto-post` com `minioadmin/minioadmin`).
 - **Laravel** servindo em `0.0.0.0` para receber os callbacks dos containers:
   `php artisan serve --host=0.0.0.0` (o `composer dev` já levanta o restante).
 
@@ -41,9 +39,9 @@ make micro-logs      # logs ao vivo
 Os containers usam bridge networking + `host.docker.internal`:
 - O **Laravel (host) → containers** pelas portas publicadas: `127.0.0.1:8770`,
   `127.0.0.1:8090`.
-- Os **containers → host** (MySQL, MinIO e callbacks do Laravel) via
-  `host.docker.internal`. Por isso o `docker-compose.yml` sobrescreve
-  `DB_HOST`, `STORAGE_ENDPOINT`/`AWS_ENDPOINT` e o `.env` do Laravel aponta os
+- Os **containers → host** (MinIO e callbacks do Laravel) via
+  `host.docker.internal`. Por isso o `docker-compose.yml` na raiz sobrescreve
+  `STORAGE_ENDPOINT`/`AWS_ENDPOINT` e o `.env` do Laravel aponta os
   callbacks (`*_WEBHOOK_URL`/`*_CALLBACK_URL`) para `host.docker.internal:8000`.
 
 ## generate-clips (nativo no host)

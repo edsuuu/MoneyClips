@@ -1,24 +1,3 @@
-# docker-compose.yml — orquestra os microserviços do generate-clips-laravel.
-#
-# Sobe 2 containers (o terceiro, generate-clips, roda nativo no host por usar
-# GPU Metal/videotoolbox, indisponível em container no macOS):
-#
-#   download-shorts  (FastAPI)          → http://127.0.0.1:8770
-#   tiktok-uploader  (Node + Playwright) → http://127.0.0.1:8090
-#
-# Banco (MySQL) e storage (MinIO) NÃO sobem aqui: os containers acessam os do
-# host via host.docker.internal. Por isso cada serviço carrega seu próprio .env
-# (em MicroServices/<serviço>/.env) e este arquivo sobrescreve só os endpoints
-# de rede (127.0.0.1/localhost dentro do container = o próprio container).
-#
-# Subir:  make micro-up        (ou: docker compose up -d --build)
-# Logs:   make micro-logs
-# Parar:  make micro-down
-#
-# Pré-requisitos no host: MySQL com o banco `download_shorts`, MinIO no ar, e o
-# Laravel servindo em 0.0.0.0:8000 (php artisan serve --host=0.0.0.0) para
-# receber os callbacks de webhook em host.docker.internal:8000.
-
 services:
   download-shorts:
     build:
@@ -30,16 +9,26 @@ services:
       - "8770:8770"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - ./MicroServices/download-shorts/.env
     environment:
-      # Overrides de rede: dentro do container, 127.0.0.1 é o próprio container.
       API_HOST: "0.0.0.0"
       API_PORT: "8770"
-      DB_HOST: "host.docker.internal"
-      STORAGE_ENDPOINT: "http://host.docker.internal:9000"
-    command: >
-      sh -c "python -m alembic upgrade head && python -m app.main"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+
+      STORAGE_ENDPOINT: "${STORAGE_ENDPOINT:-http://host.docker.internal:9000}"
+      STORAGE_ACCESS_KEY: "${STORAGE_ACCESS_KEY:-minioadmin}"
+      STORAGE_SECRET_KEY: "${STORAGE_SECRET_KEY:-minioadmin}"
+      STORAGE_BUCKET: "${STORAGE_BUCKET:-video}"
+      STORAGE_SECURE: "${STORAGE_SECURE:-false}"
+      STORAGE_REGION: "${STORAGE_REGION:-us-east-1}"
+      STORAGE_USE_PATH_STYLE: "${STORAGE_USE_PATH_STYLE:-true}"
+      STORAGE_PATH_PREFIX: "${STORAGE_PATH_PREFIX:-shorts}"
+
+      TEMP_DIR: "${TEMP_DIR:-/tmp/download-shorts}"
+      DOWNLOAD_WORKERS: "${DOWNLOAD_WORKERS:-4}"
+      MAX_ATTEMPTS: "${MAX_ATTEMPTS:-3}"
+      WEBHOOK_TIMEOUT_SECONDS: "${WEBHOOK_TIMEOUT_SECONDS:-30}"
+      WEBHOOK_RETRY_DELAYS_SECONDS: "${WEBHOOK_RETRY_DELAYS_SECONDS:-[1.0,5.0,15.0]}"
+    command: ["python", "-m", "app.main"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8770/health')\" || exit 1"]
       interval: 30s
