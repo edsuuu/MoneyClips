@@ -3,7 +3,6 @@
         <div class="flex items-center justify-between gap-4">
             <div>
                 <x-ui.heading size="xl" level="1">Microserviços</x-ui.heading>
-                <x-ui.subheading size="lg">Status (/health) e logs dos containers — ferramenta local de dev.</x-ui.subheading>
             </div>
             <div class="flex items-center gap-3">
                 <x-ui.checkbox wire:model.live="autoRefresh" label="Auto-atualizar (5s)" />
@@ -23,15 +22,10 @@
                 <div class="flex items-start justify-between gap-3">
                     <div>
                         <div class="text-base font-semibold text-slate-100">{{ $service['label'] }}</div>
-                        <div class="text-xs text-slate-500">{{ $service['url'] }}</div>
                     </div>
                     <x-ui.badge :color="$service['up'] ? 'green' : 'red'" size="sm" class="min-h-7 px-3">
-                        {{ $service['up'] ? 'No ar' : 'Offline' }}
+                        {{ $service['up'] ? 'Online' : 'Offline' }}
                     </x-ui.badge>
-                </div>
-
-                <div class="mt-3 truncate font-mono text-xs text-slate-400" title="{{ $service['detail'] }}">
-                    {{ $service['detail'] !== '' ? $service['detail'] : '—' }}
                 </div>
 
                 @if($service['docker'])

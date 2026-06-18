@@ -12,7 +12,15 @@ This repository must stay independent from the parent `generate-clips` pipeline.
 
 ## Common Commands
 
-Always use the local virtualenv when available.
+Via Docker (canal oficial — sobe a partir da RAIZ do generate-clips-laravel,
+ja com defaults de dev no `docker-compose.yml`):
+
+```bash
+docker compose up -d --build download-shorts
+docker compose logs -f download-shorts
+```
+
+Sem Docker (rodando standalone com virtualenv):
 
 ```bash
 python -m venv .venv

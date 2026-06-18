@@ -1,9 +1,3 @@
-"""Núcleo do download-shorts: lista os Shorts de um canal e baixa em pool.
-
-Cada item concluído (ou falhado) dispara um webhook único para o orquestrador
-(Laravel). Não há banco — o ciclo de vida dos itens vive na thread.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -31,12 +25,6 @@ class ChannelAlreadyDownloading(Exception):
 
 
 def start_download(channel_url: str, webhook_url: str) -> int:
-    """Lista os Shorts do canal e dispara o pool de downloads em background.
-
-    Retorna a quantidade de Shorts listados. Cada item terminado vai ao
-    webhook automaticamente (1 POST por item). Lança ChannelAlreadyDownloading
-    se já há um download ativo para o mesmo canal nesse processo.
-    """
     normalized = channel_url.strip().rstrip("/")
     with _active_lock:
         if normalized in _active_channels:
@@ -183,7 +171,6 @@ def _build_payload(
 
 
 def _send_webhook(webhook_url: str, payload: dict[str, Any]) -> None:
-    """POST com retry e backoff. Falha silenciosa após esgotar tentativas."""
     delays = settings.webhook_retry_delays_seconds
     timeout = settings.webhook_timeout_seconds
 
