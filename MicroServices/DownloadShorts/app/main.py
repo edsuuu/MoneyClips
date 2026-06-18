@@ -5,13 +5,24 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
+from pydantic import BaseModel, HttpUrl
 
 from app.config.settings import settings
 from app.jobs.worker import ChannelAlreadyDownloading, start_download
 from app.logging_config import configure_logging
-from app.schemas import AcceptedResponse, DownloadRequest
 
 logger = logging.getLogger("shorts.api")
+
+
+class DownloadRequest(BaseModel):
+    channel_url: HttpUrl
+    webhook_url: HttpUrl
+
+
+class AcceptedResponse(BaseModel):
+    status: str = "started"
+    count: int
+    channel_url: str
 
 
 @asynccontextmanager
