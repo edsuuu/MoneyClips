@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -31,6 +32,8 @@ class Settings(BaseSettings):
 
     webhook_timeout_seconds: float
     webhook_retry_delays_seconds: list[float]
+
+    gpu_encoder: Literal["none", "nvenc", "videotoolbox"]
 
 
 @lru_cache

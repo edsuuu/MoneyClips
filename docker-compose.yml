@@ -28,6 +28,10 @@ services:
       MAX_ATTEMPTS: "${MAX_ATTEMPTS:-3}"
       WEBHOOK_TIMEOUT_SECONDS: "${WEBHOOK_TIMEOUT_SECONDS:-30}"
       WEBHOOK_RETRY_DELAYS_SECONDS: "${WEBHOOK_RETRY_DELAYS_SECONDS:-[1.0,5.0,15.0]}"
+      # Encoder: none (CPU x264) | nvenc (NVIDIA) | videotoolbox (Apple Silicon).
+      # No Mac via Docker GPU nao passa — deixa "none". Em prod Linux com NVIDIA,
+      # sobrescreva via env do shell: GPU_ENCODER=nvenc docker compose up -d.
+      GPU_ENCODER: "${GPU_ENCODER:-none}"
     command: ["python", "-m", "app.main"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8770/health')\" || exit 1"]
