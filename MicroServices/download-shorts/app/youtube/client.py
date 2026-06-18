@@ -97,8 +97,6 @@ def list_shorts(channel_url: str) -> list[ShortVideo]:
 
 
 def _progress_hook(label: str) -> Callable[[dict[str, Any]], None]:
-    """Loga o percentual do download em marcos de 25% (vários downloads rodam
-    em paralelo, então cada linha é prefixada com o id do vídeo)."""
     state = {"next_mark": 25}
 
     def hook(event: dict[str, Any]) -> None:
