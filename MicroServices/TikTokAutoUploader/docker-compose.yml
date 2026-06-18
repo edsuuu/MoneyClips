@@ -26,7 +26,7 @@ services:
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
       AWS_ENDPOINT: "${AWS_ENDPOINT:-http://host.docker.internal:9000}"
       AWS_REGION: "${AWS_REGION:-us-east-1}"
-      AWS_BUCKET: "${AWS_BUCKET:-auto-post}"
+      AWS_BUCKET: "${AWS_BUCKET:-video}"
       S3_PREFIX: "${S3_PREFIX:-shorts/}"
       # TikTok
       TIKTOK_ACCOUNT_NAME: "${TIKTOK_ACCOUNT_NAME:?defina no .env}"
