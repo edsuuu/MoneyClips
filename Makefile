@@ -10,7 +10,7 @@
 # generate-clips NÃO está no Docker (roda nativo no host, porta 8765).
 
 COMPOSE := docker compose
-SERVICES := download-shorts TikTokAutoUploader generate-clips
+SERVICES := DownloadShorts TikTokUploader GenerateClips
 
 .PHONY: micro-setup micro-up micro-down micro-build micro-logs micro-ps micro-restart
 
@@ -27,7 +27,7 @@ micro-setup:
 			echo "! $$d/.env.example não encontrado"; \
 		fi; \
 	done
-	@mkdir -p MicroServices/TikTokAutoUploader/cookies
+	@mkdir -p MicroServices/TikTokUploader/cookies
 	@echo "Pronto. Revise os .env e rode: make micro-up"
 
 ## Build + sobe os 2 containers (download-shorts + tiktok-uploader).
