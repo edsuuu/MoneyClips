@@ -10,7 +10,18 @@ Independent Python (FastAPI) microservice that downloads all YouTube Shorts of a
 
 ## Commands
 
-Sempre usar o virtualenv local (`.venv/bin/...`).
+Docker é o canal oficial. O `docker-compose.yml` vive na **raiz do
+generate-clips-laravel** (não dentro deste diretório) e já traz defaults de
+dev (MinIO local em `host.docker.internal:9000` com `minioadmin/minioadmin`,
+bucket `auto-post`). Não precisa de `.env` aqui pra subir.
+
+```bash
+# Da raiz do Laravel:
+docker compose up -d --build download-shorts
+docker compose logs -f download-shorts
+```
+
+Standalone (sem Docker, com virtualenv):
 
 ```bash
 # Setup
@@ -28,12 +39,6 @@ cp .env.example .env
 
 # Mínimo de validação (sem suite de testes)
 .venv/bin/python -m compileall app
-```
-
-Docker:
-
-```bash
-docker compose up --build
 ```
 
 ## Configuration
