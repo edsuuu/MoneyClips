@@ -120,6 +120,21 @@ AUTO_POST_RELOAD=1 python main.py           # auto-reload em dev
 
 Docs interativas: <http://localhost:8765/docs>
 
+### Docker com CUDA/NVIDIA no Linux
+
+No macOS, rode nativo para usar Metal/VideoToolbox. Docker com CUDA é só para
+host Linux com driver NVIDIA + NVIDIA Container Toolkit.
+
+Na raiz do Laravel:
+
+```bash
+scripts/generate-clips-docker check
+scripts/generate-clips-docker up
+```
+
+O Dockerfile usa imagem CUDA/cuDNN, instala ffmpeg e baixa os modelos do
+MediaPipe no build. O compose publica a API em `127.0.0.1:8765`.
+
 ### 1) Criar um job
 
 ```bash

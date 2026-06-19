@@ -68,12 +68,12 @@ final readonly class AutoPostDispatcher
 
     /**
      * Sorteia/reserva N Shorts e publica cada um no YouTube + TikTok.
-     * Default de N: youtube_shorts.posting.posts_per_run (1).
+     * Default de N: services.youtube_shorts.posting.posts_per_run (1).
      */
     public function run(?int $count = null): void
     {
-        $youtubeEnabled = (bool) config('youtube_shorts.posting.youtube_enabled', true);
-        $tiktokEnabled = (bool) config('youtube_shorts.posting.tiktok_enabled', true);
+        $youtubeEnabled = (bool) config('services.youtube_shorts.posting.youtube_enabled', true);
+        $tiktokEnabled = (bool) config('services.youtube_shorts.posting.tiktok_enabled', true);
 
         if (! $youtubeEnabled && ! $tiktokEnabled) {
             Log::warning('[AutoPost] YouTube e TikTok desativados — nada a postar.');
@@ -90,7 +90,7 @@ final readonly class AutoPostDispatcher
             return;
         }
 
-        $count = max(1, $count ?? (int) config('youtube_shorts.posting.posts_per_run', 1));
+        $count = max(1, $count ?? (int) config('services.youtube_shorts.posting.posts_per_run', 1));
 
         for ($i = 0; $i < $count; $i++) {
             $short = $this->reserveNext();
@@ -153,12 +153,12 @@ final readonly class AutoPostDispatcher
 
     /**
      * Sorteia e RESERVA o próximo Short disponível CUJO ARQUIVO existe no
-     * storage. Pula "fantasmas" (linha com video_path mas sem objeto no MinIO).
+     * storage. Pula "fantasmas" (linha com video_path mas sem objeto no storage).
      * A reserva é atômica (update condicional em dispatched_at).
      */
     private function reserveNext(): ?YoutubeShort
     {
-        $disk = Storage::disk((string) config('youtube_shorts.disk', 'minio'));
+        $disk = Storage::disk();
 
         $candidates = YoutubeShort::query()
             ->availableToPost()
@@ -198,7 +198,7 @@ final readonly class AutoPostDispatcher
         }
 
         $remaining = YoutubeShort::query()->availableToPost()->count();
-        $threshold = (float) config('youtube_shorts.posting.low_stock_threshold', 0.20);
+        $threshold = (float) config('services.youtube_shorts.posting.low_stock_threshold', 0.20);
 
         if ($remaining / $total > $threshold) {
             return;

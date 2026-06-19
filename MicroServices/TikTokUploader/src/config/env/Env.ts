@@ -54,14 +54,10 @@ const EnvSchema = z.object({
     stealth: boolField(false),
     dryRun: boolField(true),
 
-    // Proxy do navegador (opcional). SOCKS5 no Chromium não suporta auth (user/senha só em HTTP).
+    // Proxy desativado por padrão. SOCKS5 no Chromium não suporta auth (user/senha só em HTTP).
     proxyServer: strField(''),
     proxyUsername: strField(''),
     proxyPassword: strField(''),
-    // Vazio = automático conforme o proxy (BR com proxy, senão US).
-    browserLocale: strField(''),
-    browserTimezone: strField(''),
-
     // Discord (avisa qualquer erro) e porta da API (própria, fora da do Laravel).
     discordWebhookUrl: strField(''),
     apiPort: intField(8090),
@@ -93,12 +89,6 @@ export const settings: Settings = EnvSchema.parse({
     headless: env['HEADLESS'],
     stealth: env['STEALTH'],
     dryRun: env['DRY_RUN'],
-
-    proxyServer: env['PROXY_SERVER'],
-    proxyUsername: env['PROXY_USERNAME'],
-    proxyPassword: env['PROXY_PASSWORD'],
-    browserLocale: env['BROWSER_LOCALE'],
-    browserTimezone: env['BROWSER_TIMEZONE'],
 
     discordWebhookUrl: env['DISCORD_WEBHOOK_URL'],
 

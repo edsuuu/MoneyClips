@@ -32,7 +32,7 @@ final readonly class TikTokPostDispatcher
         throw_unless(
             $this->uploader->isHealthy(),
             RuntimeException::class,
-            'Microserviço tiktok-uploader indisponível (porta 8780).',
+            'Microserviço tiktok-uploader indisponível (porta 8090).',
         );
 
         $candidate = $this->pickCandidate();

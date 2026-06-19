@@ -129,11 +129,7 @@ def _progress_hook(label: str) -> Callable[[dict[str, Any]], None]:
 def download_short(download_url: str, output_dir: Path, label: str | None = None) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     options = {
-        "format": (
-            "bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]"
-            "/bestvideo+bestaudio"
-            "/best"
-        ),
+        "format": ("bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"),
         "format_sort": ["res", "fps", "vbr", "abr"],
         "merge_output_format": "mp4",
         "outtmpl": str(output_dir / "source.%(ext)s"),

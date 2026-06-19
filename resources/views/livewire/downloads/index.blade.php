@@ -64,6 +64,7 @@
                                 </td>
                                 <td class="max-w-[240px] px-3 py-2.5 text-xs text-slate-400">
                                     <p class="truncate">{{ $item['storage_path'] ?: '—' }}</p>
+                                    <p class="mt-1 text-slate-600">Baixado em {{ $item['downloaded_at'] }}</p>
                                     @if($item['storage_size_bytes'] > 0)
                                         <p class="mt-1 text-slate-600">{{ number_format($item['storage_size_bytes'] / 1048576, 1, ',', '.') }} MB</p>
                                     @endif
@@ -87,8 +88,7 @@
                                 </td>
                                 <td class="px-3 py-2.5 text-right">
                                     <x-ui.button
-                                        wire:click='postToTiktok(@js($item["youtube_id"]), @js($item["title"]), @js($item["hashtags"]))'
-                                        wire:confirm="Enviar este vídeo para postagem no TikTok?"
+                                        wire:click="requestPostToTiktok('{{ $item['youtube_id'] }}')"
                                         size="xs"
                                         variant="primary"
                                         icon="arrow-up-tray"
@@ -110,11 +110,34 @@
         @endif
     </x-studio.panel>
 
-    <x-ui.modal name="new-download" class="max-w-2xl">
+    <x-ui.modal name="new-download" max-width="max-w-2xl">
         <livewire:downloads.new-download />
     </x-ui.modal>
 
-    <x-ui.modal name="instant-post" class="max-w-3xl">
+    <x-ui.modal name="instant-post" max-width="max-w-4xl">
         <livewire:downloads.instant-post />
     </x-ui.modal>
+
+    <x-ui.confirm-modal
+        wire:model="showTiktokConfirmation"
+        title="Enviar para o TikTok?"
+        description="O vídeo será enviado para a fila de postagem do TikTok."
+        icon="arrow-up-tray"
+    >
+        <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+            <p class="line-clamp-2 text-sm font-medium text-slate-100">{{ $pendingTitle ?: $pendingYoutubeId }}</p>
+            @if($pendingYoutubeId !== '')
+                <p class="mt-1 text-xs text-slate-500">{{ $pendingYoutubeId }}</p>
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-ui.button wire:click="cancelPostToTiktok" variant="filled" class="cursor-pointer">
+                Cancelar
+            </x-ui.button>
+            <x-ui.button wire:click="postPendingToTiktok" variant="primary" icon="arrow-up-tray" class="cursor-pointer">
+                Confirmar postagem
+            </x-ui.button>
+        </x-slot:actions>
+    </x-ui.confirm-modal>
 </section>

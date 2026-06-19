@@ -1,7 +1,11 @@
+// @ts-ignore
 import js from '@eslint/js';
+// @ts-ignore
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+// @ts-ignore
 import importPlugin from 'eslint-plugin-import';
+// @ts-ignore
 import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
 

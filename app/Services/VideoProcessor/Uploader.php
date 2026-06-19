@@ -22,7 +22,7 @@ final class Uploader
             throw new RuntimeException('Arquivo local não encontrado ou vazio: '.$localPath);
         }
 
-        $disk = 'minio';
+        $disk = (string) config('filesystems.default');
         $extension = pathinfo($localPath, PATHINFO_EXTENSION);
         $remotePath = sprintf('videos/%s/%s/source.%s', $video->uuid, $type, $extension);
         $mimeType = $this->mimeType($extension);
