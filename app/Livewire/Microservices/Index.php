@@ -11,7 +11,7 @@ use Livewire\Component;
 
 /**
  * Painel local de status dos microserviços: ping no /health de cada um e um
- * "terminal" que mostra os logs do container selecionado (docker compose logs).
+ * "terminal" que mostra os logs do container selecionado via Docker API.
  * Ferramenta de dev — a rota fica atrás de auth.
  */
 final class Index extends Component

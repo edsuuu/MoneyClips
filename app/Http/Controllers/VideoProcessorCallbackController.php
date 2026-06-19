@@ -33,7 +33,7 @@ final class VideoProcessorCallbackController extends Controller
 
     private function assertToken(Request $request): void
     {
-        $expectedVal = config('video-processor.callback_token');
+        $expectedVal = config('services.video_processor.callback_token');
         $expected = is_string($expectedVal) ? $expectedVal : '';
         if ($expected === '') {
             return; // sem token configurado = sem validação (dev)

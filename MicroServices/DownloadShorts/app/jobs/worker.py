@@ -20,7 +20,7 @@ _active_channels: set[str] = set()
 _active_lock = threading.Lock()
 
 
-class ChannelAlreadyDownloading(Exception):
+class ChannelAlreadyDownloadingError(Exception):
     pass
 
 
@@ -28,7 +28,7 @@ def start_download(channel_url: str, webhook_url: str) -> int:
     normalized = channel_url.strip().rstrip("/")
     with _active_lock:
         if normalized in _active_channels:
-            raise ChannelAlreadyDownloading(normalized)
+            raise ChannelAlreadyDownloadingError(normalized)
         _active_channels.add(normalized)
 
     try:
@@ -113,7 +113,7 @@ def _process_one(
                 downloaded = download_short(video.download_url, work_dir, label=label)
                 stat = storage.upload_file(downloaded, object_path)
                 if int(stat.get("size_bytes") or 0) <= 0:
-                    raise RuntimeError("storage object empty after upload")
+                    raise RuntimeError("storage object empty after upload")  # noqa: TRY301
                 _send_webhook(
                     webhook_url,
                     _build_payload(video, channel_url, "completed", stat),
@@ -138,7 +138,7 @@ def _process_one(
             _build_payload(video, channel_url, "failed", None, error=last_error),
         )
     except Exception as exc:
-        logger.exception("%s: unexpected error: %s", label, exc)
+        logger.exception("%s: unexpected error", label)
         _send_webhook(
             webhook_url,
             _build_payload(video, channel_url, "failed", None, error=str(exc)),

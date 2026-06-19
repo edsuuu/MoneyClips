@@ -19,8 +19,7 @@
                 Postar 1 agora (sorteio)
             </x-ui.button>
             <x-ui.button
-                wire:click="dispatchTiktok"
-                wire:confirm="Sortear um Short e postar no TikTok agora?"
+                wire:click="requestDispatchTiktok"
                 size="sm"
                 variant="subtle"
                 icon="arrow-up-tray"
@@ -112,8 +111,7 @@
                                 <td class="px-3 py-2.5 text-right">
                                     @if(! $short->wasPostedToYoutube() && $short->video_path !== null)
                                         <x-ui.button
-                                            wire:click="postNow({{ $short->id }})"
-                                            wire:confirm="Postar este Short no YouTube agora?"
+                                            wire:click="requestPostNow({{ $short->id }})"
                                             size="xs"
                                             variant="primary"
                                             icon="arrow-up-tray"
@@ -134,4 +132,43 @@
             </div>
         @endif
     </x-studio.panel>
+
+    <x-ui.confirm-modal
+        wire:model="showTiktokConfirmation"
+        title="Sortear e postar no TikTok?"
+        description="Um Short disponível será sorteado e enviado para a fila do TikTok."
+        icon="sparkles"
+    >
+        <x-slot:actions>
+            <x-ui.button wire:click="cancelDispatchTiktok" variant="filled" class="cursor-pointer">
+                Cancelar
+            </x-ui.button>
+            <x-ui.button wire:click="confirmDispatchTiktok" variant="primary" icon="arrow-up-tray" class="cursor-pointer">
+                Confirmar sorteio
+            </x-ui.button>
+        </x-slot:actions>
+    </x-ui.confirm-modal>
+
+    <x-ui.confirm-modal
+        wire:model="showYoutubeConfirmation"
+        title="Postar este Short no YouTube?"
+        description="O Short selecionado será enviado para a fila de postagem do YouTube."
+        icon="arrow-up-tray"
+    >
+        <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+            <p class="line-clamp-2 text-sm font-medium text-slate-100">{{ $pendingShortTitle ?: $pendingShortYoutubeId }}</p>
+            @if($pendingShortYoutubeId !== '')
+                <p class="mt-1 text-xs text-slate-500">{{ $pendingShortYoutubeId }}</p>
+            @endif
+        </div>
+
+        <x-slot:actions>
+            <x-ui.button wire:click="cancelPostNow" variant="filled" class="cursor-pointer">
+                Cancelar
+            </x-ui.button>
+            <x-ui.button wire:click="confirmPostNow" variant="primary" icon="arrow-up-tray" class="cursor-pointer">
+                Confirmar postagem
+            </x-ui.button>
+        </x-slot:actions>
+    </x-ui.confirm-modal>
 </section>

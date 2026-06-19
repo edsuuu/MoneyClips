@@ -40,13 +40,15 @@ final class OAuthController extends Controller
 
     public function loginRedirect(): RedirectResponse
     {
-        return $this->googleProvider()->redirect();
+        return $this->googleProvider((string) config('services.google.redirects.auth'))
+            ->redirect();
     }
 
     public function loginCallback(): RedirectResponse
     {
         try {
-            $socialUser = $this->googleProvider()->user();
+            $socialUser = $this->googleProvider((string) config('services.google.redirects.auth'))
+                ->user();
             if (! $socialUser instanceof SocialiteUser) {
                 return to_route('login')->with('status', 'Resposta inesperada do Google.');
             }
@@ -110,8 +112,7 @@ final class OAuthController extends Controller
                 ->with('error', sprintf('Configure o app de %s (client_id/secret) no .env antes de conectar.', $platform));
         }
 
-        /** @var AbstractProvider $driver */
-        $driver = Socialite::driver($config['driver']);
+        $driver = $this->provider($config);
 
         return $driver
             ->scopes($config['scopes'])
@@ -127,7 +128,7 @@ final class OAuthController extends Controller
         }
 
         try {
-            $socialUser = Socialite::driver($config['driver'])->user();
+            $socialUser = $this->provider($config)->user();
             if (! $socialUser instanceof SocialiteUser) {
                 return to_route('social-accounts')->with('error', 'Resposta de OAuth inesperada da plataforma.');
             }
@@ -155,13 +156,26 @@ final class OAuthController extends Controller
         }
     }
 
-    private function googleProvider(): AbstractProvider
+    /** @param array{driver: string, scopes: array<int, string>, with: array<string, string>} $config */
+    private function provider(array $config): AbstractProvider
+    {
+        if ($config['driver'] === 'google') {
+            return $this->googleProvider((string) config('services.google.redirects.youtube'));
+        }
+
+        /** @var AbstractProvider $provider */
+        $provider = Socialite::driver($config['driver']);
+
+        return $provider;
+    }
+
+    private function googleProvider(string $redirect): AbstractProvider
     {
         /** @var AbstractProvider $provider */
         $provider = Socialite::buildProvider(GoogleProvider::class, [
-            'client_id' => config('services.google_auth.client_id'),
-            'client_secret' => config('services.google_auth.client_secret'),
-            'redirect' => config('services.google_auth.redirect'),
+            'client_id' => config('services.google.client_id'),
+            'client_secret' => config('services.google.client_secret'),
+            'redirect' => $redirect,
         ]);
 
         return $provider->scopes(['openid', 'profile', 'email']);

@@ -41,7 +41,7 @@ final class VideoController extends Controller
         $thumbnail = $video->files()->where('type', 'thumbnail')->latest()->first();
         abort_unless($thumbnail instanceof File, 404);
 
-        $disk = Storage::disk($thumbnail->disk ?: 'minio');
+        $disk = Storage::disk($thumbnail->disk ?: (string) config('filesystems.default'));
         abort_unless($disk->exists($thumbnail->path), 404);
 
         $stream = $disk->readStream($thumbnail->path);
@@ -70,7 +70,7 @@ final class VideoController extends Controller
     /**
      * Serve um corte renderizado pelo próprio domínio HTTPS do Laravel.
      *
-     * Evita o presigned URL HTTP do MinIO (que o browser bloqueia como
+     * Evita o presigned URL HTTP do storage (que o browser bloqueia como
      * mixed-content numa página HTTPS) e habilita streaming progressivo via
      * HTTP Range — o vídeo começa a tocar sem baixar o arquivo inteiro.
      */
@@ -84,15 +84,15 @@ final class VideoController extends Controller
     }
 
     /**
-     * Faz proxy de um objeto do MinIO com suporte a HTTP Range (206).
+     * Faz proxy de um objeto do storage com suporte a HTTP Range (206).
      *
-     * MinIO e Laravel rodam no mesmo servidor, então a leitura é local/rápida;
+     * O storage e Laravel rodam no mesmo servidor, então a leitura é local/rápida;
      * o gargalo é só servidor → browser. Servir com Range deixa o player pedir
      * apenas o trecho que precisa, em vez de baixar o segmento inteiro.
      */
     private function streamObject(Request $request, string $objectPath): StreamedResponse
     {
-        $disk = Storage::disk('minio');
+        $disk = Storage::disk();
         abort_unless($disk->exists($objectPath), 404);
 
         $size = (int) $disk->size($objectPath);

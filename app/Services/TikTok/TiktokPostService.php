@@ -143,15 +143,15 @@ final class TiktokPostService
 
     private function callbackUrl(): string
     {
-        return (string) (config('microservices.tiktok_post.callback_url'))
+        return (string) (config('services.tiktok_post.callback_url'))
             ?: url('/api/tiktok-posts/callback');
     }
 
     private function client(): PendingRequest
     {
-        $baseUrl = (string) (config('microservices.tiktok_post.base_url')) ?: 'http://127.0.0.1:8090';
-        $timeout = (int) (config('microservices.tiktok_post.timeout')) ?: 30;
-        $token = (string) (config('microservices.tiktok_post.api_token'));
+        $baseUrl = (string) (config('services.tiktok_post.base_url')) ?: 'http://127.0.0.1:8090';
+        $timeout = (int) (config('services.tiktok_post.timeout')) ?: 30;
+        $token = (string) (config('services.tiktok_post.api_token'));
 
         $request = Http::baseUrl($baseUrl)
             ->timeout($timeout)

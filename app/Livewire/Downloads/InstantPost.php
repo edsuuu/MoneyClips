@@ -24,6 +24,8 @@ final class InstantPost extends Component
 
     public bool $postTiktok = true;
 
+    public bool $showPostConfirmation = false;
+
     public function pickRandom(): void
     {
         $blockedOnTiktok = $this->blockedTiktokYoutubeIds();
@@ -54,6 +56,36 @@ final class InstantPost extends Component
         $this->postTiktok = ! $this->hasActiveTiktokPost($short->youtube_id);
 
         $this->toast('Vídeo aleatório selecionado: '.($short->title ?? $short->youtube_id));
+    }
+
+    public function requestPostSelected(): void
+    {
+        $short = $this->selectedShort();
+
+        if (! $short instanceof YoutubeShort) {
+            $this->toast('Selecione um vídeo primeiro.', 'danger');
+
+            return;
+        }
+
+        if (! $this->postYoutube && ! $this->postTiktok) {
+            $this->toast('Escolha YouTube, TikTok ou os dois.', 'danger');
+
+            return;
+        }
+
+        $this->showPostConfirmation = true;
+    }
+
+    public function cancelPostSelected(): void
+    {
+        $this->showPostConfirmation = false;
+    }
+
+    public function confirmPostSelected(): void
+    {
+        $this->showPostConfirmation = false;
+        $this->postSelected();
     }
 
     public function postSelected(): void
