@@ -24,7 +24,7 @@ aqui agora.
 
 Fluxo: usuário cola a URL do vídeo em `/videos/create` → `ProcessVideoJob`
 chama a **API Python de processamento** (download/transcrição/render; padrão
-`http://127.0.0.1:8765`, config `config/video-processor.php`) → o Python salva
+`http://host.docker.internal:8765`, config `services.video_processor`) → o Python salva
 no MinIO e responde via webhook (`POST /api/video-processor/callbacks`,
 `VideoProcessorCallbackController` → `VideoProcessorCallbackService`).
 
@@ -34,7 +34,7 @@ no MinIO e responde via webhook (`POST /api/video-processor/callbacks`,
   recomendação por IA via `generateAiCuts`, render, publicação rápida),
   `Schedule` (agendamento social por corte).
 - Progresso em tempo real: o browser consome o WebSocket do Python
-  (`video-processor.ws_url`); o job em andamento fica em `videos.current_job_id`.
+  (`services.video_processor.ws_url`); o job em andamento fica em `videos.current_job_id`.
 - Tabelas: `videos`, `cuts`, `files`, `transcripts`, `video_payloads`,
   `statuses`/`status_logs` (transições via `StatusService`).
 
@@ -74,7 +74,7 @@ posta automaticamente no canal conectado.
   `php artisan youtube:link` (cola a URL de redirect, persiste em
   `social_accounts`). Refresh automático via `TokenRefresher`.
 - **Notificações**: `app/Services/DiscordNotifier` (webhook em
-  `config/youtube_shorts.php` → `discord_webhook`).
+  `services.youtube_shorts.discord_webhook`).
 - **Frontend**: página `/shorts` (`App\Livewire\Shorts\Index`) com métricas de
   estoque, filtros, "postar agora" e sorteio manual.
 - **Scheduler**: `routes/console.php` roda `youtube:dispatch-posts` nos
@@ -160,6 +160,49 @@ item terminado** (success ou failed). Sem banco — estado vive na thread.
   (`createDownload(channelUrl): int`, retorna `count`). Webhook recebido em
   `/api/download-youtube/webhook` → `DownloadYoutubeImportService` insere em
   `youtube_shorts`.
+
+## Microserviço tiktok-uploader (Node + Playwright, porta 8090)
+
+Vive em `MicroServices/TikTokUploader/`. Publica Shorts no TikTok via
+navegador (Playwright headless), com login automático por email/senha ou
+cookies pré-gerados. Sem banco — devolve o ciclo de vida do post pelo
+webhook configurado.
+
+- `POST /posts` (body: `{ video_id, webhook_url, title, hashtags, video_key? }`)
+  enfileira; `GET /session` confere expiração de cookie; `POST /login`
+  dispara login explícito; `POST /session` injeta cookies exportados.
+- `cookies/` montado como volume: gere o login local com `HEADLESS=false`
+  fora do container e o resultado é carregado pelo container headless.
+- `DRY_RUN=true` (default) executa tudo menos publicar. Pra produção,
+  setar `false` no `.env` raiz ou via shell.
+- Subir: `docker compose up -d --build tiktok-uploader` na raiz; defaults
+  apontam pra MinIO local em `host.docker.internal:9000`, bucket `video`,
+  prefix `shorts/`.
+- Lado Laravel: cliente `App\Services\TikTok\TiktokPostService::queuePost()`.
+
+## Rodar tudo (Laravel + microserviços)
+
+Tudo via 1 compose na raiz (Sail no Laravel; MySQL e MinIO continuam
+externos no host):
+
+```bash
+docker compose up -d --build
+```
+
+Sobe:
+- `laravel` (Sail PHP 8.4) → `http://127.0.0.1:8000`
+- `download-shorts` (FastAPI) → `http://127.0.0.1:8770`
+- `tiktok-uploader` (Node) → `http://127.0.0.1:8090`
+
+O container `laravel` injeta `DB_HOST=host.docker.internal` e
+`MINIO_ENDPOINT=http://host.docker.internal:9000` por cima do `.env` —
+o `.env` continua valendo `127.0.0.1` pra `php artisan` nativo no host.
+
+`generate-clips` continua nativo no macOS (GPU Metal/MLX, ffmpeg
+VideoToolbox; Docker Desktop no macOS não passa CUDA/NVIDIA pro container). Em
+host Linux com placa NVIDIA, pode subir via profile CUDA:
+`scripts/generate-clips-docker up` ou
+`docker compose --profile linux-nvidia up -d --build generate-clips`.
 
 ## Repositórios relacionados
 

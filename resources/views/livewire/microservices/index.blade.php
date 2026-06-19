@@ -41,7 +41,7 @@
                         ver logs
                     </button>
                 @else
-                    <div class="mt-3 text-xs text-slate-600">logs no terminal do host (sem Docker)</div>
+                    <div class="mt-3 text-xs text-slate-600">logs no terminal do host</div>
                 @endif
             </div>
         @endforeach
@@ -68,20 +68,20 @@
             wire:loading.class="opacity-50"
             x-data="{
                 cleanupScrollHook: null,
-                scrollToTop() {
+                scrollToBottom() {
                     this.$nextTick(() => {
-                        this.$el.scrollTop = 0;
+                        this.$el.scrollTop = this.$el.scrollHeight;
                     });
                 },
                 init() {
-                    this.scrollToTop();
+                    this.scrollToBottom();
 
                     this.cleanupScrollHook = window.Livewire?.hook('morphed', ({ el }) => {
                         if (! this.$el.isConnected || ! el.contains(this.$el)) {
                             return;
                         }
 
-                        this.scrollToTop();
+                        this.scrollToBottom();
                     });
                 },
                 destroy() {

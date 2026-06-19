@@ -1,7 +1,10 @@
 {{-- Modal com Alpine — substitui flux:modal.
      Uso por eventos: $dispatch('modal-show', { name }) / $dispatch('modal-close', { name })
      Ou controlado pelo Livewire via wire:model="propriedadeBooleana". --}}
-@props(['name' => null])
+@props([
+    'name' => null,
+    'maxWidth' => 'max-w-md',
+])
 
 @php
     $wireModel = $attributes->wire('model')->value();
@@ -28,7 +31,7 @@
     <div
         x-show="open"
         x-transition.origin.center
-        {{ $attributes->class('relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/50') }}
+        {{ $attributes->class("relative max-h-[90vh] w-full {$maxWidth} overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl shadow-black/50") }}
     >
         {{ $slot }}
     </div>

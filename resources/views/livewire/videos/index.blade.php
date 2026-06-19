@@ -1,6 +1,6 @@
 <section
     class="mx-auto flex w-full max-w-7xl flex-col gap-6"
-    wire:poll.4000ms="render"
+    wire:poll.4000ms
 >
     <x-studio.page-header
         eyebrow="Biblioteca"

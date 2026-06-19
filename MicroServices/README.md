@@ -12,28 +12,33 @@ local. A pasta é versionada — só `.env`, `cookies/*.json`, `.venv/`,
 | --- | --- | --- | --- | --- |
 | `download-shorts` | Python / FastAPI | 8770 | ✅ (compose) | S3/MinIO (sem banco — webhook por item) |
 | `tiktok-uploader` | Node 22 + Playwright | 8090 | ✅ (compose) | S3/MinIO, TikTok (web), Discord |
-| `generate-clips` | Python / FastAPI | 8765 | ❌ nativo no host | MinIO, LLMs, Whisper, ffmpeg |
+| `generate-clips` | Python / FastAPI | 8765 | macOS nativo / Linux NVIDIA via profile | MinIO, LLMs, Whisper, ffmpeg |
 
-> **generate-clips não está no Docker.** Usa GPU (Whisper MLX/Metal e ffmpeg
-> videotoolbox no macOS), que não existe em container no Docker Desktop. Continua
-> rodando nativo no host — ver abaixo.
+> **generate-clips e GPU:** no macOS ele continua nativo para usar
+> Metal/VideoToolbox. No Linux com placa NVIDIA, o profile `linux-nvidia` sobe o
+> container com CUDA/NVENC via NVIDIA Container Toolkit.
 
 ## Como subir (a partir da RAIZ do projeto Laravel)
 
 ```bash
-make micro-setup     # cria os .env faltantes a partir dos .env.example
-# revise MicroServices/*/.env (segredos, contas, DRY_RUN...)
-make micro-up        # build + sobe download-shorts (8770) e tiktok-uploader (8090)
-make micro-ps        # status
-make micro-logs      # logs ao vivo
+docker compose up -d --build       # sobe laravel + download-shorts + tiktok-uploader
+docker compose ps                  # status
+docker compose logs -f             # logs ao vivo
+docker compose down                # derruba
 ```
+
+Sobe 3 containers: `laravel` (Sail PHP 8.4, porta 8000), `download-shorts`
+(8770) e `tiktok-uploader` (8090). MySQL e MinIO ficam externos no host
+(acessados via `host.docker.internal`).
 
 ### Pré-requisitos no host
 - **Docker Desktop**.
+- **MySQL** no ar (banco do `.env` do Laravel já criado).
 - **MinIO** no ar (S3-compatível) com o bucket esperado pelos serviços
-  (o compose default usa `auto-post` com `minioadmin/minioadmin`).
-- **Laravel** servindo em `0.0.0.0` para receber os callbacks dos containers:
-  `php artisan serve --host=0.0.0.0` (o `composer dev` já levanta o restante).
+  (compose default: bucket `video`, `minioadmin/minioadmin`).
+- O Laravel agora roda no próprio compose (service `laravel`, Sail PHP 8.4),
+  então não precisa `php artisan serve` à parte. Pra dev nativo no host
+  (sem container), siga rodando com `composer dev`.
 
 ### Rede (importante)
 Os containers usam bridge networking + `host.docker.internal`:
@@ -44,7 +49,7 @@ Os containers usam bridge networking + `host.docker.internal`:
   `STORAGE_ENDPOINT`/`AWS_ENDPOINT` e o `.env` do Laravel aponta os
   callbacks (`*_WEBHOOK_URL`/`*_CALLBACK_URL`) para `host.docker.internal:8000`.
 
-## generate-clips (nativo no host)
+## generate-clips no macOS (nativo no host)
 
 ```bash
 cd MicroServices/GenerateClips
@@ -53,6 +58,29 @@ pip install -r requirements.txt
 cp .env.example .env   # se ainda não existir
 python main.py         # sobe a API em 127.0.0.1:8765
 ```
+
+## generate-clips no Linux/NVIDIA (Docker CUDA)
+
+Pré-requisitos no host Linux:
+- Driver NVIDIA funcionando (`nvidia-smi`).
+- Docker com NVIDIA Container Toolkit.
+
+Valide e suba pelo helper:
+
+```bash
+scripts/generate-clips-docker check
+scripts/generate-clips-docker up
+```
+
+Ou diretamente pelo compose:
+
+```bash
+docker compose --profile linux-nvidia up -d --build generate-clips
+```
+
+O container usa `FFMPEG_ENCODER=auto`, `FFMPEG_HWACCEL=auto`,
+`WHISPER_DEVICE=auto` e `FACE_TRACKING_DELEGATE=auto`, então o próprio serviço
+usa CUDA/NVENC quando a GPU NVIDIA estiver disponível.
 
 ## TikTok — sessão/cookies
 

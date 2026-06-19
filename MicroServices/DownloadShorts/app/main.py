@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, HttpUrl
 
 from app.config.settings import settings
-from app.jobs.worker import ChannelAlreadyDownloading, start_download
+from app.jobs.worker import ChannelAlreadyDownloadingError, start_download
 from app.logging_config import configure_logging
 
 logger = logging.getLogger("shorts.api")
@@ -26,7 +26,7 @@ class AcceptedResponse(BaseModel):
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging(settings.log_level)
     logger.info("starting download-shorts on %s:%s", settings.api_host, settings.api_port)
     yield
@@ -59,13 +59,13 @@ def create_download(payload: DownloadRequest) -> AcceptedResponse:
 
     try:
         count = start_download(channel_url, webhook_url)
-    except ChannelAlreadyDownloading:
+    except ChannelAlreadyDownloadingError:
         raise HTTPException(
             status_code=409,
             detail="channel already downloading",
         ) from None
     except Exception as exc:
-        logger.exception("failed to start download for %s: %s", channel_url, exc)
+        logger.exception("failed to start download for %s", channel_url)
         raise HTTPException(
             status_code=502,
             detail=f"failed to start download: {exc}",

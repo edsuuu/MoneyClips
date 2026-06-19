@@ -35,9 +35,7 @@ final class DownloadShortsClient
             ->throw()
             ->json();
 
-        if (! array_key_exists('count', $response)) {
-            throw new RuntimeException('Microserviço download-shorts não retornou count.');
-        }
+        throw_unless(array_key_exists('count', $response), RuntimeException::class, 'Microserviço download-shorts não retornou count.');
 
         return (int) ($response['count']);
     }
@@ -56,8 +54,8 @@ final class DownloadShortsClient
 
     private function client(): PendingRequest
     {
-        $baseUrl = (string) (config('microservices.download_youtube.base_url')) ?: 'http://127.0.0.1:8770';
-        $timeout = (int) (config('microservices.download_youtube.timeout')) ?: 30;
+        $baseUrl = (string) (config('services.download_youtube.base_url')) ?: 'http://127.0.0.1:8770';
+        $timeout = (int) (config('services.download_youtube.timeout')) ?: 30;
 
         return Http::baseUrl($baseUrl)
             ->timeout($timeout)
@@ -67,7 +65,7 @@ final class DownloadShortsClient
 
     private function webhookUrl(): string
     {
-        return (string) (config('microservices.download_youtube.webhook_url'))
+        return (string) (config('services.download_youtube.webhook_url'))
             ?: url('/api/download-youtube/webhook');
     }
 }

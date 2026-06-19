@@ -22,13 +22,35 @@ permissions:
   contents: read
 
 jobs:
-  quality:
-    name: Static analysis (ruff + mypy + compile)
+  ruff:
+    name: ruff (lint + format)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: MicroServices/DownloadShorts
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install ruff
+        run: pip install ruff==0.15.*
+
+      - name: ruff check
+        run: ruff check app --output-format=github
+
+      - name: ruff format --check
+        run: ruff format --check --diff app
+
+  mypy:
+    name: mypy (strict types)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: MicroServices/DownloadShorts
     steps:
       - uses: actions/checkout@v4
 
@@ -39,20 +61,28 @@ jobs:
           cache: pip
           cache-dependency-path: MicroServices/DownloadShorts/requirements.txt
 
-      - name: Install runtime + dev tooling
+      - name: Install runtime + mypy
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ruff==0.7.* mypy==1.13.*
+          pip install mypy==1.19.*
 
-      - name: ruff check
-        run: ruff check app
-
-      - name: ruff format --check
-        run: ruff format --check app
-
-      - name: mypy
+      - name: mypy --strict
         run: mypy app
+
+  compile:
+    name: compileall
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: MicroServices/DownloadShorts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
       - name: compileall
         run: python -m compileall -q app

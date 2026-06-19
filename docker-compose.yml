@@ -1,9 +1,43 @@
 services:
+  laravel:
+    image: sail-8.4/app
+    build:
+      context: ./vendor/laravel/sail/runtimes/8.4
+      dockerfile: Dockerfile
+      args:
+        WWWGROUP: '1000'
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${APP_PORT:-8000}:80"
+      - "5173:5173"
+    environment:
+      WWWUSER: '1000'
+      LARAVEL_SAIL: 1
+      DB_HOST: "${DB_HOST:-host.docker.internal}"
+      DB_PORT: "${DB_PORT:-3306}"
+      DB_DATABASE: "${DB_DATABASE}"
+      DB_USERNAME: "${DB_USERNAME}"
+      DB_PASSWORD: "${DB_PASSWORD}"
+      DOWNLOAD_YOUTUBE_URL: "http://download-shorts:8770"
+      TIKTOK_POST_URL: "http://tiktok-uploader:8090"
+      DOWNLOAD_YOUTUBE_WEBHOOK_URL: "http://laravel/api/download-youtube/webhook"
+      TIKTOK_POST_CALLBACK_URL: "http://laravel/api/tiktok-posts/callback"
+    group_add:
+      - '0'
+    volumes:
+      - '.:/var/www/html'
+      - '/var/run/docker.sock:/var/run/docker.sock'
+    command: sh -lc "chmod 666 /var/run/docker.sock 2>/dev/null || true; start-container"
+    depends_on:
+      - download-shorts
+      - tiktok-uploader
+
   download-shorts:
     build:
       context: ./MicroServices/DownloadShorts
       target: runtime
-    image: gcl-download-shorts
+    image: download-shorts
     restart: unless-stopped
     ports:
       - "8770:8770"
@@ -14,23 +48,20 @@ services:
       API_PORT: "8770"
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
 
-      STORAGE_ENDPOINT: "${STORAGE_ENDPOINT:-http://host.docker.internal:9000}"
-      STORAGE_ACCESS_KEY: "${STORAGE_ACCESS_KEY:-minioadmin}"
-      STORAGE_SECRET_KEY: "${STORAGE_SECRET_KEY:-minioadmin}"
-      STORAGE_BUCKET: "${STORAGE_BUCKET:-video}"
-      STORAGE_SECURE: "${STORAGE_SECURE:-false}"
-      STORAGE_REGION: "${STORAGE_REGION:-us-east-1}"
-      STORAGE_USE_PATH_STYLE: "${STORAGE_USE_PATH_STYLE:-true}"
-      STORAGE_PATH_PREFIX: "${STORAGE_PATH_PREFIX:-shorts}"
+      STORAGE_ENDPOINT: "${AWS_ENDPOINT:-http://host.docker.internal:9000}"
+      STORAGE_ACCESS_KEY: "${AWS_ACCESS_KEY_ID:-minioadmin}"
+      STORAGE_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
+      STORAGE_BUCKET: "${AWS_BUCKET:-video}"
+      STORAGE_SECURE: "false"
+      STORAGE_REGION: "${AWS_DEFAULT_REGION:-us-east-1}"
+      STORAGE_USE_PATH_STYLE: "${AWS_USE_PATH_STYLE_ENDPOINT:-true}"
+      STORAGE_PATH_PREFIX: "shorts"
 
       TEMP_DIR: "${TEMP_DIR:-/tmp/download-shorts}"
       DOWNLOAD_WORKERS: "${DOWNLOAD_WORKERS:-4}"
       MAX_ATTEMPTS: "${MAX_ATTEMPTS:-3}"
       WEBHOOK_TIMEOUT_SECONDS: "${WEBHOOK_TIMEOUT_SECONDS:-30}"
       WEBHOOK_RETRY_DELAYS_SECONDS: "${WEBHOOK_RETRY_DELAYS_SECONDS:-[1.0,5.0,15.0]}"
-      # Encoder: none (CPU x264) | nvenc (NVIDIA) | videotoolbox (Apple Silicon).
-      # No Mac via Docker GPU nao passa — deixa "none". Em prod Linux com NVIDIA,
-      # sobrescreva via env do shell: GPU_ENCODER=nvenc docker compose up -d.
       GPU_ENCODER: "${GPU_ENCODER:-none}"
     command: ["python", "-m", "app.main"]
     healthcheck:
@@ -43,19 +74,32 @@ services:
   tiktok-uploader:
     build:
       context: ./MicroServices/TikTokUploader
-    image: gcl-tiktok-uploader
+    image: tiktok-uploader
     restart: unless-stopped
     ports:
       - "8090:8090"
     extra_hosts:
       - "host.docker.internal:host-gateway"
-    env_file:
-      - ./MicroServices/TikTokUploader/.env
     environment:
-      # MinIO/S3 do host; o container é headless (sem display, sem QR Code).
-      AWS_ENDPOINT: "http://host.docker.internal:9000"
-      HEADLESS: "true"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-minioadmin}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
+      AWS_ENDPOINT: "${AWS_ENDPOINT:-http://host.docker.internal:9000}"
+      AWS_REGION: "${AWS_DEFAULT_REGION:-us-east-1}"
+      AWS_BUCKET: "${AWS_BUCKET:-video}"
+      S3_PREFIX: "${S3_PREFIX:-shorts/}"
+      TIKTOK_ACCOUNT_NAME: "${TIKTOK_ACCOUNT_NAME:-}"
+      TIKTOK_ACCOUNT_EMAIL: "${TIKTOK_ACCOUNT_EMAIL:-}"
+      TIKTOK_ACCOUNT_PASSWORD: "${TIKTOK_ACCOUNT_PASSWORD:-}"
+      ROBOFLOW_API_KEY: "${ROBOFLOW_API_KEY:-}"
+      S3_DOWNLOAD_RETRIES: "${S3_DOWNLOAD_RETRIES:-3}"
+      S3_DOWNLOAD_RETRY_DELAY_MS: "${S3_DOWNLOAD_RETRY_DELAY_MS:-2000}"
+      HEADLESS: "${HEADLESS:-true}"
+      STEALTH: "${STEALTH:-false}"
+      DRY_RUN: "${DRY_RUN:-true}"
+      TZ: "America/Sao_Paulo"
+      DISCORD_WEBHOOK_URL: "${DISCORD_WEBHOOK_URL:-}"
       API_PORT: "8090"
+      API_TOKEN: "${TIKTOK_POST_API_TOKEN:-}"
     volumes:
       # Sessão do TikTok gerada fora do container (login local com HEADLESS=false).
       - ./MicroServices/TikTokUploader/cookies:/app/cookies
@@ -65,3 +109,59 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  generate-clips:
+    profiles:
+      - linux-nvidia
+    build:
+      context: ./MicroServices/GenerateClips
+      dockerfile: Dockerfile
+      target: runtime
+    image: generate-clips:cuda
+    restart: unless-stopped
+    ports:
+      - "8765:8765"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - path: ./MicroServices/GenerateClips/.env
+        required: false
+    environment:
+      API_HOST: "0.0.0.0"
+      API_PORT: "8765"
+      MINIO_ENDPOINT: "${AWS_ENDPOINT:-http://host.docker.internal:9000}"
+      MINIO_ACCESS_KEY: "${AWS_ACCESS_KEY_ID:-minioadmin}"
+      MINIO_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
+      MINIO_BUCKET: "${AWS_BUCKET:-video}"
+      MINIO_SECURE: "false"
+      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
+      WHISPER_BACKEND: "faster"
+      WHISPER_DEVICE: "auto"
+      WHISPER_COMPUTE_TYPE: "auto"
+      FFMPEG_ENCODER: "auto"
+      FFMPEG_HWACCEL: "auto"
+      FACE_TRACKING_DELEGATE: "auto"
+      NVIDIA_VISIBLE_DEVICES: "all"
+      NVIDIA_DRIVER_CAPABILITIES: "compute,utility,video,graphics"
+      TZ: "America/Sao_Paulo"
+    shm_size: "2gb"
+    volumes:
+      - generate-clips-cache:/root/.cache
+      - generate-clips-temp:/tmp/auto-post
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health')\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  generate-clips-cache:
+  generate-clips-temp:
