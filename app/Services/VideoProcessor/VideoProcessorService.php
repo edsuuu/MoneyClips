@@ -80,7 +80,7 @@ final readonly class VideoProcessorService
             transcriptJson: $transcriptJson,
             callbackUrl: $this->callbackUrl(),
             transcriptText: $transcriptText,
-            bucket: is_string($bucketVal = config('video-processor.storage_bucket')) ? $bucketVal : null,
+            bucket: is_string($bucketVal = config('services.video_processor.storage_bucket')) ? $bucketVal : null,
             callbackToken: $this->callbackToken(),
         );
 
@@ -167,7 +167,7 @@ final readonly class VideoProcessorService
             transcriptJson: $this->transcriptJson($video),
             cuts: $payloadCuts,
             callbackUrl: $this->callbackUrl(),
-            bucket: is_string($bucketVal = config('video-processor.storage_bucket')) ? $bucketVal : null,
+            bucket: is_string($bucketVal = config('services.video_processor.storage_bucket')) ? $bucketVal : null,
             callbackToken: $this->callbackToken(),
             video: ['title' => $video->title, 'duration_seconds' => $video->duration_seconds],
         );
@@ -236,14 +236,14 @@ final readonly class VideoProcessorService
 
     private function callbackUrl(): string
     {
-        $url = config('video-processor.callback_url');
+        $url = config('services.video_processor.callback_url');
 
         return is_string($url) ? $url : '';
     }
 
     private function callbackToken(): ?string
     {
-        $token = config('video-processor.callback_token');
+        $token = config('services.video_processor.callback_token');
         $tokenStr = is_string($token) ? $token : '';
 
         return $tokenStr !== '' ? $tokenStr : null;
@@ -260,8 +260,8 @@ final readonly class VideoProcessorService
         }
 
         return [
-            'min_cuts' => (int) (config('video-processor.auto.ai_min_cuts', 8)),
-            'max_cuts' => (int) (config('video-processor.auto.ai_max_cuts', 20)),
+            'min_cuts' => (int) (config('services.video_processor.auto.ai_min_cuts', 8)),
+            'max_cuts' => (int) (config('services.video_processor.auto.ai_max_cuts', 20)),
         ];
     }
 }

@@ -92,7 +92,6 @@
 
                     <x-ui.modal
                         name="two-factor-setup-modal"
-                        class="max-w-md"
                         wire:model="showModal"
                     >
                         <div class="space-y-6">

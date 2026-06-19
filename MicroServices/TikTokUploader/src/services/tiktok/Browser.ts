@@ -56,10 +56,9 @@ export async function createStealthSession(
     const usingProxy = proxy !== undefined;
 
     // Com proxy (IP BR) o fingerprint tem que ser brasileiro, senão IP × timezone ×
-    // locale ficam contraditórios e o TikTok desconfia. Ainda dá para sobrescrever.
-    const locale = settings.browserLocale || (usingProxy ? 'pt-BR' : 'en-US');
-    const timezoneId =
-        settings.browserTimezone || (usingProxy ? 'America/Sao_Paulo' : 'America/New_York');
+    // locale ficam contraditórios e o TikTok desconfia.
+    const locale = usingProxy ? 'pt-BR' : 'en-US';
+    const timezoneId = usingProxy ? 'America/Sao_Paulo' : 'America/New_York';
 
     if (usingProxy) {
         logger.info(`Proxy ativo: ${proxy.server} (locale=${locale}, tz=${timezoneId})`);

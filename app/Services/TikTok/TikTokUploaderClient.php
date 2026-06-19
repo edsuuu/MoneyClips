@@ -10,7 +10,7 @@ use RuntimeException;
 use Throwable;
 
 /**
- * Cliente HTTP do microserviço tiktok-uploader (porta 8780).
+ * Cliente HTTP do microserviço tiktok-uploader (porta 8090).
  *
  * As chamadas só enfileiram: o uploader processa um post por vez (navegador
  * único) e grava cada transição na tabela tiktok_posts deste banco — o
@@ -84,8 +84,8 @@ final class TikTokUploaderClient
 
     private function client(): PendingRequest
     {
-        $baseUrl = (string) (config('tiktok-uploader.base_url')) ?: 'http://127.0.0.1:8780';
-        $timeout = (int) (config('tiktok-uploader.timeout')) ?: 30;
+        $baseUrl = (string) (config('services.tiktok_post.base_url')) ?: 'http://127.0.0.1:8090';
+        $timeout = (int) (config('services.tiktok_post.timeout')) ?: 30;
 
         return Http::baseUrl($baseUrl)
             ->timeout($timeout)

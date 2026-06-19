@@ -19,7 +19,7 @@ use RuntimeException;
  * cortes — conectada em /social-accounts ou via `php artisan youtube:link` —
  * renovando o access token pelo YoutubeTokenRefresher quando necessário.
  *
- * Baixa o vídeo do MinIO para um arquivo temporário, sobe para o YouTube e
+ * Baixa o vídeo do storage para um arquivo temporário, sobe para o YouTube e
  * marca o Short como postado (guardando o ID do vídeo gerado).
  */
 final readonly class ShortsPoster
@@ -56,7 +56,7 @@ final readonly class ShortsPoster
                     'title' => $this->buildTitle($short),
                     'description' => $this->buildDescription($short),
                     'tags' => $this->buildTags($short),
-                    'categoryId' => (string) (config('youtube_shorts.posting.category_id')) ?: '22',
+                    'categoryId' => (string) (config('services.youtube_shorts.posting.category_id')) ?: '22',
                 ],
                 'status' => [
                     'privacyStatus' => $this->privacyStatus(),
@@ -112,11 +112,11 @@ final readonly class ShortsPoster
     }
 
     /**
-     * Baixa o vídeo do MinIO para um arquivo temporário local.
+     * Baixa o vídeo do storage para um arquivo temporário local.
      */
     private function pullToTemp(string $path): string
     {
-        $disk = Storage::disk((string) (config('youtube_shorts.disk', 'minio')));
+        $disk = Storage::disk();
 
         throw_unless($disk->exists($path), RuntimeException::class, 'Vídeo não encontrado no storage: '.$path);
 
@@ -185,7 +185,7 @@ final readonly class ShortsPoster
      */
     private function privacyStatus(): string
     {
-        return match ((string) (config('youtube_shorts.posting.privacy_status'))) {
+        return match ((string) (config('services.youtube_shorts.posting.privacy_status'))) {
             'unlisted' => 'unlisted',
             'private' => 'private',
             default => 'public',

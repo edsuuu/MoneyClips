@@ -14,7 +14,6 @@
         "lint": "eslint src",
         "lint:fix": "eslint src --fix",
         "format": "prettier --write \"src/**/*.ts\"",
-        "prepare": "git config core.hooksPath .githooks || true",
         "postinstall": "playwright install chromium"
     },
     "dependencies": {

@@ -25,11 +25,11 @@ versionados em [`MicroServices/`](MicroServices/) (ver
 | --- | --- | --- | --- | --- | --- |
 | **download-shorts** | Python / FastAPI | 8770 | Docker (compose) | baixa Shorts de canais p/ o storage e cria jobs de download | MySQL `download_shorts`, S3/MinIO |
 | **tiktok-uploader** | Node 22 + Playwright | 8090 | Docker (compose) | publica vídeos no TikTok via navegador; devolve o resultado por webhook | S3/MinIO, TikTok (web), Discord |
-| **generate-clips** (video processor) | Python / FastAPI | 8765 | **Nativo no host** | download/transcrição/render dos cortes; responde via webhook | MinIO, LLMs, Whisper, ffmpeg |
+| **generate-clips** (video processor) | Python / FastAPI | 8765 | Nativo no macOS ou Docker Linux/NVIDIA | download/transcrição/render dos cortes; responde via webhook | MinIO, LLMs, Whisper, ffmpeg |
 
-> **Por que generate-clips fica fora do Docker?** Usa GPU (Whisper MLX/Metal e
-> ffmpeg videotoolbox no macOS), indisponível em container no Docker Desktop.
-> Roda nativo no host — instruções em [MicroServices/README.md](MicroServices/README.md).
+> **GPU no Docker:** no macOS o Docker Desktop não entrega CUDA/NVIDIA para
+> containers, então `generate-clips` continua nativo para usar Metal/VideoToolbox.
+> Em Linux com placa NVIDIA, use o profile `linux-nvidia` do compose.
 
 Pré-requisitos de infra no host (reaproveitados pelos containers via
 `host.docker.internal`): **MySQL** (com o banco `download_shorts`), **MinIO**
@@ -52,24 +52,46 @@ Pré-requisitos de infra no host (reaproveitados pelos containers via
 
 ## Rodando localmente
 
-### 1. Laravel
+Pré-requisitos no host: **Docker Desktop**, **MySQL** com o banco do `.env`
+criado e **MinIO** no ar com o bucket `video`.
+
+### Tudo em container (recomendado)
+
 ```bash
-composer setup                         # install + env + key + pnpm + build
-php artisan serve --host=0.0.0.0       # 0.0.0.0 p/ os containers alcançarem os callbacks
-composer dev                           # queue:listen + pail + vite (em paralelo)
-php artisan schedule:work              # agendamentos (publicações + shorts)
+docker compose up -d --build       # sobe laravel + download-shorts + tiktok-uploader
+docker compose ps                  # status
+docker compose logs -f laravel     # logs do Laravel
+docker compose down                # derruba
 ```
 
-### 2. Microserviços
-```bash
-make micro-setup     # cria os MicroServices/*/.env a partir dos .env.example
-# revise os .env (segredos, contas, DRY_RUN)
-make micro-up        # build + sobe download-shorts (8770) e tiktok-uploader (8090)
-make micro-ps        # status   |   make micro-logs (logs)   |   make micro-down (parar)
-```
-E o generate-clips nativo:
+Sobe 3 containers: **laravel** (Sail PHP 8.4, `127.0.0.1:8000`),
+**download-shorts** (`8770`), **tiktok-uploader** (`8090`). MySQL e MinIO
+ficam externos no host (`host.docker.internal:3306` e `:9000`).
+
+No macOS, `generate-clips` continua nativo no host (GPU Metal não passa para
+container):
+
 ```bash
 cd MicroServices/GenerateClips && python main.py   # API em 127.0.0.1:8765
+```
+
+No Linux com NVIDIA/CUDA, valide a GPU e suba o container com:
+
+```bash
+scripts/generate-clips-docker check
+scripts/generate-clips-docker up
+```
+
+### Dev nativo (sem container do Laravel)
+
+```bash
+composer setup                         # install + env + key + pnpm + build
+composer dev                           # serve + queue:listen + pail + vite
+php artisan schedule:work              # agendamentos (publicações + shorts)
+```
+Microserviços containerizados continuam funcionando:
+```bash
+docker compose up -d --build download-shorts tiktok-uploader
 ```
 
 > **TikTok:** o container é headless (sem QR Code). Gere os cookies de sessão

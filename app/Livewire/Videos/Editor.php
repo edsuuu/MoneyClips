@@ -248,7 +248,7 @@ final class Editor extends Component
             return;
         }
 
-        $clipSeconds = max(1, (int) (config('video-processor.auto.clip_seconds', 60)));
+        $clipSeconds = max(1, (int) (config('services.video_processor.auto.clip_seconds', 60)));
         $segments = [];
         $start = 0.0;
         $index = 0;
@@ -575,7 +575,7 @@ final class Editor extends Component
             'timedWords' => $timedWords,
             'statusKey' => $statusKey,
             'activeJobId' => $activeJobId,
-            'wsUrl' => config('video-processor.ws_url'),
+            'wsUrl' => config('services.video_processor.ws_url'),
             'youtubeAccounts' => $youtubeAccounts,
             'quickDrafts' => $quickDrafts,
         ]);
