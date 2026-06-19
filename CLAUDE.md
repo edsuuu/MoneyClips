@@ -24,7 +24,7 @@ aqui agora.
 
 Fluxo: usuário cola a URL do vídeo em `/videos/create` → `ProcessVideoJob`
 chama a **API Python de processamento** (download/transcrição/render; padrão
-`http://127.0.0.1:8765`, config `config/video-processor.php`) → o Python salva
+`http://host.docker.internal:8765`, config `services.video_processor`) → o Python salva
 no MinIO e responde via webhook (`POST /api/video-processor/callbacks`,
 `VideoProcessorCallbackController` → `VideoProcessorCallbackService`).
 
@@ -34,7 +34,7 @@ no MinIO e responde via webhook (`POST /api/video-processor/callbacks`,
   recomendação por IA via `generateAiCuts`, render, publicação rápida),
   `Schedule` (agendamento social por corte).
 - Progresso em tempo real: o browser consome o WebSocket do Python
-  (`video-processor.ws_url`); o job em andamento fica em `videos.current_job_id`.
+  (`services.video_processor.ws_url`); o job em andamento fica em `videos.current_job_id`.
 - Tabelas: `videos`, `cuts`, `files`, `transcripts`, `video_payloads`,
   `statuses`/`status_logs` (transições via `StatusService`).
 
@@ -74,7 +74,7 @@ posta automaticamente no canal conectado.
   `php artisan youtube:link` (cola a URL de redirect, persiste em
   `social_accounts`). Refresh automático via `TokenRefresher`.
 - **Notificações**: `app/Services/DiscordNotifier` (webhook em
-  `config/youtube_shorts.php` → `discord_webhook`).
+  `services.youtube_shorts.discord_webhook`).
 - **Frontend**: página `/shorts` (`App\Livewire\Shorts\Index`) com métricas de
   estoque, filtros, "postar agora" e sorteio manual.
 - **Scheduler**: `routes/console.php` roda `youtube:dispatch-posts` nos
@@ -198,8 +198,11 @@ O container `laravel` injeta `DB_HOST=host.docker.internal` e
 `MINIO_ENDPOINT=http://host.docker.internal:9000` por cima do `.env` —
 o `.env` continua valendo `127.0.0.1` pra `php artisan` nativo no host.
 
-`generate-clips` continua nativo no host (GPU Metal/MLX, ffmpeg
-videotoolbox; macOS não passa GPU pro container).
+`generate-clips` continua nativo no macOS (GPU Metal/MLX, ffmpeg
+VideoToolbox; Docker Desktop no macOS não passa CUDA/NVIDIA pro container). Em
+host Linux com placa NVIDIA, pode subir via profile CUDA:
+`scripts/generate-clips-docker up` ou
+`docker compose --profile linux-nvidia up -d --build generate-clips`.
 
 ## Repositórios relacionados
 

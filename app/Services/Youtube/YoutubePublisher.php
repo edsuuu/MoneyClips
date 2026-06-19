@@ -15,7 +15,7 @@ use Throwable;
  * Publica no YouTube (Shorts) via YouTube Data API v3 com upload resumível.
  * Requer SocialAccount com access_token OAuth de escopo youtube.upload.
  */
-final class YoutubePublisher
+final readonly class YoutubePublisher
 {
     public const string PLATFORM = 'youtube';
 
@@ -23,7 +23,7 @@ final class YoutubePublisher
 
     private const string UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status';
 
-    public function __construct(private readonly YoutubeTokenRefresher $tokenRefresher) {}
+    public function __construct(private YoutubeTokenRefresher $tokenRefresher) {}
 
     public function publish(ScheduledPost $post): PublishResult
     {
@@ -144,7 +144,7 @@ final class YoutubePublisher
 
     private function downloadToTemp(File $file): string
     {
-        $disk = Storage::disk($file->disk ?: 'minio');
+        $disk = Storage::disk($file->disk ?: (string) config('filesystems.default'));
         $contents = $disk->get($file->path);
 
         throw_if($contents === null, PublishException::class, 'Falha ao ler o arquivo de vídeo do storage.');

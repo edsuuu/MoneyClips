@@ -47,13 +47,69 @@ return [
     'google' => [
         'client_id' => env('GOOGLE_AUTH_CLIENT_ID'),
         'client_secret' => env('GOOGLE_AUTH_CLIENT_SECRET'),
-        'redirect' => env('YOUTUBE_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback'),
+        'redirects' => [
+            'auth' => env('GOOGLE_AUTH_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth2/google/callback'),
+            'youtube' => mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback',
+        ],
     ],
 
-    'google_auth' => [
-        'client_id' => env('GOOGLE_AUTH_CLIENT_ID', env('YOUTUBE_CLIENT_ID')),
-        'client_secret' => env('GOOGLE_AUTH_CLIENT_SECRET', env('YOUTUBE_CLIENT_SECRET')),
-        'redirect' => env('GOOGLE_AUTH_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/auth/google/callback'),
+    'download_youtube' => [
+        'base_url' => env('DOWNLOAD_YOUTUBE_URL', 'http://127.0.0.1:8770'),
+        'timeout' => (int) env('DOWNLOAD_YOUTUBE_TIMEOUT', 30),
+        'webhook_url' => env(
+            'DOWNLOAD_YOUTUBE_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/download-youtube/webhook',
+        ),
+    ],
+
+    'tiktok_post' => [
+        'base_url' => env('TIKTOK_POST_URL', 'http://127.0.0.1:8090'),
+        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 30),
+        'api_token' => env('TIKTOK_POST_API_TOKEN', ''),
+        'callback_url' => env(
+            'TIKTOK_POST_CALLBACK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/tiktok-posts/callback',
+        ),
+    ],
+
+    'video_processor' => [
+        'base_url' => 'http://host.docker.internal:8765',
+        'ws_url' => 'ws://127.0.0.1:8765',
+        'token' => '',
+        'timeout' => 120,
+        'callback_token' => '',
+        'callback_url' => env('APP_URL', 'http://clips.localhost').'/api/video-processor/callbacks',
+        'storage_bucket' => env('AWS_BUCKET', 'auto-post'),
+        'auto' => [
+            'full_coverage_max_seconds' => (int) env('AUTO_FULL_COVERAGE_MAX_SECONDS', 900),
+            'clip_seconds' => (int) env('AUTO_CLIP_SECONDS', 60),
+            'min_tail_seconds' => (int) env('AUTO_MIN_TAIL_SECONDS', 20),
+            'ai_min_cuts' => (int) env('AUTO_AI_MIN_CUTS', 4),
+            'ai_max_cuts' => (int) env('AUTO_AI_MAX_CUTS', 10),
+        ],
+    ],
+
+    'youtube_shorts' => [
+        'posting' => [
+            'privacy_status' => 'public',
+            'category_id' => '22',
+            'posts_per_run' => 1,
+            'low_stock_threshold' => 0.20,
+            'youtube_enabled' => true,
+            'tiktok_enabled' => true,
+        ],
+        'discord_webhook' => env('DISCORD_WEBHOOK_URL', ''),
+    ],
+
+    's3_sync' => [
+        'source' => [
+            'endpoint' => env('S3_SYNC_SOURCE_ENDPOINT', 'https://usc1.contabostorage.com'),
+            'region' => env('S3_SYNC_SOURCE_REGION', 'usc1'),
+            'access_key' => env('S3_SYNC_SOURCE_ACCESS_KEY'),
+            'secret_key' => env('S3_SYNC_SOURCE_SECRET_KEY'),
+            'bucket' => env('S3_SYNC_SOURCE_BUCKET', 'video'),
+            'prefix' => env('S3_SYNC_SOURCE_PREFIX', 'shorts'),
+        ],
     ],
 
 ];

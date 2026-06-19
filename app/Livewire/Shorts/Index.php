@@ -28,6 +28,16 @@ final class Index extends Component
     /** Filtro: all | available | posted */
     public string $filter = 'all';
 
+    public bool $showTiktokConfirmation = false;
+
+    public bool $showYoutubeConfirmation = false;
+
+    public ?int $pendingShortId = null;
+
+    public string $pendingShortTitle = '';
+
+    public string $pendingShortYoutubeId = '';
+
     public function setFilter(string $filter): void
     {
         if (! in_array($filter, ['all', 'available', 'posted'], true)) {
@@ -36,6 +46,58 @@ final class Index extends Component
 
         $this->filter = $filter;
         $this->resetPage();
+    }
+
+    public function requestPostNow(int $shortId): void
+    {
+        $short = YoutubeShort::query()->find($shortId);
+
+        if (! $short instanceof YoutubeShort) {
+            $this->toast('Short não encontrado.', 'danger');
+
+            return;
+        }
+
+        $this->pendingShortId = $short->id;
+        $this->pendingShortTitle = $short->title ?? $short->youtube_id;
+        $this->pendingShortYoutubeId = $short->youtube_id;
+        $this->showYoutubeConfirmation = true;
+    }
+
+    public function cancelPostNow(): void
+    {
+        $this->clearPendingShort();
+    }
+
+    public function confirmPostNow(): void
+    {
+        $shortId = $this->pendingShortId;
+
+        $this->clearPendingShort();
+
+        if ($shortId === null) {
+            $this->toast('Short não encontrado.', 'danger');
+
+            return;
+        }
+
+        $this->postNow($shortId);
+    }
+
+    public function requestDispatchTiktok(): void
+    {
+        $this->showTiktokConfirmation = true;
+    }
+
+    public function cancelDispatchTiktok(): void
+    {
+        $this->showTiktokConfirmation = false;
+    }
+
+    public function confirmDispatchTiktok(): void
+    {
+        $this->showTiktokConfirmation = false;
+        $this->dispatchTiktok(resolve(TikTokPostDispatcher::class));
     }
 
     /** Enfileira a postagem imediata de um Short específico. */
@@ -142,5 +204,13 @@ final class Index extends Component
             ->where('platform', 'youtube')
             ->where('is_active', true)
             ->exists();
+    }
+
+    private function clearPendingShort(): void
+    {
+        $this->showYoutubeConfirmation = false;
+        $this->pendingShortId = null;
+        $this->pendingShortTitle = '';
+        $this->pendingShortYoutubeId = '';
     }
 }

@@ -9,6 +9,7 @@ use App\Services\S3Sync\SyncRunner;
 use App\Services\S3Sync\SyncSummary;
 use Closure;
 use Illuminate\Console\Command;
+use Stringable;
 
 final class SyncS3ToMinioCommand extends Command
 {
@@ -22,18 +23,20 @@ final class SyncS3ToMinioCommand extends Command
     public function handle(SyncRunner $runner): int
     {
         $partSizeMb = max(5, (int) $this->option('part-size'));
+        $destination = $this->destinationConfig();
+
         $config = new SyncConfig(
-            sourceEndpoint: (string) config('s3-sync.source.endpoint'),
-            sourceRegion: (string) config('s3-sync.source.region'),
-            sourceAccessKey: (string) config('s3-sync.source.access_key'),
-            sourceSecretKey: (string) config('s3-sync.source.secret_key'),
-            sourceBucket: (string) config('s3-sync.source.bucket'),
+            sourceEndpoint: (string) config('services.s3_sync.source.endpoint'),
+            sourceRegion: (string) config('services.s3_sync.source.region'),
+            sourceAccessKey: (string) config('services.s3_sync.source.access_key'),
+            sourceSecretKey: (string) config('services.s3_sync.source.secret_key'),
+            sourceBucket: (string) config('services.s3_sync.source.bucket'),
             sourcePrefix: $this->resolvePrefix(),
-            destinationEndpoint: (string) config('s3-sync.destination.endpoint'),
-            destinationRegion: (string) config('s3-sync.destination.region'),
-            destinationAccessKey: (string) config('s3-sync.destination.access_key'),
-            destinationSecretKey: (string) config('s3-sync.destination.secret_key'),
-            destinationBucket: $this->resolveDestinationBucket(),
+            destinationEndpoint: $destination['endpoint'],
+            destinationRegion: $destination['region'],
+            destinationAccessKey: $destination['access_key'],
+            destinationSecretKey: $destination['secret_key'],
+            destinationBucket: $destination['bucket'],
             concurrency: 1,
             partSizeBytes: $partSizeMb * 1024 * 1024,
             force: (bool) $this->option('force'),
@@ -50,14 +53,24 @@ final class SyncS3ToMinioCommand extends Command
     {
         $override = (string) ($this->option('prefix') ?? '');
 
-        return $override !== '' ? $override : (string) config('s3-sync.source.prefix');
+        return $override !== '' ? $override : (string) config('services.s3_sync.source.prefix');
     }
 
-    private function resolveDestinationBucket(): string
+    /**
+     * @return array{endpoint: string, region: string, access_key: string, secret_key: string, bucket: string}
+     */
+    private function destinationConfig(): array
     {
-        $bucket = (string) config('s3-sync.destination.bucket');
+        /** @var array<string, mixed> $disk */
+        $disk = (array) config('filesystems.disks.s3', []);
 
-        return $bucket !== '' ? $bucket : (string) config('s3-sync.source.bucket');
+        return [
+            'endpoint' => (string) ($disk['endpoint'] ?? ''),
+            'region' => (string) ($disk['region'] ?? 'us-east-1'),
+            'access_key' => (string) ($disk['key'] ?? ''),
+            'secret_key' => (string) ($disk['secret'] ?? ''),
+            'bucket' => (string) ($disk['bucket'] ?? ''),
+        ];
     }
 
     private function reporter(): Closure
@@ -97,10 +110,20 @@ final class SyncS3ToMinioCommand extends Command
     private function renderHeader(array $payload): void
     {
         $this->line(str_repeat('-', 64));
-        $this->line('origem  : '.((string) ($payload['source'] ?? '')));
-        $this->line('destino : '.((string) ($payload['destination'] ?? '')));
+        $this->line('origem  : '.$this->payloadString($payload, 'source'));
+        $this->line('destino : '.$this->payloadString($payload, 'destination'));
         $this->line('modo    : sync'.((bool) ($payload['force'] ?? false) ? ' +force' : ''));
         $this->line(str_repeat('-', 64));
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function payloadString(array $payload, string $key): string
+    {
+        $value = $payload[$key] ?? '';
+
+        return is_scalar($value) || $value instanceof Stringable ? (string) $value : '';
     }
 
     private function renderSummary(SyncSummary $summary): void

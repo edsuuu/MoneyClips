@@ -1,15 +1,15 @@
 <div class="flex w-full flex-col gap-5">
-    <div class="flex items-start justify-between gap-3">
-        <div>
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
             <h2 class="text-lg font-semibold text-slate-50">Postagem instantânea</h2>
             <p class="text-sm text-slate-400">Sorteie um vídeo do estoque e envie para YouTube/TikTok.</p>
         </div>
-        <x-ui.button wire:click="pickRandom" variant="primary" icon="sparkles" size="sm" class="shrink-0 cursor-pointer">
+        <x-ui.button wire:click="pickRandom" variant="primary" icon="sparkles" size="sm" class="w-full shrink-0 cursor-pointer sm:w-auto">
             Pegar aleatório
         </x-ui.button>
     </div>
 
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
+    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <x-studio.metric-card label="No estoque" :value="$counts['stock']" tone="blue" />
         <x-studio.metric-card label="YouTube postados" :value="$counts['youtubePosted']" tone="green" />
         <x-studio.metric-card label="TikTok em fila" :value="$counts['tiktokQueued']" tone="amber" />
@@ -22,8 +22,8 @@
                 Nenhum vídeo selecionado. Clique em <span class="font-medium text-slate-200">Pegar vídeo aleatório</span>.
             </div>
         @else
-            <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-                <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+            <div class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+                <div class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/70 p-4">
                     <div class="flex flex-wrap items-start justify-between gap-3">
                         <div class="min-w-0">
                             <p class="line-clamp-2 text-lg font-semibold text-slate-50">{{ $short->title ?? $short->youtube_id }}</p>
@@ -69,7 +69,7 @@
                     </div>
                 </div>
 
-                <div class="rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+                <div class="min-w-0 rounded-lg border border-slate-800 bg-slate-950/70 p-4">
                     <p class="text-sm font-medium text-slate-100">Enviar para</p>
                     <div class="mt-4 grid gap-3">
                         <x-ui.checkbox
@@ -89,8 +89,7 @@
                     @endunless
 
                     <x-ui.button
-                        wire:click="postSelected"
-                        wire:confirm="Enviar o vídeo selecionado para as plataformas marcadas?"
+                        wire:click="requestPostSelected"
                         variant="primary"
                         icon="paper-airplane"
                         class="mt-5 w-full cursor-pointer"
@@ -101,4 +100,39 @@
             </div>
         @endif
     </x-studio.panel>
+
+    <x-ui.confirm-modal
+        wire:model="showPostConfirmation"
+        title="Confirmar postagem?"
+        description="O vídeo selecionado será enviado para as plataformas marcadas."
+        icon="paper-airplane"
+    >
+        @if($short)
+            <div class="space-y-3 rounded-lg border border-slate-800 bg-slate-950/70 p-4">
+                <div>
+                    <p class="line-clamp-2 text-sm font-medium text-slate-100">{{ $short->title ?? $short->youtube_id }}</p>
+                    <p class="mt-1 text-xs text-slate-500">{{ $short->youtube_id }}</p>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    @if($postYoutube)
+                        <x-ui.badge color="green" size="sm">YouTube</x-ui.badge>
+                    @endif
+
+                    @if($postTiktok)
+                        <x-ui.badge color="green" size="sm">TikTok</x-ui.badge>
+                    @endif
+                </div>
+            </div>
+        @endif
+
+        <x-slot:actions>
+            <x-ui.button wire:click="cancelPostSelected" variant="filled" class="cursor-pointer">
+                Cancelar
+            </x-ui.button>
+            <x-ui.button wire:click="confirmPostSelected" variant="primary" icon="paper-airplane" class="cursor-pointer">
+                Confirmar postagem
+            </x-ui.button>
+        </x-slot:actions>
+    </x-ui.confirm-modal>
 </div>

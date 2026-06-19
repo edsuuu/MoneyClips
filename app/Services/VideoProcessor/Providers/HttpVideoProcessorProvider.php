@@ -73,9 +73,9 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
 
     private function client(): PendingRequest
     {
-        $baseUrlStr = (string) (config('video-processor.base_url')) ?: 'http://127.0.0.1:8765';
+        $baseUrlStr = (string) (config('services.video_processor.base_url')) ?: 'http://127.0.0.1:8765';
 
-        $timeout = config('video-processor.timeout', 120);
+        $timeout = config('services.video_processor.timeout', 120);
         $timeoutInt = is_int($timeout) || is_numeric($timeout) ? (int) $timeout : 120;
 
         $request = Http::baseUrl($baseUrlStr)
@@ -83,7 +83,7 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
             ->acceptJson()
             ->asJson();
 
-        $token = config('video-processor.token');
+        $token = config('services.video_processor.token');
         $tokenStr = is_string($token) ? $token : '';
         if ($tokenStr !== '') {
             return $request->withToken($tokenStr);
@@ -94,7 +94,7 @@ final class HttpVideoProcessorProvider implements VideoProcessorProviderInterfac
 
     private function ensureHeartbeat(PendingRequest $client): void
     {
-        $timeout = config('video-processor.timeout', 120);
+        $timeout = config('services.video_processor.timeout', 120);
         $timeoutInt = is_int($timeout) || is_numeric($timeout) ? (int) $timeout : 120;
         $heartbeat = $client
             ->timeout(min($timeoutInt, 10))

@@ -25,11 +25,11 @@ versionados em [`MicroServices/`](MicroServices/) (ver
 | --- | --- | --- | --- | --- | --- |
 | **download-shorts** | Python / FastAPI | 8770 | Docker (compose) | baixa Shorts de canais p/ o storage e cria jobs de download | MySQL `download_shorts`, S3/MinIO |
 | **tiktok-uploader** | Node 22 + Playwright | 8090 | Docker (compose) | publica vídeos no TikTok via navegador; devolve o resultado por webhook | S3/MinIO, TikTok (web), Discord |
-| **generate-clips** (video processor) | Python / FastAPI | 8765 | **Nativo no host** | download/transcrição/render dos cortes; responde via webhook | MinIO, LLMs, Whisper, ffmpeg |
+| **generate-clips** (video processor) | Python / FastAPI | 8765 | Nativo no macOS ou Docker Linux/NVIDIA | download/transcrição/render dos cortes; responde via webhook | MinIO, LLMs, Whisper, ffmpeg |
 
-> **Por que generate-clips fica fora do Docker?** Usa GPU (Whisper MLX/Metal e
-> ffmpeg videotoolbox no macOS), indisponível em container no Docker Desktop.
-> Roda nativo no host — instruções em [MicroServices/README.md](MicroServices/README.md).
+> **GPU no Docker:** no macOS o Docker Desktop não entrega CUDA/NVIDIA para
+> containers, então `generate-clips` continua nativo para usar Metal/VideoToolbox.
+> Em Linux com placa NVIDIA, use o profile `linux-nvidia` do compose.
 
 Pré-requisitos de infra no host (reaproveitados pelos containers via
 `host.docker.internal`): **MySQL** (com o banco `download_shorts`), **MinIO**
@@ -68,10 +68,18 @@ Sobe 3 containers: **laravel** (Sail PHP 8.4, `127.0.0.1:8000`),
 **download-shorts** (`8770`), **tiktok-uploader** (`8090`). MySQL e MinIO
 ficam externos no host (`host.docker.internal:3306` e `:9000`).
 
-`generate-clips` continua nativo no host (GPU Metal não passa pra container):
+No macOS, `generate-clips` continua nativo no host (GPU Metal não passa para
+container):
 
 ```bash
 cd MicroServices/GenerateClips && python main.py   # API em 127.0.0.1:8765
+```
+
+No Linux com NVIDIA/CUDA, valide a GPU e suba o container com:
+
+```bash
+scripts/generate-clips-docker check
+scripts/generate-clips-docker up
 ```
 
 ### Dev nativo (sem container do Laravel)

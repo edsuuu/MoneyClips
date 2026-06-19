@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\S3Sync;
 
+use Aws\Command;
 use Aws\S3\MultipartUploader;
 use Aws\S3\S3Client;
 
@@ -33,7 +34,7 @@ final readonly class ObjectCopier
             'bucket' => $destinationBucket,
             'key' => $key,
             'part_size' => $partSizeBytes,
-            'before_initiate' => function (\Aws\Command $command) use ($contentType): void {
+            'before_initiate' => function (Command $command) use ($contentType): void {
                 if ($contentType !== null) {
                     $command['ContentType'] = $contentType;
                 }

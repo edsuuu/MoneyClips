@@ -22,6 +22,53 @@ final class Index extends Component
 
     private const int PER_PAGE = 15;
 
+    public bool $showTiktokConfirmation = false;
+
+    public string $pendingYoutubeId = '';
+
+    public string $pendingTitle = '';
+
+    /** @var array<int, string> */
+    public array $pendingHashtags = [];
+
+    public function requestPostToTiktok(string $youtubeId): void
+    {
+        $youtubeId = mb_trim($youtubeId);
+        if ($youtubeId === '') {
+            $this->toast('Vídeo inválido.', 'danger');
+
+            return;
+        }
+
+        $short = YoutubeShort::query()
+            ->where('youtube_id', $youtubeId)
+            ->first();
+
+        $this->pendingYoutubeId = $youtubeId;
+        $this->pendingTitle = $short instanceof YoutubeShort && $short->title !== null && mb_trim($short->title) !== ''
+            ? mb_trim($short->title)
+            : $youtubeId;
+        $this->pendingHashtags = $short instanceof YoutubeShort
+            ? $this->normalizeHashtags((array) ($short->hashtags ?? []))
+            : [];
+        $this->showTiktokConfirmation = true;
+    }
+
+    public function cancelPostToTiktok(): void
+    {
+        $this->clearPendingTiktokPost();
+    }
+
+    public function postPendingToTiktok(): void
+    {
+        $youtubeId = $this->pendingYoutubeId;
+        $title = $this->pendingTitle;
+        $hashtags = $this->pendingHashtags;
+
+        $this->clearPendingTiktokPost();
+        $this->postToTiktok($youtubeId, $title, $hashtags);
+    }
+
     /**
      * @param  array<int, string>  $hashtags
      */
@@ -116,6 +163,9 @@ final class Index extends Component
                     'hashtags' => $this->normalizeHashtags((array) ($item->hashtags ?? [])),
                     'storage_path' => (string) ($item->video_path),
                     'storage_size_bytes' => 0,
+                    'downloaded_at' => $item->downloaded_at
+                        ?->timezone((string) config('app.timezone', 'America/Sao_Paulo'))
+                        ->format('d/m/Y H:i') ?? '—',
                     'download_status' => 'imported',
                     'dispatch_status' => 'local',
                     'post' => $post,
@@ -139,5 +189,13 @@ final class Index extends Component
             ),
             static fn (string $tag): bool => $tag !== '',
         ));
+    }
+
+    private function clearPendingTiktokPost(): void
+    {
+        $this->showTiktokConfirmation = false;
+        $this->pendingYoutubeId = '';
+        $this->pendingTitle = '';
+        $this->pendingHashtags = [];
     }
 }

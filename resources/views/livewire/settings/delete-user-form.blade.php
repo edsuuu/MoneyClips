@@ -8,7 +8,7 @@
         {{ __('Delete account') }}
     </x-ui.button>
 
-    <x-ui.modal name="confirm-user-deletion" class="max-w-lg">
+    <x-ui.modal name="confirm-user-deletion" max-width="max-w-lg">
         <form method="POST" wire:submit="deleteUser" class="space-y-6">
             <div class="space-y-1">
                 <x-ui.heading size="lg">{{ __('Are you sure you want to delete your account?') }}</x-ui.heading>
