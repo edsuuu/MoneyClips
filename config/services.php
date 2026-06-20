@@ -70,6 +70,9 @@ return [
             'TIKTOK_POST_CALLBACK_URL',
             mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/tiktok-posts/callback',
         ),
+        // Token compartilhado entre a extensão Chrome (tiktok-cookie-bridge)
+        // e o endpoint /api/tiktok/cookies/ingest. Vazio = endpoint desligado.
+        'bridge_token' => env('TIKTOK_BRIDGE_TOKEN', ''),
     ],
 
     'video_processor' => [
