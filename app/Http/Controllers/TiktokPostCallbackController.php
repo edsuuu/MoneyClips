@@ -6,12 +6,21 @@ namespace App\Http\Controllers;
 
 use App\Models\TiktokPost;
 use App\Models\YoutubeShort;
+use App\Services\DiscordNotifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * Webhook do microserviço tiktok-uploader. Recebe o resultado final do upload
+ * (completed | dry-run | failed), persiste no ledger tiktok_posts, marca
+ * posted_tiktok_at no estoque (youtube_shorts) e dispara o Discord.
+ */
 final class TiktokPostCallbackController extends Controller
 {
+    public function __construct(private readonly DiscordNotifier $discord) {}
+
     public function __invoke(Request $request): JsonResponse
     {
         /** @var array{job_id: string, video_id: string, status: string, title?: string|null, error?: string|null, finished_at?: string|null} $validated */
@@ -27,30 +36,51 @@ final class TiktokPostCallbackController extends Controller
         ]);
 
         $status = $validated['status'];
+        $videoId = $validated['video_id'];
+        $title = (string) ($validated['title'] ?? '') ?: null;
+        $error = (string) ($validated['error'] ?? '') ?: null;
         $finishedAtValue = (string) ($validated['finished_at'] ?? '');
         $finishedAt = $finishedAtValue !== ''
             ? Date::parse($finishedAtValue)
             : now();
 
+        Log::info('[TiktokCallback] webhook recebido.', [
+            'job_id' => $validated['job_id'],
+            'video_id' => $videoId,
+            'status' => $status,
+            'title' => $title,
+        ]);
+
         TiktokPost::query()->updateOrCreate(
             ['uuid' => $validated['job_id']],
             [
-                'youtube_id' => $validated['video_id'],
-                'video_key' => sprintf('shorts/%s.mp4', $validated['video_id']),
-                'title' => (string) ($validated['title'] ?? '') ?: null,
+                'youtube_id' => $videoId,
+                'video_key' => sprintf('shorts/%s.mp4', $videoId),
+                'title' => $title,
                 'status' => $status,
-                'error' => (string) ($validated['error'] ?? '') ?: null,
+                'error' => $error,
                 'posted_at' => $status === 'completed' ? $finishedAt : null,
             ],
         );
 
-        // Confirmação explícita de sucesso no TikTok na fonte única (youtube_shorts),
-        // casando pelo youtube_id. Só conta publicação real (completed), não dry-run.
+        // Confirmação explícita do sucesso na fonte única (youtube_shorts),
+        // casando pelo youtube_id. Só conta publicação real (completed).
         if ($status === 'completed') {
             YoutubeShort::query()
-                ->where('youtube_id', $validated['video_id'])
+                ->where('youtube_id', $videoId)
                 ->whereNull('posted_tiktok_at')
                 ->update(['posted_tiktok_at' => $finishedAt]);
+
+            $accountName = (string) config('services.tiktok_post.account_name', 'tiktok');
+            $this->discord->success(
+                '🎵 Short postado no TikTok',
+                ($title ?? $videoId).PHP_EOL.'@'.$accountName,
+            );
+        } elseif ($status === 'failed') {
+            $this->discord->error(
+                '❌ Falha ao postar Short no TikTok',
+                'Video: '.($title ?? $videoId).PHP_EOL.'Erro: '.($error ?? 'sem detalhes'),
+            );
         }
 
         return response()->json(['ok' => true]);

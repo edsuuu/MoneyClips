@@ -52,11 +52,6 @@
                             </x-nav-item>
                         @endauth
 
-                        @if(request()->route('video'))
-                            <x-nav-item icon="scissors" :href="route('videos.editor', request()->route('video'))" :current="request()->routeIs('videos.editor')">
-                                {{ __('Editor') }}
-                            </x-nav-item>
-                        @endif
                     </nav>
 
                     <div class="flex-1"></div>

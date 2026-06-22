@@ -44,7 +44,7 @@ final class MicroserviceMonitor
             [
                 'key' => 'generate-clips',
                 'label' => $generateClipsDocker === null ? 'generate-clips (nativo)' : 'generate-clips (Docker)',
-                'url' => (string) (config('services.video_processor.base_url')) ?: 'http://127.0.0.1:8765',
+                'url' => 'http://127.0.0.1:8765',
                 'docker' => $generateClipsDocker,
             ],
         ];

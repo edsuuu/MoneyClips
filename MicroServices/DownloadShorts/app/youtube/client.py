@@ -18,10 +18,10 @@ logger = logging.getLogger("shorts.youtube")
 def _video_encoder_args() -> list[str]:
     encoder = settings.gpu_encoder
     if encoder == "nvenc":
-        return ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "23", "-c:a", "copy"]
+        return ["-c:v", "h264_nvenc", "-preset", "p5", "-rc", "vbr", "-cq", "20", "-c:a", "copy"]
     if encoder == "videotoolbox":
-        return ["-c:v", "h264_videotoolbox", "-b:v", "8M", "-c:a", "copy"]
-    return []
+        return ["-c:v", "h264_videotoolbox", "-b:v", "12M", "-c:a", "copy"]
+    return ["-c:v", "libx264", "-preset", "slow", "-crf", "18", "-c:a", "copy"]
 
 
 @dataclass(frozen=True)
@@ -58,6 +58,18 @@ def extract_video_id(value: str) -> str | None:
     return None
 
 
+_PT_BR_HEADERS = {
+    "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.5",
+}
+
+_YT_PT_BR_ARGS = {
+    # Pede o título/descrição localizados em pt-BR ao YouTube. Sem isso, vídeos
+    # com legenda automática em vários idiomas voltam com o título "original"
+    # (frequentemente em inglês), mesmo quando o canal é brasileiro.
+    "youtube": {"lang": ["pt-BR"]},
+}
+
+
 def list_shorts(channel_url: str) -> list[ShortVideo]:
     shorts_url = normalize_shorts_url(channel_url)
     options = {
@@ -65,6 +77,8 @@ def list_shorts(channel_url: str) -> list[ShortVideo]:
         "no_warnings": True,
         "extract_flat": True,
         "ignoreerrors": True,
+        "http_headers": _PT_BR_HEADERS,
+        "extractor_args": _YT_PT_BR_ARGS,
     }
 
     with yt_dlp.YoutubeDL(options) as ydl:
@@ -129,8 +143,11 @@ def _progress_hook(label: str) -> Callable[[dict[str, Any]], None]:
 def download_short(download_url: str, output_dir: Path, label: str | None = None) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
     options = {
-        "format": ("bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo+bestaudio/best"),
-        "format_sort": ["res", "fps", "vbr", "abr"],
+        # Sem trava de codec: yt-dlp pega o melhor (inclui VP9/AV1, que no YouTube
+        # têm bitrate maior que H.264). O postprocessor abaixo transcoda pra
+        # H.264 alto bitrate via GPU (videotoolbox/nvenc) ou libx264 crf 18.
+        "format": "bestvideo+bestaudio/best",
+        "format_sort": ["res", "vbr", "fps", "abr"],
         "merge_output_format": "mp4",
         "outtmpl": str(output_dir / "source.%(ext)s"),
         "quiet": True,
@@ -139,6 +156,8 @@ def download_short(download_url: str, output_dir: Path, label: str | None = None
         "progress_hooks": [_progress_hook(label or download_url)],
         "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
         "postprocessor_args": {"FFmpegVideoConvertor": _video_encoder_args()},
+        "http_headers": _PT_BR_HEADERS,
+        "extractor_args": _YT_PT_BR_ARGS,
     }
 
     with yt_dlp.YoutubeDL(options) as ydl:
