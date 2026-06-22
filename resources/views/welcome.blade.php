@@ -1,6 +1,6 @@
 <x-layout :title="__('Transforme vídeos longos em clipes virais')" layout="landing">
     @php
-        $startRoute = auth()->check() ? route('videos.create') : route('login');
+        $startRoute = auth()->check() ? route('shorts.index') : route('login');
     @endphp
 
     <div class="landing-page">

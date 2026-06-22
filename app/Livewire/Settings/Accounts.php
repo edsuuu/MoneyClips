@@ -6,7 +6,6 @@ namespace App\Livewire\Settings;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
-use App\Services\Youtube\YoutubePublisher;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
@@ -169,7 +168,8 @@ final class Accounts extends Component
 
         $accountsByPlatform = $accounts->groupBy('platform');
 
-        $platformLabels = [YoutubePublisher::PLATFORM => YoutubePublisher::LABEL];
+        // Hoje só o YouTube tem publisher OAuth — TikTok usa cookie session.
+        $platformLabels = ['youtube' => 'YouTube'];
 
         $providers = collect($platformLabels)
             ->map(function (string $label, string $platform) use ($accountsByPlatform): array {
