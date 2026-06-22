@@ -29,8 +29,16 @@ return new class extends Migration
 
     public function up(): void
     {
-        foreach (self::LEGACY_TABLES as $table) {
-            Schema::dropIfExists($table);
+        // FK cruzadas entre essas tabelas (ex: files.cut_id → cuts) impedem
+        // dropar uma de cada vez. Como tudo cai junto, desabilita as
+        // checagens em volta do bloco.
+        Schema::disableForeignKeyConstraints();
+        try {
+            foreach (self::LEGACY_TABLES as $table) {
+                Schema::dropIfExists($table);
+            }
+        } finally {
+            Schema::enableForeignKeyConstraints();
         }
     }
 
