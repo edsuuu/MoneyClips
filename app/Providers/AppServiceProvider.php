@@ -5,9 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
-use App\Services\VideoProcessor\Contracts\VideoProcessorProviderInterface;
-use App\Services\VideoProcessor\Providers\HttpVideoProcessorProvider;
+use App\Services\AutoPost\AutoPostDispatcher;
+use App\Services\AutoPost\Posters\TiktokPoster;
+use App\Services\AutoPost\Posters\YoutubePoster;
+use App\Services\AutoPost\StockReservation;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -23,8 +26,16 @@ final class AppServiceProvider extends ServiceProvider
     #[Override]
     public function register(): void
     {
-        // Contrato -> implementação HTTP. Trocar o provider aqui (ex: fake nos testes).
-        $this->app->bind(VideoProcessorProviderInterface::class, HttpVideoProcessorProvider::class);
+        // Lista ordenada dos Posters do AutoPostDispatcher. YouTube vem 1º
+        // (síncrono — falha aqui é falha do post); TikTok depois (assíncrono).
+        // Adicione novos posters aqui pra estendê-lo a outras plataformas.
+        $this->app->singleton(AutoPostDispatcher::class, fn (Application $app): AutoPostDispatcher => new AutoPostDispatcher(
+            stock: $app->make(StockReservation::class),
+            posters: [
+                $app->make(YoutubePoster::class),
+                $app->make(TiktokPoster::class),
+            ],
+        ));
     }
 
     /**

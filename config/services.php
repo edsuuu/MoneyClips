@@ -66,6 +66,9 @@ return [
         'base_url' => env('TIKTOK_POST_URL', 'http://127.0.0.1:8090'),
         'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 30),
         'api_token' => env('TIKTOK_POST_API_TOKEN', ''),
+        // Conta TikTok ativa (handle público sem @). Usada em mensagens do
+        // Discord pra rotular o destino. A autenticação real vive em cookies.
+        'account_name' => env('TIKTOK_ACCOUNT_NAME', ''),
         'callback_url' => env(
             'TIKTOK_POST_CALLBACK_URL',
             mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/tiktok-posts/callback',
@@ -73,23 +76,6 @@ return [
         // Token compartilhado entre a extensão Chrome (tiktok-cookie-bridge)
         // e o endpoint /api/tiktok/cookies/ingest. Vazio = endpoint desligado.
         'bridge_token' => env('TIKTOK_BRIDGE_TOKEN', ''),
-    ],
-
-    'video_processor' => [
-        'base_url' => 'http://host.docker.internal:8765',
-        'ws_url' => 'ws://127.0.0.1:8765',
-        'token' => '',
-        'timeout' => 120,
-        'callback_token' => '',
-        'callback_url' => env('APP_URL', 'http://clips.localhost').'/api/video-processor/callbacks',
-        'storage_bucket' => env('AWS_BUCKET', 'auto-post'),
-        'auto' => [
-            'full_coverage_max_seconds' => (int) env('AUTO_FULL_COVERAGE_MAX_SECONDS', 900),
-            'clip_seconds' => (int) env('AUTO_CLIP_SECONDS', 60),
-            'min_tail_seconds' => (int) env('AUTO_MIN_TAIL_SECONDS', 20),
-            'ai_min_cuts' => (int) env('AUTO_AI_MIN_CUTS', 4),
-            'ai_max_cuts' => (int) env('AUTO_AI_MAX_CUTS', 10),
-        ],
     ],
 
     'youtube_shorts' => [
