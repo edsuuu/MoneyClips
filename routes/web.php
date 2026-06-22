@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OAuthController;
-use App\Http\Controllers\VideoController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', HomeController::class)->name('home');
@@ -18,17 +17,6 @@ Route::middleware('guest')->group(function (): void {
 
 Route::middleware(['auth'])->group(function (): void {
     Route::view('/downloads', 'downloads.index')->name('downloads.index');
-
-    Route::view('/videos', 'videos.index')->name('videos.index');
-    Route::view('/videos/create', 'videos.create')->name('videos.create');
-    Route::view('/videos/{uuid}/editor', 'videos.editor')->name('videos.editor');
-    Route::view('/videos/{video}/schedule', 'videos.schedule')->name('videos.schedule');
-    Route::get('/videos/{video}/publications', [VideoController::class, 'publications'])->name('videos.publications');
-    Route::get('/videos/{video}/thumbnail', [VideoController::class, 'thumbnail'])->name('videos.thumbnail');
-    Route::get('/videos/{video}/stream/{path}', [VideoController::class, 'stream'])
-        ->where('path', '.*')
-        ->name('videos.stream');
-    Route::get('/videos/{video}/cut/{type}', [VideoController::class, 'cut'])->name('videos.cut');
 
     // Auto-postagem de Shorts (pipeline unificado do auto-post).
     Route::view('/shorts', 'shorts.index')->name('shorts.index');

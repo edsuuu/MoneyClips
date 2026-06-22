@@ -17,7 +17,6 @@ final class DatabaseSeeder extends Seeder
         $this->call([
             Seeder001Roles::class,
             Seeder002AdminUser::class,
-            Seeder003Statuses::class,
         ]);
     }
 }

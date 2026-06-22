@@ -34,13 +34,13 @@
                     </li>
                 @endauth
                 <li>
-                    <x-nav-item icon="film" size="lg" :href="route('videos.index')" :current="request()->routeIs('videos.index')">
-                        {{ __('Vídeos') }}
+                    <x-nav-item icon="film" size="lg" :href="route('downloads.index')" :current="request()->routeIs('downloads.index')">
+                        {{ __('Downloads') }}
                     </x-nav-item>
                 </li>
                 <li>
-                    <x-nav-item icon="film" size="lg" :href="route('downloads.index')" :current="request()->routeIs('downloads.index')">
-                        {{ __('Downloads') }}
+                    <x-nav-item icon="film" size="lg" :href="route('shorts.index')" :current="request()->routeIs('shorts.index')">
+                        {{ __('Shorts') }}
                     </x-nav-item>
                 </li>
                 <li>

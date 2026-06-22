@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 /**
@@ -41,14 +40,6 @@ final class SocialAccount extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    /**
-     * @return HasMany<ScheduledPost, $this>
-     */
-    public function scheduledPosts(): HasMany
-    {
-        return $this->hasMany(ScheduledPost::class);
     }
 
     public function tokenExpired(): bool
