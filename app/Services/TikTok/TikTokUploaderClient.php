@@ -72,6 +72,40 @@ final class TikTokUploaderClient
         }
     }
 
+    /**
+     * Injeta cookies do TikTok (sessão já logada externamente) no uploader.
+     *
+     * @param  list<array<string, mixed>>  $cookies
+     * @return array<string, mixed>
+     */
+    public function injectSession(array $cookies): array
+    {
+        /** @var array<string, mixed> $res */
+        $res = $this->client()
+            ->post('/session', ['cookies' => $cookies])
+            ->throw()
+            ->json();
+
+        return $res;
+    }
+
+    /**
+     * Estado atual da sessão (session_valid, expira_em, etc).
+     *
+     * @return array<string, mixed>
+     */
+    public function session(): array
+    {
+        /** @var array<string, mixed> $res */
+        $res = $this->client()
+            ->timeout(8)
+            ->get('/session')
+            ->throw()
+            ->json();
+
+        return $res;
+    }
+
     /** @param array<string, mixed> $res */
     private function jobIdFrom(array $res): string
     {

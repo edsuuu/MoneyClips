@@ -17,18 +17,54 @@
         </x-slot:actions>
     </x-studio.page-header>
 
-    <div class="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <x-studio.metric-card label="Baixados" :value="$counts['downloaded']" tone="blue" />
-        <x-studio.metric-card label="Em fila" :value="$counts['queued']" tone="amber" />
-        <x-studio.metric-card label="Postados" :value="$counts['posted']" tone="green" />
-        <x-studio.metric-card label="Falhas" :value="$counts['failed']" tone="red" />
+    @php
+        $tabs = [
+            ['key' => 'available', 'label' => 'Disponíveis', 'count' => $counts['available'], 'tone' => 'zinc'],
+            ['key' => 'queued',    'label' => 'Em fila',     'count' => $counts['queued'],    'tone' => 'amber'],
+            ['key' => 'posted',    'label' => 'Postados',    'count' => $counts['posted'],    'tone' => 'green'],
+            ['key' => 'failed',    'label' => 'Falhas',      'count' => $counts['failed'],    'tone' => 'red'],
+        ];
+    @endphp
+
+    <div class="flex flex-wrap gap-2 border-b border-slate-800 pb-2">
+        @foreach($tabs as $tabInfo)
+            <button
+                type="button"
+                wire:click="setTab('{{ $tabInfo['key'] }}')"
+                @class([
+                    'flex items-center gap-2 rounded-t-lg border-b-2 px-4 py-2 text-sm font-medium transition cursor-pointer',
+                    'border-slate-200 text-slate-100' => $tab === $tabInfo['key'],
+                    'border-transparent text-slate-400 hover:text-slate-200' => $tab !== $tabInfo['key'],
+                ])
+            >
+                <span>{{ $tabInfo['label'] }}</span>
+                <x-ui.badge :color="$tabInfo['tone']" size="sm">{{ $tabInfo['count'] }}</x-ui.badge>
+            </button>
+        @endforeach
     </div>
 
-    <x-studio.panel title="Vídeos baixados" subtitle="A lista vem da tabela local youtube_shorts (alimentada pelo webhook do microserviço).">
+    <x-studio.panel
+        :title="match($tab) {
+            'queued' => 'Em fila no TikTok',
+            'posted' => 'Já postados no TikTok',
+            'failed' => 'Falhas no TikTok',
+            default => 'Disponíveis para postar',
+        }"
+        :subtitle="match($tab) {
+            'queued' => 'Vídeos enfileirados ou em processamento no microserviço tiktok-uploader.',
+            'posted' => 'Vídeos já publicados (ou dry-run). Não aparecem na aba Disponíveis.',
+            'failed' => 'Vídeos cuja postagem falhou — podem ser reenviados.',
+            default => 'Estoque baixado que ainda não foi enviado pra fila.',
+        }"
+    >
         @if($items->isEmpty())
             <div class="rounded-lg border border-dashed border-slate-800 p-10 text-center text-sm text-slate-400">
-                Nenhum vídeo local encontrado. Dispare um download pela tela
-                <button type="button" x-data x-on:click="$dispatch('modal-show', { name: 'new-download' })" class="cursor-pointer text-slate-200 underline hover:text-slate-50">Novo download</button>.
+                @if($tab === 'available')
+                    Nenhum vídeo disponível para postar. Dispare um download pela tela
+                    <button type="button" x-data x-on:click="$dispatch('modal-show', { name: 'new-download' })" class="cursor-pointer text-slate-200 underline hover:text-slate-50">Novo download</button>.
+                @else
+                    Nada por aqui.
+                @endif
             </div>
         @else
             <div class="overflow-x-auto">
@@ -47,16 +83,30 @@
                             @php
                                 /** @var \App\Models\TiktokPost|null $post */
                                 $post = $item['post'];
-                                $status = $post?->status;
+                                $status = $item['post_status'];
                             @endphp
-                            <tr class="border-b border-slate-900 hover:bg-slate-900/50" wire:key="download-item-{{ $item['youtube_id'] }}">
+                            <tr class="border-b border-slate-900 hover:bg-slate-900/50" wire:key="download-item-{{ $tab }}-{{ $item['youtube_id'] }}">
                                 <td class="max-w-sm px-3 py-2.5">
                                     <p class="line-clamp-2 font-medium text-slate-100">{{ $item['title'] }}</p>
+                                    @if($item['storage_url'])
+                                        <a
+                                            href="{{ $item['storage_url'] }}"
+                                            target="_blank"
+                                            rel="noopener"
+                                            class="mt-1 inline-flex items-center gap-1 text-xs text-emerald-300 hover:text-emerald-200"
+                                            title="Abre o vídeo direto do MinIO ({{ $item['storage_path'] }})"
+                                        >
+                                            <span>▶</span>
+                                            <span>ver no MinIO</span>
+                                        </a>
+                                    @else
+                                        <span class="mt-1 inline-block text-xs text-slate-600">sem link (storage offline)</span>
+                                    @endif
                                     <a
                                         href="https://www.youtube.com/shorts/{{ $item['youtube_id'] }}"
                                         target="_blank"
                                         rel="noopener"
-                                        class="text-xs text-slate-500 hover:text-slate-300"
+                                        class="mt-1 block text-xs text-slate-500 hover:text-slate-300"
                                     >{{ $item['youtube_id'] }}</a>
                                 </td>
                                 <td class="max-w-[220px] px-3 py-2.5 text-xs text-slate-400">
@@ -65,9 +115,6 @@
                                 <td class="max-w-[240px] px-3 py-2.5 text-xs text-slate-400">
                                     <p class="truncate">{{ $item['storage_path'] ?: '—' }}</p>
                                     <p class="mt-1 text-slate-600">Baixado em {{ $item['downloaded_at'] }}</p>
-                                    @if($item['storage_size_bytes'] > 0)
-                                        <p class="mt-1 text-slate-600">{{ number_format($item['storage_size_bytes'] / 1048576, 1, ',', '.') }} MB</p>
-                                    @endif
                                 </td>
                                 <td class="px-3 py-2.5">
                                     @if($status === 'completed')
@@ -82,8 +129,8 @@
                                         <x-ui.badge color="zinc" size="sm">Disponível</x-ui.badge>
                                     @endif
 
-                                    @if($post?->error)
-                                        <p class="mt-1 max-w-xs truncate text-xs text-red-300" title="{{ $post->error }}">{{ $post->error }}</p>
+                                    @if($item['post_error'])
+                                        <p class="mt-1 max-w-xs truncate text-xs text-red-300" title="{{ $item['post_error'] }}">{{ $item['post_error'] }}</p>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5 text-right">
@@ -95,7 +142,11 @@
                                         class="cursor-pointer"
                                         :disabled="! $item['can_post']"
                                     >
-                                        Postar no TikTok
+                                        @if($tab === 'failed')
+                                            Reenviar
+                                        @else
+                                            Postar no TikTok
+                                        @endif
                                     </x-ui.button>
                                 </td>
                             </tr>

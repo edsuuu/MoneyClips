@@ -20,6 +20,11 @@ _active_channels: set[str] = set()
 _active_lock = threading.Lock()
 
 
+def _truncate(text: str, limit: int = 60) -> str:
+    text = text.strip()
+    return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
 class ChannelAlreadyDownloadingError(Exception):
     pass
 
@@ -48,6 +53,13 @@ def start_download(channel_url: str, webhook_url: str) -> int:
         len(videos),
         settings.download_workers,
     )
+    for video in videos:
+        logger.info(
+            "channel %s: enfileirado %s — %s",
+            channel_url,
+            video.youtube_id,
+            _truncate(video.title),
+        )
 
     thread = threading.Thread(
         target=_run_pool,
@@ -94,12 +106,15 @@ def _process_one(
     storage: StorageClient,
 ) -> None:
     object_path = storage_path_for(video.youtube_id)
-    label = f"short:{video.youtube_id}"
+    # O título vai no label pra todo log do worker mostrar "short:abc123 (Titulo)".
+    label = f"short:{video.youtube_id} ({_truncate(video.title)})"
     work_dir = settings.temp_dir / video.youtube_id
+    logger.info("%s: iniciando processamento", label)
 
     try:
         if storage.exists(object_path):
             stat = storage.stat(object_path)
+            logger.info("%s: já existe no storage, pulando download", label)
             _send_webhook(
                 webhook_url,
                 _build_payload(video, channel_url, "completed", stat),

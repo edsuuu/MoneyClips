@@ -8,9 +8,13 @@ use App\Livewire\Concerns\WithToasts;
 use App\Models\TiktokPost;
 use App\Models\YoutubeShort;
 use App\Services\TikTok\TiktokPostService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Livewire\Attributes\Url;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Throwable;
@@ -20,7 +24,27 @@ final class Index extends Component
     use WithPagination;
     use WithToasts;
 
+    public const string TAB_AVAILABLE = 'available';
+
+    public const string TAB_QUEUED = 'queued';
+
+    public const string TAB_POSTED = 'posted';
+
+    public const string TAB_FAILED = 'failed';
+
     private const int PER_PAGE = 15;
+
+    private const int PRESIGNED_TTL_MINUTES = 30;
+
+    private const array TABS = [
+        self::TAB_AVAILABLE,
+        self::TAB_QUEUED,
+        self::TAB_POSTED,
+        self::TAB_FAILED,
+    ];
+
+    #[Url(as: 'tab', except: self::TAB_AVAILABLE)]
+    public string $tab = self::TAB_AVAILABLE;
 
     public bool $showTiktokConfirmation = false;
 
@@ -30,6 +54,16 @@ final class Index extends Component
 
     /** @var array<int, string> */
     public array $pendingHashtags = [];
+
+    public function setTab(string $tab): void
+    {
+        if (! in_array($tab, self::TABS, true)) {
+            return;
+        }
+
+        $this->tab = $tab;
+        $this->resetPage();
+    }
 
     public function requestPostToTiktok(string $youtubeId): void
     {
@@ -111,11 +145,14 @@ final class Index extends Component
 
     public function render(): View
     {
+        if (! in_array($this->tab, self::TABS, true)) {
+            $this->tab = self::TAB_AVAILABLE;
+        }
+
         $page = max(1, (int) ($this->getPage()));
-        $shorts = YoutubeShort::query()
-            ->whereNotNull('video_path')
-            ->latest('id')
-            ->paginate(self::PER_PAGE, ['*'], 'page', $page);
+        $shorts = $this->queryForTab($this->tab)
+            ->latest('youtube_shorts.id')
+            ->paginate(self::PER_PAGE, ['youtube_shorts.*'], 'page', $page);
 
         $items = new LengthAwarePaginator(
             $this->decorateItems($shorts->getCollection()),
@@ -127,13 +164,45 @@ final class Index extends Component
 
         return view('livewire.downloads.index', [
             'items' => $items,
+            'tab' => $this->tab,
             'counts' => [
-                'downloaded' => YoutubeShort::query()->whereNotNull('video_path')->count(),
-                'queued' => TiktokPost::query()->whereIn('status', ['queued', 'processing'])->count(),
-                'posted' => TiktokPost::query()->where('status', 'completed')->count(),
-                'failed' => TiktokPost::query()->where('status', 'failed')->count(),
+                'available' => $this->queryForTab(self::TAB_AVAILABLE)->count(),
+                'queued' => $this->queryForTab(self::TAB_QUEUED)->count(),
+                'posted' => $this->queryForTab(self::TAB_POSTED)->count(),
+                'failed' => $this->queryForTab(self::TAB_FAILED)->count(),
             ],
         ]);
+    }
+
+    /**
+     * @return Builder<YoutubeShort>
+     */
+    private function queryForTab(string $tab): Builder
+    {
+        $base = YoutubeShort::query()->whereNotNull('video_path');
+
+        return match ($tab) {
+            self::TAB_QUEUED => $base->whereIn(
+                'youtube_id',
+                TiktokPost::query()->select('youtube_id')->whereIn('status', ['queued', 'processing']),
+            ),
+            self::TAB_POSTED => $base->whereIn(
+                'youtube_id',
+                TiktokPost::query()->select('youtube_id')->whereIn('status', ['completed', 'dry-run']),
+            ),
+            self::TAB_FAILED => $base->whereIn(
+                'youtube_id',
+                TiktokPost::query()->select('youtube_id')->where('status', 'failed'),
+            ),
+            default => $base->whereNotIn(
+                'youtube_id',
+                // Vídeos já postados / em fila / em processamento somem da listagem geral.
+                TiktokPost::query()->select('youtube_id')->whereIn(
+                    'status',
+                    ['completed', 'dry-run', 'queued', 'processing'],
+                ),
+            ),
+        };
     }
 
     /**
@@ -156,24 +225,41 @@ final class Index extends Component
             ->map(function (YoutubeShort $item) use ($posts): array {
                 $youtubeId = $item->youtube_id;
                 $post = $posts->get($youtubeId);
+                $storagePath = (string) ($item->video_path);
 
                 return [
                     'youtube_id' => $youtubeId,
                     'title' => (string) ($item->title) ?: $youtubeId,
                     'hashtags' => $this->normalizeHashtags((array) ($item->hashtags ?? [])),
-                    'storage_path' => (string) ($item->video_path),
-                    'storage_size_bytes' => 0,
+                    'storage_path' => $storagePath,
+                    'storage_url' => $this->presignedUrl($storagePath),
                     'downloaded_at' => $item->downloaded_at
                         ?->timezone((string) config('app.timezone', 'America/Sao_Paulo'))
                         ->format('d/m/Y H:i') ?? '—',
-                    'download_status' => 'imported',
-                    'dispatch_status' => 'local',
                     'post' => $post,
+                    'post_error' => $post?->error,
+                    'post_status' => $post?->status,
                     'can_post' => ! $post instanceof TiktokPost
                         || ! in_array($post->status, TiktokPost::ACTIVE_STATUSES, true),
                 ];
             })
             ->all());
+    }
+
+    private function presignedUrl(string $path): ?string
+    {
+        if ($path === '') {
+            return null;
+        }
+
+        try {
+            return Storage::disk('s3')->temporaryUrl(
+                $path,
+                Date::now()->addMinutes(self::PRESIGNED_TTL_MINUTES),
+            );
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
