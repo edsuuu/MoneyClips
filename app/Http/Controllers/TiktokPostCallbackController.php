@@ -71,10 +71,9 @@ final class TiktokPostCallbackController extends Controller
                 ->whereNull('posted_tiktok_at')
                 ->update(['posted_tiktok_at' => $finishedAt]);
 
-            $accountName = (string) config('services.tiktok_post.account_name', 'tiktok');
             $this->discord->success(
                 '🎵 Short postado no TikTok',
-                ($title ?? $videoId).PHP_EOL.'@'.$accountName,
+                $title ?? $videoId,
             );
         } elseif ($status === 'failed') {
             $this->discord->error(
