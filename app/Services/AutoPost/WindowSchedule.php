@@ -9,15 +9,20 @@ use Illuminate\Support\Facades\Date;
 
 /**
  * Janelas de postagem por dia da semana, baseadas nos "melhores horários" do
- * TikTok. Cada dia tem 1+ ranges (HH:MM–HH:MM, fuso TIMEZONE); o scheduler
- * roda a cada minuto e ::isDueWindow() libera UMA vez por range, num minuto
- * sorteado dentro dele (estável por dia + range, via crc32 — sem estado).
+ * TikTok. Cada dia tem 1+ ranges (HH:MM–HH:MM, fuso TIMEZONE) e cada range é
+ * dividido em N slots (SLOTS_PER_RANGE) — o scheduler libera 1 postagem por
+ * slot. Sem estado: o sorteio é estável por (data + range + slot) via crc32.
+ *
+ * Atualmente: 2 ranges/dia × 2 slots = 4 postagens/dia, todos os dias.
  *
  * @phpstan-type Range array{start: string, end: string}
  */
 final class WindowSchedule
 {
     public const string TIMEZONE = 'America/Sao_Paulo';
+
+    /** Quantos posts por range. Total/dia = sum(ranges) × SLOTS_PER_RANGE. */
+    public const int SLOTS_PER_RANGE = 2;
 
     /**
      * Schedule semanal: ISO 8601 day-of-week (1=Seg ... 7=Dom) → list de ranges.
@@ -35,47 +40,67 @@ final class WindowSchedule
         7 => [['start' => '09:00', 'end' => '12:00'], ['start' => '18:00', 'end' => '21:00']],
     ];
 
-    /** True se AGORA é o minuto sorteado de algum range do dia. */
+    /** True se AGORA é exatamente o minuto sorteado de algum slot do dia. */
     public static function isDueWindow(?CarbonInterface $now = null): bool
     {
         $now ??= Date::now(self::TIMEZONE);
-        $ranges = self::SCHEDULE[$now->dayOfWeekIso] ?? [];
         $nowMinuteOfDay = $now->hour * 60 + $now->minute;
+        $ranges = self::SCHEDULE[$now->dayOfWeekIso] ?? [];
 
-        return array_any($ranges, fn (array $range, int $index): bool => $nowMinuteOfDay === self::minuteOfDayFor($now, $index, $range));
+        foreach ($ranges as $rangeIndex => $range) {
+            foreach (self::slotsForRange($now, $rangeIndex, $range) as $slot) {
+                if ($slot === $nowMinuteOfDay) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
-     * Minuto-do-dia (0–1439) sorteado pra um range específico, estável por
-     * (data + índice do range). Sempre cai DENTRO do range [start, end).
+     * Lista os minutos sorteados de um range. O range é dividido em
+     * SLOTS_PER_RANGE buckets iguais; cada slot sorteia 1 minuto DENTRO do seu
+     * bucket. Distribuição uniforme, sem colisão entre slots do mesmo range.
      *
      * @param  Range  $range
+     * @return list<int> minutos-do-dia (0–1439), ordenados.
      */
-    public static function minuteOfDayFor(CarbonInterface $day, int $rangeIndex, array $range): int
+    public static function slotsForRange(CarbonInterface $day, int $rangeIndex, array $range): array
     {
         $startMin = self::toMinutes($range['start']);
         $endMin = self::toMinutes($range['end']);
         $span = max(1, $endMin - $startMin);
-        $seed = $day->format('Y-m-d').':'.$rangeIndex;
+        $bucketSize = max(1, intdiv($span, self::SLOTS_PER_RANGE));
+        $out = [];
 
-        return $startMin + (abs(crc32($seed)) % $span);
+        for ($i = 0; $i < self::SLOTS_PER_RANGE; $i++) {
+            $bucketStart = $startMin + $i * $bucketSize;
+            // último slot estende até o fim do range pra absorver o resto da divisão.
+            $bucketEnd = ($i === self::SLOTS_PER_RANGE - 1) ? $endMin : $bucketStart + $bucketSize;
+            $bucketSpan = max(1, $bucketEnd - $bucketStart);
+            $seed = $day->format('Y-m-d').':'.$rangeIndex.':'.$i;
+            $out[] = $bucketStart + (abs(crc32($seed)) % $bucketSpan);
+        }
+
+        return $out;
     }
 
     /**
-     * Chave do lock de idempotência da janela ativa (1 execução por range).
-     * Retorna null se AGORA não está dentro de nenhum range do dia.
+     * Chave de idempotência do slot ativo (1 execução por slot). Retorna null
+     * se AGORA não coincide com nenhum slot do dia.
      */
     public static function windowKey(?CarbonInterface $now = null): ?string
     {
         $now ??= Date::now(self::TIMEZONE);
-        $ranges = self::SCHEDULE[$now->dayOfWeekIso] ?? [];
         $nowMinuteOfDay = $now->hour * 60 + $now->minute;
+        $ranges = self::SCHEDULE[$now->dayOfWeekIso] ?? [];
 
-        foreach ($ranges as $index => $range) {
-            $startMin = self::toMinutes($range['start']);
-            $endMin = self::toMinutes($range['end']);
-            if ($nowMinuteOfDay >= $startMin && $nowMinuteOfDay < $endMin) {
-                return 'auto-post:window:'.$now->format('Y-m-d').':'.$index;
+        foreach ($ranges as $rangeIndex => $range) {
+            foreach (self::slotsForRange($now, $rangeIndex, $range) as $slotIndex => $slot) {
+                if ($slot === $nowMinuteOfDay) {
+                    return 'auto-post:window:'.$now->format('Y-m-d').':'.$rangeIndex.':'.$slotIndex;
+                }
             }
         }
 
@@ -83,7 +108,7 @@ final class WindowSchedule
     }
 
     /**
-     * Lista os horários sorteados do DIA atual (debug/UI). Retorna ['HH:MM', ...].
+     * Lista todos os horários sorteados do DIA (debug/UI). ['HH:MM', ...] ordenado.
      *
      * @return list<string>
      */
@@ -91,14 +116,20 @@ final class WindowSchedule
     {
         $day ??= Date::now(self::TIMEZONE);
         $ranges = self::SCHEDULE[$day->dayOfWeekIso] ?? [];
-        $out = [];
+        $minutes = [];
 
-        foreach ($ranges as $index => $range) {
-            $minute = self::minuteOfDayFor($day, $index, $range);
-            $out[] = sprintf('%02d:%02d', intdiv($minute, 60), $minute % 60);
+        foreach ($ranges as $rangeIndex => $range) {
+            foreach (self::slotsForRange($day, $rangeIndex, $range) as $slot) {
+                $minutes[] = $slot;
+            }
         }
 
-        return $out;
+        sort($minutes);
+
+        return array_map(
+            static fn (int $m): string => sprintf('%02d:%02d', intdiv($m, 60), $m % 60),
+            $minutes,
+        );
     }
 
     private static function toMinutes(string $hhmm): int
