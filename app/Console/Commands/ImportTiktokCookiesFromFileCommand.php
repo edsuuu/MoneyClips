@@ -38,7 +38,7 @@ final class ImportTiktokCookiesFromFileCommand extends Command
 
         $path = (string) ($this->option('path') ?? base_path(sprintf('MicroServices/TikTokUploader/cookies/%s.json', $name)));
         if (! is_file($path) || ! is_readable($path)) {
-            $this->error('Arquivo não encontrado ou ilegível: ' . $path);
+            $this->error('Arquivo não encontrado ou ilegível: '.$path);
 
             return self::FAILURE;
         }
@@ -48,7 +48,7 @@ final class ImportTiktokCookiesFromFileCommand extends Command
             /** @var array<int, array<string, mixed>> $cookies */
             $cookies = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $jsonException) {
-            $this->error('JSON inválido: ' . $jsonException->getMessage());
+            $this->error('JSON inválido: '.$jsonException->getMessage());
 
             return self::FAILURE;
         }
