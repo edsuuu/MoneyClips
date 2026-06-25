@@ -10,6 +10,7 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::view('settings/profile', 'settings.profile')->name('profile.edit');
     Route::view('settings/accounts', 'settings.accounts')->name('settings.accounts');
+    Route::view('settings/auto-post', 'settings.auto-post')->name('settings.auto-post');
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
