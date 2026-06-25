@@ -19,15 +19,21 @@ final class SocialAccount extends Model
     /** @use HasFactory<Factory> */
     use HasFactory;
 
-    public const array PLATFORMS = ['youtube'];
+    public const array PLATFORMS = ['youtube', 'tiktok'];
+
+    public const string SESSION_VALID = 'valid';
+
+    public const string SESSION_INVALID = 'invalid';
+
+    public const string SESSION_UNKNOWN = 'unknown';
 
     protected $fillable = [
         'uuid', 'user_id', 'platform', 'name', 'external_account_id',
         'access_token', 'refresh_token', 'token_expires_at', 'scopes',
-        'meta', 'is_active',
+        'meta', 'is_active', 'cookies', 'cookies_last_validated_at', 'session_status',
     ];
 
-    protected $hidden = ['access_token', 'refresh_token'];
+    protected $hidden = ['access_token', 'refresh_token', 'cookies'];
 
     public function getRouteKeyName(): string
     {
@@ -66,6 +72,8 @@ final class SocialAccount extends Model
             'scopes' => 'array',
             'meta' => 'array',
             'is_active' => 'boolean',
+            'cookies' => 'encrypted:array',
+            'cookies_last_validated_at' => 'datetime',
         ];
     }
 }

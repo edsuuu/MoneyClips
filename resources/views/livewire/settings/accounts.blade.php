@@ -148,7 +148,7 @@
                 </div>
             @endif
 
-            <livewire:settings.tiktok-session />
+            <livewire:settings.tiktok-cookies />
         </div>
     </div>
 </section>

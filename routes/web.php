@@ -24,9 +24,6 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
-    // Captura de cookies do TikTok pelo navegador do usuário (extensão Chrome).
-    Route::view('/tiktok/connect', 'tiktok-auth.connect')->name('tiktok.connect');
-
     Route::view('/microservices', 'microservices.index')->name('microservices.index');
 
     // OAuth das redes sociais (conectar contas com 1 clique).
