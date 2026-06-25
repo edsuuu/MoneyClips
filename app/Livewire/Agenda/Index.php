@@ -33,13 +33,20 @@ final class Index extends Component
 
     /**
      * Dispara o AutoPostDispatcher imediatamente, ignorando o lock da janela
-     * atual. Usado nos slots 'skipped' (pulados) — sorteia o próximo Short do
-     * estoque e publica nas plataformas habilitadas.
+     * atual. Aceita só $slotDate=hoje (SP) — repostar slot de dia passado não
+     * faz sentido (já era pra ter postado naquele momento). Sorteia o próximo
+     * Short do estoque e publica nas plataformas habilitadas.
      */
-    public function forceDispatch(): void
+    public function forceDispatch(string $slotDate): void
     {
         try {
-            // Limpa o lock da janela atual (se houver) pra permitir disparo agora.
+            $now = Date::now(self::TIMEZONE);
+            if ($slotDate !== $now->format('Y-m-d')) {
+                $this->toast('Só dá pra forçar disparo de slots do dia atual.', 'danger');
+
+                return;
+            }
+
             $key = WindowSchedule::windowKey();
             if ($key !== null) {
                 Cache::forget($key);
@@ -51,6 +58,22 @@ final class Index extends Component
             Log::error('[Agenda] Falha ao forçar disparo.', ['error' => $throwable->getMessage()]);
             $this->toast('Falha ao forçar disparo: '.$throwable->getMessage(), 'danger');
         }
+    }
+
+    /** Liga/desliga YouTube na auto-postagem. Persiste em auto_post_settings. */
+    public function toggleYoutube(): void
+    {
+        $settings = AutoPostSettings::current();
+        $settings->youtube_enabled = ! $settings->youtube_enabled;
+        $this->persistSettings($settings, 'YouTube', $settings->youtube_enabled);
+    }
+
+    /** Liga/desliga TikTok na auto-postagem. Persiste em auto_post_settings. */
+    public function toggleTiktok(): void
+    {
+        $settings = AutoPostSettings::current();
+        $settings->tiktok_enabled = ! $settings->tiktok_enabled;
+        $this->persistSettings($settings, 'TikTok', $settings->tiktok_enabled);
     }
 
     public function render(): View
@@ -175,6 +198,14 @@ final class Index extends Component
         return match ($day->dayOfWeekIso) {
             1 => 'Seg', 2 => 'Ter', 3 => 'Qua', 4 => 'Qui', 5 => 'Sex', 6 => 'Sáb', default => 'Dom',
         };
+    }
+
+    private function persistSettings(AutoPostSettings $settings, string $label, bool $value): void
+    {
+        $userId = auth()->id();
+        $settings->updated_by_user_id = is_numeric($userId) ? max(0, (int) $userId) : null;
+        $settings->save();
+        $this->toast(sprintf('%s %s.', $label, $value ? 'ativado' : 'pausado'));
     }
 
     private function humanDiff(int $minutes): string
