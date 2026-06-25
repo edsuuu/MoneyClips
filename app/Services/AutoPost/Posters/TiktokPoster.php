@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost\Posters;
 
+use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\YoutubeShort;
 use App\Services\DiscordNotifier;
@@ -40,6 +41,21 @@ final readonly class TiktokPoster implements PosterContract
 
     public function post(YoutubeShort $short): PosterResult
     {
+        // Curto-circuito: se a conta TikTok está marcada como inválida,
+        // não tenta postar pra evitar acumular falhas e flag de spam.
+        // O operador precisa atualizar os cookies em /settings/accounts.
+        $account = SocialAccount::query()
+            ->where('platform', 'tiktok')
+            ->where('is_active', true)
+            ->latest('id')
+            ->first();
+
+        if ($account instanceof SocialAccount && $account->session_status === SocialAccount::SESSION_INVALID) {
+            Log::warning('[AutoPost][TikTok] Sessão inválida — pulando disparo.', ['id' => $short->id]);
+
+            return PosterResult::failed($this->platform(), 'Sessão inválida — atualize os cookies em /settings/accounts');
+        }
+
         try {
             $jobId = $this->tiktok->queuePost(
                 $short->youtube_id,

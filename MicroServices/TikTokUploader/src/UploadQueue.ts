@@ -7,7 +7,9 @@
  * lá na sessão gravada) e também vira `failed` no callback.
  */
 
+import { normalizeCookies, readCookies, saveCookies } from '@/auth/Cookies';
 import { LoginFailedError } from '@/auth/TikTokAuth';
+import { settings } from '@/config/env/Env';
 import { logger } from '@/config/logger/Logger';
 import {
     sendDiscordError,
@@ -58,13 +60,32 @@ export class UploadQueue {
     }
 
     private async process(job: QueuedPostJob): Promise<void> {
+        const account = settings.tiktokAccountName;
+
+        // Cookies vindos do Laravel substituem o arquivo em disco. Gravamos
+        // antes do upload pra Playwright pegar a sessão atualizada.
+        if (job.cookies && job.cookies.length > 0) {
+            logger.info(
+                `Fila: job ${job.jobId} injetando ${job.cookies.length} cookies recebidos do Laravel.`,
+            );
+            await saveCookies(account, normalizeCookies(job.cookies));
+        } else {
+            logger.warn(
+                `Fila: job ${job.jobId} sem cookies no payload — usando fallback do disco.`,
+            );
+        }
+
         try {
             const result = await this.workflow.upload(job.videoId, job.metadata, job.videoKey);
+
+            // Captura cookies refrescados pra o Laravel atualizar o banco.
+            const refreshedCookies = await this.captureCookies(account, job.jobId);
 
             // 'error' = upload não confirmado pelo TikTok. A sessão era válida
             // (passou do login), mas o post pode não ter saído — alerta no Discord.
             if (result.status === 'error') {
                 const detail = 'Upload não confirmado pelo TikTok.';
+                logger.error(`Fila: job ${job.jobId} resultado=error — ${detail}`);
                 await sendDiscordError(
                     `job ${job.jobId} (vídeo ${job.videoId})`,
                     new Error(detail),
@@ -75,23 +96,32 @@ export class UploadQueue {
                     login_failed: false,
                     title: result.title,
                     error: detail,
+                    refreshed_cookies: refreshedCookies,
+                    session_status: 'valid',
                 });
                 return;
             }
 
+            logger.info(
+                `Fila: job ${job.jobId} resultado=${result.status} title="${result.title ?? ''}"`,
+            );
             await this.sendCallback(job, {
                 status: result.status,
                 session_valid: true,
                 login_failed: false,
                 title: result.title,
                 error: null,
+                refreshed_cookies: refreshedCookies,
+                session_status: 'valid',
             });
             // Notificação de sucesso fica do lado do Laravel (callback recebe e
             // dispara DiscordNotifier::success). Aqui só erros, pra não duplicar.
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             const loginFailed = error instanceof LoginFailedError;
-            logger.error(`Fila: job ${job.jobId} falhou: ${message}`);
+            logger.error(
+                `Fila: job ${job.jobId} falhou: ${message} (login_failed=${loginFailed})`,
+            );
 
             // Erros na sessão do navegador já foram ao Discord com o vídeo; aqui
             // cobrimos os demais (ex.: download do S3) para nada passar batido.
@@ -105,7 +135,24 @@ export class UploadQueue {
                 login_failed: loginFailed,
                 title: job.metadata.title,
                 error: message,
+                refreshed_cookies: null,
+                // Sessão é invalida só quando o login automático bateu na parede;
+                // outros erros (download, rede) não significam cookies ruins.
+                session_status: loginFailed ? 'invalid' : 'unknown',
             });
+        }
+    }
+
+    /** Lê os cookies do disco após o upload — captura refresh feito pelo TikTok. */
+    private async captureCookies(account: string, jobId: string): Promise<PostCallback['refreshed_cookies']> {
+        try {
+            const cookies = await readCookies(account);
+            logger.info(`Fila: job ${jobId} capturou ${cookies.length} cookies para devolver ao Laravel.`);
+            return cookies;
+        } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            logger.warn(`Fila: job ${jobId} não conseguiu ler cookies pós-upload: ${message}`);
+            return null;
         }
     }
 
@@ -126,6 +173,12 @@ export class UploadQueue {
             ...partial,
         };
 
+        const refreshedCount = payload.refreshed_cookies?.length ?? 0;
+        logger.info(
+            `Webhook → ${job.webhookUrl} (job ${job.jobId}, status=${payload.status}, ` +
+                `session=${payload.session_status ?? '-'}, refreshed_cookies=${refreshedCount}).`,
+        );
+
         for (let attempt = 1; attempt <= CALLBACK_ATTEMPTS; attempt += 1) {
             try {
                 const resp = await fetch(job.webhookUrl, {
@@ -134,6 +187,9 @@ export class UploadQueue {
                     body: JSON.stringify(payload),
                 });
                 if (resp.ok) {
+                    logger.info(
+                        `Webhook ACEITO (job ${job.jobId}, HTTP ${resp.status}, tentativa ${attempt}/${CALLBACK_ATTEMPTS}).`,
+                    );
                     return;
                 }
                 logger.warn(
@@ -150,6 +206,9 @@ export class UploadQueue {
             }
         }
 
+        logger.error(
+            `Webhook REJEITADO após ${CALLBACK_ATTEMPTS} tentativas (job ${job.jobId}). Reconcilie manualmente.`,
+        );
         await sendDiscordMessage(
             `⚠️ Webhook do Laravel não confirmou após ${CALLBACK_ATTEMPTS} tentativas (job ${job.jobId}, ` +
                 `vídeo ${job.videoId}). Resultado: ${payload.status}. Reconcilie manualmente.`,
