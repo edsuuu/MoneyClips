@@ -136,6 +136,13 @@ php artisan test    # suíte Pest
   composer.json.
 - Convenções: `declare(strict_types=1)`, classes `final`, comentários e UI em
   pt-BR.
+- **Idioma do código** (EXTREMAMENTE PROIBIDO usar pt-BR):
+  - Nomes de pastas, namespaces, classes, métodos, propriedades, variáveis,
+    funções, **migrations**, **colunas de tabela**, env vars, config keys —
+    tudo em **inglês**. Ex.: `App\Livewire\Schedule\Index`, não `Agenda`;
+    `auto_post_youtube_enabled`, não `postagem_youtube_habilitada`.
+  - Permitido em pt-BR: paths de rotas (`/agenda`, `/downloads`), strings
+    de UI (labels, mensagens, toasts), comentários no código.
 
 ## Microserviço download-shorts (FastAPI, porta 8770)
 

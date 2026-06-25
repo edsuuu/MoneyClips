@@ -12,7 +12,7 @@
             <div>
                 <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">YouTube</p>
                 <p class="mt-1 text-sm">
-                    @if ($settings->youtube_enabled)
+                    @if ($user?->auto_post_youtube_enabled)
                         <span class="inline-flex items-center gap-1.5 text-emerald-400">
                             <span class="size-2 rounded-full bg-emerald-400"></span> Ativo
                         </span>
@@ -27,11 +27,11 @@
                 type="button"
                 wire:click="toggleYoutube"
                 wire:loading.attr="disabled"
-                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:opacity-60 {{ $settings->youtube_enabled ? 'bg-emerald-500' : 'bg-slate-700' }}"
-                aria-pressed="{{ $settings->youtube_enabled ? 'true' : 'false' }}"
+                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:opacity-60 {{ $user?->auto_post_youtube_enabled ? 'bg-emerald-500' : 'bg-slate-700' }}"
+                aria-pressed="{{ $user?->auto_post_youtube_enabled ? 'true' : 'false' }}"
             >
                 <span class="sr-only">Toggle YouTube</span>
-                <span class="inline-block size-4 transform rounded-full bg-white shadow transition {{ $settings->youtube_enabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                <span class="inline-block size-4 transform rounded-full bg-white shadow transition {{ $user?->auto_post_youtube_enabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
             </button>
         </div>
 
@@ -40,7 +40,7 @@
             <div>
                 <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">TikTok</p>
                 <p class="mt-1 text-sm">
-                    @if ($settings->tiktok_enabled)
+                    @if ($user?->auto_post_tiktok_enabled)
                         <span class="inline-flex items-center gap-1.5 text-emerald-400">
                             <span class="size-2 rounded-full bg-emerald-400"></span> Ativo
                         </span>
@@ -55,11 +55,11 @@
                 type="button"
                 wire:click="toggleTiktok"
                 wire:loading.attr="disabled"
-                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:opacity-60 {{ $settings->tiktok_enabled ? 'bg-emerald-500' : 'bg-slate-700' }}"
-                aria-pressed="{{ $settings->tiktok_enabled ? 'true' : 'false' }}"
+                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:opacity-60 {{ $user?->auto_post_tiktok_enabled ? 'bg-emerald-500' : 'bg-slate-700' }}"
+                aria-pressed="{{ $user?->auto_post_tiktok_enabled ? 'true' : 'false' }}"
             >
                 <span class="sr-only">Toggle TikTok</span>
-                <span class="inline-block size-4 transform rounded-full bg-white shadow transition {{ $settings->tiktok_enabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
+                <span class="inline-block size-4 transform rounded-full bg-white shadow transition {{ $user?->auto_post_tiktok_enabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
             </button>
         </div>
 
