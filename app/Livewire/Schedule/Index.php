@@ -2,14 +2,15 @@
 
 declare(strict_types=1);
 
-namespace App\Livewire\Agenda;
+namespace App\Livewire\Schedule;
 
 use App\Livewire\Concerns\WithToasts;
-use App\Models\AutoPostSettings;
+use App\Models\User;
 use App\Models\YoutubeShort;
 use App\Services\AutoPost\AutoPostDispatcher;
 use App\Services\AutoPost\WindowSchedule;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +21,7 @@ use Throwable;
 /**
  * /agenda — visão semanal dos 5 slots/dia (9/12/15/18/21h, SP) com o minuto
  * sorteado por dia e o status de cada disparo: postado, próximo, futuro ou
- * pulado. Lê AutoPostSettings pra mostrar quais plataformas estão ativas.
+ * pulado. Lê as flags auto_post_*_enabled do usuário autenticado.
  */
 final class Index extends Component
 {
@@ -55,25 +56,35 @@ final class Index extends Component
             resolve(AutoPostDispatcher::class)->run(1);
             $this->toast('Disparo forçado enviado para o estoque.');
         } catch (Throwable $throwable) {
-            Log::error('[Agenda] Falha ao forçar disparo.', ['error' => $throwable->getMessage()]);
+            Log::error('[Schedule] Falha ao forçar disparo.', ['error' => $throwable->getMessage()]);
             $this->toast('Falha ao forçar disparo: '.$throwable->getMessage(), 'danger');
         }
     }
 
-    /** Liga/desliga YouTube na auto-postagem. Persiste em auto_post_settings. */
+    /** Liga/desliga YouTube na auto-postagem do usuário atual. */
     public function toggleYoutube(): void
     {
-        $settings = AutoPostSettings::current();
-        $settings->youtube_enabled = ! $settings->youtube_enabled;
-        $this->persistSettings($settings, 'YouTube', $settings->youtube_enabled);
+        $user = $this->currentUser();
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $user->auto_post_youtube_enabled = ! $user->auto_post_youtube_enabled;
+        $user->save();
+        $this->toast(sprintf('YouTube %s.', $user->auto_post_youtube_enabled ? 'ativado' : 'pausado'));
     }
 
-    /** Liga/desliga TikTok na auto-postagem. Persiste em auto_post_settings. */
+    /** Liga/desliga TikTok na auto-postagem do usuário atual. */
     public function toggleTiktok(): void
     {
-        $settings = AutoPostSettings::current();
-        $settings->tiktok_enabled = ! $settings->tiktok_enabled;
-        $this->persistSettings($settings, 'TikTok', $settings->tiktok_enabled);
+        $user = $this->currentUser();
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $user->auto_post_tiktok_enabled = ! $user->auto_post_tiktok_enabled;
+        $user->save();
+        $this->toast(sprintf('TikTok %s.', $user->auto_post_tiktok_enabled ? 'ativado' : 'pausado'));
     }
 
     public function render(): View
@@ -95,12 +106,12 @@ final class Index extends Component
             $days[] = $this->buildDay($day, $now, $shorts);
         }
 
-        return view('livewire.agenda.index', [
+        return view('livewire.schedule.index', [
             'days' => $days,
             'now' => $now,
             'weekStart' => $monday,
             'weekEnd' => $sunday,
-            'settings' => AutoPostSettings::current(),
+            'user' => $this->currentUser(),
             'slotHours' => WindowSchedule::SLOT_HOURS,
             'nextSlot' => $this->findNextSlot($days, $now),
         ]);
@@ -193,19 +204,18 @@ final class Index extends Component
         return null;
     }
 
+    private function currentUser(): ?User
+    {
+        $user = Auth::user();
+
+        return $user instanceof User ? $user : null;
+    }
+
     private function dayLabel(CarbonImmutable $day): string
     {
         return match ($day->dayOfWeekIso) {
             1 => 'Seg', 2 => 'Ter', 3 => 'Qua', 4 => 'Qui', 5 => 'Sex', 6 => 'Sáb', default => 'Dom',
         };
-    }
-
-    private function persistSettings(AutoPostSettings $settings, string $label, bool $value): void
-    {
-        $userId = auth()->id();
-        $settings->updated_by_user_id = is_numeric($userId) ? max(0, (int) $userId) : null;
-        $settings->save();
-        $this->toast(sprintf('%s %s.', $label, $value ? 'ativado' : 'pausado'));
     }
 
     private function humanDiff(int $minutes): string

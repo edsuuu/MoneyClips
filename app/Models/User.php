@@ -52,6 +52,8 @@ final class User extends Authenticatable implements Auditable, MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'auto_post_youtube_enabled' => 'boolean',
+            'auto_post_tiktok_enabled' => 'boolean',
         ];
     }
 }
