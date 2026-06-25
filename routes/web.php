@@ -21,6 +21,9 @@ Route::middleware(['auth'])->group(function (): void {
     // Auto-postagem de Shorts (pipeline unificado do auto-post).
     Route::view('/shorts', 'shorts.index')->name('shorts.index');
 
+    // Visão semanal do schedule (horários sorteados + status por slot).
+    Route::view('/agenda', 'agenda.index')->name('agenda.index');
+
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
     // Captura de cookies do TikTok pelo navegador do usuário (extensão Chrome).
