@@ -39,11 +39,6 @@
                     </x-nav-item>
                 </li>
                 <li>
-                    <x-nav-item icon="film" size="lg" :href="route('shorts.index')" :current="request()->routeIs('shorts.index')">
-                        {{ __('Shorts') }}
-                    </x-nav-item>
-                </li>
-                <li>
                     <x-nav-item icon="layout-grid" size="lg" :href="route('agenda.index')" :current="request()->routeIs('agenda.index')">
                         {{ __('Agenda') }}
                     </x-nav-item>

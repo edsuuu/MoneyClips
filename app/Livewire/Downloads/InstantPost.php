@@ -6,7 +6,7 @@ namespace App\Livewire\Downloads;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
-use App\Models\TiktokPost;
+use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\TikTok\TiktokPostService;
 use Illuminate\Support\Collection;
@@ -129,15 +129,15 @@ final class InstantPost extends Component
             'counts' => [
                 'stock' => YoutubeShort::query()->whereNotNull('video_path')->count(),
                 'youtubePosted' => YoutubeShort::query()->whereNotNull('posted_youtube_at')->count(),
-                'tiktokQueued' => TiktokPost::query()->whereIn('status', ['queued', 'processing'])->count(),
-                'tiktokPosted' => TiktokPost::query()->where('status', 'completed')->count(),
+                'tiktokQueued' => SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->whereIn('status', ['queued', 'processing'])->count(),
+                'tiktokPosted' => SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->where('status', 'completed')->count(),
             ],
             'youtubeReady' => SocialAccount::query()
                 ->where('platform', 'youtube')
                 ->where('is_active', true)
                 ->exists(),
             'tiktokStatus' => $short instanceof YoutubeShort
-                ? TiktokPost::query()->where('youtube_id', $short->youtube_id)->latest('id')->first()
+                ? SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->where('youtube_id', $short->youtube_id)->latest('id')->first()
                 : null,
         ]);
     }
@@ -210,9 +210,9 @@ final class InstantPost extends Component
 
     private function hasActiveTiktokPost(string $youtubeId): bool
     {
-        return TiktokPost::query()
+        return SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)
             ->where('youtube_id', $youtubeId)
-            ->whereIn('status', TiktokPost::ACTIVE_STATUSES)
+            ->whereIn('status', SocialPost::ACTIVE_STATUSES)
             ->exists();
     }
 
@@ -222,8 +222,8 @@ final class InstantPost extends Component
     private function blockedTiktokYoutubeIds(): array
     {
         /** @var Collection<int, string> $ids */
-        $ids = TiktokPost::query()
-            ->whereIn('status', TiktokPost::ACTIVE_STATUSES)
+        $ids = SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)
+            ->whereIn('status', SocialPost::ACTIVE_STATUSES)
             ->whereNotNull('youtube_id')
             ->pluck('youtube_id');
 
