@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost\Posters;
 
+use App\Models\AutoPostSettings;
 use App\Models\YoutubeShort;
 use App\Services\DiscordNotifier;
 use App\Services\TikTok\TiktokPostService;
@@ -30,7 +31,7 @@ final readonly class TiktokPoster implements PosterContract
 
     public function isEnabled(): bool
     {
-        return (bool) config('services.youtube_shorts.posting.tiktok_enabled', true);
+        return AutoPostSettings::current()->tiktok_enabled;
     }
 
     public function post(YoutubeShort $short): PosterResult
