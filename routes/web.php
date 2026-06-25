@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\HomeController;
 use App\Http\Controllers\OAuthController;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', HomeController::class)->name('home');
+// Raiz: logado vai pro estoque, deslogado pra tela de login (Fortify).
+Route::get('/', fn () => Auth::check() ? to_route('downloads.index') : to_route('login'))->name('home');
 Route::view('/terms-of-service', 'legal.terms')->name('legal.terms');
 Route::view('/privacy-policy', 'legal.privacy')->name('legal.privacy');
 

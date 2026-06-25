@@ -1,218 +1,201 @@
-# generate-clips-laravel
+# MoneyClips
 
-Plataforma unificada de geração de clipes e auto-postagem em redes sociais.
-Este repositório absorveu o projeto **auto-post** (antes um app Laravel
-separado, CLI-only, em `edsuuu/auto-post`) — toda a funcionalidade dele vive
-aqui agora.
+Plataforma de **auto-postagem de Shorts** em YouTube + TikTok. Laravel
+orquestra; microserviços fazem o trabalho pesado (download, upload via
+Playwright). Repositório anterior (`generate-clips-laravel`) tinha pipeline
+de cortes de vídeo longo — foi removido; agora o foco é só auto-postagem.
 
 ## Stack
 
-- PHP 8.4+ / Laravel 12+ (estrutura `bootstrap/app.php`)
-- Livewire 3 + Tailwind 4 + Vite (frontend) — **sem Flux UI**: kit próprio de
-  componentes Blade em `resources/views/components/ui/` (button, input, badge,
-  modal, dropdown, icon, toasts...) com Alpine (embutido no Livewire).
-  Toasts: trait `App\Livewire\Concerns\WithToasts` (`$this->toast(msg, variant)`)
-  → evento `toast` consumido por `components/ui/toasts.blade.php`.
-- Pest (testes), PHPStan/Larastan, Pint, Rector (qualidade)
-- MySQL (`DB_CONNECTION=mysql`), fila em banco (`QUEUE_CONNECTION=database`)
-- MinIO (S3-compatível) para vídeos — disk `minio`
-- Serviço externo Python (FastAPI) para processamento pesado de vídeo
+- **PHP 8.4+ / Laravel 12+** (`bootstrap/app.php`)
+- **Livewire 3 + Tailwind 4 + Vite** — kit próprio de componentes Blade em
+  `resources/views/components/ui/` (sem Flux UI). Toasts: trait
+  `App\Livewire\Concerns\WithToasts` → evento consumido por
+  `components/ui/toasts.blade.php`.
+- **MySQL** (`DB_CONNECTION=mysql`) + **fila em banco** (`QUEUE_CONNECTION=database`, hoje sem `ShouldQueue` ativos)
+- **MinIO** (S3-compatível) — disk `s3`, bucket `videos`
+- Qualidade: **PHPStan/Larastan**, **Pint**, **Rector** (CI roda `composer check`)
 
-## Os 3 domínios da aplicação
+## Domínio único: auto-postagem de Shorts
 
-### 1. Pipeline de vídeo/cortes (Laravel orquestra, Python processa)
+Pipeline:
 
-Fluxo: usuário cola a URL do vídeo em `/videos/create` → `ProcessVideoJob`
-chama a **API Python de processamento** (download/transcrição/render; padrão
-`http://host.docker.internal:8765`, config `services.video_processor`) → o Python salva
-no MinIO e responde via webhook (`POST /api/video-processor/callbacks`,
-`VideoProcessorCallbackController` → `VideoProcessorCallbackService`).
+```
+download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
+  → cron Laravel (schedule:run) → AutoPostDispatcher
+     → YoutubePoster (síncrono, Data API)
+     → TiktokPoster (assíncrono → tiktok-uploader → webhook callback)
+```
 
-- `app/Services/VideoProcessor/` — `VideoProcessorService` (regra de negócio,
-  DTOs em `Data/`), `HttpVideoProcessorProvider` (HTTP), callback service.
-- `app/Livewire/Videos/` — `Create`, `Index`, `Editor` (timeline de cortes,
-  recomendação por IA via `generateAiCuts`, render, publicação rápida),
-  `Schedule` (agendamento social por corte).
-- Progresso em tempo real: o browser consome o WebSocket do Python
-  (`services.video_processor.ws_url`); o job em andamento fica em `videos.current_job_id`.
-- Tabelas: `videos`, `cuts`, `files`, `transcripts`, `video_payloads`,
-  `statuses`/`status_logs` (transições via `StatusService`).
+### Auto-postagem (`App\Services\AutoPost\`)
 
-### 2. Publicação social (cortes → redes)
+- `WindowSchedule` — 5 slots/dia em horas fixas (`SLOT_HOURS = [9,12,15,18,21]`,
+  fuso América/São_Paulo). Minuto sorteado por dia/hora via `crc32(date:hour) % 60`
+  → muda toda semana (mesma 2ª-feira da próxima semana = minuto diferente).
+- `AutoPostDispatcher` — orquestra: pega lock da janela (`Cache::add`),
+  reserva 1 Short com `StockReservation`, roda os Posters habilitados.
+- `Posters/` — `PosterContract`, `PosterResult` (DTO), `YoutubePoster`,
+  `TiktokPoster`. Cada Poster lê `users.auto_post_{platform}_enabled` (admin
+  id=1) pra decidir se está ativo. Falhas vão pro Discord via `DiscordNotifier`.
+- `StockReservation` — `reserveNext()` atômico em `youtube_shorts.dispatched_at`;
+  `warnIfLowStock()` avisa Discord 1×/dia.
 
-- `app/Services/SocialPublishing/` — `SocialPublisherRegistry` + publishers
-  reais (`YouTubePublisher`, `InstagramPublisher`, `FacebookPublisher`),
-  `PostDraftBuilder`, OAuth (`SocialAccountConnector`,
-  `TokenRefresher`).
-- Contas conectadas em **`social_accounts`** (tokens criptografados) via
-  OAuth 1-click em `/social-accounts` (`OAuthController`, rotas
-  `/oauth/{platform}/connect|callback`) ou token manual.
-- Posts persistem em `scheduled_posts` (+ `social_post_logs`).
-  `social:publish-due` (scheduler, a cada minuto) marca vencidos e despacha
-  `PublishScheduledPostJob`. Dashboard em `/posts`.
-- Login do usuário é **Google OAuth apenas** (sem registro por formulário):
-  `/oauth2/google/redirect|callback` no `OAuthController`.
+### Cron + alertas
 
-### 3. Auto-postagem de Shorts (unificado do projeto auto-post)
+```
+* * * * * cd /var/www/projects/MoneyClips && php artisan schedule:run
+```
 
-Pipeline de "estoque": baixa Shorts de canais → guarda no MinIO → sorteia e
-posta automaticamente no canal conectado.
+`routes/console.php` registra:
+- `auto-post-social` — every minute, `->when(WindowSchedule::isDueWindow())`
+  filtra pro minuto sorteado.
+- `auto-post-check-missed` — every 10 min, varre slots passados sem
+  postagem (lookback 6h) e alerta Discord 1×/slot via `Cache::add` dedupe.
 
-- **Download (CLI)**: `php artisan youtube:download-shorts "<url-do-canal>"`
-  (`DownloadChannelShorts` + `app/Services/Youtube/YoutubeChannelService`,
-  usa `yt-dlp` via `Process`). Salva em `youtube_shorts` + MinIO
-  (`shorts/{id}.mp4`).
-- **Sorteio (CLI/scheduler)**: `php artisan youtube:dispatch-posts [--count=N]`
-  (`DispatchYoutubePosts`) sorteia Shorts baixados não postados e enfileira um
-  `PostYoutubeShortJob` por sorteado. Avisa estoque baixo no Discord
-  (throttle 1x/dia).
-- **Postagem**: `PostYoutubeShortJob` → `app/Services/Youtube/ShortsPoster`
-  (upload resumível na YouTube Data API v3, HTTP puro, sem google/apiclient).
-  Marca `posted_at` + `youtube_video_id` no Short.
-- **Credenciais**: usa a mesma `SocialAccount` (platform=`youtube`) dos
-  publishers — conecta pela web (`/social-accounts`) ou pelo CLI
-  `php artisan youtube:link` (cola a URL de redirect, persiste em
-  `social_accounts`). Refresh automático via `TokenRefresher`.
-- **Notificações**: `app/Services/DiscordNotifier` (webhook em
-  `services.youtube_shorts.discord_webhook`).
-- **Frontend**: página `/shorts` (`App\Livewire\Shorts\Index`) com métricas de
-  estoque, filtros, "postar agora" e sorteio manual.
-- **Scheduler**: `routes/console.php` roda `youtube:dispatch-posts` nos
-  horários de engajamento (09/12/15/18/20/22h, América/São_Paulo).
-- Tabela: `youtube_shorts` (`youtube_id`, `channel_url`, `title`, `hashtags`,
-  `video_path`, `youtube_video_id`, `downloaded_at`, `posted_at`).
-  O ciclo de vida vive no próprio registro — não existe tabela de jobs própria.
+### YouTube
+
+- `App\Services\Youtube\ShortsPoster` — upload resumível na YouTube Data API v3
+  (HTTP puro, sem google/apiclient). Marca `posted_youtube_at` +
+  `youtube_video_id` no Short.
+- Credenciais: `social_accounts` (platform=`youtube`, OAuth Google).
+  Refresh automático via `YoutubeTokenRefresher`. Connect em `/social-accounts`.
+- Toggle pra desligar sem deploy: switch no `/agenda` ou alterar
+  `users.auto_post_youtube_enabled` direto no banco.
+
+### TikTok
+
+- **Sem OAuth oficial** — autenticação por cookies do Playwright.
+- Cookies vivem **criptografados no banco**: `social_accounts.cookies`
+  (cast `encrypted:array`). Colunas extras: `cookies_last_validated_at`,
+  `session_status` (`valid`/`invalid`/`unknown`).
+- `App\Services\TikTok\TiktokPostService::queuePost()` lê os cookies do banco
+  e envia no payload do `POST /posts` ao microserviço uploader. Não tem mais
+  arquivo no filesystem como fonte da verdade.
+- `App\Http\Controllers\TiktokPostCallbackController` recebe o webhook do
+  uploader: atualiza ledger (social_posts), salva `refreshed_cookies` se
+  vierem, propaga `session_status`. Quando `session_status='invalid'`,
+  dispara Discord error pedindo ação manual.
+- `TiktokPoster` curto-circuita postagens quando `session_status='invalid'`
+  pra evitar flag de spam.
+- UI pra colar JSON novo de cookies: `<livewire:settings.tiktok-cookies />`
+  embutido em `/settings/accounts`.
 
 ## Banco de dados (visão geral)
 
 | Tabela | Papel |
 | --- | --- |
-| `videos`, `cuts`, `files`, `transcripts`, `video_payloads` | pipeline de clipes |
-| `statuses`, `status_logs` | máquina de estados + auditoria (polimórfico) |
-| `social_accounts` | contas OAuth conectadas (YouTube/IG/FB) — **fonte única de credenciais** |
-| `scheduled_posts`, `social_post_logs` | agendamento/publicação de cortes |
-| `youtube_shorts` | estoque de Shorts do pipeline de auto-postagem |
-| `users` (+ colunas google_*) | login via Google OAuth |
+| `users` | login Google OAuth; colunas `auto_post_{youtube,tiktok}_enabled` |
+| `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
+| `youtube_shorts` | estoque de Shorts baixados; ciclo de vida (`dispatched_at`, `posted_youtube_at`, `posted_tiktok_at`) |
+| `social_posts` | ledger genérico de postagens (`platform` discrimina) |
+| `cache` | locks da janela (`Cache::add` do `AutoPostDispatcher`) |
 
-Migrations consolidadas — ao mexer em schema deste projeto em dev, o padrão da
-casa é editar a migration de criação em vez de acumular migrations pequenas.
+`social_posts` substituiu o antigo `tiktok_posts` — adicionar Instagram/X
+no futuro é só usar uma nova string em `platform`.
 
-## Comandos artisan do domínio
+## Telas
+
+| Rota | Componente | Função |
+| --- | --- | --- |
+| `/agenda` | `App\Livewire\Schedule\Index` | grade 7×5 dos slots da semana + toggles YT/TT + "Forçar agora" |
+| `/downloads` | `App\Livewire\Downloads\Index` | estoque com tabs (disponíveis/fila/postados/falhas) + modais de novo download + postagem instantânea |
+| `/settings/accounts` | `App\Livewire\Settings\Accounts` + `TiktokCookies` | OAuth YouTube + textarea de cookies TikTok |
+| `/microservices` | `App\Livewire\Microservices\Index` | health dos serviços (download-shorts, tiktok-uploader) + logs |
+| `/dashboard` | view | 4 cards de métricas (estoque, postados YT/TT, contas) |
+
+## Comandos artisan
 
 | Comando | O que faz |
 | --- | --- |
-| `youtube:download-shorts <canal> [--limit=N]` | baixa Shorts do canal p/ MinIO + banco |
-| `youtube:dispatch-posts [--count=N]` | sorteia e enfileira postagens de Shorts |
-| `youtube:link [url-ou-code]` | vincula canal do YouTube por OAuth no terminal |
-| `social:publish-due` | publica `scheduled_posts` vencidos (scheduler) |
+| `youtube:download-shorts <canal> [--limit=N]` | baixa Shorts do canal pra MinIO + banco (via download-shorts microservice) |
+| `auto-post:check-missed` | varre slots passados sem postagem e alerta Discord (rodado pelo scheduler a cada 10 min) |
+| `posts:migrate-tiktok` | one-shot histórico: migrou tiktok_posts → social_posts |
+| `tiktok:import-cookies-from-file` | one-shot histórico: importou cookies do filesystem → social_accounts.cookies |
 
-## Rodando localmente
+## Idioma do código (PROIBIDO usar pt-BR)
 
-Serviços necessários: MySQL, MinIO, o serviço Python de processamento
-(`python main.py`, porta 8765), worker de fila e scheduler.
+- Nomes de **pastas, namespaces, classes, métodos, propriedades, variáveis,
+  funções, migrations, colunas de tabela, env vars, config keys** — tudo
+  em **inglês**. Ex.: `App\Livewire\Schedule\Index` (não `Agenda`);
+  `auto_post_youtube_enabled` (não `postagem_youtube_habilitada`).
+- Permitido em pt-BR: paths de rotas (`/agenda`, `/downloads`), strings
+  de UI (labels, mensagens, toasts), comentários no código.
 
-```bash
-composer setup      # install + env + key + pnpm + build
-composer dev        # serve + queue:listen + pail + vite em paralelo
-php artisan schedule:work   # agendamentos (publicações + shorts)
-```
+## Convenções
 
-Para postar de verdade é preciso conectar contas com OAuth (credenciais
-`GOOGLE_AUTH_*`/`META_*` no `.env`) — ver seções do `.env.example`.
+- `declare(strict_types=1)` em todo PHP, classes `final`.
+- Pint impõe `mb_*` (`mb_trim`, `mb_rtrim`); `ext-mbstring` declarado no
+  `composer.json`.
+- PHPStan nível alto (`larastan/larastan` + `phpstan/phpstan` em modo bleeding-edge).
+- Migrations consolidadas — em dev, prefira editar a migration de criação
+  em vez de empilhar pequenas. Em prod, faça migration nova de drop/alter.
 
 ## Qualidade / CI
 
 ```bash
 composer check      # phpstan + pint + rector (dry) + pest — é o que o CI roda
 composer lint       # pint + rector aplicando fixes
-php artisan test    # suíte Pest
 ```
 
-- GitHub Actions: `lint.yml` (composer lint), `tests.yml` (composer check),
-  `automerge.yml` (squash automático de PRs verdes).
-- PHPStan nível alto: use `App\Support\Cast` (`Cast::str/int/float/arr`) para
-  converter `mixed` com segurança.
-- Pint impõe `mb_*` (ex.: `mb_trim`, `mb_rtrim`) — `ext-mbstring` declarado no
-  composer.json.
-- Convenções: `declare(strict_types=1)`, classes `final`, comentários e UI em
-  pt-BR.
-- **Idioma do código** (EXTREMAMENTE PROIBIDO usar pt-BR):
-  - Nomes de pastas, namespaces, classes, métodos, propriedades, variáveis,
-    funções, **migrations**, **colunas de tabela**, env vars, config keys —
-    tudo em **inglês**. Ex.: `App\Livewire\Schedule\Index`, não `Agenda`;
-    `auto_post_youtube_enabled`, não `postagem_youtube_habilitada`.
-  - Permitido em pt-BR: paths de rotas (`/agenda`, `/downloads`), strings
-    de UI (labels, mensagens, toasts), comentários no código.
+- GitHub Actions: `lint.yml`, `tests.yml`, `automerge.yml` (squash automático
+  de PRs verdes).
 
 ## Microserviço download-shorts (FastAPI, porta 8770)
 
-Vive em `MicroServices/DownloadShorts/`. Magro e síncrono: recebe um
-`channel_url` + `webhook_url`, lista os Shorts via `yt-dlp`, baixa em pool
-(`ThreadPoolExecutor`, `DOWNLOAD_WORKERS=4-8`) e dispara **1 webhook por
-item terminado** (success ou failed). Sem banco — estado vive na thread.
+Em `MicroServices/DownloadShorts/`. Magro: recebe `channel_url` +
+`webhook_url`, lista os Shorts via `yt-dlp`, baixa em pool e dispara
+**1 webhook por item terminado**.
 
-- `POST /shorts/download` → `202 {status: "started", count, channel_url}`
-  (síncrono na listagem). `409` se já há download ativo pro canal.
-- `GET /health`.
-- Payload do webhook (sempre 1 item):
+- `POST /shorts/download` → `202 {status, count, channel_url}` (`409` se
+  já há download ativo pro canal). `GET /health`.
+- Webhook payload (1 item):
   `{ channel_url, items: [{ youtube_id, title, hashtags, status, storage_path?, storage_size_bytes?, storage_mime_type?, error? }] }`.
-- Retry de webhook embutido: 3 tentativas com backoff 1s/5s/15s.
-- Subir: `docker compose up -d --build download-shorts` na raiz (defaults de
-  dev no compose: MinIO local em `host.docker.internal:9000`, bucket `video`,
-  `minioadmin/minioadmin`). Standalone: `cd MicroServices/DownloadShorts &&
-  .venv/bin/python -m app.main`.
-- Settings (em `app/config/settings.py`) **sem defaults** — falha cedo se
-  faltar env. Lista completa em `.env.example`.
-- Lado Laravel: cliente único `App\Services\Youtube\DownloadShortsClient`
-  (`createDownload(channelUrl): int`, retorna `count`). Webhook recebido em
-  `/api/download-youtube/webhook` → `DownloadYoutubeImportService` insere em
-  `youtube_shorts`.
+- Retry: 3 tentativas, backoff 1s/5s/15s.
+- Subir: `docker compose up -d --build download-shorts`.
+- Lado Laravel: `App\Services\Youtube\DownloadShortsClient::createDownload(channelUrl): int`.
+  Webhook recebido em `/api/download-youtube/webhook` →
+  `App\Services\Youtube\DownloadYoutubeImportService` insere em `youtube_shorts`.
 
-## Microserviço tiktok-uploader (Node + Playwright, porta 8090)
+## Microserviço tiktok-uploader (Node 22 + Playwright, porta 8090)
 
-Vive em `MicroServices/TikTokUploader/`. Publica Shorts no TikTok via
-navegador (Playwright headless), com login automático por email/senha ou
-cookies pré-gerados. Sem banco — devolve o ciclo de vida do post pelo
-webhook configurado.
+Em `MicroServices/TikTokUploader/`. Publica Shorts via navegador (Playwright
+headless). **Não tem banco** e **não lê cookies do filesystem em prod** —
+recebe os cookies no payload de cada `POST /posts`.
 
-- `POST /posts` (body: `{ video_id, webhook_url, title, hashtags, video_key? }`)
-  enfileira; `GET /session` confere expiração de cookie; `POST /login`
-  dispara login explícito; `POST /session` injeta cookies exportados.
-- `cookies/` montado como volume: gere o login local com `HEADLESS=false`
-  fora do container e o resultado é carregado pelo container headless.
-- `DRY_RUN=true` (default) executa tudo menos publicar. Pra produção,
-  setar `false` no `.env` raiz ou via shell.
-- Subir: `docker compose up -d --build tiktok-uploader` na raiz; defaults
-  apontam pra MinIO local em `host.docker.internal:9000`, bucket `video`,
-  prefix `shorts/`.
-- Lado Laravel: cliente `App\Services\TikTok\TiktokPostService::queuePost()`.
+- `POST /posts` body: `{ video_id, title, hashtags, video_key?, webhook_url, cookies?: [...] }`.
+- Webhook callback expandido: além dos campos antigos, agora envia
+  `refreshed_cookies?` (cookies pós-upload, capturados do Playwright) e
+  `session_status?` (`valid`/`invalid`/`unknown`). Laravel atualiza o
+  `social_accounts.cookies` com isso.
+- `DRY_RUN=true` no `.env` pula a publicação real (debugging).
+- Logs cobrem o ciclo: cookies recebidos, upload status, cookies capturados,
+  webhook tentativa/status (aceito/rejeitado), refresh count.
+- Subir: `docker compose up -d --build tiktok-uploader`.
 
-## Rodar tudo (Laravel + microserviços)
-
-Tudo via 1 compose na raiz (Sail no Laravel; MySQL e MinIO continuam
-externos no host):
+## Rodar tudo
 
 ```bash
 docker compose up -d --build
 ```
 
-Sobe:
-- `laravel` (Sail PHP 8.4) → `http://127.0.0.1:8000`
-- `download-shorts` (FastAPI) → `http://127.0.0.1:8770`
-- `tiktok-uploader` (Node) → `http://127.0.0.1:8090`
+Sobe `download-shorts` (8770) e `tiktok-uploader` (8090). MySQL e MinIO
+ficam externos no host (`host.docker.internal:3306` / `:9000` dentro dos
+containers, `127.0.0.1` no Laravel nativo).
 
-O container `laravel` injeta `DB_HOST=host.docker.internal` e
-`MINIO_ENDPOINT=http://host.docker.internal:9000` por cima do `.env` —
-o `.env` continua valendo `127.0.0.1` pra `php artisan` nativo no host.
+No servidor de produção (Linux), o Laravel **roda nativo** via nginx +
+PHP-FPM 8.4 (não usa Sail/container). Tem um `docker-compose.override.yml`
+que desabilita o serviço `laravel` do compose principal pra evitar conflito
+de porta 80.
 
-`generate-clips` continua nativo no macOS (GPU Metal/MLX, ffmpeg
-VideoToolbox; Docker Desktop no macOS não passa CUDA/NVIDIA pro container). Em
-host Linux com placa NVIDIA, pode subir via profile CUDA:
-`scripts/generate-clips-docker up` ou
-`docker compose --profile linux-nvidia up -d --build generate-clips`.
+## Histórico (apagados)
 
-## Repositórios relacionados
-
-- `edsuuu/auto-post` — **absorvido por este repo** (mantido só como histórico).
-- Serviço Python de processamento de vídeo — projeto separado local
-  (FastAPI + MinIO + webhook), não versionado aqui.
+- `edsuuu/auto-post` — repositório anterior (CLI-only), absorvido no
+  `generate-clips-laravel`, depois renomeado pra **MoneyClips**.
+- Pipeline de cortes de vídeo longo — saiu do projeto (era um Python service
+  separado `generate-clips`). Tudo o que era `App\Livewire\Videos\*`,
+  `App\Models\Video/Cut/Transcript/...`, `App\Services\VideoProcessor\*`,
+  `App\Services\StatusService` e as tabelas `videos/cuts/files/transcripts/
+  video_payloads/statuses/status_logs/scheduled_posts/social_post_logs` foram
+  removidos.
+- Extensão Chrome `tiktok-cookie-bridge` e endpoint `/api/tiktok/cookies/ingest`
+  — substituídos pelo fluxo via banco (textarea em `/settings/accounts`).
