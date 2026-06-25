@@ -5,9 +5,6 @@
     <x-nav-item :href="route('settings.accounts')" :current="request()->routeIs('settings.accounts') || request()->routeIs('social-accounts')">
         {{ __('Contas vinculadas') }}
     </x-nav-item>
-    <x-nav-item :href="route('settings.auto-post')" :current="request()->routeIs('settings.auto-post')">
-        {{ __('Auto-postagem') }}
-    </x-nav-item>
     <x-nav-item :href="route('security.edit')" :current="request()->routeIs('security.edit')">
         {{ __('Segurança') }}
     </x-nav-item>

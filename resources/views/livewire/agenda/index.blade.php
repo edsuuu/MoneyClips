@@ -3,44 +3,67 @@
         eyebrow="Auto-postagem"
         title="Agenda"
         :subtitle="'Semana de '.$weekStart->format('d/m').' a '.$weekEnd->format('d/m').' — 5 slots/dia (gap ~3h), minuto sorteado estável por dia.'"
-    >
-        <x-slot:actions>
-            <x-ui.button :href="route('settings.auto-post')" variant="ghost" icon="cog-6-tooth" wire:navigate>
-                Plataformas
-            </x-ui.button>
-        </x-slot:actions>
-    </x-studio.page-header>
+    />
 
-    {{-- Status + próximo --}}
+    {{-- Toggles de plataforma + próximo disparo --}}
     <div class="grid gap-4 md:grid-cols-3">
-        <div class="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">YouTube</p>
-            <p class="mt-2 text-sm">
-                @if ($settings->youtube_enabled)
-                    <span class="inline-flex items-center gap-1.5 text-emerald-400">
-                        <span class="size-2 rounded-full bg-emerald-400"></span> Ativo
-                    </span>
-                @else
-                    <span class="inline-flex items-center gap-1.5 text-slate-500">
-                        <span class="size-2 rounded-full bg-slate-600"></span> Pausado
-                    </span>
-                @endif
-            </p>
+        {{-- YouTube toggle --}}
+        <div class="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+            <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">YouTube</p>
+                <p class="mt-1 text-sm">
+                    @if ($settings->youtube_enabled)
+                        <span class="inline-flex items-center gap-1.5 text-emerald-400">
+                            <span class="size-2 rounded-full bg-emerald-400"></span> Ativo
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 text-slate-500">
+                            <span class="size-2 rounded-full bg-slate-600"></span> Pausado
+                        </span>
+                    @endif
+                </p>
+            </div>
+            <button
+                type="button"
+                wire:click="toggleYoutube"
+                wire:loading.attr="disabled"
+                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:opacity-60 {{ $settings->youtube_enabled ? 'bg-emerald-500' : 'bg-slate-700' }}"
+                aria-pressed="{{ $settings->youtube_enabled ? 'true' : 'false' }}"
+            >
+                <span class="sr-only">Toggle YouTube</span>
+                <span class="inline-block size-4 transform rounded-full bg-white shadow transition {{ $settings->youtube_enabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
+            </button>
         </div>
-        <div class="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-            <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">TikTok</p>
-            <p class="mt-2 text-sm">
-                @if ($settings->tiktok_enabled)
-                    <span class="inline-flex items-center gap-1.5 text-emerald-400">
-                        <span class="size-2 rounded-full bg-emerald-400"></span> Ativo
-                    </span>
-                @else
-                    <span class="inline-flex items-center gap-1.5 text-slate-500">
-                        <span class="size-2 rounded-full bg-slate-600"></span> Pausado
-                    </span>
-                @endif
-            </p>
+
+        {{-- TikTok toggle --}}
+        <div class="flex items-center justify-between gap-4 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+            <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">TikTok</p>
+                <p class="mt-1 text-sm">
+                    @if ($settings->tiktok_enabled)
+                        <span class="inline-flex items-center gap-1.5 text-emerald-400">
+                            <span class="size-2 rounded-full bg-emerald-400"></span> Ativo
+                        </span>
+                    @else
+                        <span class="inline-flex items-center gap-1.5 text-slate-500">
+                            <span class="size-2 rounded-full bg-slate-600"></span> Pausado
+                        </span>
+                    @endif
+                </p>
+            </div>
+            <button
+                type="button"
+                wire:click="toggleTiktok"
+                wire:loading.attr="disabled"
+                class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors disabled:opacity-60 {{ $settings->tiktok_enabled ? 'bg-emerald-500' : 'bg-slate-700' }}"
+                aria-pressed="{{ $settings->tiktok_enabled ? 'true' : 'false' }}"
+            >
+                <span class="sr-only">Toggle TikTok</span>
+                <span class="inline-block size-4 transform rounded-full bg-white shadow transition {{ $settings->tiktok_enabled ? 'translate-x-6' : 'translate-x-1' }}"></span>
+            </button>
         </div>
+
+        {{-- Próximo disparo --}}
         <div class="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
             <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Próximo disparo</p>
             @if ($nextSlot)
@@ -115,10 +138,10 @@
                                                 <span class="inline-flex items-center rounded bg-pink-500/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-pink-400" title="Postado no TikTok">TT</span>
                                             @endif
                                         </div>
-                                    @elseif ($slot['status'] === 'skipped')
+                                    @elseif ($slot['status'] === 'skipped' && $day['isToday'])
                                         <button
                                             type="button"
-                                            wire:click="forceDispatch"
+                                            wire:click="forceDispatch('{{ $day['date']->format('Y-m-d') }}')"
                                             wire:loading.attr="disabled"
                                             wire:confirm="Forçar disparo agora? Vai sortear o próximo Short do estoque e postar nas plataformas ativas."
                                             class="mt-1.5 w-full cursor-pointer rounded bg-amber-500/15 px-2 py-1 text-[10px] font-semibold text-amber-300 transition hover:bg-amber-500/25 disabled:opacity-50"
