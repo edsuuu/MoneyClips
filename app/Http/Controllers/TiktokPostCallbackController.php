@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Models\TiktokPost;
+use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\DiscordNotifier;
 use Illuminate\Http\JsonResponse;
@@ -51,17 +51,15 @@ final class TiktokPostCallbackController extends Controller
             'title' => $title,
         ]);
 
-        TiktokPost::query()->updateOrCreate(
-            ['uuid' => $validated['job_id']],
-            [
-                'youtube_id' => $videoId,
-                'video_key' => sprintf('shorts/%s.mp4', $videoId),
-                'title' => $title,
-                'status' => $status,
-                'error' => $error,
-                'posted_at' => $status === 'completed' ? $finishedAt : null,
-            ],
-        );
+        SocialPost::query()->updateOrCreate(['uuid' => $validated['job_id']], [
+            'platform' => SocialPost::PLATFORM_TIKTOK,
+            'youtube_id' => $videoId,
+            'video_key' => sprintf('shorts/%s.mp4', $videoId),
+            'title' => $title,
+            'status' => $status,
+            'error' => $error,
+            'posted_at' => $status === 'completed' ? $finishedAt : null,
+        ]);
 
         // Confirmação explícita do sucesso na fonte única (youtube_shorts),
         // casando pelo youtube_id. Só conta publicação real (completed).

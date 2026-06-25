@@ -11,13 +11,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 
 /**
- * Ledger de postagens no TikTok via microserviço tiktok-uploader.
+ * Ledger genérico de postagens em redes sociais. Substitui o antigo
+ * TiktokPost — a coluna `platform` discrimina o destino (tiktok, youtube,
+ * instagram, ...). Cada poster grava uma linha aqui pra o Laravel
+ * conseguir mostrar histórico e impedir duplicação por (platform, short).
  *
- * As linhas são criadas/atualizadas pela API do uploader (Node), que escreve
- * direto neste banco. O Laravel usa a tabela para excluir Shorts já postados
- * do sorteio (tiktok:dispatch-posts) e para exibir o histórico.
+ * Os Posters (App\Services\AutoPost\Posters) é quem criam/atualizam
+ * essas linhas. Para o TikTok, o microserviço uploader manda o status
+ * final via webhook (TiktokPostCallbackController).
  *
  * @property int $id
+ * @property string $platform
  * @property string $uuid
  * @property string|null $youtube_id
  * @property string|null $video_key
@@ -30,18 +34,33 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $started_at
  * @property Carbon|null $posted_at
  */
-final class TiktokPost extends Model
+final class SocialPost extends Model
 {
     /** @use HasFactory<Factory> */
     use HasFactory;
+
+    public const string PLATFORM_TIKTOK = 'tiktok';
+
+    public const string PLATFORM_YOUTUBE = 'youtube';
 
     /** Status que contam como "já postado/em andamento" para o sorteio. */
     public const array ACTIVE_STATUSES = ['queued', 'processing', 'completed', 'dry-run'];
 
     protected $fillable = [
-        'uuid', 'youtube_id', 'video_key', 'title', 'hashtags', 'account_name',
-        'status', 'error', 'requested_at', 'started_at', 'posted_at',
+        'platform', 'uuid', 'youtube_id', 'video_key', 'title', 'hashtags',
+        'account_name', 'status', 'error', 'requested_at', 'started_at', 'posted_at',
     ];
+
+    /**
+     * Filtra por plataforma. Use `SocialPost::query()->platform('tiktok')`.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    protected function scopePlatform(Builder $query, string $platform): Builder
+    {
+        return $query->where('platform', $platform);
+    }
 
     /**
      * Posts enfileirados, em andamento ou concluídos — bloqueiam novo sorteio
@@ -55,6 +74,9 @@ final class TiktokPost extends Model
         return $query->whereIn('status', self::ACTIVE_STATUSES);
     }
 
+    /**
+     * @return array<string, string>
+     */
     protected function casts(): array
     {
         return [
