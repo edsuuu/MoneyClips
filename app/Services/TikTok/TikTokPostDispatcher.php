@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\TikTok;
 
-use App\Models\TiktokPost;
+use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use RuntimeException;
 
@@ -72,8 +72,8 @@ final readonly class TikTokPostDispatcher
     private function pickCandidate(): ?YoutubeShort
     {
         /** @var list<string> $blocked */
-        $blocked = TiktokPost::query()
-            ->whereIn('status', TiktokPost::ACTIVE_STATUSES)
+        $blocked = SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)
+            ->whereIn('status', SocialPost::ACTIVE_STATUSES)
             ->whereNotNull('youtube_id')
             ->pluck('youtube_id')
             ->all();

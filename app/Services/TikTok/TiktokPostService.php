@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\TikTok;
 
-use App\Models\TiktokPost;
+use App\Models\SocialPost;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -42,18 +42,16 @@ final class TiktokPostService
 
         throw_if($jobId === '', RuntimeException::class, 'Microserviço tiktok-post não retornou job_id.');
 
-        TiktokPost::query()->updateOrCreate(
-            ['uuid' => $jobId],
-            [
-                'youtube_id' => $youtubeId,
-                'video_key' => $videoKey ?? sprintf('shorts/%s.mp4', $youtubeId),
-                'title' => $title,
-                'hashtags' => $this->normalizeHashtags($hashtags),
-                'status' => 'queued',
-                'error' => null,
-                'requested_at' => now(),
-            ],
-        );
+        SocialPost::query()->updateOrCreate(['uuid' => $jobId], [
+            'platform' => SocialPost::PLATFORM_TIKTOK,
+            'youtube_id' => $youtubeId,
+            'video_key' => $videoKey ?? sprintf('shorts/%s.mp4', $youtubeId),
+            'title' => $title,
+            'hashtags' => $this->normalizeHashtags($hashtags),
+            'status' => 'queued',
+            'error' => null,
+            'requested_at' => now(),
+        ]);
 
         return $jobId;
     }
