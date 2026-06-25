@@ -33,15 +33,19 @@
                         type="button"
                         wire:click="selectLog('{{ $service['docker'] }}')"
                         @class([
-                            'mt-3 cursor-pointer text-xs underline decoration-slate-700 underline-offset-4 transition hover:text-slate-200',
-                            'text-slate-100 font-medium' => $logService === $service['docker'],
-                            'text-slate-400' => $logService !== $service['docker'],
+                            'mt-4 inline-flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition',
+                            'border-slate-100 bg-slate-100 text-slate-950' => $logService === $service['docker'],
+                            'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500 hover:bg-slate-800 hover:text-slate-100' => $logService !== $service['docker'],
                         ])
                     >
-                        ver logs
+                        <x-ui.icon name="document-text" class="size-3.5" />
+                        <span>{{ $logService === $service['docker'] ? 'Vendo logs' : 'Ver logs' }}</span>
                     </button>
                 @else
-                    <div class="mt-3 text-xs text-slate-600">logs no terminal do host</div>
+                    <div class="mt-4 flex items-center gap-1.5 text-xs text-slate-500">
+                        <x-ui.icon name="command-line" class="size-3.5" />
+                        Logs no terminal do host
+                    </div>
                 @endif
             </div>
         @endforeach
