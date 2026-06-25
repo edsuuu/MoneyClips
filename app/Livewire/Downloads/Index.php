@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Downloads;
 
 use App\Livewire\Concerns\WithToasts;
-use App\Models\TiktokPost;
+use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\TikTok\TiktokPostService;
 use Illuminate\Database\Eloquent\Builder;
@@ -115,13 +115,13 @@ final class Index extends Component
             return;
         }
 
-        $existing = TiktokPost::query()
+        $existing = SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)
             ->where('youtube_id', $youtubeId)
-            ->whereIn('status', TiktokPost::ACTIVE_STATUSES)
+            ->whereIn('status', SocialPost::ACTIVE_STATUSES)
             ->latest('id')
             ->first();
 
-        if ($existing instanceof TiktokPost) {
+        if ($existing instanceof SocialPost) {
             $this->toast('Este vídeo já está em fila ou já foi postado no TikTok.', 'danger');
 
             return;
@@ -184,20 +184,20 @@ final class Index extends Component
         return match ($tab) {
             self::TAB_QUEUED => $base->whereIn(
                 'youtube_id',
-                TiktokPost::query()->select('youtube_id')->whereIn('status', ['queued', 'processing']),
+                SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->select('youtube_id')->whereIn('status', ['queued', 'processing']),
             ),
             self::TAB_POSTED => $base->whereIn(
                 'youtube_id',
-                TiktokPost::query()->select('youtube_id')->whereIn('status', ['completed', 'dry-run']),
+                SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->select('youtube_id')->whereIn('status', ['completed', 'dry-run']),
             ),
             self::TAB_FAILED => $base->whereIn(
                 'youtube_id',
-                TiktokPost::query()->select('youtube_id')->where('status', 'failed'),
+                SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->select('youtube_id')->where('status', 'failed'),
             ),
             default => $base->whereNotIn(
                 'youtube_id',
                 // Vídeos já postados / em fila / em processamento somem da listagem geral.
-                TiktokPost::query()->select('youtube_id')->whereIn(
+                SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->select('youtube_id')->whereIn(
                     'status',
                     ['completed', 'dry-run', 'queued', 'processing'],
                 ),
@@ -213,8 +213,8 @@ final class Index extends Component
     {
         $youtubeIds = $items->pluck('youtube_id')->filter()->values();
 
-        /** @var Collection<string, TiktokPost> $posts */
-        $posts = TiktokPost::query()
+        /** @var Collection<string, SocialPost> $posts */
+        $posts = SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)
             ->whereIn('youtube_id', $youtubeIds)
             ->latest('id')
             ->get()
@@ -239,8 +239,8 @@ final class Index extends Component
                     'post' => $post,
                     'post_error' => $post?->error,
                     'post_status' => $post?->status,
-                    'can_post' => ! $post instanceof TiktokPost
-                        || ! in_array($post->status, TiktokPost::ACTIVE_STATUSES, true),
+                    'can_post' => ! $post instanceof SocialPost
+                        || ! in_array($post->status, SocialPost::ACTIVE_STATUSES, true),
                 ];
             })
             ->all());
