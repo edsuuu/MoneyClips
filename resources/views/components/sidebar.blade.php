@@ -44,6 +44,11 @@
                     </x-nav-item>
                 </li>
                 <li>
+                    <x-nav-item icon="layout-grid" size="lg" :href="route('agenda.index')" :current="request()->routeIs('agenda.index')">
+                        {{ __('Agenda') }}
+                    </x-nav-item>
+                </li>
+                <li>
                     <x-nav-item icon="computer-desktop" size="lg" :href="route('microservices.index')" :current="request()->routeIs('microservices.index')">
                         {{ __('Microserviços') }}
                     </x-nav-item>
