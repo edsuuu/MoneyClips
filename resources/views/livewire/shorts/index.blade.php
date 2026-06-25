@@ -12,7 +12,7 @@
             @endif
         </x-slot:meta>
         <x-slot:actions>
-            <x-ui.button :href="route('shorts.download')" size="sm" variant="primary" icon="arrow-down-tray" class="cursor-pointer" wire:navigate>
+            <x-ui.button :href="route('downloads.index')" size="sm" variant="primary" icon="arrow-down-tray" class="cursor-pointer" wire:navigate>
                 Baixar de um canal
             </x-ui.button>
             <x-ui.button wire:click="dispatchRandom" size="sm" variant="primary" icon="play" class="cursor-pointer">
@@ -57,7 +57,7 @@
         @if($shorts->isEmpty())
             <div class="rounded-xl border border-dashed border-slate-800 p-10 text-center text-sm text-slate-400">
                 Nenhum Short por aqui ainda. Baixe os Shorts de um canal pela tela
-                <a href="{{ route('shorts.download') }}" wire:navigate class="text-slate-200 underline hover:text-slate-50">Baixar de um canal</a>
+                <a href="{{ route('downloads.index') }}" wire:navigate class="text-slate-200 underline hover:text-slate-50">Baixar de um canal</a>
                 ou com
                 <code class="rounded bg-slate-900 px-1.5 py-0.5 text-slate-200">php artisan youtube:download-shorts "https://www.youtube.com/@canal"</code>
             </div>

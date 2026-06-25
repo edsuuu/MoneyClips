@@ -115,6 +115,17 @@
                                                 <span class="inline-flex items-center rounded bg-pink-500/15 px-1.5 py-0.5 text-[10px] font-semibold tracking-wider text-pink-400" title="Postado no TikTok">TT</span>
                                             @endif
                                         </div>
+                                    @elseif ($slot['status'] === 'skipped')
+                                        <button
+                                            type="button"
+                                            wire:click="forceDispatch"
+                                            wire:loading.attr="disabled"
+                                            wire:confirm="Forçar disparo agora? Vai sortear o próximo Short do estoque e postar nas plataformas ativas."
+                                            class="mt-1.5 w-full cursor-pointer rounded bg-amber-500/15 px-2 py-1 text-[10px] font-semibold text-amber-300 transition hover:bg-amber-500/25 disabled:opacity-50"
+                                        >
+                                            <span wire:loading.remove wire:target="forceDispatch">Forçar agora</span>
+                                            <span wire:loading wire:target="forceDispatch">Enviando…</span>
+                                        </button>
                                     @endif
                                 </div>
                             </td>

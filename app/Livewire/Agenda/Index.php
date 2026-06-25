@@ -4,13 +4,18 @@ declare(strict_types=1);
 
 namespace App\Livewire\Agenda;
 
+use App\Livewire\Concerns\WithToasts;
 use App\Models\AutoPostSettings;
 use App\Models\YoutubeShort;
+use App\Services\AutoPost\AutoPostDispatcher;
 use App\Services\AutoPost\WindowSchedule;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 use Livewire\Component;
+use Throwable;
 
 /**
  * /agenda — visão semanal dos 5 slots/dia (9/12/15/18/21h, SP) com o minuto
@@ -19,10 +24,34 @@ use Livewire\Component;
  */
 final class Index extends Component
 {
+    use WithToasts;
+
     private const string TIMEZONE = WindowSchedule::TIMEZONE;
 
     /** Tolerância (minutos) pra casar dispatched_at com o minuto sorteado. */
     private const int MATCH_TOLERANCE_MIN = 3;
+
+    /**
+     * Dispara o AutoPostDispatcher imediatamente, ignorando o lock da janela
+     * atual. Usado nos slots 'skipped' (pulados) — sorteia o próximo Short do
+     * estoque e publica nas plataformas habilitadas.
+     */
+    public function forceDispatch(): void
+    {
+        try {
+            // Limpa o lock da janela atual (se houver) pra permitir disparo agora.
+            $key = WindowSchedule::windowKey();
+            if ($key !== null) {
+                Cache::forget($key);
+            }
+
+            resolve(AutoPostDispatcher::class)->run(1);
+            $this->toast('Disparo forçado enviado para o estoque.');
+        } catch (Throwable $throwable) {
+            Log::error('[Agenda] Falha ao forçar disparo.', ['error' => $throwable->getMessage()]);
+            $this->toast('Falha ao forçar disparo: '.$throwable->getMessage(), 'danger');
+        }
+    }
 
     public function render(): View
     {
