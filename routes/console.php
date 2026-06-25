@@ -34,3 +34,12 @@ Schedule::call(function (): void {
     ->timezone(WindowSchedule::TIMEZONE)
     ->when(static fn (): bool => WindowSchedule::isDueWindow())
     ->withoutOverlapping();
+
+// Sentinela: a cada 10 min, varre slots passados sem postagem e dispara
+// alerta no Discord (1x por slot via Cache::add). Não posta nada — só avisa
+// pro operador clicar "Forçar agora" na /agenda.
+Schedule::command('auto-post:check-missed')
+    ->name('auto-post-check-missed')
+    ->everyTenMinutes()
+    ->timezone(WindowSchedule::TIMEZONE)
+    ->withoutOverlapping();
