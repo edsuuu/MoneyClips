@@ -28,7 +28,13 @@ services:
     volumes:
       - '.:/var/www/html'
       - '/var/run/docker.sock:/var/run/docker.sock'
-    command: sh -lc "chmod 666 /var/run/docker.sock 2>/dev/null || true; start-container"
+    # entrypoint roda como root: ajusta o socket do Docker e então delega pro
+    # start-container do Sail SEM args (caminho que sobe o supervisord como root
+    # e só depois dropa o PHP pro usuário `sail` via gosu). Passar args direto
+    # pro start-container fazia ele rodar `gosu sail`, dropando privilégio cedo
+    # demais e quebrando o chmod/supervisord.
+    entrypoint: ["sh", "-c"]
+    command: ["chmod 666 /var/run/docker.sock 2>/dev/null || true; exec start-container"]
     depends_on:
       - download-shorts
       - tiktok-uploader
