@@ -32,13 +32,20 @@
                 type="button"
                 wire:click="setTab('{{ $tabInfo['key'] }}')"
                 @class([
-                    'flex items-center gap-2 rounded-t-lg border-b-2 px-4 py-2 text-sm font-medium transition cursor-pointer',
-                    'border-slate-200 text-slate-100' => $tab === $tabInfo['key'],
-                    'border-transparent text-slate-400 hover:text-slate-200' => $tab !== $tabInfo['key'],
+                    'inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-lg px-3.5 py-1.5 text-sm font-medium transition',
+                    'bg-slate-800 text-slate-100 shadow-sm' => $tab === $tabInfo['key'],
+                    'text-slate-400 hover:bg-slate-900 hover:text-slate-200' => $tab !== $tabInfo['key'],
                 ])
             >
                 <span>{{ $tabInfo['label'] }}</span>
-                <x-ui.badge :color="$tabInfo['tone']" size="sm">{{ $tabInfo['count'] }}</x-ui.badge>
+                <span @class([
+                    'inline-flex min-w-5 items-center justify-center rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
+                    'bg-slate-700 text-slate-100' => $tab === $tabInfo['key'],
+                    'bg-zinc-500/20 text-zinc-400' => $tab !== $tabInfo['key'] && $tabInfo['tone'] === 'zinc',
+                    'bg-amber-500/20 text-amber-400' => $tab !== $tabInfo['key'] && $tabInfo['tone'] === 'amber',
+                    'bg-emerald-500/20 text-emerald-400' => $tab !== $tabInfo['key'] && $tabInfo['tone'] === 'green',
+                    'bg-red-500/20 text-red-400' => $tab !== $tabInfo['key'] && $tabInfo['tone'] === 'red',
+                ])>{{ $tabInfo['count'] }}</span>
             </button>
         @endforeach
     </div>
