@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost\Posters;
 
-use App\Models\AutoPostSettings;
+use App\Models\User;
 use App\Models\YoutubeShort;
 use App\Services\DiscordNotifier;
 use App\Services\TikTok\TiktokPostService;
@@ -31,7 +31,11 @@ final readonly class TiktokPoster implements PosterContract
 
     public function isEnabled(): bool
     {
-        return AutoPostSettings::current()->tiktok_enabled;
+        // Cron roda sem usuário autenticado — usamos o user mais antigo (admin)
+        // como fonte de verdade do toggle. Cada user mexe no seu pela /agenda.
+        $user = User::query()->orderBy('id')->first();
+
+        return $user instanceof User ? $user->auto_post_tiktok_enabled : true;
     }
 
     public function post(YoutubeShort $short): PosterResult

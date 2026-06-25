@@ -90,15 +90,4 @@ return [
         'discord_webhook' => env('DISCORD_WEBHOOK_URL', ''),
     ],
 
-    's3_sync' => [
-        'source' => [
-            'endpoint' => env('S3_SYNC_SOURCE_ENDPOINT', 'https://usc1.contabostorage.com'),
-            'region' => env('S3_SYNC_SOURCE_REGION', 'usc1'),
-            'access_key' => env('S3_SYNC_SOURCE_ACCESS_KEY'),
-            'secret_key' => env('S3_SYNC_SOURCE_SECRET_KEY'),
-            'bucket' => env('S3_SYNC_SOURCE_BUCKET', 'video'),
-            'prefix' => env('S3_SYNC_SOURCE_PREFIX', 'shorts'),
-        ],
-    ],
-
 ];
