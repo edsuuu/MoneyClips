@@ -25,6 +25,22 @@ const CreatePostSchema = z.object({
     webhook_url: z.string().url(),
     title: z.string().min(1),
     hashtags: z.array(z.string()).optional(),
+    // Cookies enviados pelo Laravel (substitui o arquivo do disco). Opcional
+    // pra compat com chamadas locais/dev — quando ausente cai pro arquivo.
+    cookies: z
+        .array(
+            z.object({
+                name: z.string(),
+                value: z.string(),
+                domain: z.string(),
+                path: z.string(),
+                expires: z.number().optional(),
+                httpOnly: z.boolean().optional(),
+                secure: z.boolean().optional(),
+                sameSite: z.enum(['Strict', 'Lax', 'None']).optional(),
+            }),
+        )
+        .optional(),
 });
 
 /** POST /login — login explícito do TikTok, orquestrado pelo Laravel. */
@@ -130,12 +146,18 @@ export class App {
         };
 
         const jobId = randomUUID();
+        const cookies = (parsed.data.cookies ?? null) as Cookie[] | null;
+        logger.info(
+            `POST /posts — job ${jobId} videoId=${parsed.data.video_id} ` +
+                `cookies=${cookies?.length ?? 0} bytes_title=${metadata.title.length}`,
+        );
         this.queue.enqueue({
             jobId,
             videoId: parsed.data.video_id,
             videoKey: parsed.data.video_key ?? null,
             webhookUrl: parsed.data.webhook_url,
             metadata,
+            cookies,
         });
         return { job_id: jobId, status: 'queued' };
     }

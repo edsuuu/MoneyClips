@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\TikTok;
 
+use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
@@ -30,6 +31,12 @@ final class TiktokPostService
         ];
         if ($videoKey !== null && $videoKey !== '') {
             $payload['video_key'] = $videoKey;
+        }
+
+        // Envia os cookies da sessão direto do banco (substitui o cookies/{name}.json).
+        $cookies = $this->resolveCookies();
+        if ($cookies !== null) {
+            $payload['cookies'] = $cookies;
         }
 
         /** @var array<string, mixed> $response */
@@ -143,6 +150,30 @@ final class TiktokPostService
     {
         return (string) (config('services.tiktok_post.callback_url'))
             ?: url('/api/tiktok-posts/callback');
+    }
+
+    /**
+     * Recupera o array de cookies da conta TikTok ativa. Null quando ainda
+     * não foi cadastrada (microserviço cai pro env como fallback).
+     *
+     * @return array<int, array<string, mixed>>|null
+     */
+    private function resolveCookies(): ?array
+    {
+        $account = SocialAccount::query()
+            ->where('platform', 'tiktok')
+            ->where('is_active', true)
+            ->latest('id')
+            ->first();
+
+        if (! $account instanceof SocialAccount) {
+            return null;
+        }
+
+        /** @var array<int, array<string, mixed>>|null $cookies */
+        $cookies = $account->cookies;
+
+        return is_array($cookies) && $cookies !== [] ? $cookies : null;
     }
 
     private function client(): PendingRequest

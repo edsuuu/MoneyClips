@@ -1,6 +1,6 @@
 /** Tipos da API HTTP (modo microserviço orquestrado pelo Laravel). */
 
-import type { VideoMetadata } from './DomainType';
+import type { Cookie, VideoMetadata } from './DomainType';
 
 /** Job na fila em memória. O navegador é único, então a concorrência é 1. */
 export interface QueuedPostJob {
@@ -13,6 +13,12 @@ export interface QueuedPostJob {
     videoKey: string | null;
     webhookUrl: string;
     metadata: VideoMetadata;
+    /**
+     * Cookies enviados pelo Laravel a cada POST. Quando presentes, são gravados
+     * no disco do container antes do upload — substituem o cookies/{name}.json
+     * antigo. Null = usa o que está em disco (fallback de dev).
+     */
+    cookies: Cookie[] | null;
 }
 
 /**
@@ -32,6 +38,16 @@ export interface PostCallback {
     title: string | null;
     error: string | null;
     finished_at: string;
+    /**
+     * Cookies lidos APÓS o post — captura refresh que o TikTok faz na sessão.
+     * Laravel salva no social_accounts pra manter a fonte da verdade fresca.
+     */
+    refreshed_cookies?: Cookie[] | null;
+    /**
+     * Estado da sessão visto pelo uploader: valid (post OK ou cookies bons),
+     * invalid (cookies expiraram e re-login falhou), unknown (não pôde checar).
+     */
+    session_status?: 'valid' | 'invalid' | 'unknown';
 }
 
 /** Resposta do GET /session — checagem leve (sem abrir o navegador). */
