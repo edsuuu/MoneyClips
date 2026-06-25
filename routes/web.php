@@ -19,7 +19,8 @@ Route::middleware(['auth'])->group(function (): void {
     Route::view('/downloads', 'downloads.index')->name('downloads.index');
 
     // Visão semanal do schedule (horários sorteados + status por slot).
-    Route::view('/agenda', 'agenda.index')->name('agenda.index');
+    // Path em pt-BR (UX); namespace/view/classe em inglês (App\Livewire\Schedule).
+    Route::view('/agenda', 'schedule.index')->name('agenda.index');
 
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
