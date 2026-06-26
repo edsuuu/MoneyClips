@@ -6,11 +6,14 @@ namespace App\Livewire\Settings;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Illuminate\View\View;
 use JsonException;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
+use Throwable;
 
 /**
  * Card de gestão da sessão TikTok (cookies).
@@ -30,6 +33,10 @@ final class TiktokCookies extends Component
 
     /** Textarea: JSON do array de cookies (Playwright export). */
     public string $cookiesJson = '';
+
+    public bool $isTestingSession = false;
+
+    public bool $isAttemptingLogin = false;
 
     public function mount(): void
     {
@@ -72,6 +79,96 @@ final class TiktokCookies extends Component
 
         $this->cookiesJson = '';
         $this->toast(sprintf('Cookies atualizados (%d entradas). Próximo post valida a sessão.', count($decoded)));
+    }
+
+    public function testSession(): void
+    {
+        $this->isTestingSession = true;
+        try {
+            $baseUrl = (string) config('services.tiktok_post.base_url', 'http://127.0.0.1:8090');
+            $response = Http::timeout(10)->get($baseUrl . '/session');
+
+            if (! $response->successful()) {
+                $this->toast('Microserviço indisponível ou não respondeu.', 'danger');
+
+                return;
+            }
+
+            /** @var array<string, mixed> $data */
+            $data = $response->json();
+            $valid = (bool) ($data['valid'] ?? false);
+            $expired = (bool) ($data['expired'] ?? false);
+            $hasCookies = (bool) ($data['has_cookies'] ?? false);
+
+            if (! $hasCookies) {
+                $this->toast('Nenhum cookie encontrado no microserviço.', 'warning');
+
+                return;
+            }
+
+            if ($expired) {
+                $this->toast('Cookies expirados. Tente fazer login novamente.', 'warning');
+
+                return;
+            }
+
+            if ($valid) {
+                $this->toast('✅ Sessão TikTok válida!', 'success');
+                // Atualiza status no banco
+                $account = $this->loadAccount();
+                if ($account instanceof SocialAccount) {
+                    $account->session_status = SocialAccount::SESSION_VALID;
+                    $account->cookies_last_validated_at = now();
+                    $account->save();
+                }
+
+                return;
+            }
+
+            $this->toast('Sessão desconhecida — tente fazer login.', 'warning');
+        } catch (ConnectionException) {
+            $this->toast('Não consegui conectar ao microserviço TikTok.', 'danger');
+        } catch (Throwable $e) {
+            $this->toast('Erro ao testar sessão: '.$e->getMessage(), 'danger');
+        } finally {
+            $this->isTestingSession = false;
+        }
+    }
+
+    public function attemptLogin(): void
+    {
+        $this->isAttemptingLogin = true;
+        try {
+            $baseUrl = (string) config('services.tiktok_post.base_url', 'http://127.0.0.1:8090');
+            $response = Http::timeout(30)->post($baseUrl . '/login', [
+                'force' => true,
+            ]);
+
+            if (! $response->successful()) {
+                $this->toast('Microserviço indisponível. Tente novamente.', 'danger');
+
+                return;
+            }
+
+            /** @var array<string, mixed> $data */
+            $data = $response->json();
+            $valid = (bool) ($data['valid'] ?? false);
+
+            if ($valid) {
+                $this->toast('✅ Login bem-sucedido! Cookies atualizados no uploader.', 'success');
+
+                // Próximo post vai capturar os cookies refrescados
+                return;
+            }
+
+            $this->toast('Login falhou. Verifique as credenciais de email/senha no .env', 'danger');
+        } catch (ConnectionException) {
+            $this->toast('Não consegui conectar ao microserviço TikTok.', 'danger');
+        } catch (Throwable $e) {
+            $this->toast('Erro ao fazer login: '.$e->getMessage(), 'danger');
+        } finally {
+            $this->isAttemptingLogin = false;
+        }
     }
 
     public function render(): View
