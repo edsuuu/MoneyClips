@@ -5,15 +5,19 @@ import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import httpx
 
 from app.config.settings import settings
-from app.storage.client import StorageClient, storage_path_for
-from app.youtube.client import ShortVideo, download_short, list_shorts
+from app.storage.client import StorageClient, metadata_storage_path_for, storage_path_for
+from app.youtube.client import ShortVideo, download_short, list_shorts, normalize_shorts_url
 
 logger = logging.getLogger("shorts.worker")
+
+_METADATA_TIMEZONE = ZoneInfo("America/Sao_Paulo")
 
 
 _active_channels: set[str] = set()
@@ -106,6 +110,7 @@ def _process_one(
     storage: StorageClient,
 ) -> None:
     object_path = storage_path_for(video.youtube_id)
+    metadata_path = metadata_storage_path_for(video.youtube_id)
     # O título vai no label pra todo log do worker mostrar "short:abc123 (Titulo)".
     label = f"short:{video.youtube_id} ({_truncate(video.title)})"
     work_dir = settings.temp_dir / video.youtube_id
@@ -114,6 +119,12 @@ def _process_one(
     try:
         if storage.exists(object_path):
             stat = storage.stat(object_path)
+            if not storage.exists(metadata_path):
+                downloaded_at = _now_iso()
+                storage.upload_json(
+                    _build_metadata(video, channel_url, object_path, downloaded_at),
+                    metadata_path,
+                )
             logger.info("%s: já existe no storage, pulando download", label)
             _send_webhook(
                 webhook_url,
@@ -129,6 +140,11 @@ def _process_one(
                 stat = storage.upload_file(downloaded, object_path)
                 if int(stat.get("size_bytes") or 0) <= 0:
                     raise RuntimeError("storage object empty after upload")  # noqa: TRY301
+                downloaded_at = _now_iso()
+                storage.upload_json(
+                    _build_metadata(video, channel_url, object_path, downloaded_at),
+                    metadata_path,
+                )
                 _send_webhook(
                     webhook_url,
                     _build_payload(video, channel_url, "completed", stat),
@@ -158,6 +174,26 @@ def _process_one(
             webhook_url,
             _build_payload(video, channel_url, "failed", None, error=str(exc)),
         )
+
+
+def _now_iso() -> str:
+    return datetime.now(_METADATA_TIMEZONE).isoformat(timespec="seconds")
+
+
+def _build_metadata(
+    video: ShortVideo,
+    channel_url: str,
+    video_path: str,
+    downloaded_at: str,
+) -> dict[str, Any]:
+    return {
+        "youtube_id": video.youtube_id,
+        "channel_url": normalize_shorts_url(channel_url),
+        "title": video.title,
+        "hashtags": video.hashtags,
+        "video_path": video_path,
+        "downloaded_at": downloaded_at,
+    }
 
 
 def _build_payload(

@@ -1,4 +1,6 @@
+import json
 from pathlib import Path
+from typing import Any
 
 import boto3
 from botocore.client import Config
@@ -7,10 +9,17 @@ from botocore.exceptions import ClientError
 from app.config.settings import settings
 
 
-def storage_path_for(youtube_id: str) -> str:
+def _storage_folder_for(youtube_id: str) -> str:
     prefix = settings.storage_path_prefix.strip("/")
-    filename = f"{youtube_id}.mp4"
-    return f"{prefix}/{filename}" if prefix else filename
+    return f"{prefix}/{youtube_id}" if prefix else youtube_id
+
+
+def storage_path_for(youtube_id: str) -> str:
+    return f"{_storage_folder_for(youtube_id)}/short_{youtube_id}.mp4"
+
+
+def metadata_storage_path_for(youtube_id: str) -> str:
+    return f"{_storage_folder_for(youtube_id)}/{youtube_id}.json"
 
 
 class StorageClient:
@@ -51,6 +60,21 @@ class StorageClient:
             object_path,
             ExtraArgs={"ContentType": content_type},
         )
+        return self.stat(object_path)
+
+    def upload_json(
+        self,
+        payload: dict[str, Any],
+        object_path: str,
+    ) -> dict[str, int | str | None]:
+        body = json.dumps(payload, ensure_ascii=False, indent=4).encode("utf-8")
+        self.client.put_object(
+            Bucket=self.bucket,
+            Key=object_path,
+            Body=body,
+            ContentType="application/json",
+        )
+
         return self.stat(object_path)
 
     def exists(self, object_path: str) -> bool:
