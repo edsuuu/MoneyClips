@@ -54,19 +54,55 @@
             @error('cookiesJson') <span class="text-xs text-red-400">{{ $message }}</span> @enderror
         </label>
 
-        <div class="flex justify-end">
-            <x-ui.button
-                type="submit"
-                variant="primary"
-                size="sm"
-                icon="check"
-                class="cursor-pointer"
-                wire:loading.attr="disabled"
-                wire:target="saveCookies"
-            >
-                <span wire:loading.remove wire:target="saveCookies">Salvar cookies</span>
-                <span wire:loading wire:target="saveCookies">Salvando…</span>
-            </x-ui.button>
+        <div class="flex flex-col gap-2">
+            <div class="flex justify-end gap-2">
+                <x-ui.button
+                    type="submit"
+                    variant="primary"
+                    size="sm"
+                    icon="check"
+                    class="cursor-pointer"
+                    wire:loading.attr="disabled"
+                    wire:target="saveCookies"
+                >
+                    <span wire:loading.remove wire:target="saveCookies">Salvar cookies</span>
+                    <span wire:loading wire:target="saveCookies">Salvando…</span>
+                </x-ui.button>
+            </div>
         </div>
     </form>
+
+    <div class="mt-4 flex flex-col gap-2 border-t border-slate-700 pt-4">
+        <p class="text-xs text-slate-400">Ações:</p>
+        <div class="flex flex-wrap gap-2">
+            <x-ui.button
+                type="button"
+                variant="filled"
+                size="sm"
+                wire:click="testSession"
+                wire:loading.attr="disabled"
+                wire:target="testSession"
+                class="cursor-pointer"
+            >
+                <span wire:loading.remove wire:target="testSession">Testar sessão</span>
+                <span wire:loading wire:target="testSession">Testando…</span>
+            </x-ui.button>
+
+            <x-ui.button
+                type="button"
+                variant="filled"
+                size="sm"
+                wire:click="attemptLogin"
+                wire:loading.attr="disabled"
+                wire:target="attemptLogin"
+                class="cursor-pointer"
+            >
+                <span wire:loading.remove wire:target="attemptLogin">Tentar re-login</span>
+                <span wire:loading wire:target="attemptLogin">Autenticando…</span>
+            </x-ui.button>
+        </div>
+        <p class="text-xs text-slate-500">
+            "Testar" valida cookies atuais. "Re-login" usa email/senha do .env pra gerar novos cookies.
+        </p>
+    </div>
 </div>
