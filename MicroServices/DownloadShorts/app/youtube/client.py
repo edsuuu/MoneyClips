@@ -62,11 +62,14 @@ _PT_BR_HEADERS = {
     "Accept-Language": "pt-BR,pt;q=0.9,en;q=0.5",
 }
 
-_YT_PT_BR_ARGS = {
-    # Pede o título/descrição localizados em pt-BR ao YouTube. Sem isso, vídeos
-    # com legenda automática em vários idiomas voltam com o título "original"
-    # (frequentemente em inglês), mesmo quando o canal é brasileiro.
-    "youtube": {"lang": ["pt-BR"]},
+_YOUTUBE_PORTUGUESE_EXTRACTOR_ARGS = {
+    # Pede o título/descrição localizados em português ao YouTube. Sem isso,
+    # vídeos com legenda automática em vários idiomas voltam com o título
+    # "original" (frequentemente em inglês), mesmo quando o canal é brasileiro.
+    # ATENÇÃO: o yt-dlp valida esse `lang` contra a lista de códigos suportados —
+    # o português brasileiro é `pt` (NÃO `pt-BR`, que dá "Unsupported language
+    # code"; `pt-PT` é Portugal). O Accept-Language do header pode ser pt-BR.
+    "youtube": {"lang": ["pt"]},
 }
 
 
@@ -78,7 +81,7 @@ def list_shorts(channel_url: str) -> list[ShortVideo]:
         "extract_flat": True,
         "ignoreerrors": True,
         "http_headers": _PT_BR_HEADERS,
-        "extractor_args": _YT_PT_BR_ARGS,
+        "extractor_args": _YOUTUBE_PORTUGUESE_EXTRACTOR_ARGS,
     }
 
     with yt_dlp.YoutubeDL(options) as ydl:
@@ -157,7 +160,7 @@ def download_short(download_url: str, output_dir: Path, label: str | None = None
         "postprocessors": [{"key": "FFmpegVideoConvertor", "preferedformat": "mp4"}],
         "postprocessor_args": {"FFmpegVideoConvertor": _video_encoder_args()},
         "http_headers": _PT_BR_HEADERS,
-        "extractor_args": _YT_PT_BR_ARGS,
+        "extractor_args": _YOUTUBE_PORTUGUESE_EXTRACTOR_ARGS,
     }
 
     with yt_dlp.YoutubeDL(options) as ydl:
