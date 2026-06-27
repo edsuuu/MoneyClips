@@ -41,6 +41,7 @@ final class Index extends Component
     public function forceDispatch(string $slotDate): void
     {
         try {
+            Log::info('[Schedule] forceDispatch chamado.', ['slotDate' => $slotDate]);
             $now = Date::now(self::TIMEZONE);
             if ($slotDate !== $now->format('Y-m-d')) {
                 $this->toast('Só dá pra forçar disparo de slots do dia atual.', 'danger');
@@ -48,12 +49,15 @@ final class Index extends Component
                 return;
             }
 
+            Log::info('[Schedule] Limpando cache da janela.');
             $key = WindowSchedule::windowKey();
             if ($key !== null) {
                 Cache::forget($key);
             }
 
+            Log::info('[Schedule] Chamando AutoPostDispatcher.');
             resolve(AutoPostDispatcher::class)->run(1);
+            Log::info('[Schedule] AutoPostDispatcher terminou.');
             $this->toast('Disparo forçado enviado para o estoque.');
         } catch (Throwable $throwable) {
             Log::error('[Schedule] Falha ao forçar disparo.', ['error' => $throwable->getMessage()]);
