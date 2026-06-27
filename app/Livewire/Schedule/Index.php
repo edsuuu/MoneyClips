@@ -55,8 +55,8 @@ final class Index extends Component
                 Cache::forget($key);
             }
 
-            Log::info('[Schedule] Chamando AutoPostDispatcher.');
-            resolve(AutoPostDispatcher::class)->run(1);
+            Log::info('[Schedule] Chamando AutoPostDispatcher com force=true.');
+            resolve(AutoPostDispatcher::class)->run(1, force: true);
             Log::info('[Schedule] AutoPostDispatcher terminou.');
             $this->toast('Disparo forçado enviado para o estoque.');
         } catch (Throwable $throwable) {
