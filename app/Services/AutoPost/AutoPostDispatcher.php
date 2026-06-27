@@ -28,8 +28,11 @@ final readonly class AutoPostDispatcher
     /**
      * Sorteia/reserva N Shorts e publica cada um pelos posters habilitados.
      * Default de N: services.youtube_shorts.posting.posts_per_run (1).
+     *
+     * @param  ?int  $count  Número de Shorts a postar; default: config value.
+     * @param  bool  $force  Se true, ignora check de janela ativa (p.ex., clique manual "Forçar agora").
      */
-    public function run(?int $count = null): void
+    public function run(?int $count = null, bool $force = false): void
     {
         $enabled = array_values(array_filter($this->posters, static fn (PosterContract $p): bool => $p->isEnabled()));
 
@@ -39,20 +42,24 @@ final readonly class AutoPostDispatcher
             return;
         }
 
-        // Idempotência por janela: 1 execução por range mesmo com overlap.
-        // Cache::add é atômico — só o 1º vencedor passa.
-        $windowKey = WindowSchedule::windowKey();
-        if ($windowKey === null) {
-            Log::info('[AutoPost] Fora de qualquer janela ativa — nada a fazer.');
+        if (! $force) {
+            // Idempotência por janela: 1 execução por range mesmo com overlap.
+            // Cache::add é atômico — só o 1º vencedor passa.
+            $windowKey = WindowSchedule::windowKey();
+            if ($windowKey === null) {
+                Log::info('[AutoPost] Fora de qualquer janela ativa — nada a fazer.');
 
-            return;
+                return;
+            }
+
+            if (! Cache::add($windowKey, true, now()->addHours(6))) {
+                Log::info('[AutoPost] Janela já processada — ignorando execução duplicada.', ['key' => $windowKey]);
+
+                return;
+            }
         }
 
-        if (! Cache::add($windowKey, true, now()->addHours(6))) {
-            Log::info('[AutoPost] Janela já processada — ignorando execução duplicada.', ['key' => $windowKey]);
-
-            return;
-        }
+        Log::info('[AutoPost] Iniciando postagem.', ['force' => $force]);
 
         $count = max(1, $count ?? (int) config('services.youtube_shorts.posting.posts_per_run', 1));
 
