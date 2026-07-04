@@ -31,6 +31,7 @@ import {
     POST_BUTTON,
     POST_BUTTON_ENABLED,
     POST_NOW_BUTTON,
+    UPLOAD_ERROR_SNIPPETS,
     UPLOAD_SUCCESS_MODAL,
     UPLOAD_SUCCESS_TOAST,
     UPLOAD_TEXT_CONTAINER,
@@ -260,15 +261,26 @@ export class TikTokUploader {
     }
 
     private async waitForUploadReady(page: Page): Promise<void> {
-        try {
-            await page.waitForSelector(POST_BUTTON_ENABLED, { timeout: POST_READY_TIMEOUT_MS });
-        } catch {
-            // Não segura a fila: encerra esta sessão (o finally fecha o navegador)
-            // e deixa o erro subir — a fila reporta `failed` no webhook + Discord.
-            throw new Error(
-                'TikTok não liberou o post a tempo (vídeo não processou); sessão encerrada.',
-            );
+        // Sondagem em vez de waitForSelector: enquanto espera o botão Post
+        // habilitar, também vigia a UI de erro do TikTok — "Something went
+        // wrong" no card do vídeo, por exemplo, nunca habilita o botão e só
+        // estouraria o timeout genérico.
+        const deadline = Date.now() + POST_READY_TIMEOUT_MS;
+        while (Date.now() < deadline) {
+            if (await this.isVisible(page, POST_BUTTON_ENABLED)) {
+                return;
+            }
+            const uiError = await this.detectTikTokError(page);
+            if (uiError !== null) {
+                throw new Error(`TikTok recusou o vídeo no processamento: "${uiError}"`);
+            }
+            await sleep(POST_CONFIRM_POLL_MS);
         }
+        // Não segura a fila: encerra esta sessão (o finally fecha o navegador)
+        // e deixa o erro subir — a fila reporta `failed` no webhook + Discord.
+        throw new Error(
+            'TikTok não liberou o post a tempo (vídeo não processou); sessão encerrada.',
+        );
     }
 
     private async submit(page: Page): Promise<UploadResult> {
@@ -301,6 +313,10 @@ export class TikTokUploader {
                 logger.info('Upload concluído (confirmado pelo modal de sucesso).');
                 return 'completed';
             }
+            const uiError = await this.detectTikTokError(page);
+            if (uiError !== null) {
+                throw new Error(`TikTok recusou a publicação após o clique em Post: "${uiError}"`);
+            }
             await sleep(POST_CONFIRM_POLL_MS);
         }
 
@@ -310,6 +326,26 @@ export class TikTokUploader {
             `Upload não confirmado pelo TikTok após ${POST_CONFIRM_TIMEOUT_MS / 1000}s ` +
                 `(url final: ${page.url()}).`,
         );
+    }
+
+    /**
+     * Texto do erro que a UI do TikTok estiver exibindo, ou null. O `.last()`
+     * pega o elemento mais interno que contém o trecho (o :has-text casa
+     * também com todos os ancestrais), limitado pra não poluir o Discord.
+     */
+    private async detectTikTokError(page: Page): Promise<string | null> {
+        for (const snippet of UPLOAD_ERROR_SNIPPETS) {
+            try {
+                const el = page.locator(`:has-text("${snippet}")`).last();
+                if (await el.isVisible()) {
+                    const text = ((await el.textContent()) ?? snippet).trim();
+                    return text.length > 200 ? `${text.slice(0, 200)}…` : text;
+                }
+            } catch {
+                // Página navegou no meio da checagem — tenta o próximo trecho.
+            }
+        }
+        return null;
     }
 
     /** Visibilidade sem lançar — página pode navegar no meio da sondagem. */
