@@ -19,70 +19,105 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * /agenda — visão semanal dos slots do dia (horas em users.auto_post_slot_hours,
- * fuso SP) com o minuto sorteado por dia e o status de cada disparo: postado,
+ * /agenda — visão semanal dos slots com horários por dia da semana (mapa em
+ * users.auto_post_schedule, fuso SP) e o status de cada disparo: postado,
  * próximo, futuro ou pulado. Lê as flags auto_post_*_enabled do usuário
- * autenticado e permite editar as horas dos slots sem deploy.
+ * autenticado e permite editar os horários (inputs de hora) sem deploy.
  */
 final class Index extends Component
 {
     use WithToasts;
+
+    /** Rótulos dos dias ISO (1=Seg..7=Dom) — ordem de exibição do editor. */
+    public const array WEEKDAY_LABELS = [1 => 'Seg', 2 => 'Ter', 3 => 'Qua', 4 => 'Qui', 5 => 'Sex', 6 => 'Sáb', 7 => 'Dom'];
 
     private const string TIMEZONE = WindowSchedule::TIMEZONE;
 
     /** Tolerância (minutos) pra casar dispatched_at com o minuto sorteado. */
     private const int MATCH_TOLERANCE_MIN = 3;
 
-    /** Horas dos slots editáveis pela UI ("9, 12, 15, 18, 21"). */
-    public string $slotHoursInput = '';
+    /**
+     * Horários editáveis por dia da semana (ISO 1=Seg..7=Dom), cada um "HH:MM"
+     * ligado a um input type=time na UI. Valores são mixed de propósito:
+     * propriedade pública do Livewire é fronteira de confiança (o payload vem
+     * do cliente) — o saneamento acontece no saveSchedule.
+     *
+     * @var array<int, list<mixed>>
+     */
+    public array $scheduleTimes = [];
 
     public function mount(): void
     {
-        $this->slotHoursInput = implode(', ', WindowSchedule::slotHours());
+        // Prefill com a agenda vigente: a configurada no banco, ou os horários
+        // computados do fallback pra cada dia desta semana.
+        $monday = Date::now(self::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY);
+        for ($i = 0; $i < 7; $i++) {
+            $day = $monday->copy()->addDays($i);
+            $this->scheduleTimes[$day->dayOfWeekIso] = WindowSchedule::timesFor($day);
+        }
+    }
+
+    /** Adiciona um horário vazio no dia — o usuário ajusta no input de hora. */
+    public function addTime(int $dayOfWeek): void
+    {
+        if ($dayOfWeek < 1 || $dayOfWeek > 7) {
+            return;
+        }
+
+        $this->scheduleTimes[$dayOfWeek][] = '12:00';
+    }
+
+    public function removeTime(int $dayOfWeek, int $index): void
+    {
+        $times = $this->scheduleTimes[$dayOfWeek] ?? [];
+        if (! array_key_exists($index, $times)) {
+            return;
+        }
+
+        array_splice($times, $index, 1);
+        $this->scheduleTimes[$dayOfWeek] = $times;
     }
 
     /**
-     * Salva as horas dos slots no banco (users.auto_post_slot_hours). Entrada
-     * livre "9, 12, 15" — valida 0–23, deduplica e ordena. A grade e o
-     * scheduler passam a usar na hora (próximo tick), sem deploy.
+     * Salva a agenda semanal no banco (users.auto_post_schedule): mapa dia
+     * ISO => horários "HH:MM" deduplicados e ordenados. Dia sem horários =
+     * sem postagens naquele dia. Vale no próximo tick do scheduler, sem deploy.
      */
-    public function saveSlotHours(): void
+    public function saveSchedule(): void
     {
         $user = $this->currentUser();
         if (! $user instanceof User) {
             return;
         }
 
-        $hours = [];
-        foreach (explode(',', $this->slotHoursInput) as $token) {
-            $token = mb_trim($token);
-            if ($token === '') {
-                continue;
+        $schedule = [];
+        foreach (array_keys(self::WEEKDAY_LABELS) as $dayOfWeek) {
+            $times = [];
+            foreach ($this->scheduleTimes[$dayOfWeek] ?? [] as $time) {
+                if (! is_string($time) || mb_trim($time) === '') {
+                    continue; // input limpo pelo usuário — ignora
+                }
+
+                // Inputs type=time enviam "HH:MM" (ou "HH:MM:SS" conforme o navegador).
+                if (preg_match('/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/', $time) !== 1) {
+                    $this->toast(sprintf('Horário inválido em %s: "%s".', self::WEEKDAY_LABELS[$dayOfWeek], $time), 'danger');
+
+                    return;
+                }
+
+                $times[] = mb_substr($time, 0, 5);
             }
 
-            if (! ctype_digit($token) || (int) $token > 23) {
-                $this->toast(sprintf('Hora inválida: "%s". Use números de 0 a 23 separados por vírgula.', $token), 'danger');
-
-                return;
-            }
-
-            $hours[] = (int) $token;
+            $times = array_values(array_unique($times));
+            sort($times);
+            $schedule[$dayOfWeek] = $times;
         }
 
-        $hours = array_values(array_unique($hours));
-        sort($hours);
-
-        if ($hours === []) {
-            $this->toast('Informe pelo menos uma hora (0–23).', 'danger');
-
-            return;
-        }
-
-        $user->auto_post_slot_hours = $hours;
+        $user->auto_post_schedule = $schedule;
         $user->save();
 
-        $this->slotHoursInput = implode(', ', $hours);
-        $this->toast(sprintf('Agenda atualizada: %d slots/dia (%sh).', count($hours), implode('h, ', $hours)));
+        $this->scheduleTimes = $schedule;
+        $this->toast('Agenda semanal salva.');
     }
 
     /**
@@ -169,7 +204,8 @@ final class Index extends Component
             'weekStart' => $monday,
             'weekEnd' => $sunday,
             'user' => $this->currentUser(),
-            'slotHours' => WindowSchedule::slotHours(),
+            // Dias podem ter quantidades diferentes de slots — a grade usa o maior.
+            'maxSlots' => max(1, ...array_map(static fn (array $day): int => count($day['slots']), $days)),
             'nextSlot' => $this->findNextSlot($days, $now),
         ]);
     }
@@ -183,9 +219,8 @@ final class Index extends Component
         $isToday = $day->isSameDay($now);
         $slots = [];
 
-        foreach (WindowSchedule::slotHours() as $hour) {
-            $minute = WindowSchedule::minuteFor($day, $hour);
-            $slotTime = $day->setTime($hour, $minute);
+        foreach (WindowSchedule::timesFor($day) as $time) {
+            $slotTime = $day->setTimeFromTimeString($time);
             $short = $this->findShortForSlot($slotTime, $allShorts);
 
             $status = match (true) {
@@ -195,9 +230,7 @@ final class Index extends Component
             };
 
             $slots[] = [
-                'hour' => $hour,
-                'minute' => $minute,
-                'time_label' => sprintf('%02d:%02d', $hour, $minute),
+                'time_label' => $time,
                 'status' => $status,
                 'short' => $short,
                 'datetime' => $slotTime,
@@ -270,9 +303,7 @@ final class Index extends Component
 
     private function dayLabel(CarbonImmutable $day): string
     {
-        return match ($day->dayOfWeekIso) {
-            1 => 'Seg', 2 => 'Ter', 3 => 'Qua', 4 => 'Qui', 5 => 'Sex', 6 => 'Sáb', default => 'Dom',
-        };
+        return self::WEEKDAY_LABELS[$day->dayOfWeekIso] ?? 'Dom';
     }
 
     private function humanDiff(int $minutes): string
