@@ -23,12 +23,12 @@ export interface VideoMetadata {
 export type SoundVolume = 'mix' | 'main' | 'background';
 
 /**
- * Resultado de uma tentativa de upload.
+ * Resultado de uma tentativa de upload. Falha (inclusive publicação não
+ * confirmada) é exceção — assim a sessão gravada anexa o vídeo no Discord.
  *   completed — publicado com sucesso
  *   dry-run   — processou tudo mas não publicou (DRY_RUN ativo)
- *   error     — não foi possível confirmar a publicação
  */
-export type UploadResult = 'completed' | 'dry-run' | 'error';
+export type UploadResult = 'completed' | 'dry-run';
 
 /** Retorno detalhado do workflow, para logs e notificações externas. */
 export interface WorkflowResult {

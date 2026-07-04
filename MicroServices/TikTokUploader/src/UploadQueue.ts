@@ -81,30 +81,10 @@ export class UploadQueue {
             // Captura cookies refrescados pra o Laravel atualizar o banco.
             const refreshedCookies = await this.captureCookies(account, job.jobId);
 
-            // 'error' = upload não confirmado pelo TikTok. A sessão era válida
-            // (passou do login), mas o post pode não ter saído — alerta no Discord.
-            if (result.status === 'error') {
-                const detail = 'Upload não confirmado pelo TikTok.';
-                logger.error(`Fila: job ${job.jobId} resultado=error — ${detail}`);
-                await sendDiscordError(
-                    `job ${job.jobId} (vídeo ${job.videoId})`,
-                    new Error(detail),
-                );
-                await this.sendCallback(job, {
-                    status: 'failed',
-                    session_valid: true,
-                    login_failed: false,
-                    title: result.title,
-                    error: detail,
-                    refreshed_cookies: refreshedCookies,
-                    session_status: 'valid',
-                });
-                return;
-            }
-
             logger.info(
                 `Fila: job ${job.jobId} resultado=${result.status} title="${result.title ?? ''}"`,
             );
+            // @ts-ignore
             await this.sendCallback(job, {
                 status: result.status,
                 session_valid: true,
