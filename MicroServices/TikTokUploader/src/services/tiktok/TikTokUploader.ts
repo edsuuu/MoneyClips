@@ -31,6 +31,7 @@ import {
     POST_BUTTON,
     POST_BUTTON_ENABLED,
     POST_NOW_BUTTON,
+    UPLOAD_SUCCESS_MODAL,
     UPLOAD_SUCCESS_TOAST,
     UPLOAD_TEXT_CONTAINER,
     UPLOAD_URL,
@@ -44,6 +45,10 @@ const DESCRIPTION_AUTOFILL_WAIT_MS = 2500;
 // propósito: a fila é serial (concorrência 1), então não dá para segurar tudo.
 // Se estourar, encerra a sessão e reporta erro no webhook.
 const POST_READY_TIMEOUT_MS = 180_000;
+// Janela de confirmação pós-clique em "Post". Os 5s antigos geravam falso
+// negativo quando o redirect/toast demorava (ou a URL vinha com query string).
+const POST_CONFIRM_TIMEOUT_MS = 60_000;
+const POST_CONFIRM_POLL_MS = 1_000;
 
 export class TikTokUploader {
     private readonly auth: TikTokAuth;
@@ -279,18 +284,40 @@ export class TikTokUploader {
             .click({ timeout: 3000 })
             .catch(() => undefined);
 
-        // Confirma sucesso via redirect para /content ou toast de sucesso.
-        try {
-            await page.waitForURL(CONTENT_URL, { timeout: 5000 });
-            logger.info('Upload concluído.');
-            return 'completed';
-        } catch {
-            if (await page.locator(UPLOAD_SUCCESS_TOAST).first().isVisible()) {
+        // Confirma sucesso sondando vários sinais: redirect pra /content (por
+        // PREFIXO — o TikTok anexa query string, e o waitForURL antigo exigia
+        // match exato da URL inteira), toast ou modal de sucesso.
+        const deadline = Date.now() + POST_CONFIRM_TIMEOUT_MS;
+        while (Date.now() < deadline) {
+            if (page.url().startsWith(CONTENT_URL)) {
+                logger.info('Upload concluído (redirect para /content).');
+                return 'completed';
+            }
+            if (await this.isVisible(page, UPLOAD_SUCCESS_TOAST)) {
                 logger.info('Upload concluído (confirmado pelo aviso de sucesso).');
                 return 'completed';
             }
-            logger.warn('Não foi possível confirmar o upload. Verifique a conta em instantes.');
-            return 'error';
+            if (await this.isVisible(page, UPLOAD_SUCCESS_MODAL)) {
+                logger.info('Upload concluído (confirmado pelo modal de sucesso).');
+                return 'completed';
+            }
+            await sleep(POST_CONFIRM_POLL_MS);
+        }
+
+        // Lança (em vez de retornar status) pra sessão gravada anexar o vídeo
+        // no Discord — sem ele não dá pra saber o que o TikTok mostrou na tela.
+        throw new Error(
+            `Upload não confirmado pelo TikTok após ${POST_CONFIRM_TIMEOUT_MS / 1000}s ` +
+                `(url final: ${page.url()}).`,
+        );
+    }
+
+    /** Visibilidade sem lançar — página pode navegar no meio da sondagem. */
+    private async isVisible(page: Page, selector: string): Promise<boolean> {
+        try {
+            return await page.locator(selector).first().isVisible();
+        } catch {
+            return false;
         }
     }
 }
