@@ -2,7 +2,7 @@
     <x-studio.page-header
         eyebrow="Auto-postagem"
         title="Agenda"
-        :subtitle="'Semana de '.$weekStart->format('d/m').' a '.$weekEnd->format('d/m').' — '.count($slotHours).' slots/dia, minuto sorteado estável por dia.'"
+        :subtitle="'Semana de '.$weekStart->format('d/m').' a '.$weekEnd->format('d/m').' — horários configuráveis por dia da semana.'"
     />
 
     {{-- Toggles de plataforma + próximo disparo --}}
@@ -77,26 +77,50 @@
         </div>
     </div>
 
-    {{-- Horários dos slots (fonte: banco — muda sem deploy) --}}
-    <div class="flex flex-wrap items-end gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
-        <div class="min-w-64 flex-1">
-            <x-ui.input
-                label="Horários dos slots (horas 0–23, separadas por vírgula)"
-                wire:model="slotHoursInput"
-                placeholder="9, 12, 15, 18, 21"
-            />
+    {{-- Horários por dia da semana (fonte: banco — muda sem deploy) --}}
+    <div class="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <p class="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Horários por dia da semana</p>
+                <p class="mt-1 text-xs text-slate-500">Cada dia tem seus próprios horários. Dia sem horário = sem postagens. Vale no próximo tick do scheduler.</p>
+            </div>
+            <x-ui.button variant="primary" wire:click="saveSchedule" wire:loading.attr="disabled">
+                <span wire:loading.remove wire:target="saveSchedule">Salvar agenda</span>
+                <span wire:loading wire:target="saveSchedule">Salvando…</span>
+            </x-ui.button>
         </div>
-        <x-ui.button
-            variant="primary"
-            wire:click="saveSlotHours"
-            wire:loading.attr="disabled"
-        >
-            <span wire:loading.remove wire:target="saveSlotHours">Salvar horários</span>
-            <span wire:loading wire:target="saveSlotHours">Salvando…</span>
-        </x-ui.button>
-        <p class="w-full text-xs text-slate-500">
-            O minuto de cada slot continua sorteado por dia. A mudança vale já no próximo tick do scheduler.
-        </p>
+
+        <div class="mt-4 grid gap-2.5">
+            @foreach (\App\Livewire\Schedule\Index::WEEKDAY_LABELS as $dow => $dowLabel)
+                <div class="flex flex-wrap items-center gap-2" wire:key="day-{{ $dow }}">
+                    <span class="w-10 shrink-0 text-sm font-medium text-slate-300">{{ $dowLabel }}</span>
+                    @foreach ($scheduleTimes[$dow] ?? [] as $i => $time)
+                        <span
+                            class="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 pl-2"
+                            wire:key="slot-{{ $dow }}-{{ $i }}"
+                        >
+                            <input
+                                type="time"
+                                wire:model="scheduleTimes.{{ $dow }}.{{ $i }}"
+                                class="bg-transparent py-1.5 text-sm tabular-nums text-slate-100 [color-scheme:dark] focus:outline-none"
+                            />
+                            <button
+                                type="button"
+                                wire:click="removeTime({{ $dow }}, {{ $i }})"
+                                class="cursor-pointer px-1.5 py-1.5 text-slate-500 transition hover:text-red-400"
+                                title="Remover horário"
+                            >
+                                <x-ui.icon name="x-mark" class="size-3.5" />
+                            </button>
+                        </span>
+                    @endforeach
+                    <x-ui.button size="xs" icon="plus" wire:click="addTime({{ $dow }})">horário</x-ui.button>
+                    @if (($scheduleTimes[$dow] ?? []) === [])
+                        <span class="text-xs text-slate-600">sem postagens</span>
+                    @endif
+                </div>
+            @endforeach
+        </div>
     </div>
 
     {{-- Grade semanal --}}
@@ -105,9 +129,9 @@
             <thead>
                 <tr class="border-b border-slate-800 text-left text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
                     <th class="px-4 py-3 w-20">Dia</th>
-                    @foreach ($slotHours as $hour)
-                        <th class="px-4 py-3">{{ sprintf('%02dh', $hour) }}</th>
-                    @endforeach
+                    @for ($i = 1; $i <= $maxSlots; $i++)
+                        <th class="px-4 py-3">Slot {{ $i }}</th>
+                    @endfor
                     <th class="px-4 py-3 w-16 text-right">Total</th>
                 </tr>
             </thead>
@@ -175,6 +199,10 @@
                                 </div>
                             </td>
                         @endforeach
+                        {{-- Dias com menos slots que o máximo: completa com células vazias --}}
+                        @for ($i = count($day['slots']); $i < $maxSlots; $i++)
+                            <td class="px-4 py-3"></td>
+                        @endfor
                         <td class="px-4 py-3 text-right text-xs tabular-nums text-slate-400">{{ $posted }}/{{ $total }}</td>
                     </tr>
                 @endforeach
