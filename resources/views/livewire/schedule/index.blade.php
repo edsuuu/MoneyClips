@@ -2,7 +2,7 @@
     <x-studio.page-header
         eyebrow="Auto-postagem"
         title="Agenda"
-        :subtitle="'Semana de '.$weekStart->format('d/m').' a '.$weekEnd->format('d/m').' — 5 slots/dia (gap ~3h), minuto sorteado estável por dia.'"
+        :subtitle="'Semana de '.$weekStart->format('d/m').' a '.$weekEnd->format('d/m').' — '.count($slotHours).' slots/dia, minuto sorteado estável por dia.'"
     />
 
     {{-- Toggles de plataforma + próximo disparo --}}
@@ -75,6 +75,28 @@
                 <p class="mt-2 text-sm text-slate-500">Nenhum slot futuro nesta semana.</p>
             @endif
         </div>
+    </div>
+
+    {{-- Horários dos slots (fonte: banco — muda sem deploy) --}}
+    <div class="flex flex-wrap items-end gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+        <div class="min-w-64 flex-1">
+            <x-ui.input
+                label="Horários dos slots (horas 0–23, separadas por vírgula)"
+                wire:model="slotHoursInput"
+                placeholder="9, 12, 15, 18, 21"
+            />
+        </div>
+        <x-ui.button
+            variant="primary"
+            wire:click="saveSlotHours"
+            wire:loading.attr="disabled"
+        >
+            <span wire:loading.remove wire:target="saveSlotHours">Salvar horários</span>
+            <span wire:loading wire:target="saveSlotHours">Salvando…</span>
+        </x-ui.button>
+        <p class="w-full text-xs text-slate-500">
+            O minuto de cada slot continua sorteado por dia. A mudança vale já no próximo tick do scheduler.
+        </p>
     </div>
 
     {{-- Grade semanal --}}
