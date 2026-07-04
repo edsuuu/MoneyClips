@@ -40,3 +40,19 @@ export const POST_BUTTON_ENABLED = 'button:has-text("Post")[aria-disabled="false
 export const POST_NOW_BUTTON = 'button:has-text("Post now")';
 export const UPLOAD_SUCCESS_TOAST = ':has-text("Leaving the page does not interrupt")';
 export const UPLOAD_SUCCESS_MODAL = ':has-text("Your video has been uploaded")';
+
+/**
+ * Trechos de texto que o TikTok exibe quando recusa o vídeo (no card de
+ * processamento ou após o clique em Post). Detectados um a um pra mensagem
+ * de erro do Discord dizer exatamente o que a UI mostrou — "Something went
+ * wrong" foi o caso real de 03/07/2026 que o genérico "Upload não confirmado"
+ * escondia. Ordem importa: do mais específico pro mais genérico.
+ */
+export const UPLOAD_ERROR_SNIPPETS = [
+    'Something went wrong',
+    'violates our Community Guidelines',
+    "couldn't be uploaded",
+    'Upload failed',
+    'Post failed',
+    'try again or replace it',
+] as const;
