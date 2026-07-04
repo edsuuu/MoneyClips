@@ -19,9 +19,10 @@ use Livewire\Component;
 use Throwable;
 
 /**
- * /agenda — visão semanal dos 5 slots/dia (9/12/15/18/21h, SP) com o minuto
- * sorteado por dia e o status de cada disparo: postado, próximo, futuro ou
- * pulado. Lê as flags auto_post_*_enabled do usuário autenticado.
+ * /agenda — visão semanal dos slots do dia (horas em users.auto_post_slot_hours,
+ * fuso SP) com o minuto sorteado por dia e o status de cada disparo: postado,
+ * próximo, futuro ou pulado. Lê as flags auto_post_*_enabled do usuário
+ * autenticado e permite editar as horas dos slots sem deploy.
  */
 final class Index extends Component
 {
@@ -31,6 +32,58 @@ final class Index extends Component
 
     /** Tolerância (minutos) pra casar dispatched_at com o minuto sorteado. */
     private const int MATCH_TOLERANCE_MIN = 3;
+
+    /** Horas dos slots editáveis pela UI ("9, 12, 15, 18, 21"). */
+    public string $slotHoursInput = '';
+
+    public function mount(): void
+    {
+        $this->slotHoursInput = implode(', ', WindowSchedule::slotHours());
+    }
+
+    /**
+     * Salva as horas dos slots no banco (users.auto_post_slot_hours). Entrada
+     * livre "9, 12, 15" — valida 0–23, deduplica e ordena. A grade e o
+     * scheduler passam a usar na hora (próximo tick), sem deploy.
+     */
+    public function saveSlotHours(): void
+    {
+        $user = $this->currentUser();
+        if (! $user instanceof User) {
+            return;
+        }
+
+        $hours = [];
+        foreach (explode(',', $this->slotHoursInput) as $token) {
+            $token = mb_trim($token);
+            if ($token === '') {
+                continue;
+            }
+
+            if (! ctype_digit($token) || (int) $token > 23) {
+                $this->toast(sprintf('Hora inválida: "%s". Use números de 0 a 23 separados por vírgula.', $token), 'danger');
+
+                return;
+            }
+
+            $hours[] = (int) $token;
+        }
+
+        $hours = array_values(array_unique($hours));
+        sort($hours);
+
+        if ($hours === []) {
+            $this->toast('Informe pelo menos uma hora (0–23).', 'danger');
+
+            return;
+        }
+
+        $user->auto_post_slot_hours = $hours;
+        $user->save();
+
+        $this->slotHoursInput = implode(', ', $hours);
+        $this->toast(sprintf('Agenda atualizada: %d slots/dia (%sh).', count($hours), implode('h, ', $hours)));
+    }
 
     /**
      * Dispara o AutoPostDispatcher imediatamente, ignorando o lock da janela
@@ -116,7 +169,7 @@ final class Index extends Component
             'weekStart' => $monday,
             'weekEnd' => $sunday,
             'user' => $this->currentUser(),
-            'slotHours' => WindowSchedule::SLOT_HOURS,
+            'slotHours' => WindowSchedule::slotHours(),
             'nextSlot' => $this->findNextSlot($days, $now),
         ]);
     }
@@ -130,7 +183,7 @@ final class Index extends Component
         $isToday = $day->isSameDay($now);
         $slots = [];
 
-        foreach (WindowSchedule::SLOT_HOURS as $hour) {
+        foreach (WindowSchedule::slotHours() as $hour) {
             $minute = WindowSchedule::minuteFor($day, $hour);
             $slotTime = $day->setTime($hour, $minute);
             $short = $this->findShortForSlot($slotTime, $allShorts);
