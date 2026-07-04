@@ -39,3 +39,4 @@ export const POST_BUTTON = 'button:has-text("Post")[data-e2e="post_video_button"
 export const POST_BUTTON_ENABLED = 'button:has-text("Post")[aria-disabled="false"]';
 export const POST_NOW_BUTTON = 'button:has-text("Post now")';
 export const UPLOAD_SUCCESS_TOAST = ':has-text("Leaving the page does not interrupt")';
+export const UPLOAD_SUCCESS_MODAL = ':has-text("Your video has been uploaded")';
