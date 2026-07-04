@@ -83,9 +83,8 @@ final class CheckMissedAutoPostCommand extends Command
 
         // Olha o intervalo lookback → agora. Iteramos hoje e ontem (cobre virada).
         foreach ([$now->copy()->subDay(), $now] as $day) {
-            foreach (WindowSchedule::slotHours() as $hour) {
-                $minute = WindowSchedule::minuteFor($day, $hour);
-                $slotTime = $day->setTime($hour, $minute);
+            foreach (WindowSchedule::timesFor($day) as $time) {
+                $slotTime = $day->setTimeFromTimeString($time);
                 if ($slotTime->isBefore($cutoff)) {
                     continue;
                 }
@@ -99,7 +98,7 @@ final class CheckMissedAutoPostCommand extends Command
                 }
 
                 $missed[] = [
-                    'key' => $slotTime->format('Y-m-d:H'),
+                    'key' => $slotTime->format('Y-m-d:H:i'),
                     'label' => $slotTime->format('d/m H:i'),
                     'datetime' => $slotTime,
                     'minutes_ago' => (int) round($slotTime->diffInMinutes($now, true)),
