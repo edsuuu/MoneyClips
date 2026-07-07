@@ -27,6 +27,9 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::view('/microservices', 'microservices.index')->name('microservices.index');
 
+    // Inspeção de metadados de vídeo (ffprobe) de qualquer Short do estoque.
+    Route::view('/videos/inspect', 'videos.inspect')->name('videos.inspect');
+
     // OAuth das redes sociais (conectar contas com 1 clique).
     Route::get('/oauth/{platform}/connect', [OAuthController::class, 'connect'])->name('oauth.connect');
     Route::get('/oauth/{platform}/callback', [OAuthController::class, 'callback'])->name('oauth.callback');

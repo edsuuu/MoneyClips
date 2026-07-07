@@ -44,6 +44,11 @@
                     </x-nav-item>
                 </li>
                 <li>
+                    <x-nav-item icon="eye" size="lg" :href="route('videos.inspect')" :current="request()->routeIs('videos.inspect')">
+                        {{ __('Inspecionar Vídeo') }}
+                    </x-nav-item>
+                </li>
+                <li>
                     <x-nav-item icon="computer-desktop" size="lg" :href="route('microservices.index')" :current="request()->routeIs('microservices.index')">
                         {{ __('Microserviços') }}
                     </x-nav-item>
