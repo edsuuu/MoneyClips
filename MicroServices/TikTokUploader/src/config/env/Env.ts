@@ -54,6 +54,12 @@ const EnvSchema = z.object({
     stealth: boolField(false),
     dryRun: boolField(true),
 
+    // Reencode antes do upload (evita recusa do TikTok por baixa qualidade).
+    // Recodifica em qualidade constante (CQ/CRF 18) só quando o bitrate do
+    // stream de vídeo está abaixo do limiar. Sem bitrate-alvo fixo.
+    reencodeEnabled: boolField(true),
+    reencodeBitrateThresholdKbps: intField(4000),
+
     // Proxy desativado por padrão. SOCKS5 no Chromium não suporta auth (user/senha só em HTTP).
     proxyServer: strField(''),
     proxyUsername: strField(''),
@@ -89,6 +95,9 @@ export const settings: Settings = EnvSchema.parse({
     headless: env['HEADLESS'],
     stealth: env['STEALTH'],
     dryRun: env['DRY_RUN'],
+
+    reencodeEnabled: env['REENCODE_ENABLED'],
+    reencodeBitrateThresholdKbps: env['REENCODE_BITRATE_THRESHOLD_KBPS'],
 
     discordWebhookUrl: env['DISCORD_WEBHOOK_URL'],
 

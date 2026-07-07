@@ -102,6 +102,8 @@ services:
       HEADLESS: "${HEADLESS:-true}"
       STEALTH: "${STEALTH:-false}"
       DRY_RUN: "${DRY_RUN:-true}"
+      REENCODE_ENABLED: "${REENCODE_ENABLED:-true}"
+      REENCODE_BITRATE_THRESHOLD_KBPS: "${REENCODE_BITRATE_THRESHOLD_KBPS:-4000}"
       TZ: "America/Sao_Paulo"
       DISCORD_WEBHOOK_URL: "${DISCORD_WEBHOOK_URL:-}"
       API_PORT: "8090"
@@ -109,6 +111,17 @@ services:
     volumes:
       # Sessão do TikTok gerada fora do container (login local com HEADLESS=false).
       - ./MicroServices/TikTokUploader/cookies:/app/cookies
+    # NVENC (GPU NVIDIA) acelera o reencode do VideoReencoder. Requer
+    # nvidia-container-toolkit no host — descomente o bloco abaixo APENAS nesse
+    # caso (senão `docker compose up` falha com "could not select device driver").
+    # Sem GPU o VideoReencoder cai automaticamente para libx264 (CPU).
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:8090/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))\""]
       interval: 30s
