@@ -41,3 +41,6 @@ yarn-error.log
 # Cookies de sessão do TikTok (credenciais) — versiona só o .gitkeep
 /MicroServices/TikTokAutoUploader/cookies/*
 !/MicroServices/TikTokAutoUploader/cookies/.gitkeep
+
+# Override local do compose (Laravel nativo; nao comitado — cada host tem o seu)
+/docker-compose.override.yml
