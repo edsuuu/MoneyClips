@@ -15,6 +15,7 @@ import { settings } from '@/config/env/Env';
 import { logger } from '@/config/logger/Logger';
 import { S3StorageProvider } from '@/services/storage/S3StorageProvider';
 import { TikTokUploader } from '@/services/tiktok/TikTokUploader';
+import { reencodeIfNeeded } from '@/services/video/VideoReencoder';
 import type { VideoMetadata, WorkflowResult } from '@/types/DomainType';
 import type { IStorageProvider } from '@/types/StorageProviderType';
 
@@ -48,8 +49,13 @@ export class UploadWorkflow {
         try {
             const videoPath = await this.storage.downloadFile(objectKey, workDir);
 
+            // Reencode em qualidade constante se o bitrate estiver baixo demais
+            // (o TikTok recusa vídeos de baixa qualidade). Devolve o `_HQ.mp4`
+            // no mesmo workDir — limpo pelo `finally` — ou o original.
+            const finalPath = await reencodeIfNeeded(videoPath, videoId);
+
             const result = await this.uploader.upload({
-                videoPath,
+                videoPath: finalPath,
                 metadata,
                 accountName: settings.tiktokAccountName,
             });
