@@ -56,6 +56,17 @@ final readonly class TiktokPoster implements PosterContract
             return PosterResult::failed($this->platform(), 'Sessão inválida — atualize os cookies em /settings/accounts');
         }
 
+        Log::info('[AutoPost][TikTok] Despachando Short.', [
+            'id' => $short->id,
+            'youtube_id' => $short->youtube_id,
+            'title' => $short->title,
+            'hashtags' => $short->hashtags,
+            'channel_url' => $short->channel_url,
+            'video_path' => $short->video_path,
+            'downloaded_at' => $short->downloaded_at?->toIso8601String(),
+            'dispatched_at' => $short->dispatched_at?->toIso8601String(),
+        ]);
+
         try {
             $jobId = $this->tiktok->queuePost(
                 $short->youtube_id,
@@ -67,6 +78,7 @@ final readonly class TiktokPoster implements PosterContract
             Log::info('[AutoPost][TikTok] Short enfileirado no uploader.', [
                 'id' => $short->id,
                 'job_id' => $jobId,
+                'video_path' => $short->video_path,
             ]);
 
             return PosterResult::queued($this->platform());

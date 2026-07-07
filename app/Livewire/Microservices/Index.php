@@ -23,8 +23,11 @@ final class Index extends Component
 
     public int $logLines = 200;
 
-    /** Liga o auto-refresh (wire:poll) do status e dos logs. */
-    public bool $autoRefresh = false;
+    /**
+     * Liga o auto-refresh (wire:poll) do status e dos logs. Ligado por padrão:
+     * a página faz o polling automático assim que abre, sem precisar do checkbox.
+     */
+    public bool $autoRefresh = true;
 
     public function selectLog(string $service): void
     {

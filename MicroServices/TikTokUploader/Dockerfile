@@ -19,6 +19,13 @@ COPY --from=deps /app/node_modules ./node_modules
 
 COPY package.json ./
 
+# ffmpeg/ffprobe para o reencode (VideoReencoder). NVENC só funciona se o host
+# tiver driver NVIDIA e o container rodar com --gpus all (ver docker-compose.yml);
+# sem GPU o código faz fallback automático para libx264 (CPU).
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+
 # Só o Chromium + libs necessárias; limpa o cache do apt na mesma camada.
 RUN pnpm exec playwright install --with-deps chromium \
     && rm -rf /var/lib/apt/lists/*
