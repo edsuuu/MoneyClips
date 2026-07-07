@@ -46,9 +46,15 @@ export const UPLOAD_SUCCESS_MODAL = ':has-text("Your video has been uploaded")';
  * processamento ou após o clique em Post). Detectados um a um pra mensagem
  * de erro do Discord dizer exatamente o que a UI mostrou — "Something went
  * wrong" foi o caso real de 03/07/2026 que o genérico "Upload não confirmado"
- * escondia. Ordem importa: do mais específico pro mais genérico.
+ * escondia. "Content may be restricted" (modal de moderação: unoriginal /
+ * low-quality / QR code) foi o caso de 07/07/2026 — o modal trava o fluxo e
+ * caía no mesmo timeout genérico. Ordem importa: do mais específico pro mais
+ * genérico.
  */
 export const UPLOAD_ERROR_SNIPPETS = [
+    'Unoriginal, low-quality, and QR code content',
+    'Content may be restricted',
+    'Violation reason',
     'Something went wrong',
     'violates our Community Guidelines',
     "couldn't be uploaded",
