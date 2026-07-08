@@ -31,9 +31,12 @@ final class SocialAccount extends Model
         'uuid', 'user_id', 'platform', 'name', 'external_account_id',
         'access_token', 'refresh_token', 'token_expires_at', 'scopes',
         'meta', 'is_active', 'cookies', 'cookies_last_validated_at', 'session_status',
+        // Credenciais de login da plataforma (TikTok sem OAuth). ponytail: em texto
+        // puro por ora — upgrade: castar 'login_password' como 'encrypted' e re-salvar.
+        'login_email', 'login_password',
     ];
 
-    protected $hidden = ['access_token', 'refresh_token', 'cookies'];
+    protected $hidden = ['access_token', 'refresh_token', 'cookies', 'login_password'];
 
     public function getRouteKeyName(): string
     {
