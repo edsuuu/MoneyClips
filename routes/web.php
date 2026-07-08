@@ -25,6 +25,10 @@ Route::middleware(['auth'])->group(function (): void {
 
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
+    // Contas TikTok (login por email/senha; sem OAuth). Path pt-BR (UX),
+    // namespace/view/classe em inglês (App\Livewire\Accounts).
+    Route::view('/contas', 'accounts.index')->name('accounts.index');
+
     Route::view('/microservices', 'microservices.index')->name('microservices.index');
 
     // Inspeção de metadados de vídeo (ffprobe) de qualquer Short do estoque.

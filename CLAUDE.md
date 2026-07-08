@@ -77,8 +77,17 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
   dispara Discord error pedindo ação manual.
 - `TiktokPoster` curto-circuita postagens quando `session_status='invalid'`
   pra evitar flag de spam.
-- UI pra colar JSON novo de cookies: `<livewire:settings.tiktok-cookies />`
-  embutido em `/settings/accounts`.
+- Status `restricted` no ledger: o uploader detecta o modal de moderação do
+  TikTok ("Content may be restricted" / "Unoriginal, low-quality, and QR code
+  content") e devolve `restricted` no callback — o Short não volta pro sorteio
+  (`SocialPost::ACTIVE_STATUSES` inclui `restricted`), a sessão continua
+  `valid` e o Discord recebe warning (não error). Contexto: soft-block de
+  03/07/2026, quando o TikTok passou a recusar 100% dos posts server-side.
+- Contas TikTok ficam em `/contas` (`App\Livewire\Accounts\Index`): nome/@handle,
+  email e senha (colunas `login_email`/`login_password` — texto puro por ora) +
+  badge de `session_status`. O login automático (Laravel → `POST /login` com as
+  creds) ainda não está ligado; até lá o TikTok posta só com cookies já válidos
+  no banco (fallback de emergência: `tiktok:import-cookies-from-file`).
 
 ## Banco de dados (visão geral)
 
@@ -99,8 +108,10 @@ no futuro é só usar uma nova string em `platform`.
 | --- | --- | --- |
 | `/agenda` | `App\Livewire\Schedule\Index` | grade 7×5 dos slots da semana + toggles YT/TT + "Forçar agora" |
 | `/downloads` | `App\Livewire\Downloads\Index` | estoque com tabs (disponíveis/fila/postados/falhas) + modais de novo download + postagem instantânea |
-| `/settings/accounts` | `App\Livewire\Settings\Accounts` + `TiktokCookies` | OAuth YouTube + textarea de cookies TikTok |
-| `/microservices` | `App\Livewire\Microservices\Index` | health dos serviços (download-shorts, tiktok-uploader) + logs |
+| `/contas` | `App\Livewire\Accounts\Index` | CRUD de contas TikTok (nome, email, senha, status) |
+| `/settings/accounts` | `App\Livewire\Settings\Accounts` | OAuth YouTube (conectar/gerenciar canal) |
+| `/microservices` | `App\Livewire\Microservices\Index` | health dos serviços (download-shorts, tiktok-uploader) + logs (auto-refresh ligado por padrão) |
+| `/videos/inspect` | `App\Livewire\Videos\Inspect` | metadados (ffprobe) de qualquer Short do estoque — dev tool; espelho local standalone: `video-inspect.js` na raiz |
 | `/dashboard` | view | 4 cards de métricas (estoque, postados YT/TT, contas) |
 
 ## Comandos artisan
@@ -133,8 +144,8 @@ no futuro é só usar uma nova string em `platform`.
 ## Qualidade / CI
 
 ```bash
-composer check      # phpstan + pint + rector (dry) + pest — é o que o CI roda
-composer lint       # pint + rector aplicando fixes
+composer check      # phpstan + lint + pest — é o que o CI roda (tests.yml)
+composer lint       # pint + rector — ambos APLICAM fixes (o check inclui; commite o resultado)
 ```
 
 - GitHub Actions: `lint.yml`, `tests.yml`, `automerge.yml` (squash automático
@@ -163,10 +174,18 @@ headless). **Não tem banco** e **não lê cookies do filesystem em prod** —
 recebe os cookies no payload de cada `POST /posts`.
 
 - `POST /posts` body: `{ video_id, title, hashtags, video_key?, webhook_url, cookies?: [...] }`.
-- Webhook callback expandido: além dos campos antigos, agora envia
-  `refreshed_cookies?` (cookies pós-upload, capturados do Playwright) e
+- Webhook callback: `status` é `completed | dry-run | restricted | failed`
+  (`restricted` = modal de moderação do TikTok; sessão continua válida). Envia
+  também `refreshed_cookies?` (cookies pós-upload, capturados do Playwright) e
   `session_status?` (`valid`/`invalid`/`unknown`). Laravel atualiza o
   `social_accounts.cookies` com isso.
+- Reencode antes do upload (`services/video/VideoReencoder.ts`): ffprobe mede o
+  bitrate e, abaixo de `REENCODE_BITRATE_THRESHOLD_KBPS` (default 4000),
+  recodifica em qualidade constante CQ/CRF 18 — h264_nvenc (GPU, validado em
+  runtime) com fallback automático pra libx264 (CPU). Nunca derruba o upload
+  (qualquer falha usa o arquivo original). `REENCODE_ENABLED=false` desliga.
+  ffmpeg instalado no Dockerfile. Motivo: TikTok recusava vídeos por baixa
+  qualidade.
 - `DRY_RUN=true` no `.env` pula a publicação real (debugging).
 - Logs cobrem o ciclo: cookies recebidos, upload status, cookies capturados,
   webhook tentativa/status (aceito/rejeitado), refresh count.
@@ -174,18 +193,25 @@ recebe os cookies no payload de cada `POST /posts`.
 
 ## Rodar tudo
 
+O Laravel **roda sempre nativo** (dev: `php artisan serve`; prod: nginx +
+PHP-FPM). O `docker compose` sobe **só os microserviços** — não há mais serviço
+`laravel`/Sail no compose.
+
 ```bash
-docker compose up -d --build
+make up      # docker compose up -d (download-shorts 8770 + tiktok-uploader 8090) + composer dev
 ```
 
-Sobe `download-shorts` (8770) e `tiktok-uploader` (8090). MySQL e MinIO
-ficam externos no host (`host.docker.internal:3306` / `:9000` dentro dos
-containers, `127.0.0.1` no Laravel nativo).
+Regra de rede (Laravel nativo ↔ microserviços em container):
+- **Saída** Laravel → microserviço: `127.0.0.1:<porta>` (`.env`: `DOWNLOAD_YOUTUBE_URL`, `TIKTOK_POST_URL`).
+- **Callback** container → Laravel: `host.docker.internal:8000` (`.env`: `*_WEBHOOK_URL`, `*_CALLBACK_URL`).
+- MySQL/MinIO externos: `127.0.0.1` no Laravel nativo; `host.docker.internal`
+  **fixo no compose** (não interpolar de `AWS_ENDPOINT`, que no `.env` é `127.0.0.1`).
 
-No servidor de produção (Linux), o Laravel **roda nativo** via nginx +
-PHP-FPM 8.4 (não usa Sail/container). Tem um `docker-compose.override.yml`
-que desabilita o serviço `laravel` do compose principal pra evitar conflito
-de porta 80.
+Em produção (Linux) os callbacks apontam pro domínio real (nginx :80/HTTPS),
+não `:8000`. Sem o serviço `laravel` no compose, o antigo
+`docker-compose.override.yml` que o desligava é desnecessário — mas o arquivo
+segue no `.gitignore` como override opcional por host (ex.: reservar GPU
+NVIDIA pro reencode do tiktok-uploader; ver bloco comentado no compose).
 
 ## Histórico (apagados)
 
@@ -198,4 +224,6 @@ de porta 80.
   video_payloads/statuses/status_logs/scheduled_posts/social_post_logs` foram
   removidos.
 - Extensão Chrome `tiktok-cookie-bridge` e endpoint `/api/tiktok/cookies/ingest`
-  — substituídos pelo fluxo via banco (textarea em `/settings/accounts`).
+  — substituídos pelo fluxo via banco (`social_accounts.cookies`).
+- Card de cookies TikTok (`<livewire:settings.tiktok-cookies />` em
+  `/settings/accounts`) — substituído pela tela `/contas` (credenciais por conta).
