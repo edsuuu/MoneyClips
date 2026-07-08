@@ -53,7 +53,7 @@ interface VideoMeta {
     fileSize: number; // bytes
 }
 
-// Cache da detecção de NVENC — evita rodar `ffmpeg -encoders` a cada vídeo.
+// Cache da detecção de NVENC — evita rodar probes de runtime a cada vídeo.
 let nvencAvailable: boolean | null = null;
 
 async function detectNvenc(): Promise<boolean> {
@@ -62,8 +62,42 @@ async function detectNvenc(): Promise<boolean> {
     }
     try {
         const { stdout } = await execFileAsync('ffmpeg', ['-hide_banner', '-encoders']);
-        nvencAvailable = stdout.includes('h264_nvenc');
-    } catch {
+        if (!stdout.includes('h264_nvenc')) {
+            nvencAvailable = false;
+            return nvencAvailable;
+        }
+
+        // `ffmpeg -encoders` mostra h264_nvenc quando o binário foi compilado
+        // com suporte, mesmo sem driver/GPU CUDA disponível no container. Faça
+        // um encode mínimo para validar o runtime antes de escolher NVENC.
+        await execFileAsync(
+            'ffmpeg',
+            [
+                '-hide_banner',
+                '-v',
+                'error',
+                '-f',
+                'lavfi',
+                '-i',
+                'color=size=64x64:rate=1:duration=1',
+                '-frames:v',
+                '1',
+                '-an',
+                '-c:v',
+                'h264_nvenc',
+                '-preset',
+                'p1',
+                '-f',
+                'null',
+                '-',
+            ],
+            { timeout: 10_000 },
+        );
+        nvencAvailable = true;
+    } catch (error) {
+        logger.warn(
+            `[Reencode] h264_nvenc indisponível em runtime (${processErrorMessage(error)}); usando libx264.`,
+        );
         nvencAvailable = false;
     }
     return nvencAvailable;
@@ -109,8 +143,9 @@ function buildArgs(input: string, output: string, useNvenc: boolean): string[] {
 
     if (useNvenc) {
         return [
-            '-hwaccel', 'cuda',
-            '-hwaccel_output_format', 'cuda',
+            // Decode fica em CPU. Forçar `-hwaccel cuda` quebra inputs AV1
+            // quando o container não tem decoder CUDA/libcuda, mesmo que NVENC
+            // esteja listado no ffmpeg.
             '-i', input,
             '-c:v', 'h264_nvenc',
             '-preset', 'p7',
@@ -154,6 +189,18 @@ const pctDelta = (before: number, after: number): string => {
     const delta = ((after - before) / before) * 100;
     return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`;
 };
+
+function processErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+        const maybeProcessError = error as Error & { stderr?: unknown };
+        const stderr =
+            typeof maybeProcessError.stderr === 'string' ? maybeProcessError.stderr.trim() : '';
+
+        return stderr !== '' ? (stderr.split('\n').at(-1) ?? error.message) : error.message;
+    }
+
+    return String(error);
+}
 
 /**
  * Recodifica o vídeo se o bitrate estiver abaixo do limiar. Retorna o path do
