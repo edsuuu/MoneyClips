@@ -43,7 +43,7 @@ final readonly class TiktokPoster implements PosterContract
     {
         // Curto-circuito: se a conta TikTok está marcada como inválida,
         // não tenta postar pra evitar acumular falhas e flag de spam.
-        // O operador precisa atualizar os cookies em /settings/accounts.
+        // O operador precisa revisar a conta em /contas.
         $account = SocialAccount::query()
             ->where('platform', 'tiktok')
             ->where('is_active', true)
@@ -53,7 +53,7 @@ final readonly class TiktokPoster implements PosterContract
         if ($account instanceof SocialAccount && $account->session_status === SocialAccount::SESSION_INVALID) {
             Log::warning('[AutoPost][TikTok] Sessão inválida — pulando disparo.', ['id' => $short->id]);
 
-            return PosterResult::failed($this->platform(), 'Sessão inválida — atualize os cookies em /settings/accounts');
+            return PosterResult::failed($this->platform(), 'Sessão inválida — revise a conta em /contas');
         }
 
         Log::info('[AutoPost][TikTok] Despachando Short.', [
