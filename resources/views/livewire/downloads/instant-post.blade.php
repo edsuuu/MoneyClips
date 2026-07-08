@@ -47,6 +47,8 @@
                                 <x-ui.badge color="amber" size="sm">TikTok em fila</x-ui.badge>
                             @elseif($tiktokStatus?->status === 'failed')
                                 <x-ui.badge color="red" size="sm">TikTok falhou</x-ui.badge>
+                            @elseif($tiktokStatus?->status === 'restricted')
+                                <x-ui.badge color="amber" size="sm">TikTok restrito</x-ui.badge>
                             @else
                                 <x-ui.badge color="zinc" size="sm">TikTok disponível</x-ui.badge>
                             @endif
@@ -80,7 +82,7 @@
                         <x-ui.checkbox
                             wire:model="postTiktok"
                             label="TikTok"
-                            :disabled="in_array($tiktokStatus?->status, ['queued', 'processing', 'completed', 'dry-run'], true)"
+                            :disabled="in_array($tiktokStatus?->status, ['queued', 'processing', 'completed', 'dry-run', 'restricted'], true)"
                         />
                     </div>
 

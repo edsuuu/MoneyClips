@@ -22,7 +22,7 @@
             ['key' => 'available', 'label' => 'Disponíveis', 'count' => $counts['available'], 'tone' => 'zinc'],
             ['key' => 'queued',    'label' => 'Em fila',     'count' => $counts['queued'],    'tone' => 'amber'],
             ['key' => 'posted',    'label' => 'Postados',    'count' => $counts['posted'],    'tone' => 'green'],
-            ['key' => 'failed',    'label' => 'Falhas',      'count' => $counts['failed'],    'tone' => 'red'],
+            ['key' => 'failed',    'label' => 'Falhas/restrições', 'count' => $counts['failed'], 'tone' => 'red'],
         ];
     @endphp
 
@@ -54,13 +54,13 @@
         :title="match($tab) {
             'queued' => 'Em fila no TikTok',
             'posted' => 'Já postados no TikTok',
-            'failed' => 'Falhas no TikTok',
+            'failed' => 'Falhas e restrições no TikTok',
             default => 'Disponíveis para postar',
         }"
         :subtitle="match($tab) {
             'queued' => 'Vídeos enfileirados ou em processamento no microserviço tiktok-uploader.',
             'posted' => 'Vídeos já publicados (ou dry-run). Não aparecem na aba Disponíveis.',
-            'failed' => 'Vídeos cuja postagem falhou — podem ser reenviados.',
+            'failed' => 'Vídeos cuja postagem falhou ou foi restringida pelo TikTok.',
             default => 'Estoque baixado que ainda não foi enviado pra fila.',
         }"
     >
@@ -132,12 +132,18 @@
                                         <x-ui.badge color="amber" size="sm">Em fila</x-ui.badge>
                                     @elseif($status === 'failed')
                                         <x-ui.badge color="red" size="sm">Falhou</x-ui.badge>
+                                    @elseif($status === 'restricted')
+                                        <x-ui.badge color="amber" size="sm">Restrito</x-ui.badge>
                                     @else
                                         <x-ui.badge color="zinc" size="sm">Disponível</x-ui.badge>
                                     @endif
 
                                     @if($item['post_error'])
-                                        <p class="mt-1 max-w-xs truncate text-xs text-red-300" title="{{ $item['post_error'] }}">{{ $item['post_error'] }}</p>
+                                        <p @class([
+                                            'mt-1 max-w-xs truncate text-xs',
+                                            'text-amber-300' => $status === 'restricted',
+                                            'text-red-300' => $status !== 'restricted',
+                                        ]) title="{{ $item['post_error'] }}">{{ $item['post_error'] }}</p>
                                     @endif
                                 </td>
                                 <td class="px-3 py-2.5 text-right">
@@ -149,7 +155,9 @@
                                         class="cursor-pointer"
                                         :disabled="! $item['can_post']"
                                     >
-                                        @if($tab === 'failed')
+                                        @if($status === 'restricted')
+                                            Restrito
+                                        @elseif($tab === 'failed')
                                             Reenviar
                                         @else
                                             Postar no TikTok

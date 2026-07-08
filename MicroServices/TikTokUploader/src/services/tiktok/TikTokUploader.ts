@@ -24,6 +24,9 @@ import { humanClick, humanType } from './Humanize';
 import {
     CAPTCHA_CONTAINER,
     CAPTCHA_QUESTION,
+    CONTENT_CHECK_PASSED_SNIPPETS,
+    CONTENT_CHECK_PENDING_SNIPPETS,
+    CONTENT_RESTRICTION_SNIPPETS,
     CONTENT_URL,
     DESCRIPTION_EDITOR,
     HASHTAG_SUGGESTION,
@@ -38,6 +41,7 @@ import {
     UPLOAD_URL,
     VIDEO_FILE_INPUT,
 } from './Selectors';
+import { TikTokContentRestrictionError } from './TikTokContentRestrictionError';
 
 /** Tempo máximo esperando a UI de upload (ou captcha) aparecer. */
 const UPLOAD_UI_TIMEOUT_MS = 60_000;
@@ -50,6 +54,8 @@ const POST_READY_TIMEOUT_MS = 180_000;
 // negativo quando o redirect/toast demorava (ou a URL vinha com query string).
 const POST_CONFIRM_TIMEOUT_MS = 60_000;
 const POST_CONFIRM_POLL_MS = 1_000;
+const POST_BUTTON_STABLE_WITHOUT_CHECK_MS = 10_000;
+const CONTENT_CHECK_SCROLL_INTERVAL_MS = 5_000;
 
 export class TikTokUploader {
     private readonly auth: TikTokAuth;
@@ -266,10 +272,55 @@ export class TikTokUploader {
         // wrong" no card do vídeo, por exemplo, nunca habilita o botão e só
         // estouraria o timeout genérico.
         const deadline = Date.now() + POST_READY_TIMEOUT_MS;
+        let postButtonEnabledAt: number | null = null;
+        let contentCheckSeen = false;
+        let contentCheckPassedSeen = false;
+        let lastBottomScrollAt = 0;
+
         while (Date.now() < deadline) {
-            if (await this.isVisible(page, POST_BUTTON_ENABLED)) {
+            const now = Date.now();
+            if (now - lastBottomScrollAt >= CONTENT_CHECK_SCROLL_INTERVAL_MS) {
+                await this.scrollToUploadBottom(page);
+                lastBottomScrollAt = now;
+            }
+
+            const restriction = await this.detectContentRestriction(page);
+            if (restriction !== null) {
+                throw new TikTokContentRestrictionError(restriction);
+            }
+
+            const contentCheckPassed = await this.hasVisibleText(
+                page,
+                CONTENT_CHECK_PASSED_SNIPPETS,
+            );
+            const contentCheckPending = await this.hasVisibleText(
+                page,
+                CONTENT_CHECK_PENDING_SNIPPETS,
+            );
+            contentCheckPassedSeen = contentCheckPassedSeen || contentCheckPassed;
+            contentCheckSeen = contentCheckSeen || contentCheckPassedSeen || contentCheckPending;
+
+            const postButtonEnabled = await this.isVisible(page, POST_BUTTON_ENABLED);
+            if (postButtonEnabled && contentCheckPassedSeen) {
+                logger.info('Verificação de conteúdo concluída sem restrições.');
                 return;
             }
+
+            if (postButtonEnabled) {
+                postButtonEnabledAt ??= now;
+                if (
+                    !contentCheckSeen &&
+                    now - postButtonEnabledAt >= POST_BUTTON_STABLE_WITHOUT_CHECK_MS
+                ) {
+                    logger.warn(
+                        'Botão Post habilitado, mas a UI de verificação de conteúdo não foi localizada; seguindo após estabilidade.',
+                    );
+                    return;
+                }
+            } else {
+                postButtonEnabledAt = null;
+            }
+
             const uiError = await this.detectTikTokError(page);
             if (uiError !== null) {
                 throw new Error(`TikTok recusou o vídeo no processamento: "${uiError}"`);
@@ -277,13 +328,25 @@ export class TikTokUploader {
             await sleep(POST_CONFIRM_POLL_MS);
         }
         // Não segura a fila: encerra esta sessão (o finally fecha o navegador)
-        // e deixa o erro subir — a fila reporta `failed` no webhook + Discord.
-        throw new Error(
-            'TikTok não liberou o post a tempo (vídeo não processou); sessão encerrada.',
-        );
+        // e deixa o erro subir — a fila reporta `failed`/`restricted` no webhook + Discord.
+        const reason = contentCheckSeen
+            ? 'TikTok não concluiu a verificação de conteúdo a tempo; sessão encerrada.'
+            : 'TikTok não liberou o post a tempo (vídeo não processou); sessão encerrada.';
+        throw new Error(reason);
     }
 
     private async submit(page: Page): Promise<UploadResult> {
+        const restriction = await this.detectContentRestriction(page);
+        if (restriction !== null) {
+            throw new TikTokContentRestrictionError(restriction);
+        }
+
+        await page
+            .locator(POST_BUTTON_ENABLED)
+            .first()
+            .scrollIntoViewIfNeeded()
+            .catch(() => undefined);
+
         try {
             await page.click(POST_BUTTON, { timeout: 2000 });
         } catch {
@@ -313,6 +376,10 @@ export class TikTokUploader {
                 logger.info('Upload concluído (confirmado pelo modal de sucesso).');
                 return 'completed';
             }
+            const restrictionAfterClick = await this.detectContentRestriction(page);
+            if (restrictionAfterClick !== null) {
+                throw new TikTokContentRestrictionError(restrictionAfterClick);
+            }
             const uiError = await this.detectTikTokError(page);
             if (uiError !== null) {
                 throw new Error(`TikTok recusou a publicação após o clique em Post: "${uiError}"`);
@@ -328,13 +395,28 @@ export class TikTokUploader {
         );
     }
 
+    private async detectContentRestriction(page: Page): Promise<string | null> {
+        return await this.visibleTextForSnippets(page, CONTENT_RESTRICTION_SNIPPETS);
+    }
+
     /**
      * Texto do erro que a UI do TikTok estiver exibindo, ou null. O `.last()`
      * pega o elemento mais interno que contém o trecho (o :has-text casa
      * também com todos os ancestrais), limitado pra não poluir o Discord.
      */
     private async detectTikTokError(page: Page): Promise<string | null> {
-        for (const snippet of UPLOAD_ERROR_SNIPPETS) {
+        return await this.visibleTextForSnippets(page, UPLOAD_ERROR_SNIPPETS);
+    }
+
+    private async hasVisibleText(page: Page, snippets: readonly string[]): Promise<boolean> {
+        return (await this.visibleTextForSnippets(page, snippets)) !== null;
+    }
+
+    private async visibleTextForSnippets(
+        page: Page,
+        snippets: readonly string[],
+    ): Promise<string | null> {
+        for (const snippet of snippets) {
             try {
                 const el = page.locator(`:has-text("${snippet}")`).last();
                 if (await el.isVisible()) {
@@ -346,6 +428,20 @@ export class TikTokUploader {
             }
         }
         return null;
+    }
+
+    private async scrollToUploadBottom(page: Page): Promise<void> {
+        try {
+            await page.evaluate(() => {
+                const browserGlobal = globalThis as unknown as {
+                    document: { body: { scrollHeight: number } };
+                    scrollTo: (x: number, y: number) => void;
+                };
+                browserGlobal.scrollTo(0, browserGlobal.document.body.scrollHeight);
+            });
+        } catch {
+            // Página navegou ou o frame foi recriado — a próxima sondagem tenta de novo.
+        }
     }
 
     /** Visibilidade sem lançar — página pode navegar no meio da sondagem. */

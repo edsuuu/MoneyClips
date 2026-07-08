@@ -4,7 +4,8 @@
  *
  * Ao terminar cada job, o resultado volta para o Laravel no `webhook_url` dele.
  * Qualquer erro é reportado ao Discord (a não ser que já tenha sido, com vídeo,
- * lá na sessão gravada) e também vira `failed` no callback.
+ * lá na sessão gravada). Restrição de conteúdo vira `restricted`; o restante
+ * vira `failed` no callback.
  */
 
 import { normalizeCookies, readCookies, saveCookies } from '@/auth/Cookies';
@@ -16,6 +17,7 @@ import {
     sendDiscordMessage,
     wasDiscordReported,
 } from '@/services/notifications/Discord';
+import { TikTokContentRestrictionError } from '@/services/tiktok/TikTokContentRestrictionError';
 import type { PostCallback, QueuedPostJob } from '@/types/ApiType';
 import { sleep } from '@/utils/Sleep';
 
@@ -99,8 +101,9 @@ export class UploadQueue {
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             const loginFailed = error instanceof LoginFailedError;
+            const restricted = error instanceof TikTokContentRestrictionError;
             logger.error(
-                `Fila: job ${job.jobId} falhou: ${message} (login_failed=${loginFailed})`,
+                `Fila: job ${job.jobId} falhou: ${message} (login_failed=${loginFailed}, restricted=${restricted})`,
             );
 
             // Erros na sessão do navegador já foram ao Discord com o vídeo; aqui
@@ -110,24 +113,29 @@ export class UploadQueue {
             }
 
             await this.sendCallback(job, {
-                status: 'failed',
-                session_valid: !loginFailed,
+                status: restricted ? 'restricted' : 'failed',
+                session_valid: restricted || !loginFailed,
                 login_failed: loginFailed,
                 title: job.metadata.title,
                 error: message,
                 refreshed_cookies: null,
                 // Sessão é invalida só quando o login automático bateu na parede;
                 // outros erros (download, rede) não significam cookies ruins.
-                session_status: loginFailed ? 'invalid' : 'unknown',
+                session_status: loginFailed ? 'invalid' : restricted ? 'valid' : 'unknown',
             });
         }
     }
 
     /** Lê os cookies do disco após o upload — captura refresh feito pelo TikTok. */
-    private async captureCookies(account: string, jobId: string): Promise<PostCallback['refreshed_cookies']> {
+    private async captureCookies(
+        account: string,
+        jobId: string,
+    ): Promise<PostCallback['refreshed_cookies']> {
         try {
             const cookies = await readCookies(account);
-            logger.info(`Fila: job ${jobId} capturou ${cookies.length} cookies para devolver ao Laravel.`);
+            logger.info(
+                `Fila: job ${jobId} capturou ${cookies.length} cookies para devolver ao Laravel.`,
+            );
             return cookies;
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
