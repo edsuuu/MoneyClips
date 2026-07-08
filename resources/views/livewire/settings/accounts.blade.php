@@ -148,7 +148,6 @@
                 </div>
             @endif
 
-            <livewire:settings.tiktok-cookies />
         </div>
     </div>
 </section>

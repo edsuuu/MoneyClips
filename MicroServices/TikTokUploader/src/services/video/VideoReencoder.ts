@@ -105,8 +105,10 @@ async function detectNvenc(): Promise<boolean> {
 
 async function probe(videoPath: string): Promise<VideoMeta> {
     const { stdout } = await execFileAsync('ffprobe', [
-        '-v', 'quiet',
-        '-print_format', 'json',
+        '-v',
+        'quiet',
+        '-print_format',
+        'json',
         '-show_streams',
         '-show_format',
         videoPath,
@@ -131,14 +133,22 @@ async function probe(videoPath: string): Promise<VideoMeta> {
 // x264 (CPU): -crf 18, -preset slow. Ambos: yuv420p + faststart + aac 192k = TikTok/YT ok.
 function buildArgs(input: string, output: string, useNvenc: boolean): string[] {
     const common = [
-        '-pix_fmt', 'yuv420p',
-        '-profile:v', 'high',
-        '-level', '4.1',
-        '-c:a', 'aac',
-        '-b:a', '192k',
-        '-ar', '44100',
-        '-movflags', '+faststart',
-        '-y', output,
+        '-pix_fmt',
+        'yuv420p',
+        '-profile:v',
+        'high',
+        '-level',
+        '4.1',
+        '-c:a',
+        'aac',
+        '-b:a',
+        '192k',
+        '-ar',
+        '44100',
+        '-movflags',
+        '+faststart',
+        '-y',
+        output,
     ];
 
     if (useNvenc) {
@@ -146,15 +156,24 @@ function buildArgs(input: string, output: string, useNvenc: boolean): string[] {
             // Decode fica em CPU. Forçar `-hwaccel cuda` quebra inputs AV1
             // quando o container não tem decoder CUDA/libcuda, mesmo que NVENC
             // esteja listado no ffmpeg.
-            '-i', input,
-            '-c:v', 'h264_nvenc',
-            '-preset', 'p7',
-            '-tune', 'hq',
-            '-rc', 'vbr',
-            '-cq', '18',
-            '-b:v', '0',
-            '-maxrate', '80M',
-            '-bufsize', '160M',
+            '-i',
+            input,
+            '-c:v',
+            'h264_nvenc',
+            '-preset',
+            'p7',
+            '-tune',
+            'hq',
+            '-rc',
+            'vbr',
+            '-cq',
+            '18',
+            '-b:v',
+            '0',
+            '-maxrate',
+            '80M',
+            '-bufsize',
+            '160M',
             ...common,
         ];
     }
@@ -174,7 +193,8 @@ function runFfmpeg(args: string[]): Promise<void> {
 }
 
 const fmtMbps = (bps: number): string => (bps > 0 ? `${(bps / 1_000_000).toFixed(2)} Mbps` : 'N/A');
-const fmtMb = (bytes: number): string => (bytes > 0 ? `${(bytes / 1024 ** 2).toFixed(2)} MB` : 'N/A');
+const fmtMb = (bytes: number): string =>
+    bytes > 0 ? `${(bytes / 1024 ** 2).toFixed(2)} MB` : 'N/A';
 
 const fmtDuration = (seconds: number): string => {
     const sec = Math.round(seconds);

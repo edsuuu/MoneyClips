@@ -1,44 +1,7 @@
+# O Laravel roda NATIVO (php artisan serve em dev / nginx + php-fpm em prod),
+# fora do Docker. Este compose sobe só os microserviços. Os containers chamam
+# de volta o Laravel nativo via host.docker.internal (extra_hosts abaixo).
 services:
-  laravel:
-    image: sail-8.4/app
-    build:
-      context: ./vendor/laravel/sail/runtimes/8.4
-      dockerfile: Dockerfile
-      args:
-        WWWGROUP: '1000'
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    ports:
-      - "${APP_PORT:-8000}:80"
-      - "5173:5173"
-    environment:
-      WWWUSER: '1000'
-      LARAVEL_SAIL: 1
-      DB_HOST: "${DB_HOST:-host.docker.internal}"
-      DB_PORT: "${DB_PORT:-3306}"
-      DB_DATABASE: "${DB_DATABASE}"
-      DB_USERNAME: "${DB_USERNAME}"
-      DB_PASSWORD: "${DB_PASSWORD}"
-      DOWNLOAD_YOUTUBE_URL: "http://download-shorts:8770"
-      TIKTOK_POST_URL: "http://tiktok-uploader:8090"
-      DOWNLOAD_YOUTUBE_WEBHOOK_URL: "http://laravel/api/download-youtube/webhook"
-      TIKTOK_POST_CALLBACK_URL: "http://laravel/api/tiktok-posts/callback"
-    group_add:
-      - '0'
-    volumes:
-      - '.:/var/www/html'
-      - '/var/run/docker.sock:/var/run/docker.sock'
-    # entrypoint roda como root: ajusta o socket do Docker e então delega pro
-    # start-container do Sail SEM args (caminho que sobe o supervisord como root
-    # e só depois dropa o PHP pro usuário `sail` via gosu). Passar args direto
-    # pro start-container fazia ele rodar `gosu sail`, dropando privilégio cedo
-    # demais e quebrando o chmod/supervisord.
-    entrypoint: ["sh", "-c"]
-    command: ["chmod 666 /var/run/docker.sock 2>/dev/null || true; exec start-container"]
-    depends_on:
-      - download-shorts
-      - tiktok-uploader
-
   download-shorts:
     build:
       context: ./MicroServices/DownloadShorts
@@ -54,7 +17,9 @@ services:
       API_PORT: "8770"
       LOG_LEVEL: "${LOG_LEVEL:-INFO}"
 
-      STORAGE_ENDPOINT: "${AWS_ENDPOINT:-http://host.docker.internal:9000}"
+      # Endpoint literal: dentro do container, host.docker.internal = MinIO no host.
+      # NÃO interpolar de AWS_ENDPOINT (no .env ele é 127.0.0.1 pro Laravel nativo).
+      STORAGE_ENDPOINT: "http://host.docker.internal:9000"
       STORAGE_ACCESS_KEY: "${AWS_ACCESS_KEY_ID:-minioadmin}"
       STORAGE_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
       STORAGE_BUCKET: "${AWS_BUCKET:-video}"
@@ -89,7 +54,8 @@ services:
     environment:
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-minioadmin}"
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
-      AWS_ENDPOINT: "${AWS_ENDPOINT:-http://host.docker.internal:9000}"
+      # Endpoint literal (host.docker.internal = MinIO no host); ver nota em download-shorts.
+      AWS_ENDPOINT: "http://host.docker.internal:9000"
       AWS_REGION: "${AWS_DEFAULT_REGION:-us-east-1}"
       AWS_BUCKET: "${AWS_BUCKET:-video}"
       S3_PREFIX: "${S3_PREFIX:-shorts/}"
@@ -128,59 +94,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
-
-  generate-clips:
-    profiles:
-      - linux-nvidia
-    build:
-      context: ./MicroServices/GenerateClips
-      dockerfile: Dockerfile
-      target: runtime
-    image: generate-clips:cuda
-    restart: unless-stopped
-    ports:
-      - "8765:8765"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    env_file:
-      - path: ./MicroServices/GenerateClips/.env
-        required: false
-    environment:
-      API_HOST: "0.0.0.0"
-      API_PORT: "8765"
-      MINIO_ENDPOINT: "${AWS_ENDPOINT:-http://host.docker.internal:9000}"
-      MINIO_ACCESS_KEY: "${AWS_ACCESS_KEY_ID:-minioadmin}"
-      MINIO_SECRET_KEY: "${AWS_SECRET_ACCESS_KEY:-minioadmin}"
-      MINIO_BUCKET: "${AWS_BUCKET:-video}"
-      MINIO_SECURE: "false"
-      OLLAMA_BASE_URL: "http://host.docker.internal:11434"
-      WHISPER_BACKEND: "faster"
-      WHISPER_DEVICE: "auto"
-      WHISPER_COMPUTE_TYPE: "auto"
-      FFMPEG_ENCODER: "auto"
-      FFMPEG_HWACCEL: "auto"
-      FACE_TRACKING_DELEGATE: "auto"
-      NVIDIA_VISIBLE_DEVICES: "all"
-      NVIDIA_DRIVER_CAPABILITIES: "compute,utility,video,graphics"
-      TZ: "America/Sao_Paulo"
-    shm_size: "2gb"
-    volumes:
-      - generate-clips-cache:/root/.cache
-      - generate-clips-temp:/tmp/auto-post
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health')\" || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 40s
-
-volumes:
-  generate-clips-cache:
-  generate-clips-temp:

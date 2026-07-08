@@ -19,6 +19,7 @@ import {
 } from '@/services/notifications/Discord';
 import { TikTokContentRestrictionError } from '@/services/tiktok/TikTokContentRestrictionError';
 import type { PostCallback, QueuedPostJob } from '@/types/ApiType';
+import type { Cookie } from '@/types/DomainType';
 import { sleep } from '@/utils/Sleep';
 
 import type { UploadWorkflow } from './UploadWorkflow';
@@ -86,7 +87,6 @@ export class UploadQueue {
             logger.info(
                 `Fila: job ${job.jobId} resultado=${result.status} title="${result.title ?? ''}"`,
             );
-            // @ts-ignore
             await this.sendCallback(job, {
                 status: result.status,
                 session_valid: true,
@@ -127,10 +127,7 @@ export class UploadQueue {
     }
 
     /** Lê os cookies do disco após o upload — captura refresh feito pelo TikTok. */
-    private async captureCookies(
-        account: string,
-        jobId: string,
-    ): Promise<PostCallback['refreshed_cookies']> {
+    private async captureCookies(account: string, jobId: string): Promise<Cookie[] | null> {
         try {
             const cookies = await readCookies(account);
             logger.info(
