@@ -25,12 +25,13 @@ export interface QueuedPostJob {
  * Corpo enviado de volta ao `webhook_url` do Laravel quando o job termina.
  *   completed — publicado no TikTok
  *   dry-run   — processado sem publicar (DRY_RUN ativo)
+ *   restricted — TikTok marcou o conteúdo como restrito antes/depois do clique
  *   failed    — erro em qualquer etapa (download, login, publicação)
  */
 export interface PostCallback {
     job_id: string;
     video_id: string;
-    status: 'completed' | 'dry-run' | 'failed';
+    status: 'completed' | 'dry-run' | 'restricted' | 'failed';
     /** false quando os cookies estavam inválidos/ausentes e o login não resolveu. */
     session_valid: boolean;
     /** true quando o motivo da falha foi o login automático não concluir. */

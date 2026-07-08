@@ -192,15 +192,12 @@ final class Index extends Component
             ),
             self::TAB_FAILED => $base->whereIn(
                 'youtube_id',
-                SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->select('youtube_id')->where('status', 'failed'),
+                SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->select('youtube_id')->whereIn('status', ['failed', 'restricted']),
             ),
             default => $base->whereNotIn(
                 'youtube_id',
                 // Vídeos já postados / em fila / em processamento somem da listagem geral.
-                SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->select('youtube_id')->whereIn(
-                    'status',
-                    ['completed', 'dry-run', 'queued', 'processing'],
-                ),
+                SocialPost::query()->where('platform', SocialPost::PLATFORM_TIKTOK)->select('youtube_id')->whereIn('status', SocialPost::ACTIVE_STATUSES),
             ),
         };
     }

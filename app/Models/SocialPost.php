@@ -43,8 +43,8 @@ final class SocialPost extends Model
 
     public const string PLATFORM_YOUTUBE = 'youtube';
 
-    /** Status que contam como "já postado/em andamento" para o sorteio. */
-    public const array ACTIVE_STATUSES = ['queued', 'processing', 'completed', 'dry-run'];
+    /** Status que bloqueiam novo sorteio/post automático do mesmo Short. */
+    public const array ACTIVE_STATUSES = ['queued', 'processing', 'completed', 'dry-run', 'restricted'];
 
     protected $fillable = [
         'platform', 'uuid', 'youtube_id', 'video_key', 'title', 'hashtags',

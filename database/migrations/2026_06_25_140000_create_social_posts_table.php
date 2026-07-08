@@ -33,7 +33,7 @@ return new class extends Migration
             $table->json('hashtags')->nullable();
             // Conta lógica usada no post (ex.: TIKTOK_ACCOUNT_NAME).
             $table->string('account_name')->nullable();
-            // queued | processing | completed | dry-run | failed | skipped
+            // queued | processing | completed | dry-run | restricted | failed | skipped
             $table->string('status', 32)->default('queued')->index();
             $table->text('error')->nullable();
             $table->timestamp('requested_at')->nullable();
