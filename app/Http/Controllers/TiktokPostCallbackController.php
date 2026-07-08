@@ -33,7 +33,7 @@ final class TiktokPostCallbackController extends Controller
         $validated = $request->validate([
             'job_id' => ['required', 'string'],
             'video_id' => ['required', 'string'],
-            'status' => ['required', 'string', 'in:completed,dry-run,failed'],
+            'status' => ['required', 'string', 'in:completed,dry-run,restricted,failed'],
             'session_valid' => ['sometimes', 'boolean'],
             'login_failed' => ['sometimes', 'boolean'],
             'title' => ['nullable', 'string'],
@@ -91,6 +91,11 @@ final class TiktokPostCallbackController extends Controller
             $this->discord->error(
                 '❌ Falha ao postar Short no TikTok',
                 'Video: '.($title ?? $videoId).PHP_EOL.'Erro: '.($error ?? 'sem detalhes'),
+            );
+        } elseif ($status === 'restricted') {
+            $this->discord->warning(
+                '⚠️ Short restringido no TikTok',
+                'Video: '.($title ?? $videoId).PHP_EOL.'Motivo: '.($error ?? 'TikTok marcou o conteúdo como restrito.'),
             );
         }
 
