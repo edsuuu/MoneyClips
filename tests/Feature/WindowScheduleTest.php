@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Livewire\Schedule\Index;
 use App\Models\User;
 use App\Services\AutoPost\WindowSchedule;
 use Illuminate\Support\Facades\Date;
@@ -54,7 +55,7 @@ it('salva a agenda semanal pela UI da /agenda (ordenada e deduplicada)', functio
     $user = User::factory()->create();
 
     Livewire::actingAs($user)
-        ->test(App\Livewire\Schedule\Index::class)
+        ->test(Index::class)
         ->set('scheduleTimes.1', ['10:15', '09:00', '09:00'])
         ->call('saveSchedule');
 

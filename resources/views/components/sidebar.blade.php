@@ -44,6 +44,11 @@
                     </x-nav-item>
                 </li>
                 <li>
+                    <x-nav-item icon="user-circle" size="lg" :href="route('accounts.index')" :current="request()->routeIs('accounts.index')">
+                        {{ __('Contas') }}
+                    </x-nav-item>
+                </li>
+                <li>
                     <x-nav-item icon="eye" size="lg" :href="route('videos.inspect')" :current="request()->routeIs('videos.inspect')">
                         {{ __('Inspecionar Vídeo') }}
                     </x-nav-item>

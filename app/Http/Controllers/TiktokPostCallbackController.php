@@ -21,7 +21,7 @@ use Illuminate\Support\Facades\Log;
  *  2. Se vierem `refreshed_cookies`, salva no social_accounts (refresh de
  *     sessão capturado pelo Playwright após o post).
  *  3. Reflete `session_status` na conta — `invalid` dispara alerta Discord
- *     pedindo intervenção manual (atualizar cookies em /settings/accounts).
+ *     pedindo intervenção manual (revisar a conta em /contas).
  */
 final class TiktokPostCallbackController extends Controller
 {
@@ -148,7 +148,7 @@ final class TiktokPostCallbackController extends Controller
                 $this->discord->error(
                     '🔒 Sessão do TikTok inválida',
                     'O uploader não conseguiu autenticar (cookies expiraram e re-login falhou).'.PHP_EOL.
-                    'Atualize os cookies em /settings/accounts.',
+                    'Revise a conta em /contas.',
                 );
             }
         }

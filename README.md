@@ -31,7 +31,7 @@ download-shorts (FastAPI, 8770) → MinIO + tabela youtube_shorts (estoque)
 - **TikTok**: sem OAuth oficial — cookies do Playwright guardados
   **criptografados** em `social_accounts.cookies`. O Laravel envia os cookies
   no payload de cada post; o uploader devolve refresh + status pela webhook.
-  Cole cookies novos em `/settings/accounts`.
+  Contas (nome, email/senha, status da sessão) ficam em `/contas`.
 
 Detalhes de tabelas, serviços e comandos em [`CLAUDE.md`](CLAUDE.md).
 
@@ -42,8 +42,9 @@ Detalhes de tabelas, serviços e comandos em [`CLAUDE.md`](CLAUDE.md).
 | **download-shorts** | Python / FastAPI | 8770 | baixa Shorts de canais p/ o MinIO + dispara webhook por item |
 | **tiktok-uploader** | Node 22 + Playwright | 8090 | publica no TikTok via navegador headless; devolve resultado por webhook |
 
-Ambos sobem via `docker compose` na raiz; MySQL e MinIO ficam externos no host
-(acessados via `host.docker.internal`).
+Só os microserviços sobem via `docker compose` na raiz. O **Laravel roda nativo**
+(sem Sail/container). MySQL e MinIO ficam externos no host — o Laravel nativo
+acessa via `127.0.0.1`, e os containers de volta via `host.docker.internal`.
 
 ## Rodando localmente
 
@@ -51,20 +52,27 @@ Pré-requisitos: **Docker Desktop**, **MySQL** com o banco do `.env` criado e
 **MinIO** no ar com o bucket `videos`.
 
 ```bash
-composer setup                                # install + env + key + build de assets
-docker compose up -d --build                  # sobe download-shorts + tiktok-uploader
-php artisan serve                             # Laravel nativo em 127.0.0.1:8000
-php artisan schedule:work                     # agendamento de auto-postagem
+composer setup       # install + env + key + build de assets (1ª vez)
+make up              # docker compose up -d (microserviços) + composer dev (serve+queue+pail+vite)
 ```
 
-> **TikTok:** o container é headless. Gere os cookies fora dele e cole o JSON em
-> `/settings/accounts`. Mantenha `DRY_RUN=true` ao testar — publicação é irreversível.
+`make up` sobe os microserviços em background e o Laravel nativo em foreground
+(`http://127.0.0.1:8000`). Ctrl-C encerra o Laravel; `make down` derruba os
+containers. Outros alvos: `make infra`, `make dev`, `make logs`, `make check`.
+
+Prefere manual? `docker compose up -d --build` + `php artisan serve` +
+`php artisan schedule:work` fazem o mesmo.
+
+> **TikTok:** o container é headless. Gere os cookies fora dele e importe pro
+> banco (`php artisan tiktok:import-cookies-from-file`); o status da sessão
+> aparece em `/contas`. Mantenha `DRY_RUN=true` ao testar — publicação é
+> irreversível.
 
 ## Produção
 
-No servidor Linux o Laravel **roda nativo** (nginx + PHP-FPM 8.4, sem Sail). Um
-`docker-compose.override.yml` desabilita o serviço `laravel` do compose pra
-evitar conflito na porta 80. Cron único:
+No servidor Linux o Laravel **roda nativo** (nginx + PHP-FPM 8.4, sem Sail); o
+`docker compose` sobe só os microserviços. Os callbacks apontam pro domínio real
+(nginx :80/HTTPS), não `:8000`. Cron único:
 
 ```
 * * * * * cd /var/www/projects/MoneyClips && php artisan schedule:run
