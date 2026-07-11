@@ -46,11 +46,6 @@
                     <x-app-logo href="{{ route('home') }}" wire:navigate />
 
                     <nav class="-mb-px flex items-center gap-1 max-lg:hidden">
-                        @auth
-                            <x-nav-item icon="layout-grid" :href="route('dashboard')" :current="request()->routeIs('dashboard')">
-                                {{ __('Dashboard') }}
-                            </x-nav-item>
-                        @endauth
 
                     </nav>
 

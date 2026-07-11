@@ -7,6 +7,7 @@ use Rector\Config\RectorConfig;
 use Rector\Exception\Configuration\InvalidConfigurationException;
 use Rector\Php83\Rector\ClassMethod\AddOverrideAttributeToOverriddenMethodsRector;
 use Rector\TypeDeclaration\Rector\StmtsAwareInterface\DeclareStrictTypesRector;
+use RectorLaravel\Rector\Class_\AddHasFactoryToModelsRector;
 use RectorLaravel\Set\LaravelSetList;
 use RectorLaravel\Set\LaravelSetProvider;
 
@@ -56,6 +57,7 @@ try {
         ])
         ->withSkip([
             AddOverrideAttributeToOverriddenMethodsRector::class,
+            AddHasFactoryToModelsRector::class,
         ])
         ->withPreparedSets(
             deadCode: true,

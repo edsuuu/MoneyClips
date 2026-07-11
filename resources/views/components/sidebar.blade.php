@@ -26,13 +26,6 @@
 
         <nav class="mt-8 px-2">
             <ul class="grid gap-1.5">
-                @auth
-                    <li>
-                        <x-nav-item icon="layout-grid" size="lg" :href="route('dashboard')" :current="request()->routeIs('dashboard')">
-                            {{ __('Dashboard') }}
-                        </x-nav-item>
-                    </li>
-                @endauth
                 <li>
                     <x-nav-item icon="film" size="lg" :href="route('downloads.index')" :current="request()->routeIs('downloads.index')">
                         {{ __('Downloads') }}
@@ -46,11 +39,6 @@
                 <li>
                     <x-nav-item icon="user-circle" size="lg" :href="route('accounts.index')" :current="request()->routeIs('accounts.index')">
                         {{ __('Contas') }}
-                    </x-nav-item>
-                </li>
-                <li>
-                    <x-nav-item icon="eye" size="lg" :href="route('videos.inspect')" :current="request()->routeIs('videos.inspect')">
-                        {{ __('Inspecionar Vídeo') }}
                     </x-nav-item>
                 </li>
                 <li>
