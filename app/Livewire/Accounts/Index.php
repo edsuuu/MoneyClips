@@ -7,46 +7,76 @@ namespace App\Livewire\Accounts;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 /**
- * Tela dedicada de contas TikTok. Sem OAuth oficial, guardamos as credenciais
- * (email/senha) pra futuramente disparar o login automático no uploader.
+ * Tela única de contas usadas para publicar. TikTok entra por email/senha
+ * (CRUD em modal); YouTube é vinculado manualmente via OAuth do Google.
  *
- * ponytail: a senha é gravada em texto puro (login_password sem cast). Upgrade
- * path: castar como 'encrypted' no SocialAccount e re-salvar as rows.
+ * ponytail: a senha do TikTok é gravada em texto puro (login_password sem cast).
+ * Upgrade path: castar como 'encrypted' no SocialAccount e re-salvar as rows.
  */
 final class Index extends Component
 {
     use WithToasts;
 
+    public bool $showTiktokModal = false;
+
+    public bool $showYoutubeModal = false;
+
     public ?int $editingAccountId = null;
 
-    public bool $showForm = false;
-
-    #[Validate('required|string|max:255')]
     public string $name = '';
 
-    #[Validate('required|email|max:255')]
     public string $login_email = '';
 
-    #[Validate('required|string|max:255')]
     public string $login_password = '';
 
     public bool $is_active = true;
 
-    public function create(): void
+    /** @return array<string, list<string>> */
+    public function rules(): array
     {
-        $this->resetForm();
-        $this->showForm = true;
+        return [
+            'name' => ['required', 'string', 'max:255'],
+            'login_email' => ['required', 'email', 'max:255'],
+            'login_password' => ['required', 'string', 'max:255'],
+        ];
     }
 
-    public function edit(int $id): void
+    /** @return array<string, string> */
+    public function messages(): array
     {
-        $account = $this->accountQuery()->whereKey($id)->first();
+        return [
+            'name.required' => 'Informe o nome ou @handle da conta.',
+            'login_email.required' => 'Informe o email de login.',
+            'login_email.email' => 'Informe um email válido.',
+            'login_password.required' => 'Informe a senha de login.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function validationAttributes(): array
+    {
+        return [
+            'name' => 'nome',
+            'login_email' => 'email',
+            'login_password' => 'senha',
+        ];
+    }
+
+    public function createTiktok(): void
+    {
+        $this->resetForm();
+        $this->showTiktokModal = true;
+    }
+
+    public function editTiktok(int $id): void
+    {
+        $account = $this->tiktokQuery()->whereKey($id)->first();
 
         if (! $account instanceof SocialAccount) {
             $this->toast('Conta não encontrada.', 'danger');
@@ -60,10 +90,10 @@ final class Index extends Component
         $this->login_email = $account->login_email ?? '';
         $this->login_password = $account->login_password ?? '';
         $this->is_active = $account->is_active;
-        $this->showForm = true;
+        $this->showTiktokModal = true;
     }
 
-    public function save(): void
+    public function saveTiktok(): void
     {
         $this->validate();
 
@@ -77,7 +107,7 @@ final class Index extends Component
         ];
 
         if ($this->editingAccountId !== null) {
-            $account = $this->accountQuery()->whereKey($this->editingAccountId)->first();
+            $account = $this->tiktokQuery()->whereKey($this->editingAccountId)->first();
 
             if (! $account instanceof SocialAccount) {
                 $this->toast('Conta não encontrada.', 'danger');
@@ -95,6 +125,11 @@ final class Index extends Component
         $this->resetForm();
     }
 
+    public function openYoutube(): void
+    {
+        $this->showYoutubeModal = true;
+    }
+
     public function delete(int $id): void
     {
         $this->accountQuery()->whereKey($id)->delete();
@@ -103,19 +138,61 @@ final class Index extends Component
             $this->resetForm();
         }
 
+        $this->showYoutubeModal = false;
         $this->toast('Conta removida.');
     }
 
     public function cancel(): void
     {
         $this->resetForm();
+        $this->showYoutubeModal = false;
     }
 
     public function render(): View
     {
+        $accounts = $this->accountQuery()->latest()->get();
+
         return view('livewire.accounts.index', [
-            'accounts' => $this->accountQuery()->latest()->get(),
+            'tiktokAccounts' => $this->decorateTiktokAccounts($accounts->where('platform', 'tiktok')),
+            'youtubeAccount' => $accounts->firstWhere('platform', 'youtube'),
+            'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
         ]);
+    }
+
+    /**
+     * @param  Collection<int, SocialAccount>  $accounts
+     * @return Collection<int, array{id: int, name: string, login_email: string|null, is_active: bool, statusColor: string, statusLabel: string}>
+     */
+    private function decorateTiktokAccounts(Collection $accounts): Collection
+    {
+        return $accounts
+            ->map(fn (SocialAccount $account): array => [
+                'id' => $account->id,
+                'name' => $account->name,
+                'login_email' => $account->login_email,
+                'is_active' => $account->is_active,
+                'statusColor' => $this->sessionStatusColor($account->session_status),
+                'statusLabel' => $this->sessionStatusLabel($account->session_status),
+            ])
+            ->values();
+    }
+
+    private function sessionStatusColor(?string $status): string
+    {
+        return match ($status) {
+            SocialAccount::SESSION_VALID => 'green',
+            SocialAccount::SESSION_INVALID => 'red',
+            default => 'zinc',
+        };
+    }
+
+    private function sessionStatusLabel(?string $status): string
+    {
+        return match ($status) {
+            SocialAccount::SESSION_VALID => 'Sessão válida',
+            SocialAccount::SESSION_INVALID => 'Sessão inválida',
+            default => 'Sessão desconhecida',
+        };
     }
 
     /**
@@ -123,9 +200,15 @@ final class Index extends Component
      */
     private function accountQuery(): Builder
     {
-        return SocialAccount::query()
-            ->where('user_id', $this->currentUserId())
-            ->where('platform', 'tiktok');
+        return SocialAccount::query()->where('user_id', $this->currentUserId());
+    }
+
+    /**
+     * @return Builder<SocialAccount>
+     */
+    private function tiktokQuery(): Builder
+    {
+        return $this->accountQuery()->where('platform', 'tiktok');
     }
 
     private function currentUserId(): int
@@ -138,7 +221,7 @@ final class Index extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['editingAccountId', 'showForm', 'name', 'login_email', 'login_password', 'is_active']);
+        $this->reset(['editingAccountId', 'showTiktokModal', 'name', 'login_email', 'login_password', 'is_active']);
         $this->resetValidation();
     }
 }

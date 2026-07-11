@@ -10,7 +10,6 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
 use Illuminate\View\View;
-use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Throwable;
 
@@ -26,24 +25,52 @@ final class Accounts extends Component
 
     public ?int $editingAccountId = null;
 
-    #[Validate('required|string')]
     public string $platform = 'youtube';
 
-    #[Validate('required|string|max:255')]
     public string $name = '';
 
     public string $external_account_id = '';
 
-    #[Validate('required|string')]
     public string $access_token = '';
 
     public string $refresh_token = '';
 
-    #[Validate('nullable|string')]
     public string $token_expires_at = '';
 
     /** JSON livre com extras por plataforma (ig_user_id, page_id, privacy_level...). */
     public string $meta = '';
+
+    /** @return array<string, list<string>> */
+    public function rules(): array
+    {
+        return [
+            'platform' => ['required', 'string'],
+            'name' => ['required', 'string', 'max:255'],
+            'access_token' => ['required', 'string'],
+            'token_expires_at' => ['nullable', 'string'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'platform.required' => 'Selecione a plataforma.',
+            'name.required' => 'Informe o nome da conta.',
+            'access_token.required' => 'Informe o access token.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function validationAttributes(): array
+    {
+        return [
+            'platform' => 'plataforma',
+            'name' => 'nome da conta',
+            'access_token' => 'access token',
+            'token_expires_at' => 'data de expiração',
+        ];
+    }
 
     public function manage(string $platform): void
     {
