@@ -111,8 +111,6 @@ no futuro é só usar uma nova string em `platform`.
 | `/contas` | `App\Livewire\Accounts\Index` | CRUD de contas TikTok (nome, email, senha, status) |
 | `/settings/accounts` | `App\Livewire\Settings\Accounts` | OAuth YouTube (conectar/gerenciar canal) |
 | `/microservices` | `App\Livewire\Microservices\Index` | health dos serviços (download-shorts, tiktok-uploader) + logs (auto-refresh ligado por padrão) |
-| `/videos/inspect` | `App\Livewire\Videos\Inspect` | metadados (ffprobe) de qualquer Short do estoque — dev tool; espelho local standalone: `video-inspect.js` na raiz |
-| `/dashboard` | view | 4 cards de métricas (estoque, postados YT/TT, contas) |
 
 ## Comandos artisan
 
