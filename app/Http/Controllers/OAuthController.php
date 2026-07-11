@@ -104,11 +104,11 @@ final class OAuthController extends Controller
     {
         $config = self::PROVIDERS[$platform] ?? null;
         if ($config === null) {
-            return to_route('social-accounts')->with('error', 'Plataforma não suporta OAuth: '.$platform);
+            return to_route('accounts.index')->with('error', 'Plataforma não suporta OAuth: '.$platform);
         }
 
         if (! config(sprintf('services.%s.client_id', $config['driver']))) {
-            return to_route('social-accounts')
+            return to_route('accounts.index')
                 ->with('error', sprintf('Configure o app de %s (client_id/secret) no .env antes de conectar.', $platform));
         }
 
@@ -124,13 +124,13 @@ final class OAuthController extends Controller
     {
         $config = self::PROVIDERS[$platform] ?? null;
         if ($config === null) {
-            return to_route('social-accounts')->with('error', 'Plataforma inválida: '.$platform);
+            return to_route('accounts.index')->with('error', 'Plataforma inválida: '.$platform);
         }
 
         try {
             $socialUser = $this->provider($config)->user();
             if (! $socialUser instanceof SocialiteUser) {
-                return to_route('social-accounts')->with('error', 'Resposta de OAuth inesperada da plataforma.');
+                return to_route('accounts.index')->with('error', 'Resposta de OAuth inesperada da plataforma.');
             }
 
             $userId = Auth::id();
@@ -142,17 +142,17 @@ final class OAuthController extends Controller
             };
 
             if ($accounts === []) {
-                return to_route('social-accounts')
+                return to_route('accounts.index')
                     ->with('error', 'Nenhuma conta encontrada. Verifique permissões do OAuth.');
             }
 
             $names = implode(', ', array_map(static fn ($a): string => $a->name, $accounts));
 
-            return to_route('social-accounts')->with('status', 'Conta(s) conectada(s): '.$names);
+            return to_route('accounts.index')->with('status', 'Conta(s) conectada(s): '.$names);
         } catch (Throwable $throwable) {
             Log::channel('daily')->error('[OAuthController] Falha no OAuth ('.$platform.').', ['exception' => $throwable]);
 
-            return to_route('social-accounts')->with('error', 'Falha na autenticação OAuth. Tente novamente.');
+            return to_route('accounts.index')->with('error', 'Falha na autenticação OAuth. Tente novamente.');
         }
     }
 
