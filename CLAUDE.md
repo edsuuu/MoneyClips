@@ -108,8 +108,7 @@ no futuro é só usar uma nova string em `platform`.
 | --- | --- | --- |
 | `/agenda` | `App\Livewire\Schedule\Index` | grade 7×5 dos slots da semana + toggles YT/TT + "Forçar agora" |
 | `/downloads` | `App\Livewire\Downloads\Index` | estoque com tabs (disponíveis/fila/postados/falhas) + modais de novo download + postagem instantânea |
-| `/contas` | `App\Livewire\Accounts\Index` | CRUD de contas TikTok (nome, email, senha, status) |
-| `/settings/accounts` | `App\Livewire\Settings\Accounts` | OAuth YouTube (conectar/gerenciar canal) |
+| `/contas` | `App\Livewire\Accounts\Index` + `App\Livewire\Settings\Accounts` | CRUD de contas TikTok (nome, email, senha, status) + OAuth YouTube (conectar/gerenciar canal) |
 | `/microservices` | `App\Livewire\Microservices\Index` | health dos serviços (download-shorts, tiktok-uploader) + logs (auto-refresh ligado por padrão) |
 
 ## Comandos artisan
