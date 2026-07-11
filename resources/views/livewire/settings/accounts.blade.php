@@ -1,21 +1,11 @@
 <section class="w-full">
     <div class="relative mb-6 w-full">
-        <x-ui.heading size="xl" level="1">{{ __('Settings') }}</x-ui.heading>
-        <x-ui.subheading size="lg" class="mb-6">Gerencie o perfil e as plataformas usadas para publicar.</x-ui.subheading>
-        <x-ui.separator variant="subtle" />
+        <x-ui.heading size="xl" level="1">Contas vinculadas</x-ui.heading>
+        <x-ui.subheading size="lg">Uma lista simples por plataforma, com status e um atalho para conectar ou revisar o vínculo.</x-ui.subheading>
+        <x-ui.separator variant="subtle" class="mt-4" />
     </div>
 
-    <div class="flex items-start max-md:flex-col">
-        <div class="me-10 w-full pb-4 md:w-[220px]">
-            <x-settings.nav />
-        </div>
-
-        <x-ui.separator class="md:hidden" />
-
-        <div class="flex-1 self-stretch max-md:pt-6">
-            <x-ui.heading>Contas vinculadas</x-ui.heading>
-            <x-ui.subheading>Uma lista simples por plataforma, com status e um atalho para conectar ou revisar o vínculo.</x-ui.subheading>
-
+    <div>
             @if(session('status'))
                 <x-ui.callout class="mt-4" variant="success" icon="check-circle">{{ session('status') }}</x-ui.callout>
             @endif
@@ -148,6 +138,5 @@
                 </div>
             @endif
 
-        </div>
     </div>
 </section>
