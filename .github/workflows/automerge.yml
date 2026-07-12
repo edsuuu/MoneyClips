@@ -1,8 +1,12 @@
 name: Auto Merge
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_run:
+    workflows:
+      - tests
+      - tiktok-uploader (CI)
+      - download-shorts (CI)
+    types: [completed]
 
 permissions:
   contents: write
@@ -10,11 +14,36 @@ permissions:
 
 jobs:
   auto-merge:
-    if: github.event.pull_request.draft == false
+    if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Enable auto-merge (squash)
-        run: gh pr merge --auto --squash "$PR_URL"
+      - name: Merge only when every check for this commit is green
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # ponytail: assume que todos os runs deste commit ja existem quando o
+          # primeiro conclui (o GitHub cria juntos no sync do PR). Janela de corrida
+          # de segundos; se virar problema, dar um sleep/poll antes de checar.
+          # todos os workflow runs deste commit (menos o proprio Auto Merge)
+          runs=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&event=pull_request" \
+            --paginate \
+            --jq '.workflow_runs[] | select(.name != "Auto Merge") | [.status, .conclusion] | @tsv')
+
+          [ -z "$runs" ] && { echo "sem runs para $SHA"; exit 0; }
+
+          # ainda rodando? sai; a proxima conclusao re-dispara este workflow
+          if echo "$runs" | grep -qv '^completed'; then
+            echo "checks ainda rodando para $SHA"; exit 0
+          fi
+          # concluidos: qualquer conclusao que nao seja sucesso/skip/neutral barra o merge
+          bad=$(echo "$runs" | awk -F'\t' '$2!="success" && $2!="skipped" && $2!="neutral"')
+          if [ -n "$bad" ]; then
+            echo "checks nao verdes para $SHA:"; echo "$bad"; exit 0
+          fi
+
+          pr=$(gh pr list --repo "$REPO" --search "$SHA" --state open --draft=false --json number --jq '.[0].number')
+          [ -z "$pr" ] && { echo "nenhum PR aberto (nao-draft) para $SHA"; exit 0; }
+
+          gh pr merge "$pr" --repo "$REPO" --squash
