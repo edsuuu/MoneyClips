@@ -164,11 +164,12 @@ Em `MicroServices/DownloadShorts/`. Magro: recebe `channel_url` +
   Webhook recebido em `/api/download-youtube/webhook` →
   `App\Services\Youtube\DownloadYoutubeImportService` insere em `youtube_shorts`.
 
-## Microserviço tiktok-uploader (Node 22 + Playwright, porta 8090)
+## Microserviço tiktok-uploader (Node 22 + Playwright + Express, porta 8090)
 
 Em `MicroServices/TikTokUploader/`. Publica Shorts via navegador (Playwright
 headless). **Não tem banco** e **não lê cookies do filesystem em prod** —
-recebe os cookies no payload de cada `POST /posts`.
+recebe os cookies no payload de cada `POST /posts`. API HTTP em Express
+(`src/server.ts` só traduz HTTP → `src/app.ts`).
 
 - `POST /posts` body: `{ video_id, title, hashtags, video_key?, webhook_url, cookies?: [...] }`.
 - Webhook callback: `status` é `completed | dry-run | restricted | failed`
@@ -176,17 +177,34 @@ recebe os cookies no payload de cada `POST /posts`.
   também `refreshed_cookies?` (cookies pós-upload, capturados do Playwright) e
   `session_status?` (`valid`/`invalid`/`unknown`). Laravel atualiza o
   `social_accounts.cookies` com isso.
-- Reencode antes do upload (`services/video/VideoReencoder.ts`): ffprobe mede o
-  bitrate e, abaixo de `REENCODE_BITRATE_THRESHOLD_KBPS` (default 4000),
-  recodifica em qualidade constante CQ/CRF 18 — h264_nvenc (GPU, validado em
-  runtime) com fallback automático pra libx264 (CPU). Nunca derruba o upload
-  (qualquer falha usa o arquivo original). `REENCODE_ENABLED=false` desliga.
-  ffmpeg instalado no Dockerfile. Motivo: TikTok recusava vídeos por baixa
-  qualidade.
+- Reencode **não vive mais aqui** — saiu para o microserviço `reencode` (porta
+  8790). O uploader posta o arquivo apontado por `video_key` como veio; a
+  recodificação é orquestrada antes pelo Laravel.
 - `DRY_RUN=true` no `.env` pula a publicação real (debugging).
 - Logs cobrem o ciclo: cookies recebidos, upload status, cookies capturados,
   webhook tentativa/status (aceito/rejeitado), refresh count.
 - Subir: `docker compose up -d --build tiktok-uploader`.
+
+## Microserviço reencode (Node 22 + Express, porta 8790)
+
+Em `MicroServices/Reencode/`. Recodifica vídeos de baixo bitrate antes da
+publicação (extraído do tiktok-uploader pra ser reusável por qualquer poster).
+**Não tem banco** — ciclo de vida no Laravel via callback de webhook; fila
+serial (concorrência 1, ffmpeg é pesado).
+
+- `POST /reencode` body: `{ video_id, webhook_url, source_key?, output_key? }`
+  → `202 { job_id, status: "queued" }`. `GET /health`.
+- Baixa `source_key` do S3, mede o bitrate com ffprobe e, abaixo de
+  `REENCODE_BITRATE_THRESHOLD_KBPS` (default 4000), recodifica em qualidade
+  constante CQ/CRF 18 — h264_nvenc (GPU, validado em runtime) com fallback
+  automático pra libx264 (CPU), sobe o `_HQ` no S3. Nunca derruba por causa do
+  reencode. `REENCODE_ENABLED=false` desliga (passthrough). ffmpeg no Dockerfile.
+- Webhook callback: `{ job_id, video_id, status: completed|skipped|failed,
+  source_key, output_key, reencoded, error }`. **Use sempre `output_key` a
+  jusante** — é o `_HQ` quando recodificou, senão a própria origem.
+- Subir: `docker compose up -d --build reencode`.
+- ⚠️ Falta a orquestração no Laravel (chamar `/reencode` e consumir o callback
+  antes de despachar o post) — o serviço está pronto, mas ainda não é invocado.
 
 ## Rodar tudo
 
@@ -195,7 +213,7 @@ PHP-FPM). O `docker compose` sobe **só os microserviços** — não há mais se
 `laravel`/Sail no compose.
 
 ```bash
-make up      # docker compose up -d (download-shorts 8770 + tiktok-uploader 8090) + composer dev
+make up      # docker compose up -d (download-shorts 8770 + tiktok-uploader 8090 + reencode 8790) + composer dev
 ```
 
 Regra de rede (Laravel nativo ↔ microserviços em container):
@@ -208,7 +226,7 @@ Em produção (Linux) os callbacks apontam pro domínio real (nginx :80/HTTPS),
 não `:8000`. Sem o serviço `laravel` no compose, o antigo
 `docker-compose.override.yml` que o desligava é desnecessário — mas o arquivo
 segue no `.gitignore` como override opcional por host (ex.: reservar GPU
-NVIDIA pro reencode do tiktok-uploader; ver bloco comentado no compose).
+NVIDIA pro microserviço `reencode`; ver bloco comentado no compose).
 
 ## Histórico (apagados)
 

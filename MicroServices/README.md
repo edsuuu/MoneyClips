@@ -11,7 +11,8 @@ local. A pasta é versionada — só `.env`, `cookies/*.json`, `.venv/`,
 | Serviço | Stack | Porta | Docker? | Acessa |
 | --- | --- | --- | --- | --- |
 | `download-shorts` | Python / FastAPI | 8770 | ✅ (compose) | S3/MinIO (sem banco — webhook por item) |
-| `tiktok-uploader` | Node 22 + Playwright | 8090 | ✅ (compose) | S3/MinIO, TikTok (web), Discord |
+| `tiktok-uploader` | Node 22 + Playwright + Express | 8090 | ✅ (compose) | S3/MinIO, TikTok (web), Discord |
+| `reencode` | Node 22 + Express + ffmpeg | 8790 | ✅ (compose) | S3/MinIO (sem banco — webhook por job) |
 | `generate-clips` | Python / FastAPI | 8765 | macOS nativo / Linux NVIDIA via profile | MinIO, LLMs, Whisper, ffmpeg |
 
 > **generate-clips e GPU:** no macOS ele continua nativo para usar
