@@ -10,6 +10,7 @@
         "build": "tsup",
         "start": "node dist/App.js",
         "dev": "nodemon",
+        "simple-login": "node simple-login.mjs",
         "typecheck": "tsc --noEmit",
         "lint": "eslint app",
         "lint:fix": "eslint app --fix",

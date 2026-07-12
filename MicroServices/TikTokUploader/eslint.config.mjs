@@ -6,6 +6,8 @@ import prettier from 'eslint-plugin-prettier';
 import prettierConfig from 'eslint-config-prettier';
 
 export default [
+    { ignores: ['simple-login.mjs'] },
+
     js.configs.recommended,
 
     ...tseslint.configs.recommended,
