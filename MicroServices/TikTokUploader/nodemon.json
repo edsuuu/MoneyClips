@@ -1,0 +1,5 @@
+{
+    "watch": ["app", ".env"],
+    "ext": "ts,env",
+    "exec": "tsx app/App.ts"
+}
