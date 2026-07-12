@@ -1,18 +1,9 @@
 name: tests
 
 on:
-  push:
-    branches:
-      - develop
-      - main
-      - master
-      - workos
   pull_request:
     branches:
-      - develop
       - main
-      - master
-      - workos
 
 jobs:
   ci:
@@ -20,7 +11,7 @@ jobs:
     environment: Testing
     strategy:
       matrix:
-        php-version: ['8.4', '8.5']
+        php-version: ['8.4']
 
     steps:
       - name: Checkout code
@@ -37,6 +28,20 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22'
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: composer-${{ matrix.php-version }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ matrix.php-version }}-
+
+      - name: Cache Node dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: node-${{ hashFiles('pnpm-lock.yaml', 'package-lock.json') }}
+          restore-keys: node-
 
       - name: Install Node Dependencies
         run: npm i

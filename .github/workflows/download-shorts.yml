@@ -1,19 +1,9 @@
 name: download-shorts (CI)
 
 on:
-  push:
-    branches:
-      - main
-      - master
-      - develop
-    paths:
-      - 'MicroServices/DownloadShorts/**'
-      - '.github/workflows/download-shorts.yml'
   pull_request:
     branches:
       - main
-      - master
-      - develop
     paths:
       - 'MicroServices/DownloadShorts/**'
       - '.github/workflows/download-shorts.yml'
