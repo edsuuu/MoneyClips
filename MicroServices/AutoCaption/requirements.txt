@@ -1,0 +1,9 @@
+# torch/torchaudio com CUDA são instalados À PARTE antes deste arquivo:
+#   pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu124
+# (a build default do PyPI é CPU-only). WhisperX puxa o resto do stack.
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.10
+pydantic-settings>=2.7
+python-multipart>=0.0.9
+whisperx>=3.1
