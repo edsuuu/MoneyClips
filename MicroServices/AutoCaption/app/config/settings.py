@@ -51,8 +51,8 @@ class Settings(BaseSettings):
     subtitle_offset: float = 0.0
 
     # Marca do template (cabeçalho: logo + @handle apenas).
-    channel_name: str = "unkvoid"  # usado só p/ inicial da logo-fallback
-    channel_handle: str = "@unkvoid_clips"
+    channel_name: str = "meu_canal"  # usado só p/ inicial da logo-fallback
+    channel_handle: str = "@meu_canal"
     channel_logo: str = "./assets/logo.png"  # gerado se não existir
 
     # Variantes de saída geradas pelo pipeline.
