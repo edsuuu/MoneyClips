@@ -1,8 +1,9 @@
 name: Auto Merge
 
 on:
-  pull_request:
-    types: [opened, reopened, synchronize, ready_for_review]
+  workflow_run:
+    workflows: [tests, linter]
+    types: [completed]
 
 permissions:
   contents: write
@@ -10,11 +11,27 @@ permissions:
 
 jobs:
   auto-merge:
-    if: github.event.pull_request.draft == false
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Enable auto-merge (squash)
-        run: gh pr merge --auto --squash "$PR_URL"
+      - name: Merge only when tests + linter are green
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          # both required workflows must have a successful run for this commit
+          success=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&event=pull_request" \
+            --paginate \
+            --jq '[.workflow_runs[] | select(.name=="tests" or .name=="linter") | select(.conclusion=="success") | .name] | unique | length')
+          if [ "$success" != "2" ]; then
+            echo "waiting: tests+linter not both green yet for $SHA"
+            exit 0
+          fi
+
+          pr=$(gh pr list --repo "$REPO" --search "$SHA" --state open --draft=false --json number --jq '.[0].number')
+          [ -z "$pr" ] && { echo "no open non-draft PR for $SHA"; exit 0; }
+
+          gh pr merge "$pr" --repo "$REPO" --squash
