@@ -4,17 +4,15 @@ dist/
 build/
 *.tsbuildinfo
 npm-debug.log*
-# Lockfile é o pnpm; npm não deve recriar o dele.
+# Lockfile é o pnpm (Docker/CI usam pnpm); npm não deve recriar o dele.
 package-lock.json
 
 # Env e segredos
 .env
 
-# Runtime / logs
+# Estado de runtime
 *.log
 logs/
-# Gravações de sessão do Playwright (vão para tmp, mas garante que não vazem)
-*.webm
 
 # IDE / SO
 .idea/

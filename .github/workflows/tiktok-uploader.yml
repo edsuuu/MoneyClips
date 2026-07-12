@@ -1,0 +1,46 @@
+name: tiktok-uploader (CI)
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'MicroServices/TikTokUploader/**'
+      - '.github/workflows/tiktok-uploader.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: lint + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: MicroServices/TikTokUploader
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: MicroServices/TikTokUploader/pnpm-lock.yaml
+
+      - name: Install dependencies (sem baixar o Chromium)
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Lint (eslint + prettier)
+        run: pnpm lint
+
+      - name: Typecheck (tsc --noEmit)
+        run: pnpm typecheck
+
+      - name: Build (tsup)
+        run: pnpm build
