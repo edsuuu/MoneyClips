@@ -2,7 +2,10 @@ name: Auto Merge
 
 on:
   workflow_run:
-    workflows: [tests, linter]
+    workflows:
+      - tests
+      - tiktok-uploader (CI)
+      - download-shorts (CI)
     types: [completed]
 
 permissions:
@@ -11,27 +14,36 @@ permissions:
 
 jobs:
   auto-merge:
-    if: >
-      github.event.workflow_run.event == 'pull_request' &&
-      github.event.workflow_run.conclusion == 'success'
+    if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - name: Merge only when tests + linter are green
+      - name: Merge only when every check for this commit is green
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
-          # both required workflows must have a successful run for this commit
-          success=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&event=pull_request" \
+          # ponytail: assume que todos os runs deste commit ja existem quando o
+          # primeiro conclui (o GitHub cria juntos no sync do PR). Janela de corrida
+          # de segundos; se virar problema, dar um sleep/poll antes de checar.
+          # todos os workflow runs deste commit (menos o proprio Auto Merge)
+          runs=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&event=pull_request" \
             --paginate \
-            --jq '[.workflow_runs[] | select(.name=="tests" or .name=="linter") | select(.conclusion=="success") | .name] | unique | length')
-          if [ "$success" != "2" ]; then
-            echo "waiting: tests+linter not both green yet for $SHA"
-            exit 0
+            --jq '.workflow_runs[] | select(.name != "Auto Merge") | [.status, .conclusion] | @tsv')
+
+          [ -z "$runs" ] && { echo "sem runs para $SHA"; exit 0; }
+
+          # ainda rodando? sai; a proxima conclusao re-dispara este workflow
+          if echo "$runs" | grep -qv '^completed'; then
+            echo "checks ainda rodando para $SHA"; exit 0
+          fi
+          # concluidos: qualquer conclusao que nao seja sucesso/skip/neutral barra o merge
+          bad=$(echo "$runs" | awk -F'\t' '$2!="success" && $2!="skipped" && $2!="neutral"')
+          if [ -n "$bad" ]; then
+            echo "checks nao verdes para $SHA:"; echo "$bad"; exit 0
           fi
 
           pr=$(gh pr list --repo "$REPO" --search "$SHA" --state open --draft=false --json number --jq '.[0].number')
-          [ -z "$pr" ] && { echo "no open non-draft PR for $SHA"; exit 0; }
+          [ -z "$pr" ] && { echo "nenhum PR aberto (nao-draft) para $SHA"; exit 0; }
 
           gh pr merge "$pr" --repo "$REPO" --squash
