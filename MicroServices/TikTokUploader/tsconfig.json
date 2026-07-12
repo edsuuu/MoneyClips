@@ -1,16 +1,15 @@
 {
-    "include": ["src/**/*"],
+    "include": ["app/**/*"],
     "exclude": ["node_modules"],
     "compilerOptions": {
         "module": "ESNext",
         "moduleResolution": "Bundler",
         "target": "ESNext",
-        "lib": ["ESNext"],
+        "lib": ["ESNext", "DOM", "DOM.Iterable"],
         "types": ["node"],
 
-        "baseUrl": ".",
         "paths": {
-            "@/*": ["src/*"]
+            "@/*": ["./app/*"]
         },
 
         "noEmit": true,

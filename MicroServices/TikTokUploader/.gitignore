@@ -4,34 +4,17 @@ dist/
 build/
 *.tsbuildinfo
 npm-debug.log*
-# Lockfile é o pnpm (Docker/CI usam pnpm); npm não deve recriar o dele.
+# Lockfile é o pnpm; npm não deve recriar o dele.
 package-lock.json
 
 # Env e segredos
 .env
 
-# Configs de VPN (contêm chaves privadas — NUNCA commitar)
-*.ovpn
-*.conf
-wg*.conf
-
-# Cookies de sessão do TikTok (contêm credenciais).
-# A pasta é versionada (via .gitkeep), mas os JSONs de sessão NUNCA.
-cookies/*
-!cookies/.gitkeep
-
-# Estado de runtime
+# Runtime / logs
 *.log
 logs/
 # Gravações de sessão do Playwright (vão para tmp, mas garante que não vazem)
 *.webm
-
-# Legado Python
-__pycache__/
-*.py[cod]
-tiktokautouploader.egg-info
-.venv/
-venv/
 
 # IDE / SO
 .idea/
