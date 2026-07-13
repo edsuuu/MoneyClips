@@ -168,9 +168,17 @@ Em `MicroServices/DownloadShorts/`. Magro: recebe `channel_url` +
 
 Em `MicroServices/TikTokUploader/`. Publica Shorts via navegador (Playwright
 headless). **Não tem banco** e **não lê cookies do filesystem em prod** —
-recebe os cookies no payload de cada `POST /posts`. API HTTP em Express
-(`src/server.ts` só traduz HTTP → `src/app.ts`).
+recebe os cookies no payload de cada `POST /posts`. Estrutura estilo Laravel
+em `app/`: `App.ts` sobe o Express; camada HTTP em `Http/` (`Routers`,
+`Controllers`, `Middleware`, `Requests`, `Helpers`) e regras de negócio em
+`Services/` (`TikTok/TikTokUploader`, `TikTok/Cookies`, `TikTok/Captcha/`,
+`SessionService`, `Browser`, `Notifications/Discord`). Build com `tsup`
+(`dist/App.js`), roda via pm2 (`ecosystem.config.cjs`).
 
+- Rotas: `GET /health`, `GET /` (docs), `POST /posts`, `POST /session`,
+  `POST /login`. As duas últimas (`AuthController` + `SessionService`) são o
+  login automático por credenciais — o microserviço já expõe, mas o lado
+  Laravel ainda não chama (ver `/contas`).
 - `POST /posts` body: `{ video_id, title, hashtags, video_key?, webhook_url, cookies?: [...] }`.
 - Webhook callback: `status` é `completed | dry-run | restricted | failed`
   (`restricted` = modal de moderação do TikTok; sessão continua válida). Envia
