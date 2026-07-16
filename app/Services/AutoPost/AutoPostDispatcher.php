@@ -4,77 +4,77 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost;
 
-use App\Models\YoutubeShort;
-use App\Services\AutoPost\Posters\PosterContract;
-use Illuminate\Support\Facades\Cache;
+use App\Jobs\PostSlotToPlatform;
+use App\Models\ScheduleSlot;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Orquestrador fininho: por janela, sorteia N Shorts e roda cada Poster
- * habilitado contra eles. Idempotência da janela vive aqui (Cache::add);
- * estoque/reserva em StockReservation; agendamento em WindowSchedule;
- * detalhes por plataforma em cada Poster.
+ * Orquestrador da agenda em banco: a cada tick do scheduler, encontra os
+ * slots devidos (com tolerância de GRACE_MINUTES pra sobreviver a tick
+ * perdido do cron), reivindica cada um atomicamente e enfileira 1 job por
+ * plataforma habilitada. O tick nunca posta nada — quem posta é a fila
+ * `posting` (YouTube leva minutos, TikTok/Playwright até 15).
+ *
+ * O claim atômico (UPDATE ... WHERE dispatched_at IS NULL) substitui o
+ * antigo lock por Cache::add: repostagem dupla é impossível mesmo com
+ * overlap de scheduler + clique manual em "Forçar agora".
  */
 final readonly class AutoPostDispatcher
 {
-    /**
-     * @param  list<PosterContract>  $posters  Ordem importa só para logs (YT é síncrono e roda 1º).
-     */
-    public function __construct(
-        private StockReservation $stock,
-        private array $posters,
-    ) {}
+    /** Tolerância: slot ainda dispara até N minutos depois do horário. */
+    public const int GRACE_MINUTES = 5;
 
-    /**
-     * Sorteia/reserva N Shorts e publica cada um pelos posters habilitados.
-     * Default de N: services.youtube_shorts.posting.posts_per_run (1).
-     *
-     * @param  ?int  $count  Número de Shorts a postar; default: config value.
-     * @param  bool  $force  Se true, ignora check de janela ativa (p.ex., clique manual "Forçar agora").
-     */
-    public function run(?int $count = null, bool $force = false): void
+    public function __construct(private PosterRegistry $posters) {}
+
+    public function dispatchDueSlots(): void
     {
-        $enabled = array_values(array_filter($this->posters, static fn (PosterContract $p): bool => $p->isEnabled()));
+        $now = CarbonImmutable::now(AutoPost::TIMEZONE);
 
+        $due = ScheduleSlot::query()
+            ->due($now, self::GRACE_MINUTES)
+            ->orderBy('slot_time')
+            ->get();
+
+        foreach ($due as $slot) {
+            $this->dispatchSlot($slot);
+        }
+    }
+
+    /**
+     * Reivindica o slot e enfileira os posts. Retorna false quando outro
+     * tick/clique já reivindicou (ou o slot não tem vídeo).
+     */
+    public function dispatchSlot(ScheduleSlot $slot): bool
+    {
+        $enabled = $this->posters->enabled();
         if ($enabled === []) {
-            Log::warning('[AutoPost] Nenhuma plataforma habilitada — nada a postar.');
+            Log::warning('[AutoPost] Nenhuma plataforma habilitada — slot não despachado.', ['slot_id' => $slot->id]);
 
-            return;
+            return false;
         }
 
-        if (! $force) {
-            // Idempotência por janela: 1 execução por range mesmo com overlap.
-            // Cache::add é atômico — só o 1º vencedor passa.
-            $windowKey = WindowSchedule::windowKey();
-            if ($windowKey === null) {
-                Log::info('[AutoPost] Fora de qualquer janela ativa — nada a fazer.');
+        $claimed = ScheduleSlot::query()
+            ->whereKey($slot->id)
+            ->whereNull('dispatched_at')
+            ->whereNotNull('youtube_short_id')
+            ->update(['dispatched_at' => now()]);
 
-                return;
-            }
+        if ($claimed !== 1) {
+            Log::info('[AutoPost] Slot já reivindicado ou sem vídeo — ignorando.', ['slot_id' => $slot->id]);
 
-            if (! Cache::add($windowKey, true, now()->addHours(6))) {
-                Log::info('[AutoPost] Janela já processada — ignorando execução duplicada.', ['key' => $windowKey]);
-
-                return;
-            }
+            return false;
         }
 
-        Log::info('[AutoPost] Iniciando postagem.', ['force' => $force]);
+        Log::info('[AutoPost] Slot despachado.', [
+            'slot_id' => $slot->id,
+            'platforms' => array_map(static fn ($p): string => $p->platform(), $enabled),
+        ]);
 
-        $count = max(1, $count ?? (int) config('services.youtube_shorts.posting.posts_per_run', 1));
-
-        for ($i = 0; $i < $count; $i++) {
-            $short = $this->stock->reserveNext();
-            if (! $short instanceof YoutubeShort) {
-                Log::warning('[AutoPost] Nenhum Short disponível para postar.');
-                break;
-            }
-
-            foreach ($enabled as $poster) {
-                $poster->post($short);
-            }
+        foreach ($enabled as $poster) {
+            dispatch(new PostSlotToPlatform($slot->id, $poster->platform()));
         }
 
-        $this->stock->warnIfLowStock();
+        return true;
     }
 }

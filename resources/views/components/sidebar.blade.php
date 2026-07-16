@@ -11,7 +11,10 @@
     <div x-show="open" x-cloak class="fixed inset-0 z-30 bg-slate-950/70 lg:hidden" x-on:click="open = false"></div>
 
     <aside
-        class="fixed inset-y-0 left-0 z-10 flex w-64 -translate-x-full flex-col border-r border-slate-800 bg-slate-950/95 p-4 text-slate-100 backdrop-blur transition-transform duration-200 lg:translate-x-0 {{ $layout === 'navbar' ? 'lg:hidden' : '' }}"
+        @class([
+            'fixed inset-y-0 left-0 z-10 flex w-64 -translate-x-full flex-col border-r border-slate-800 bg-slate-950/95 p-4 text-slate-100 backdrop-blur transition-transform duration-200 lg:translate-x-0',
+            'lg:hidden' => $layout === 'navbar',
+        ])
         :class="open ? 'translate-x-0' : ''"
     >
         <button type="button" class="mb-2 cursor-pointer self-end text-slate-400 hover:text-slate-100 lg:hidden" x-on:click="open = false">
@@ -24,28 +27,17 @@
             </a>
         </div>
 
+        {{-- Mesma fonte de itens da navbar (App\View\Components\NavbarItems) —
+             rota/ícone/active nunca divergem entre desktop e drawer mobile. --}}
         <nav class="mt-8 px-2">
             <ul class="grid gap-1.5">
-                <li>
-                    <x-nav-item icon="film" size="lg" :href="route('downloads.index')" :current="request()->routeIs('downloads.index')">
-                        {{ __('Downloads') }}
-                    </x-nav-item>
-                </li>
-                <li>
-                    <x-nav-item icon="layout-grid" size="lg" :href="route('agenda.index')" :current="request()->routeIs('agenda.index')">
-                        {{ __('Agenda') }}
-                    </x-nav-item>
-                </li>
-                <li>
-                    <x-nav-item icon="user-circle" size="lg" :href="route('accounts.index')" :current="request()->routeIs('accounts.index')">
-                        {{ __('Contas') }}
-                    </x-nav-item>
-                </li>
-                <li>
-                    <x-nav-item icon="computer-desktop" size="lg" :href="route('microservices.index')" :current="request()->routeIs('microservices.index')">
-                        {{ __('Microserviços') }}
-                    </x-nav-item>
-                </li>
+                @foreach (\App\View\Components\NavbarItems::items() as $item)
+                    <li>
+                        <x-nav-item :icon="$item['icon']" size="lg" :href="route($item['route'])" :current="$item['current']">
+                            {{ $item['label'] }}
+                        </x-nav-item>
+                    </li>
+                @endforeach
             </ul>
         </nav>
 

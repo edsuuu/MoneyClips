@@ -37,17 +37,17 @@
         @elseif($layout === 'navbar')
             <x-sidebar layout="navbar" />
 
-            <header class="sticky top-0 z-20 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
-                <div class="mx-auto flex h-14 w-full max-w-7xl items-center gap-4 px-4">
+            <header class="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/95 backdrop-blur">
+                <div class="mx-auto flex h-[62px] w-full max-w-[1400px] items-center gap-6 px-4 sm:px-8 2xl:px-11">
                     <button type="button" class="mr-1 cursor-pointer text-slate-300 hover:text-slate-50 lg:hidden" x-data x-on:click="$dispatch('sidebar-toggle')">
                         <x-ui.icon name="bars-2" class="size-5" />
                     </button>
 
-                    <x-app-logo href="{{ route('home') }}" wire:navigate />
+                    <a href="{{ route('home') }}" wire:navigate class="flex size-8 items-center justify-center rounded-[9px] bg-sky-400 text-slate-950 max-sm:hidden">
+                        <x-ui.icon name="bolt" class="size-4" />
+                    </a>
 
-                    <nav class="-mb-px flex items-center gap-1 max-lg:hidden">
-
-                    </nav>
+                    <x-navbar-items class="max-lg:hidden" />
 
                     <div class="flex-1"></div>
 
@@ -63,7 +63,7 @@
                 </div>
             </header>
 
-            <main>
+            <main class="mx-auto w-full max-w-[1400px] px-4 pb-16 pt-8 sm:px-8 2xl:px-11">
                 {{ $slot }}
             </main>
         @else

@@ -1,37 +1,44 @@
 # MoneyClips
 
-Plataforma de **auto-postagem de Shorts** em YouTube + TikTok. O Laravel
-orquestra; o trabalho pesado (download e upload via navegador) roda em
-microserviços dedicados em [`MicroServices/`](MicroServices/).
-
-> Antes este repo (`generate-clips-laravel`) tinha um pipeline de cortes de
-> vídeo longo — foi removido. Hoje o foco é só auto-postagem.
+Plataforma de **auto-postagem de Shorts** multi-plataforma (YouTube + TikTok
+hoje; TikTok oficial/Instagram/Facebook/Kwai com posters preparados). O
+Laravel orquestra; o trabalho pesado (download, upload via navegador,
+reencode, render de template) roda em microserviços dedicados em
+[`MicroServices/`](MicroServices/). **Tudo nativo — sem Docker.**
 
 ## Stack
 
-- **PHP 8.4+ / Laravel 12+** (`bootstrap/app.php`)
-- **Livewire 3 + Tailwind 4 + Vite** — kit próprio de componentes Blade em
+- **PHP 8.4+ / Laravel 13+** (`bootstrap/app.php`)
+- **Livewire 4 + Tailwind 4 + Vite** — kit próprio de componentes Blade em
   `resources/views/components/ui/` (sem Flux UI)
-- **MySQL** + **fila em banco** (`QUEUE_CONNECTION=database`)
-- **MinIO** (S3-compatível) — disk `s3`, bucket `videos`
+- **MySQL** + **fila em banco** (filas `posting` e `processing`)
+- **MinIO** (S3-compatível) — disk `s3`; **só o Laravel toca o S3** (os
+  microserviços recebem/entregam o vídeo por HTTP multipart)
 - Qualidade: **PHPStan/Larastan**, **Pint**, **Rector**
+- Design das telas: [`docs/designs/`](docs/designs/) (claude.ai/design)
 
 ## Como funciona
 
 ```
-download-shorts (FastAPI, 8770) → MinIO + tabela youtube_shorts (estoque)
-   → cron Laravel (schedule:run) → AutoPostDispatcher
-        ├─ YoutubePoster   (síncrono, YouTube Data API v3)
-        └─ TiktokPoster    (assíncrono → tiktok-uploader 8090 → webhook)
+download-shorts (8770) → MinIO + youtube_shorts (estoque)
+   → /meus-videos: revisão → pronto (ready_at)
+        └─ opcional: reencode (8790) OU template via autocaption (8780)
+   → /agenda: schedule_slots (data+hora+vídeo) → cron → AutoPostDispatcher
+        → 1 job por plataforma habilitada (platform_settings)
+             ├─ YoutubePoster  (YouTube Data API v3)
+             ├─ TiktokPoster   (multipart síncrono → tiktok-uploader 8090)
+             └─ stubs: tiktok_official, instagram, facebook, kwai
 ```
 
-- **Agendamento**: 5 slots/dia (09/12/15/18/21h, fuso São Paulo), com o minuto
-  sorteado por dia (muda toda semana, pra não parecer bot). Visível em `/agenda`.
-- **YouTube**: OAuth Google em `social_accounts`. Toggle on/off em `/agenda`.
-- **TikTok**: sem OAuth oficial — cookies do Playwright guardados
-  **criptografados** em `social_accounts.cookies`. O Laravel envia os cookies
-  no payload de cada post; o uploader devolve refresh + status pela webhook.
-  Contas (nome, email/senha, status da sessão) ficam em `/contas`.
+- **Agenda em banco**: slots concretos (data + hora + vídeo atribuído) editáveis
+  em `/agenda` — kanban semanal com "Gerar semana", drag & drop, "Forçar agora"
+  e status por plataforma em cada slot.
+- **YouTube**: OAuth Google em `social_accounts`; connect em `/contas`.
+- **TikTok**: sem OAuth oficial — cookies do Playwright **criptografados** em
+  `social_accounts.cookies`. O Laravel envia o binário do vídeo + cookies por
+  multipart e recebe o desfecho na resposta (`completed|dry-run|restricted`).
+- **Observabilidade**: logs + heartbeat dos serviços em `/observabilidade`
+  (push HTTP → banco; ver [`OBSERVABILITY.md`](OBSERVABILITY.md)).
 
 Detalhes de tabelas, serviços e comandos em [`CLAUDE.md`](CLAUDE.md).
 
@@ -39,48 +46,42 @@ Detalhes de tabelas, serviços e comandos em [`CLAUDE.md`](CLAUDE.md).
 
 | Serviço | Stack | Porta | Papel |
 | --- | --- | --- | --- |
-| **download-shorts** | Python / FastAPI | 8770 | baixa Shorts de canais p/ o MinIO + dispara webhook por item |
-| **tiktok-uploader** | Node 22 + Playwright | 8090 | publica no TikTok via navegador headless; devolve resultado por webhook |
-
-Só os microserviços sobem via `docker compose` na raiz. O **Laravel roda nativo**
-(sem Sail/container). MySQL e MinIO ficam externos no host — o Laravel nativo
-acessa via `127.0.0.1`, e os containers de volta via `host.docker.internal`.
+| **download-shorts** | Python / FastAPI | 8770 | baixa Shorts de canais p/ o MinIO + webhook por item |
+| **tiktok-uploader** | Node 22 + Playwright | 8090 | publica no TikTok via navegador (multipart síncrono) |
+| **reencode** | Node 22 + ffmpeg | 8790 | recodifica bitrate baixo (multipart síncrono, sem S3) |
+| **autocaption** | Python / WhisperX (CUDA) | 8780 | legenda karaokê + template de canal (assíncrono + webhook) |
 
 ## Rodando localmente
 
-Pré-requisitos: **Docker Desktop**, **MySQL** com o banco do `.env` criado e
-**MinIO** no ar com o bucket `videos`.
+Pré-requisitos: **MySQL** com o banco do `.env` criado, **MinIO** no ar com o
+bucket `video`, PHP 8.4, Node 22 + pnpm, Python 3.11+, ffmpeg.
 
 ```bash
-composer setup       # install + env + key + build de assets (1ª vez)
-make up              # docker compose up -d (microserviços) + composer dev (serve+queue+pail+vite)
+make setup     # 1ª vez: deps + .env de tudo (Laravel + 4 serviços)
+php artisan migrate && php artisan schedule:migrate-legacy
+make up        # sobe TUDO num terminal só (ctrl-C derruba)
 ```
 
-`make up` sobe os microserviços em background e o Laravel nativo em foreground
-(`http://127.0.0.1:8000`). Ctrl-C encerra o Laravel; `make down` derruba os
-containers. Outros alvos: `make infra`, `make dev`, `make logs`, `make check`.
-
-Prefere manual? `docker compose up -d --build` + `php artisan serve` +
-`php artisan schedule:work` fazem o mesmo.
-
-> **TikTok:** o container é headless. Gere os cookies fora dele e importe pro
-> banco (`php artisan tiktok:import-cookies-from-file`); o status da sessão
-> aparece em `/contas`. Mantenha `DRY_RUN=true` ao testar — publicação é
-> irreversível.
+> **TikTok:** gere os cookies fora e importe pro banco
+> (`php artisan tiktok:import-cookies-from-file`); o status da sessão aparece
+> em `/contas`. Mantenha `DRY_RUN=true` ao testar — publicação é irreversível.
 
 ## Produção
 
-No servidor Linux o Laravel **roda nativo** (nginx + PHP-FPM 8.4, sem Sail); o
-`docker compose` sobe só os microserviços. Os callbacks apontam pro domínio real
-(nginx :80/HTTPS), não `:8000`. Cron único:
+Laravel nativo (nginx + PHP-FPM 8.4); microserviços via pm2/systemd. Webhooks
+e observabilidade apontam pro domínio real (nginx :80/HTTPS), não `:8000`.
 
 ```
 * * * * * cd /var/www/projects/MoneyClips && php artisan schedule:run
 ```
 
+- Worker de fila: `php artisan queue:listen --queue=posting,processing,default --tries=1 --timeout=1800`
+- Deploy desta versão: rode `php artisan schedule:migrate-legacy` uma vez
+  após o `migrate` e configure `OBSERVABILITY_TOKEN` em todos os `.env`.
+
 ## Qualidade / CI
 
 ```bash
-composer check      # phpstan + pint + rector (dry) — é o que o CI roda
+composer check      # phpstan + pint + rector + pest — é o que o CI roda
 composer lint       # pint + rector aplicando fixes
 ```

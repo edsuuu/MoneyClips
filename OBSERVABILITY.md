@@ -1,11 +1,12 @@
-# Observability — logs centralizados + heartbeat (plano futuro)
+# Observability — logs centralizados + heartbeat
 
-> **Status: não implementado.** Este documento descreve a arquitetura decidida
-> para monitorar os microserviços quando eles rodarem **sem Docker** (pm2 /
-> systemd, possivelmente em servidores separados). Hoje o
-> `App\Services\MicroserviceMonitor` lê logs pelo Docker socket local — isso
-> deixa de funcionar sem Docker e com serviços remotos, e será substituído
-> pelo fluxo abaixo.
+> **Status: IMPLEMENTADO.** Endpoints `/api/observability/{logs,heartbeat}`
+> (middleware `VerifyObservabilityToken`), tabelas `service_logs` /
+> `service_heartbeats`, comando `observability:check-heartbeats`, tela
+> `/observabilidade` e observers nos 4 microserviços
+> (`RemoteObservability.ts` no tiktok-uploader/reencode, `observability.py`
+> no download-shorts/autocaption). O antigo `MicroserviceMonitor` (Docker
+> socket) foi removido. Este documento segue como referência da arquitetura.
 
 ## Decisão
 

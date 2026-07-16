@@ -4,24 +4,26 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost\Posters;
 
+use App\Models\PlatformSetting;
 use App\Models\SocialAccount;
-use App\Models\User;
-use App\Models\YoutubeShort;
 use App\Services\DiscordNotifier;
-use App\Services\TikTok\TiktokPostService;
+use App\Services\TikTok\SessionInvalidException;
+use App\Services\TikTok\TiktokUploaderClient;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
 /**
- * Enfileira a postagem no TikTok via microserviço uploader (ASSÍNCRONO).
- *
- * O sucesso real é confirmado pelo webhook em /api/tiktok-posts/callback —
- * aqui só registramos que o job foi enfileirado e devolvemos PosterResult::queued.
+ * Posta no TikTok via microserviço uploader (Playwright), de forma SÍNCRONA:
+ * o Laravel envia o binário do vídeo + cookies do banco e recebe o desfecho
+ * na resposta (completed | dry-run | restricted). Roda dentro do job
+ * PostSlotToPlatform (fila `posting`) por causa da duração (~15 min no pior
+ * caso de verificação de conteúdo).
  */
 final readonly class TiktokPoster implements PosterContract
 {
     public function __construct(
-        private TiktokPostService $tiktok,
+        private TiktokUploaderClient $client,
         private DiscordNotifier $discord,
     ) {}
 
@@ -32,67 +34,87 @@ final readonly class TiktokPoster implements PosterContract
 
     public function isEnabled(): bool
     {
-        // Cron roda sem usuário autenticado — usamos o user mais antigo (admin)
-        // como fonte de verdade do toggle. Cada user mexe no seu pela /agenda.
-        $user = User::query()->orderBy('id')->first();
-
-        return $user instanceof User ? $user->auto_post_tiktok_enabled : true;
+        return PlatformSetting::isEnabled($this->platform());
     }
 
-    public function post(YoutubeShort $short): PosterResult
+    public function post(PostTask $task): PosterResult
     {
-        // Curto-circuito: se a conta TikTok está marcada como inválida,
-        // não tenta postar pra evitar acumular falhas e flag de spam.
-        // O operador precisa revisar a conta em /contas.
         $account = SocialAccount::query()
             ->where('platform', 'tiktok')
             ->where('is_active', true)
             ->latest('id')
             ->first();
 
-        if ($account instanceof SocialAccount && $account->session_status === SocialAccount::SESSION_INVALID) {
-            Log::warning('[AutoPost][TikTok] Sessão inválida — pulando disparo.', ['id' => $short->id]);
-
-            return PosterResult::failed($this->platform(), 'Sessão inválida — revise a conta em /contas');
+        if (! $account instanceof SocialAccount) {
+            return PosterResult::failed($this->platform(), 'Nenhuma conta TikTok ativa cadastrada em /contas.');
         }
 
-        Log::info('[AutoPost][TikTok] Despachando Short.', [
-            'id' => $short->id,
-            'youtube_id' => $short->youtube_id,
-            'title' => $short->title,
-            'hashtags' => $short->hashtags,
-            'channel_url' => $short->channel_url,
-            'video_path' => $short->video_path,
-            'downloaded_at' => $short->downloaded_at?->toIso8601String(),
-            'dispatched_at' => $short->dispatched_at?->toIso8601String(),
-        ]);
+        // Curto-circuito: sessão marcada como inválida — postar de novo só
+        // acumula falha e flag de spam. O operador renova em /contas.
+        if ($account->session_status === SocialAccount::SESSION_INVALID) {
+            Log::warning('[AutoPost][TikTok] Sessão inválida — pulando disparo.', ['short_id' => $task->short->id]);
+
+            return PosterResult::failed($this->platform(), 'Sessão inválida — renove os cookies em /contas.');
+        }
+
+        $cookies = is_array($account->cookies) ? $account->cookies : [];
+        if ($cookies === []) {
+            return PosterResult::failed($this->platform(), 'Conta TikTok sem cookies salvos — importe em /contas.');
+        }
 
         try {
-            $jobId = $this->tiktok->queuePost(
-                $short->youtube_id,
-                $short->title ?? $short->youtube_id,
-                $short->hashtags ?? [],
-                $short->video_path,
-            );
-
-            Log::info('[AutoPost][TikTok] Short enfileirado no uploader.', [
-                'id' => $short->id,
-                'job_id' => $jobId,
-                'video_path' => $short->video_path,
-            ]);
-
-            return PosterResult::queued($this->platform());
-        } catch (Throwable $throwable) {
-            Log::error('[AutoPost][TikTok] Falha ao enfileirar.', [
-                'id' => $short->id,
-                'error' => $throwable->getMessage(),
-            ]);
+            $result = $this->client->postVideo($task->videoPath, $cookies, $task->title, $task->hashtags);
+        } catch (SessionInvalidException $exception) {
+            $account->forceFill(['session_status' => SocialAccount::SESSION_INVALID])->save();
             $this->discord->error(
-                '❌ Falha ao enfileirar Short no TikTok',
-                ($short->title ?? $short->youtube_id).PHP_EOL.$throwable->getMessage(),
+                '🔒 Sessão TikTok inválida',
+                'O uploader recusou os cookies da conta.'.PHP_EOL.
+                'Renove as credenciais em /contas antes do próximo slot.'.PHP_EOL.
+                'Detalhe: '.$exception->getMessage(),
             );
+
+            return PosterResult::failed($this->platform(), 'Sessão inválida: '.$exception->getMessage());
+        } catch (ConnectionException $exception) {
+            // Timeout ≠ falha certa: o Playwright pode ter postado antes do
+            // corte. Não repostar automaticamente — o operador confere.
+            $message = 'Timeout/conexão com o uploader — verifique manualmente no TikTok se o vídeo saiu. '.$exception->getMessage();
+            Log::error('[AutoPost][TikTok] '.$message, ['short_id' => $task->short->id]);
+            $this->discord->error('❌ TikTok: timeout no upload', ($task->title ?: $task->short->youtube_id).PHP_EOL.$message);
+
+            return PosterResult::failed($this->platform(), $message);
+        } catch (Throwable $throwable) {
+            Log::error('[AutoPost][TikTok] Falha ao postar.', ['short_id' => $task->short->id, 'error' => $throwable->getMessage()]);
+            $this->discord->error('❌ Falha ao postar no TikTok', ($task->title ?: $task->short->youtube_id).PHP_EOL.$throwable->getMessage());
 
             return PosterResult::failed($this->platform(), $throwable->getMessage());
         }
+
+        // Post aceito = cookies funcionaram; reflete na conta.
+        $account->forceFill([
+            'session_status' => SocialAccount::SESSION_VALID,
+            'cookies_last_validated_at' => now(),
+        ])->save();
+
+        if ($result->isRestricted()) {
+            $this->discord->warning(
+                '⚠️ TikTok restringiu o post',
+                ($task->title ?: $task->short->youtube_id).PHP_EOL.
+                'Modal de moderação detectado — o vídeo não volta pro sorteio.'.PHP_EOL.
+                'Detalhe: '.($result->detail ?? '—'),
+            );
+
+            return PosterResult::restricted($this->platform(), $result->detail);
+        }
+
+        if ($result->isDryRun()) {
+            Log::info('[AutoPost][TikTok] DRY_RUN — post simulado.', ['short_id' => $task->short->id]);
+
+            return PosterResult::dryRun($this->platform());
+        }
+
+        Log::info('[AutoPost][TikTok] Short postado.', ['short_id' => $task->short->id]);
+        $this->discord->success('✅ Short postado no TikTok', $task->title ?: $task->short->youtube_id);
+
+        return PosterResult::ok($this->platform());
     }
 }
