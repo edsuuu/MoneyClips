@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
-use App\Services\AutoPost\AutoPostDispatcher;
+use App\Services\AutoPost\PosterRegistry;
+use App\Services\AutoPost\Posters\FacebookReelsPoster;
+use App\Services\AutoPost\Posters\InstagramReelsPoster;
+use App\Services\AutoPost\Posters\KwaiPoster;
+use App\Services\AutoPost\Posters\TiktokOfficialPoster;
 use App\Services\AutoPost\Posters\TiktokPoster;
 use App\Services\AutoPost\Posters\YoutubePoster;
-use App\Services\AutoPost\StockReservation;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
@@ -26,16 +29,17 @@ final class AppServiceProvider extends ServiceProvider
     #[Override]
     public function register(): void
     {
-        // Lista ordenada dos Posters do AutoPostDispatcher. YouTube vem 1º
-        // (síncrono — falha aqui é falha do post); TikTok depois (assíncrono).
-        // Adicione novos posters aqui pra estendê-lo a outras plataformas.
-        $this->app->singleton(AutoPostDispatcher::class, fn (Application $app): AutoPostDispatcher => new AutoPostDispatcher(
-            stock: $app->make(StockReservation::class),
-            posters: [
-                $app->make(YoutubePoster::class),
-                $app->make(TiktokPoster::class),
-            ],
-        ));
+        // Registro dos Posters por plataforma. Adicionar plataforma nova =
+        // criar o Poster em App\Services\AutoPost\Posters e listar aqui
+        // (o toggle vive em platform_settings, editável na /agenda).
+        $this->app->singleton(PosterRegistry::class, fn (Application $app): PosterRegistry => new PosterRegistry([
+            $app->make(YoutubePoster::class),
+            $app->make(TiktokPoster::class),
+            $app->make(TiktokOfficialPoster::class),
+            $app->make(InstagramReelsPoster::class),
+            $app->make(FacebookReelsPoster::class),
+            $app->make(KwaiPoster::class),
+        ]));
     }
 
     /**

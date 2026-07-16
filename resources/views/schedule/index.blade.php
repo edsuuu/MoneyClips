@@ -1,3 +1,3 @@
-<x-layout :title="__('Agenda')" layout="sidebar">
+<x-layout :title="__('Agenda')" layout="navbar">
     <livewire:schedule.index />
 </x-layout>

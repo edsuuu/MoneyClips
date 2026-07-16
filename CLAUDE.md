@@ -1,140 +1,183 @@
 # MoneyClips
 
-Plataforma de **auto-postagem de Shorts** em YouTube + TikTok. Laravel
+Plataforma de **auto-postagem de Shorts** multi-plataforma (YouTube + TikTok
+hoje; TikTok oficial/Instagram/Facebook/Kwai com posters preparados). Laravel
 orquestra; microserviços fazem o trabalho pesado (download, upload via
-Playwright). Repositório anterior (`generate-clips-laravel`) tinha pipeline
-de cortes de vídeo longo — foi removido; agora o foco é só auto-postagem.
+Playwright, reencode, render de template). **Tudo roda nativo — sem Docker**
+(`make up`).
 
 ## Stack
 
-- **PHP 8.4+ / Laravel 12+** (`bootstrap/app.php`)
-- **Livewire 3 + Tailwind 4 + Vite** — kit próprio de componentes Blade em
+- **PHP 8.4+ / Laravel 13+** (`bootstrap/app.php`)
+- **Livewire 4 + Tailwind 4 + Vite** — kit próprio de componentes Blade em
   `resources/views/components/ui/` (sem Flux UI). Toasts: trait
-  `App\Livewire\Concerns\WithToasts` → evento consumido por
-  `components/ui/toasts.blade.php`.
-- **MySQL** (`DB_CONNECTION=mysql`) + **fila em banco** (`QUEUE_CONNECTION=database`, hoje sem `ShouldQueue` ativos)
-- **MinIO** (S3-compatível) — disk `s3`, bucket `videos`
+  `App\Livewire\Concerns\WithToasts` → `components/ui/toasts.blade.php`.
+- **MySQL** (`DB_CONNECTION=mysql`) + **fila em banco** (`QUEUE_CONNECTION=database`,
+  filas nomeadas: `posting` e `processing` — worker no `make up` escuta
+  `--queue=posting,processing,default --timeout=1800`)
+- **MinIO** (S3-compatível) — disk `s3`, bucket `video`
 - Qualidade: **PHPStan/Larastan**, **Pint**, **Rector** (CI roda `composer check`)
+- Design de referência das telas: `docs/designs/*.dc.html` (claude.ai/design)
 
-## Domínio único: auto-postagem de Shorts
+## Regra de arquitetura: só o Laravel toca o S3
 
-Pipeline:
+Os microserviços de processamento/postagem **não têm credencial de storage**:
+o Laravel baixa o vídeo do MinIO, envia o binário por HTTP (multipart) e grava
+o resultado de volta. Exceção: `download-shorts` (produtor de vídeo) sobe
+direto pro MinIO.
+
+## Domínio: agenda em banco + estoque
 
 ```
 download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
-  → cron Laravel (schedule:run) → AutoPostDispatcher
-     → YoutubePoster (síncrono, Data API)
-     → TiktokPoster (assíncrono → tiktok-uploader → webhook callback)
+  → /meus-videos: revisão (título/hashtags) → ready_at
+      → opcional: reencode (síncrono) OU template via AutoCaption (assíncrono)
+  → /agenda: schedule_slots (data+hora+vídeo) → AutoPostDispatcher (cron)
+      → claim atômico do slot → 1 job PostSlotToPlatform por plataforma habilitada
+          → YoutubePoster (Data API) / TiktokPoster (multipart síncrono) / stubs
 ```
 
-### Auto-postagem (`App\Services\AutoPost\`)
+### Agenda (`schedule_slots` + `App\Services\AutoPost\`)
 
-- `WindowSchedule` — 5 slots/dia em horas fixas (`SLOT_HOURS = [9,12,15,18,21]`,
-  fuso América/São_Paulo). Minuto sorteado por dia/hora via `crc32(date:hour) % 60`
-  → muda toda semana (mesma 2ª-feira da próxima semana = minuto diferente).
-- `AutoPostDispatcher` — orquestra: pega lock da janela (`Cache::add`),
-  reserva 1 Short com `StockReservation`, roda os Posters habilitados.
-- `Posters/` — `PosterContract`, `PosterResult` (DTO), `YoutubePoster`,
-  `TiktokPoster`. Cada Poster lê `users.auto_post_{platform}_enabled` (admin
-  id=1) pra decidir se está ativo. Falhas vão pro Discord via `DiscordNotifier`.
-- `StockReservation` — `reserveNext()` atômico em `youtube_shorts.dispatched_at`;
-  `warnIfLowStock()` avisa Discord 1×/dia.
+- `ScheduleSlot` — slot concreto: `slot_date` + `slot_time` (fuso
+  `America/Sao_Paulo`, constante `AutoPost::TIMEZONE`), `youtube_short_id`
+  (null = vazio), `is_active`, `dispatched_at` (claim atômico). Máx. 5/dia.
+  `scheduledAt()` é o único ponto que combina data+hora (fuso).
+- `AutoPostDispatcher` — a cada minuto busca slots devidos (tolerância
+  `GRACE_MINUTES = 5`), reivindica via `UPDATE ... WHERE dispatched_at IS NULL`
+  e enfileira `PostSlotToPlatform` (fila `posting`, `tries=1` — repost às
+  cegas arrisca duplicado). O tick nunca posta nada.
+- `PosterRegistry` (singleton no `AppServiceProvider`) — 1 Poster por
+  plataforma implementando `Posters\PosterContract`
+  (`post(PostTask): PosterResult`; outcomes `ok|dry-run|restricted|failed`).
+  Toggles em **`platform_settings`** (tela /agenda). Stubs prontos:
+  `TiktokOfficialPoster`, `InstagramReelsPoster`, `FacebookReelsPoster`,
+  `KwaiPoster` (docblocks apontam a API alvo; credenciais irão em
+  `social_accounts`).
+- `SlotStatus` — status de exibição computado na leitura (nunca persistido):
+  `empty|paused|future|next|due|skipped` e, pós-despacho, agregado das
+  `social_posts` do slot: `posting|posted|partial|failed` (por plataforma).
+- `WeekGenerator` — "Gerar semana": copia horários da última semana com slots
+  (fallback: agenda legada `users.auto_post_schedule`, depois
+  `AutoPost::DEFAULT_TIMES`) e auto-atribui vídeos prontos (FIFO `ready_at`).
+- `StockAlert` — 1×/dia compara estoque pronto × slots vazios de 7 dias.
+- Deploy da agenda: rodar `php artisan schedule:migrate-legacy` UMA vez após
+  `migrate` (materializa slots da agenda legada; sem isso nada posta).
 
-### Cron + alertas
+### Estoque (`youtube_shorts` + `/meus-videos`)
 
-```
-* * * * * cd /var/www/projects/MoneyClips && php artisan schedule:run
-```
+Ciclo: baixado (`video_path`) → revisado/pronto (`ready_at`) → opcionalmente
+processado (`processed_video_path` — os posters SEMPRE usam
+`postableVideoPath()`) → agendado (slot) → postado (`posted_youtube_at`/
+`posted_tiktok_at` + ledger `social_posts`). `template_rendered_at` alimenta a
+tab "Com template".
 
-`routes/console.php` registra:
-- `auto-post-social` — every minute, `->when(WindowSchedule::isDueWindow())`
-  filtra pro minuto sorteado.
-- `auto-post-check-missed` — every 10 min, varre slots passados sem
-  postagem (lookback 6h) e alerta Discord 1×/slot via `Cache::add` dedupe.
+### Pipeline de processamento (`App\Services\Processing\` + `processing_jobs`)
+
+Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
+
+- `VideoProcessingService::startReencode()` → `RunReencodeJob` (fila
+  `processing`): MinIO → multipart `POST /reencode` (síncrono, resposta =
+  binário `_HQ` ou JSON `skipped`) → MinIO → `processed_video_path`.
+- `VideoProcessingService::startTemplateRender()` → `StartTemplateRenderJob`:
+  MinIO → multipart `POST /videos` no AutoCaption (com `webhook_url`) →
+  webhook `POST /api/autocaption/webhook` → `FetchTemplateOutputJob` baixa o
+  variant e grava no MinIO. Estilos: `TemplateStyle` (Claro/Escuro/Vertical →
+  variants `template_white|template_black|vertical` do AutoCaption).
+- 1 job pendente por vídeo (guard em `processing_jobs`).
 
 ### YouTube
 
-- `App\Services\Youtube\ShortsPoster` — upload resumível na YouTube Data API v3
-  (HTTP puro, sem google/apiclient). Marca `posted_youtube_at` +
-  `youtube_video_id` no Short.
-- Credenciais: `social_accounts` (platform=`youtube`, OAuth Google).
-  Refresh automático via `YoutubeTokenRefresher`. Connect em `/social-accounts`.
-- Toggle pra desligar sem deploy: switch no `/agenda` ou alterar
-  `users.auto_post_youtube_enabled` direto no banco.
+- `App\Services\Youtube\ShortsPoster` — upload resumível na YouTube Data API
+  v3 (HTTP puro). Credenciais em `social_accounts` (platform=`youtube`, OAuth
+  Google, refresh via `YoutubeTokenRefresher`). Connect em `/contas`.
 
-### TikTok
+### TikTok (não-oficial, Playwright)
 
-- **Sem OAuth oficial** — autenticação por cookies do Playwright.
+- **Integração NOVA (síncrona)**: `App\Services\TikTok\TiktokUploaderClient`
+  faz `POST /posts` **multipart** (`video` binário + `cookies` JSON + `title`
+  + `hashtags`) e recebe o desfecho na resposta:
+  `{status: completed|dry-run|restricted}`; `401` = cookies inválidos →
+  `SessionInvalidException` → conta marcada `session_status=invalid` +
+  Discord (o poster curto-circuita até renovar em /contas). Timeout 1500s
+  (verificação de conteúdo pode levar ~15 min) — roda só dentro do job de fila.
 - Cookies vivem **criptografados no banco**: `social_accounts.cookies`
-  (cast `encrypted:array`). Colunas extras: `cookies_last_validated_at`,
-  `session_status` (`valid`/`invalid`/`unknown`).
-- `App\Services\TikTok\TiktokPostService::queuePost()` lê os cookies do banco
-  e envia no payload do `POST /posts` ao microserviço uploader. Não tem mais
-  arquivo no filesystem como fonte da verdade.
-- `App\Http\Controllers\TiktokPostCallbackController` recebe o webhook do
-  uploader: atualiza ledger (social_posts), salva `refreshed_cookies` se
-  vierem, propaga `session_status`. Quando `session_status='invalid'`,
-  dispara Discord error pedindo ação manual.
-- `TiktokPoster` curto-circuita postagens quando `session_status='invalid'`
-  pra evitar flag de spam.
-- Status `restricted` no ledger: o uploader detecta o modal de moderação do
-  TikTok ("Content may be restricted" / "Unoriginal, low-quality, and QR code
-  content") e devolve `restricted` no callback — o Short não volta pro sorteio
-  (`SocialPost::ACTIVE_STATUSES` inclui `restricted`), a sessão continua
-  `valid` e o Discord recebe warning (não error). Contexto: soft-block de
-  03/07/2026, quando o TikTok passou a recusar 100% dos posts server-side.
-- Contas TikTok ficam em `/contas` (`App\Livewire\Accounts\Index`): nome/@handle,
-  email e senha (colunas `login_email`/`login_password` — texto puro por ora) +
-  badge de `session_status`. O login automático (Laravel → `POST /login` com as
-  creds) ainda não está ligado; até lá o TikTok posta só com cookies já válidos
-  no banco (fallback de emergência: `tiktok:import-cookies-from-file`).
+  (cast `encrypted:array`). Não existe mais webhook de callback nem
+  `refreshed_cookies` — renovação de sessão é manual em `/contas`
+  (fallback de emergência: `tiktok:import-cookies-from-file`).
+- Status `restricted` (modal de moderação do TikTok) não volta pro estoque e
+  gera warning (não error) no Discord; a sessão continua válida.
+- O microserviço `MicroServices/TikTokUploader` é a fonte do contrato.
+
+## Observabilidade (OBSERVABILITY.md)
+
+Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
+
+- `POST /api/observability/logs` (lote) e `POST /api/observability/heartbeat`
+  (30s), autenticados por `X-Observability-Token` (`OBSERVABILITY_TOKEN`,
+  fail-closed). Tabelas `service_logs` (prune 14 dias) e `service_heartbeats`
+  (upsert por serviço).
+- `observability:check-heartbeats` (a cada minuto): sem heartbeat > 90s →
+  Discord 1×/queda + aviso de recuperação.
+- Tela `/observabilidade` (`App\Livewire\Observability\Index`): stream de
+  logs (filtros por serviço/level + busca, poll 3s) + cards de heartbeat +
+  drawer de detalhe. Substituiu `/microservices` e o `MicroserviceMonitor`.
+- Lado dos serviços: `RemoteObservability.ts` (Node) / `observability.py`
+  (Python) — decoram o logger local (buffer, flush 2s/20 linhas,
+  fire-and-forget) + heartbeat. Envs: `OBSERVABILITY_URL`,
+  `OBSERVABILITY_TOKEN`, `SERVICE_NAME`.
 
 ## Banco de dados (visão geral)
 
 | Tabela | Papel |
 | --- | --- |
-| `users` | login Google OAuth; colunas `auto_post_{youtube,tiktok}_enabled` |
+| `users` | login Google OAuth (`auto_post_schedule` legado — fonte do `schedule:migrate-legacy`) |
+| `platform_settings` | toggle global por plataforma (youtube, tiktok, tiktok_official, instagram, facebook, kwai) |
+| `schedule_slots` | agenda em banco: data+hora+vídeo, claim do dispatcher |
 | `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
-| `youtube_shorts` | estoque de Shorts baixados; ciclo de vida (`dispatched_at`, `posted_youtube_at`, `posted_tiktok_at`) |
-| `social_posts` | ledger genérico de postagens (`platform` discrimina) |
-| `cache` | locks da janela (`Cache::add` do `AutoPostDispatcher`) |
+| `youtube_shorts` | estoque; ciclo `ready_at` → `processed_video_path` → `posted_*_at` |
+| `social_posts` | ledger por (slot, plataforma) — status por plataforma na /agenda |
+| `processing_jobs` | estado do pipeline reencode/template |
+| `service_logs` / `service_heartbeats` | observabilidade |
 
-`social_posts` substituiu o antigo `tiktok_posts` — adicionar Instagram/X
-no futuro é só usar uma nova string em `platform`.
-
-## Telas
+## Telas (layout navbar; design em docs/designs/)
 
 | Rota | Componente | Função |
 | --- | --- | --- |
-| `/agenda` | `App\Livewire\Schedule\Index` | grade 7×5 dos slots da semana + toggles YT/TT + "Forçar agora" |
-| `/downloads` | `App\Livewire\Downloads\Index` | estoque com tabs (disponíveis/fila/postados/falhas) + modais de novo download + postagem instantânea |
-| `/contas` | `App\Livewire\Accounts\Index` + `App\Livewire\Settings\Accounts` | CRUD de contas TikTok (nome, email, senha, status) + OAuth YouTube (conectar/gerenciar canal) |
-| `/microservices` | `App\Livewire\Microservices\Index` | health dos serviços (download-shorts, tiktok-uploader) + logs (auto-refresh ligado por padrão) |
+| `/meus-videos` | `App\Livewire\Videos\Index` (+ `TemplateEditor`) | estoque com tabs Disponíveis (Baixados/Prontos), Editor de template, Com template, Postados; postagem instantânea; novo download |
+| `/agenda` | `App\Livewire\Schedule\Index` | kanban semanal de slots (rascunho + "Salvar agenda"), picker de vídeo, drag&drop, "Gerar semana", "Forçar agora", visão Mês, toggles por plataforma |
+| `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok email/senha + status de sessão; YouTube OAuth) com toggle por conta |
+| `/observabilidade` | `App\Livewire\Observability\Index` | logs + heartbeats dos microserviços |
+
+Redirects legados: `/downloads` → `/meus-videos`; `/microservices` → `/observabilidade`.
 
 ## Comandos artisan
 
 | Comando | O que faz |
 | --- | --- |
-| `youtube:download-shorts <canal> [--limit=N]` | baixa Shorts do canal pra MinIO + banco (via download-shorts microservice) |
-| `auto-post:check-missed` | varre slots passados sem postagem e alerta Discord (rodado pelo scheduler a cada 10 min) |
-| `posts:migrate-tiktok` | one-shot histórico: migrou tiktok_posts → social_posts |
-| `tiktok:import-cookies-from-file` | one-shot histórico: importou cookies do filesystem → social_accounts.cookies |
+| `youtube:download-shorts <canal> [--limit=N]` | baixa Shorts do canal pra MinIO + banco |
+| `schedule:migrate-legacy` | one-shot do deploy: materializa `schedule_slots` da agenda legada |
+| `auto-post:check-missed` | alerta slots pulados/sem vídeo/falha total (10 min) |
+| `observability:check-heartbeats` | alerta serviço sem heartbeat > 90s (1 min) |
+| `tiktok:import-cookies-from-file` | fallback de emergência: importa cookies do filesystem |
+| `posts:migrate-tiktok` | one-shot histórico (tiktok_posts → social_posts) |
+
+Cron: `* * * * * php artisan schedule:run` + worker de fila
+(`queue:listen --queue=posting,processing,default --tries=1 --timeout=1800`).
 
 ## Idioma do código (PROIBIDO usar pt-BR)
 
 - Nomes de **pastas, namespaces, classes, métodos, propriedades, variáveis,
   funções, migrations, colunas de tabela, env vars, config keys** — tudo
-  em **inglês**. Ex.: `App\Livewire\Schedule\Index` (não `Agenda`);
-  `auto_post_youtube_enabled` (não `postagem_youtube_habilitada`).
-- Permitido em pt-BR: paths de rotas (`/agenda`, `/downloads`), strings
+  em **inglês**. Ex.: `App\Livewire\Schedule\Index` (não `Agenda`).
+- Permitido em pt-BR: paths de rotas (`/agenda`, `/meus-videos`), strings
   de UI (labels, mensagens, toasts), comentários no código.
 
 ## Convenções
 
 - `declare(strict_types=1)` em todo PHP, classes `final`.
-- Pint impõe `mb_*` (`mb_trim`, `mb_rtrim`); `ext-mbstring` declarado no
-  `composer.json`.
-- PHPStan nível alto (`larastan/larastan` + `phpstan/phpstan` em modo bleeding-edge).
+- Pint impõe `mb_*` (`mb_trim`, `mb_rtrim`); `ext-mbstring` no `composer.json`.
+- PHPStan nível max (`larastan` + bleeding-edge).
 - Migrations consolidadas — em dev, prefira editar a migration de criação
   em vez de empilhar pequenas. Em prod, faça migration nova de drop/alter.
 
@@ -142,111 +185,54 @@ no futuro é só usar uma nova string em `platform`.
 
 ```bash
 composer check      # phpstan + lint + pest — é o que o CI roda (tests.yml)
-composer lint       # pint + rector — ambos APLICAM fixes (o check inclui; commite o resultado)
+composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado)
 ```
 
-- GitHub Actions: `lint.yml`, `tests.yml`, `automerge.yml` (squash automático
-  de PRs verdes).
+## Microserviços (MicroServices/ — todos nativos, sem docker)
 
-## Microserviço download-shorts (FastAPI, porta 8770)
+| Serviço | Porta | Stack | Contrato |
+| --- | --- | --- | --- |
+| download-shorts | 8770 | FastAPI + yt-dlp | `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item; sobe direto pro MinIO (exceção da regra S3) |
+| tiktok-uploader | 8090 | Node 22 + Playwright | `POST /posts` multipart {video, cookies, title, hashtags} → SÍNCRONO `{status}`; `POST /session`, `POST /login`, `GET /health` |
+| reencode | 8790 | Node 22 + ffmpeg | `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped`; 1 ffmpeg por vez; `API_TOKEN` opcional |
+| autocaption | 8780 | FastAPI + WhisperX (CUDA) | `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; webhook `{uuid, status: done|failed}`; output em `GET /videos/{uuid}/output/{variant}` |
+| GenerateClips | 8765 | — | fora do fluxo atual (não entra no `make up`) |
 
-Em `MicroServices/DownloadShorts/`. Magro: recebe `channel_url` +
-`webhook_url`, lista os Shorts via `yt-dlp`, baixa em pool e dispara
-**1 webhook por item terminado**.
-
-- `POST /shorts/download` → `202 {status, count, channel_url}` (`409` se
-  já há download ativo pro canal). `GET /health`.
-- Webhook payload (1 item):
-  `{ channel_url, items: [{ youtube_id, title, hashtags, status, storage_path?, storage_size_bytes?, storage_mime_type?, error? }] }`.
-- Retry: 3 tentativas, backoff 1s/5s/15s.
-- Subir: `docker compose up -d --build download-shorts`.
-- Lado Laravel: `App\Services\Youtube\DownloadShortsClient::createDownload(channelUrl): int`.
-  Webhook recebido em `/api/download-youtube/webhook` →
-  `App\Services\Youtube\DownloadYoutubeImportService` insere em `youtube_shorts`.
-
-## Microserviço tiktok-uploader (Node 22 + Playwright + Express, porta 8090)
-
-Em `MicroServices/TikTokUploader/`. Publica Shorts via navegador (Playwright
-headless). **Não tem banco** e **não lê cookies do filesystem em prod** —
-recebe os cookies no payload de cada `POST /posts`. Estrutura estilo Laravel
-em `app/`: `App.ts` sobe o Express; camada HTTP em `Http/` (`Routers`,
-`Controllers`, `Middleware`, `Requests`, `Helpers`) e regras de negócio em
-`Services/` (`TikTok/TikTokUploader`, `TikTok/Cookies`, `TikTok/Captcha/`,
-`SessionService`, `Browser`, `Notifications/Discord`). Build com `tsup`
-(`dist/App.js`), roda via pm2 (`ecosystem.config.cjs`).
-
-- Rotas: `GET /health`, `GET /` (docs), `POST /posts`, `POST /session`,
-  `POST /login`. As duas últimas (`AuthController` + `SessionService`) são o
-  login automático por credenciais — o microserviço já expõe, mas o lado
-  Laravel ainda não chama (ver `/contas`).
-- `POST /posts` body: `{ video_id, title, hashtags, video_key?, webhook_url, cookies?: [...] }`.
-- Webhook callback: `status` é `completed | dry-run | restricted | failed`
-  (`restricted` = modal de moderação do TikTok; sessão continua válida). Envia
-  também `refreshed_cookies?` (cookies pós-upload, capturados do Playwright) e
-  `session_status?` (`valid`/`invalid`/`unknown`). Laravel atualiza o
-  `social_accounts.cookies` com isso.
-- Reencode **não vive mais aqui** — saiu para o microserviço `reencode` (porta
-  8790). O uploader posta o arquivo apontado por `video_key` como veio; a
-  recodificação é orquestrada antes pelo Laravel.
-- `DRY_RUN=true` no `.env` pula a publicação real (debugging).
-- Logs cobrem o ciclo: cookies recebidos, upload status, cookies capturados,
-  webhook tentativa/status (aceito/rejeitado), refresh count.
-- Subir: `docker compose up -d --build tiktok-uploader`.
-
-## Microserviço reencode (Node 22 + Express, porta 8790)
-
-Em `MicroServices/Reencode/`. Recodifica vídeos de baixo bitrate antes da
-publicação (extraído do tiktok-uploader pra ser reusável por qualquer poster).
-**Não tem banco** — ciclo de vida no Laravel via callback de webhook; fila
-serial (concorrência 1, ffmpeg é pesado).
-
-- `POST /reencode` body: `{ video_id, webhook_url, source_key?, output_key? }`
-  → `202 { job_id, status: "queued" }`. `GET /health`.
-- Baixa `source_key` do S3, mede o bitrate com ffprobe e, abaixo de
-  `REENCODE_BITRATE_THRESHOLD_KBPS` (default 4000), recodifica em qualidade
-  constante CQ/CRF 18 — h264_nvenc (GPU, validado em runtime) com fallback
-  automático pra libx264 (CPU), sobe o `_HQ` no S3. Nunca derruba por causa do
-  reencode. `REENCODE_ENABLED=false` desliga (passthrough). ffmpeg no Dockerfile.
-- Webhook callback: `{ job_id, video_id, status: completed|skipped|failed,
-  source_key, output_key, reencoded, error }`. **Use sempre `output_key` a
-  jusante** — é o `_HQ` quando recodificou, senão a própria origem.
-- Subir: `docker compose up -d --build reencode`.
-- ⚠️ Falta a orquestração no Laravel (chamar `/reencode` e consumir o callback
-  antes de despachar o post) — o serviço está pronto, mas ainda não é invocado.
+Todos com observabilidade (logs + heartbeat → Laravel) quando
+`OBSERVABILITY_URL`/`OBSERVABILITY_TOKEN` configurados.
 
 ## Rodar tudo
 
-O Laravel **roda sempre nativo** (dev: `php artisan serve`; prod: nginx +
-PHP-FPM). O `docker compose` sobe **só os microserviços** — não há mais serviço
-`laravel`/Sail no compose.
-
 ```bash
-make up      # docker compose up -d (download-shorts 8770 + tiktok-uploader 8090 + reencode 8790) + composer dev
+make setup   # 1ª vez: deps + .env de tudo (Laravel + 4 serviços)
+make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
+             # tiktok-uploader + reencode + autocaption — sem docker
 ```
 
-Regra de rede (Laravel nativo ↔ microserviços em container):
-- **Saída** Laravel → microserviço: `127.0.0.1:<porta>` (`.env`: `DOWNLOAD_YOUTUBE_URL`, `TIKTOK_POST_URL`).
-- **Callback** container → Laravel: `host.docker.internal:8000` (`.env`: `*_WEBHOOK_URL`, `*_CALLBACK_URL`).
-- MySQL/MinIO externos: `127.0.0.1` no Laravel nativo; `host.docker.internal`
-  **fixo no compose** (não interpolar de `AWS_ENDPOINT`, que no `.env` é `127.0.0.1`).
+- Laravel → microserviço: `127.0.0.1:<porta>`; microserviço → Laravel:
+  `127.0.0.1:8000` em dev, domínio real (nginx/HTTPS) em prod.
+- AutoCaption precisa de GPU/CUDA pro pipeline completo (em macOS ele sobe,
+  mas o render falha gracioso → `processing_jobs.failed` + Discord).
+- Prod: pm2/systemd por serviço (só o TikTokUploader tem
+  `ecosystem.config.cjs` por enquanto).
 
-Em produção (Linux) os callbacks apontam pro domínio real (nginx :80/HTTPS),
-não `:8000`. Sem o serviço `laravel` no compose, o antigo
-`docker-compose.override.yml` que o desligava é desnecessário — mas o arquivo
-segue no `.gitignore` como override opcional por host (ex.: reservar GPU
-NVIDIA pro microserviço `reencode`; ver bloco comentado no compose).
+## Runbook de deploy desta refatoração
 
-## Histórico (apagados)
+1. `php artisan migrate`
+2. `php artisan schedule:migrate-legacy` (senão nada posta)
+3. Setar `OBSERVABILITY_TOKEN` no Laravel + nos `.env` dos 4 serviços
+4. Revisar `/agenda` (atribuir vídeos aos slots) e toggles em `platform_settings`
+5. ⚠️ Rotacionar a chave Roboflow e o webhook Discord que estavam commitados
+   no `.env.example` antigo do TikTokUploader (continuam no histórico git)
 
-- `edsuuu/auto-post` — repositório anterior (CLI-only), absorvido no
-  `generate-clips-laravel`, depois renomeado pra **MoneyClips**.
-- Pipeline de cortes de vídeo longo — saiu do projeto (era um Python service
-  separado `generate-clips`). Tudo o que era `App\Livewire\Videos\*`,
-  `App\Models\Video/Cut/Transcript/...`, `App\Services\VideoProcessor\*`,
-  `App\Services\StatusService` e as tabelas `videos/cuts/files/transcripts/
-  video_payloads/statuses/status_logs/scheduled_posts/social_post_logs` foram
-  removidos.
-- Extensão Chrome `tiktok-cookie-bridge` e endpoint `/api/tiktok/cookies/ingest`
-  — substituídos pelo fluxo via banco (`social_accounts.cookies`).
-- Card de cookies TikTok (`<livewire:settings.tiktok-cookies />` em
-  `/settings/accounts`) — substituído pela tela `/contas` (credenciais por conta).
+## Histórico (apagados nesta refatoração)
+
+- Integração TikTok assíncrona antiga: `TiktokPostService`,
+  `TIkTokUploaderClient`, `TikTokPostDispatcher`,
+  `TiktokPostCallbackController` (+ rota `/api/tiktok-posts/callback`).
+- `WindowSchedule` (horários fixos + minuto crc32) e `StockReservation`
+  (sorteio) — substituídos por `schedule_slots` + dispatcher por slot.
+- `MicroserviceMonitor` (logs via Docker socket) e a tela `/microservices`.
+- Telas `App\Livewire\Downloads\*` (viraram `/meus-videos`).
+- Colunas `users.auto_post_{youtube,tiktok}_enabled` → `platform_settings`.
+- Reencode por chave S3 + fila em memória + webhook → multipart síncrono.

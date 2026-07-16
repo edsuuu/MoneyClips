@@ -90,7 +90,7 @@ final class OAuthController extends Controller
             request()->session()->regenerate();
             request()->session()->put('auth.authenticated_via_google', true);
 
-            return redirect()->intended(route('downloads.index'));
+            return redirect()->intended(route('videos.index'));
         } catch (Throwable $throwable) {
             Log::channel('daily')->error('[OAuthController] Falha no login com Google.', ['exception' => $throwable]);
 

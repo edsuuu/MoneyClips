@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Services\AutoPost\AutoPost;
 use App\Services\AutoPost\AutoPostDispatcher;
-use App\Services\AutoPost\WindowSchedule;
+use App\Services\AutoPost\StockAlert;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -14,32 +15,52 @@ Artisan::command('inspire', function (): void {
 
 /*
 |--------------------------------------------------------------------------
-| Auto-postagem unificada (YouTube + TikTok + ...)
+| Auto-postagem por slots (agenda em banco)
 |--------------------------------------------------------------------------
 |
-| Roda o AutoPostDispatcher (orquestrador) nas janelas de WindowSchedule
-| (09/12/15/18/21, SP); cada janela dispara num MINUTO ALEATÓRIO estável por
-| dia. O scheduler roda a cada minuto, mas o ->when() só libera no minuto
-| sorteado. Cada plataforma é um Poster em App\Services\AutoPost\Posters\ —
-| adicione novos lá e registre em AppServiceProvider.
+| A cada minuto o dispatcher busca slots devidos em schedule_slots (com
+| tolerância de GRACE_MINUTES), reivindica cada um atomicamente
+| (dispatched_at) e enfileira 1 job por plataforma habilitada na fila
+| `posting`. Plataformas são Posters em App\Services\AutoPost\Posters\ —
+| adicione novos lá e registre no AppServiceProvider; toggles em
+| platform_settings (tela /agenda).
 |
-| Requer cron: `* * * * * php artisan schedule:run` (ou `php artisan schedule:work`).
+| Requer cron: `* * * * * php artisan schedule:run` (ou `schedule:work`)
+| e um worker de fila: `php artisan queue:listen --queue=posting,processing,default`.
 |
 */
 Schedule::call(function (): void {
-    resolve(AutoPostDispatcher::class)->run();
+    resolve(AutoPostDispatcher::class)->dispatchDueSlots();
 })
-    ->name('auto-post-social')
+    ->name('auto-post-slots')
     ->everyMinute()
-    ->timezone(WindowSchedule::TIMEZONE)
-    ->when(static fn (): bool => WindowSchedule::isDueWindow())
+    ->timezone(AutoPost::TIMEZONE)
     ->withoutOverlapping();
 
-// Sentinela: a cada 10 min, varre slots passados sem postagem e dispara
-// alerta no Discord (1x por slot via Cache::add). Não posta nada — só avisa
-// pro operador clicar "Forçar agora" na /agenda.
+// Sentinela: avisa no Discord sobre slots pulados/sem vídeo/com falha total
+// (1x por slot via Cache::add). Não posta nada.
 Schedule::command('auto-post:check-missed')
     ->name('auto-post-check-missed')
     ->everyTenMinutes()
-    ->timezone(WindowSchedule::TIMEZONE)
+    ->timezone(AutoPost::TIMEZONE)
     ->withoutOverlapping();
+
+// Estoque baixo: compara vídeos prontos × slots vazios dos próximos 7 dias.
+Schedule::call(function (): void {
+    resolve(StockAlert::class)->warnIfLow();
+})
+    ->name('stock-alert')
+    ->dailyAt('08:00')
+    ->timezone(AutoPost::TIMEZONE);
+
+// Observabilidade: microserviço sem heartbeat > 90s → Discord (1x por queda,
+// com aviso de recuperação). Prune diário mantém service_logs em 14 dias.
+Schedule::command('observability:check-heartbeats')
+    ->name('observability-check-heartbeats')
+    ->everyMinute()
+    ->withoutOverlapping();
+
+Schedule::command('model:prune')
+    ->name('model-prune')
+    ->dailyAt('04:00')
+    ->timezone(AutoPost::TIMEZONE);

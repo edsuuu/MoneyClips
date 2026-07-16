@@ -4,20 +4,21 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost\Posters;
 
-use App\Models\YoutubeShort;
-
 /**
  * Contrato de um poster por plataforma. Cada implementação encapsula a
- * comunicação com a plataforma (YouTube Data API, TikTok uploader, etc.) e
- * devolve um PosterResult uniforme pro orquestrador (AutoPostDispatcher).
+ * comunicação com a plataforma (YouTube Data API, microserviço TikTok,
+ * Graph API, ...) e devolve um PosterResult uniforme pro job de postagem.
+ *
+ * Todos os posters são SÍNCRONOS do ponto de vista do chamador — quem dá a
+ * assincronia é a fila (PostSlotToPlatform roda na queue `posting`).
  */
 interface PosterContract
 {
-    /** Identificador da plataforma (ex.: 'youtube', 'tiktok'). */
+    /** Identificador da plataforma — casa com platform_settings.platform. */
     public function platform(): string;
 
-    /** Lê a flag config services.youtube_shorts.posting.<platform>_enabled. */
+    /** Toggle global da plataforma (PlatformSetting::isEnabled). */
     public function isEnabled(): bool;
 
-    public function post(YoutubeShort $short): PosterResult;
+    public function post(PostTask $task): PosterResult;
 }
