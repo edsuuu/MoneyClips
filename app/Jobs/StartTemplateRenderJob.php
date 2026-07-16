@@ -7,9 +7,9 @@ namespace App\Jobs;
 use App\Jobs\Concerns\TransfersStorageFiles;
 use App\Models\ProcessingJob;
 use App\Models\YoutubeShort;
-use App\Services\DiscordNotifier;
-use App\Services\Processing\AutoCaptionClient;
-use App\Services\Processing\TemplateRenderOptions;
+use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\AutoCaption\AutoCaptionService;
+use App\Services\Processing\TemplateRenderOptionsData;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -38,7 +38,7 @@ final class StartTemplateRenderJob implements ShouldQueue
         $this->onQueue('processing');
     }
 
-    public function handle(AutoCaptionClient $client): void
+    public function handle(AutoCaptionService $client): void
     {
         $job = ProcessingJob::query()->with('youtubeShort')->find($this->processingJobId);
         $short = $job?->youtubeShort;
@@ -50,7 +50,7 @@ final class StartTemplateRenderJob implements ShouldQueue
         }
 
         $job->fill(['status' => 'processing', 'started_at' => now()])->save();
-        $options = TemplateRenderOptions::fromArray($job->options ?? []);
+        $options = TemplateRenderOptionsData::fromArray($job->options ?? []);
 
         $sourceKey = (string) $short->video_path;
         throw_if($sourceKey === '' || ! Storage::disk('s3')->exists($sourceKey), RuntimeException::class, sprintf('Vídeo não encontrado no MinIO: "%s".', $sourceKey));
@@ -83,6 +83,6 @@ final class StartTemplateRenderJob implements ShouldQueue
         ProcessingJob::query()->whereKey($this->processingJobId)
             ->update(['status' => 'failed', 'error' => $error, 'finished_at' => now()]);
 
-        resolve(DiscordNotifier::class)->error('❌ Render de template falhou ao iniciar', sprintf('Job #%d%s%s', $this->processingJobId, PHP_EOL, $error));
+        resolve(DiscordNotifierService::class)->error('❌ Render de template falhou ao iniciar', sprintf('Job #%d%s%s', $this->processingJobId, PHP_EOL, $error));
     }
 }

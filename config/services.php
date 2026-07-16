@@ -64,13 +64,43 @@ return [
 
     'tiktok_post' => [
         'base_url' => env('TIKTOK_POST_URL', 'http://127.0.0.1:8090'),
-        // Post síncrono via Playwright: a verificação de conteúdo do TikTok
-        // pode levar ~15 min — o client só roda dentro de job de fila.
-        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 1500),
+        // Só cobre o envio do binário + 202 {job_id} — a publicação roda em
+        // background no uploader e o desfecho volta pela webhook_url.
+        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 120),
         'api_token' => env('TIKTOK_POST_API_TOKEN', ''),
+        'webhook_url' => env(
+            'TIKTOK_POST_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/tiktok-posts/webhook',
+        ),
         // Conta TikTok ativa (handle público sem @). Usada em mensagens do
         // Discord pra rotular o destino. A autenticação real vive em cookies.
         'account_name' => env('TIKTOK_ACCOUNT_NAME', ''),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Credenciais de APP das APIs oficiais (posters em App\Services\Api\*)
+    |--------------------------------------------------------------------------
+    | Estrutura pronta — só preencher os envs quando cada poster sair de stub.
+    | Tokens por conta conectada (OAuth) vivem em social_accounts; aqui ficam
+    | as credenciais do aplicativo registrado em cada plataforma.
+    */
+    'tiktok' => [
+        // TikTok for Developers → Content Posting API (app já pré-configurado).
+        'client_key' => env('TIKTOK_CLIENT_KEY', ''),
+        'client_secret' => env('TIKTOK_CLIENT_SECRET', ''),
+    ],
+
+    'meta' => [
+        // Meta for Developers — o mesmo app cobre Instagram Reels + Facebook Reels.
+        'app_id' => env('META_APP_ID', ''),
+        'app_secret' => env('META_APP_SECRET', ''),
+    ],
+
+    'kwai' => [
+        // Kwai Open Platform (open.kwai.com) — validar disponibilidade BR.
+        'app_id' => env('KWAI_APP_ID', ''),
+        'app_secret' => env('KWAI_APP_SECRET', ''),
     ],
 
     'reencode' => [

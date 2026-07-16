@@ -32,7 +32,7 @@ final readonly class VideoProcessingService
         return $job;
     }
 
-    public function startTemplateRender(YoutubeShort $short, TemplateRenderOptions $options): ProcessingJob
+    public function startTemplateRender(YoutubeShort $short, TemplateRenderOptionsData $options): ProcessingJob
     {
         $this->guardNoPendingJob($short);
 
