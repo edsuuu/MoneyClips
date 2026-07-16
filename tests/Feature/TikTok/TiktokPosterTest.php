@@ -31,8 +31,8 @@ function tiktokTask(): PostTaskData
     return PostTaskData::fromShort($short, ScheduleSlot::factory()->dispatched()->create(['youtube_short_id' => $short->id]));
 }
 
-it('queues the post sending the binary, cookies and webhook_url via multipart', function (): void {
-    tiktokAccount();
+it('queues the post sending the binary, cookies, webhook_url and account_id via multipart', function (): void {
+    $account = tiktokAccount();
     Http::fake(['*/posts' => Http::response(['job_id' => 'job-123', 'status' => 'queued'], 202)]);
 
     $result = resolve(TiktokPosterService::class)->post(tiktokTask());
@@ -40,7 +40,7 @@ it('queues the post sending the binary, cookies and webhook_url via multipart', 
     expect($result->outcome)->toBe('queued')
         ->and($result->externalId)->toBe('job-123');
 
-    Http::assertSent(function ($request): bool {
+    Http::assertSent(function ($request) use ($account): bool {
         $parts = collect($request->data());
         $field = fn (string $name) => $parts->first(fn (array $p): bool => ($p['name'] ?? '') === $name);
 
@@ -48,7 +48,8 @@ it('queues the post sending the binary, cookies and webhook_url via multipart', 
             && $field('video') !== null
             && is_string($field('cookies')['contents'] ?? null)
             && str_contains($field('cookies')['contents'], 'sessionid')
-            && str_contains((string) ($field('webhook_url')['contents'] ?? ''), '/api/tiktok-posts/webhook');
+            && str_contains((string) ($field('webhook_url')['contents'] ?? ''), '/api/tiktok-posts/webhook')
+            && ($field('account_id')['contents'] ?? '') === (string) $account->id;
     });
 });
 

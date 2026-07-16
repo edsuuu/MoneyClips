@@ -11,6 +11,9 @@ module.exports = {
             autorestart: true,
             watch: false,
             time: true,
+            // Shutdown drena a fila de posts (um upload leva até ~15 min) —
+            // o default de 1,6s mataria o Playwright no meio da publicação.
+            kill_timeout: 990_000,
             env: {
                 NODE_ENV: 'production',
             },

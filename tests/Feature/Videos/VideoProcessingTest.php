@@ -12,7 +12,7 @@ use App\Services\AutoCaption\AutoCaptionService;
 use App\Services\Processing\TemplateRenderOptionsData;
 use App\Services\Processing\TemplateStyleEnum;
 use App\Services\Processing\VideoProcessingService;
-use App\Services\Reencode\ReencodeService;
+use App\Services\Reencode\ReencodeShortService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -46,7 +46,7 @@ it('runs the reencode and stores the HQ output back in storage', function (): vo
     Storage::disk('s3')->put($short->video_path, 'original');
     $job = ProcessingJob::factory()->create(['youtube_short_id' => $short->id, 'options' => ['mark_ready' => true]]);
 
-    new RunReencodeJob($job->id)->handle(resolve(ReencodeService::class));
+    new RunReencodeJob($job->id)->handle(resolve(ReencodeShortService::class));
 
     $job->refresh();
     $short->refresh();
@@ -65,7 +65,7 @@ it('completes without output when the reencode is skipped', function (): void {
     Storage::disk('s3')->put($short->video_path, 'original');
     $job = ProcessingJob::factory()->create(['youtube_short_id' => $short->id]);
 
-    new RunReencodeJob($job->id)->handle(resolve(ReencodeService::class));
+    new RunReencodeJob($job->id)->handle(resolve(ReencodeShortService::class));
 
     expect($job->refresh()->status)->toBe('completed')
         ->and($job->output_path)->toBeNull()

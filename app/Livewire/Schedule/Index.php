@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Schedule;
 
 use App\Livewire\Concerns\WithToasts;
+use App\Models\AppSetting;
 use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
 use App\Models\YoutubeShort;
@@ -371,7 +372,27 @@ final class Index extends Component
         $this->toast(sprintf('%s %s.', $setting->display_name, $setting->enabled ? 'ativado' : 'pausado'));
     }
 
+    /** Modo aleatório: slot vazio devido recebe vídeo sorteado (reencode + post). */
+    public function toggleRandomMode(): void
+    {
+        $enabled = ! $this->randomModeEnabled();
+        AppSetting::set(AppSetting::RANDOM_MODE, $enabled);
+
+        $this->toast($enabled
+            ? 'Modo aleatório ativado — slots vazios no horário recebem um vídeo pronto sorteado (reencode + post).'
+            : 'Modo aleatório desativado — slot sem vídeo atribuído fica pulado.');
+    }
+
     // ── Internos ─────────────────────────────────────────────────────────
+
+    /**
+     * Lê direto do banco (sem o once() do AppSetting::isEnabled) — o toggle
+     * e o render acontecem na MESMA request Livewire e o memo ficaria stale.
+     */
+    private function randomModeEnabled(): bool
+    {
+        return (bool) AppSetting::query()->where('key', AppSetting::RANDOM_MODE)->value('enabled');
+    }
 
     private function monday(): CarbonImmutable
     {
@@ -790,6 +811,7 @@ final class Index extends Component
                     'enabled' => $p->enabled,
                     'implemented' => in_array($p->platform, self::IMPLEMENTED_PLATFORMS, true),
                 ])->all(),
+            'randomMode' => $this->randomModeEnabled(),
             'pickerVideos' => $this->pickerVideos(),
             'monthData' => $this->view === 'month' ? $this->monthData($monday, $now) : null,
         ]);

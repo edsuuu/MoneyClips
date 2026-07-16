@@ -16,7 +16,11 @@ Route::post('/download-youtube/webhook', DownloadYoutubeWebhookController::class
 Route::post('/autocaption/webhook', AutoCaptionWebhookController::class)
     ->name('autocaption.webhook');
 
+// Único webhook que ESCREVE credenciais (cookies/session_status) — vai atrás
+// do token compartilhado (o uploader manda o mesmo OBSERVABILITY_TOKEN que já
+// usa pros logs/heartbeat; zero env nova).
 Route::post('/tiktok-posts/webhook', TiktokPostWebhookController::class)
+    ->middleware(VerifyObservabilityToken::class)
     ->name('tiktok-posts.webhook');
 
 // Observabilidade (OBSERVABILITY.md): push de logs em lote + heartbeat dos

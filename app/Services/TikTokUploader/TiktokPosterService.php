@@ -63,7 +63,7 @@ final readonly class TiktokPosterService implements PosterInterface
         }
 
         try {
-            $jobId = $this->uploader->queuePost($task->videoPath, $cookies, $task->title, $task->hashtags);
+            $jobId = $this->uploader->queuePost($task->videoPath, $cookies, $task->title, $task->hashtags, $account->id);
         } catch (Throwable $throwable) {
             Log::error('[AutoPost][TikTok] Falha ao enfileirar o post no uploader.', ['short_id' => $task->short->id, 'error' => $throwable->getMessage()]);
             $this->discord->error('❌ TikTok: uploader indisponível', ($task->title ?: $task->short->youtube_id).PHP_EOL.$throwable->getMessage());

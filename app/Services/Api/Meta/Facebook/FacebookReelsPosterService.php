@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Log;
  * Implementação futura: POST /{page-id}/video_reels (upload_phase=start →
  * upload binário → finish com description). Exige Página + token de Página
  * com publish_video (social_accounts, platform=facebook — mesmo app Meta do
- * Instagram). Habilite em platform_settings quando implementado.
+ * Instagram — META_APP_ID/META_APP_SECRET no .env, config/services.php → meta).
+ * Habilite em platform_settings quando implementado.
  */
 final readonly class FacebookReelsPosterService implements PosterInterface
 {

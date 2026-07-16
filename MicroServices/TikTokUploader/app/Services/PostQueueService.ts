@@ -16,8 +16,10 @@ import type { PostJob, PostWebhookPayload } from '@/Types/PostQueueType';
  * webhook (status + session_status + cookies renovados).
  *
  * ponytail: fila serial por promise-chain, sem persistência — reiniciar o
- * processo perde jobs pendentes (o Laravel detecta pelo check-missed e o
- * ledger fica em `queued`). Upgrade: persistir a fila em disco.
+ * processo perde jobs pendentes (ledger fica em `queued`; o
+ * auto-post:check-missed do Laravel alerta pendência velha). O shutdown
+ * drena a fila (App.ts) pra não matar o Playwright no meio de um post.
+ * Upgrade: persistir a fila em disco.
  */
 export class PostQueueService {
     private chain: Promise<void> = Promise.resolve();
@@ -32,6 +34,14 @@ export class PostQueueService {
         this.pending += 1;
         this.chain = this.chain
             .then(() => this.process({ ...job, jobId }))
+            // process() não deveria lançar, mas uma rejeição aqui envenenaria
+            // a chain e pularia todos os jobs seguintes em silêncio.
+            .catch((error: unknown) =>
+                logger.error(
+                    `[job ${jobId}] Erro inesperado fora do fluxo do job: ` +
+                        `${error instanceof Error ? error.message : String(error)}`,
+                ),
+            )
             .finally(() => {
                 this.pending -= 1;
             });
@@ -43,6 +53,11 @@ export class PostQueueService {
 
     public size(): number {
         return this.pending;
+    }
+
+    /** Resolve quando todos os jobs enfileirados terminarem (shutdown gracioso). */
+    public drain(): Promise<void> {
+        return this.chain;
     }
 
     /** Nunca lança: qualquer desfecho vira webhook + limpeza do arquivo. */
@@ -79,8 +94,20 @@ export class PostQueueService {
             await rm(job.videoPath, { force: true }).catch(() => undefined);
         }
 
+        if (job.accountId !== undefined) {
+            payload.account_id = job.accountId;
+        }
+
         logger.info(`[job ${job.jobId}] Desfecho: ${payload.status} — notificando webhook.`);
-        await sendWebhook(job.webhookUrl, payload);
+
+        // Webhook esgotado = desfecho invisível pro Laravel (ledger preso em
+        // queued) — o operador precisa saber na hora.
+        if (!(await sendWebhook(job.webhookUrl, payload))) {
+            void discord.notifyError(
+                `webhook do post "${title}" (job ${job.jobId})`,
+                new Error(`Laravel não recebeu o desfecho "${payload.status}" — confira o ledger.`),
+            );
+        }
     }
 
     private failurePayload(jobId: string, title: string, error: unknown): PostWebhookPayload {
@@ -108,9 +135,10 @@ export class PostQueueService {
             };
         }
 
+        // Sem Discord aqui: o runRecordedSession (Browser.ts) já notificou a
+        // falha com o vídeo da sessão anexado — segundo alerta seria ruído.
         const message = error instanceof Error ? error.message : String(error);
         logger.error(`[job ${jobId}] Upload falhou: ${message}`);
-        void discord.notifyError(`post "${title}" (job ${jobId})`, error);
 
         return {
             job_id: jobId,
@@ -121,3 +149,6 @@ export class PostQueueService {
         };
     }
 }
+
+/** Instância única — compartilhada entre Routers (enqueue) e App (drain). */
+export const postQueue = new PostQueueService();

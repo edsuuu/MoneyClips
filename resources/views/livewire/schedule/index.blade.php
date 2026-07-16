@@ -60,6 +60,7 @@
             <button
                 type="button"
                 wire:key="platform-{{ $platform['platform'] }}"
+                aria-pressed="{{ $platform['enabled'] ? 'true' : 'false' }}"
                 @if ($platform['implemented']) wire:click="togglePlatform('{{ $platform['platform'] }}')" @else title="Em breve" @endif
                 @class([
                     'flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition',
@@ -79,6 +80,31 @@
                 @endunless
             </button>
         @endforeach
+
+        {{-- Modo aleatório: slot vazio no horário recebe vídeo sorteado (reencode + post) --}}
+        <button
+            type="button"
+            wire:click="toggleRandomMode"
+            aria-pressed="{{ $randomMode ? 'true' : 'false' }}"
+            title="Com o modo aleatório ligado, slot vazio que chega no horário recebe um vídeo pronto sorteado do estoque, é reencodado e postado (fluxo antigo)."
+            @class([
+                'ml-1 flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition cursor-pointer',
+                'border-violet-500/40 bg-violet-950/30 text-violet-300' => $randomMode,
+                'border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200' => ! $randomMode,
+            ])
+        >
+            <span @class([
+                'size-1.5 rounded-full',
+                'bg-violet-400' => $randomMode,
+                'bg-slate-600' => ! $randomMode,
+            ])></span>
+            Modo aleatório
+            <span @class([
+                'font-mono text-[9px] uppercase tracking-wider',
+                'text-violet-400/80' => $randomMode,
+                'text-slate-600' => ! $randomMode,
+            ])>{{ $randomMode ? 'on' : 'off' }}</span>
+        </button>
     </div>
 
     {{-- Abas de semana + gerador --}}

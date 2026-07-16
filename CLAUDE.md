@@ -91,6 +91,15 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
   vídeos prontos (FIFO `ready_at`). Sem nada no banco, não cria slot — o
   operador monta a primeira semana na /agenda.
 - `StockAlertService` — 1×/dia compara estoque pronto × slots vazios de 7 dias.
+- **Modo aleatório** (`app_settings.random_mode`, toggle na /agenda): com a
+  flag ligada, slot VAZIO que chega no horário recebe um vídeo pronto
+  sorteado (fora do sorteio: vídeo com social_post ativa ou preso em slot
+  despachado sem ledger) e roda o fluxo antigo à parte —
+  `ReencodeAndPostSlotJob` (pega o vídeo → reencoda via
+  `ReencodeShortService` → `fanOut()` normal). Atribuição + claim na MESMA
+  UPDATE (senão o tick seguinte postaria o original em paralelo ao reencode).
+  Reencode falhou = posta o original. Flag desligada = slot vazio fica
+  `skipped` (comportamento padrão).
 - Deploy da agenda: rodar `php artisan schedule:migrate-legacy` UMA vez após
   `migrate` (materializa slots da agenda legada; sem isso nada posta).
 
@@ -134,11 +143,14 @@ Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
   `cookies` JSON + `title` + `hashtags` + `webhook_url`) e recebe
   `202 {job_id}` na hora — o job_id vira o `uuid` do ledger. O Playwright
   publica em background e o desfecho chega em
-  `POST /api/tiktok-posts/webhook` (`TiktokPostWebhookController`):
+  `POST /api/tiktok-posts/webhook` (`TiktokPostWebhookController`, autenticado
+  pelo `X-Observability-Token` — o webhook escreve credenciais):
   `{job_id, status: completed|dry-run|restricted|failed, session_status,
-  refreshed_cookies?}` — fecha o ledger, marca `posted_tiktok_at` e atualiza
-  a conta (`session_status=invalid` → Discord + `TiktokPosterService`
-  curto-circuita os próximos slots até renovar em /contas).
+  refreshed_cookies?, account_id?}` — fecha o ledger com claim atômico
+  (`failed` prematuro do job é sobrescrevível pelo desfecho real), marca
+  `posted_tiktok_at` e atualiza a conta identificada pelo `account_id`
+  (`session_status=invalid` → Discord + `TiktokPosterService` curto-circuita
+  os próximos slots até renovar em /contas).
 - Cookies vivem **criptografados no banco**: `social_accounts.cookies`
   (cast `encrypted:array`). O webhook devolve `refreshed_cookies` (capturados
   pós-upload) e o Laravel renova a sessão sozinho; fallback manual em
@@ -171,6 +183,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | --- | --- |
 | `users` | login Google OAuth (`auto_post_schedule` legado — fonte do `schedule:migrate-legacy`) |
 | `platform_settings` | toggle global por plataforma (youtube, tiktok, tiktok_official, instagram, facebook, kwai) |
+| `app_settings` | flags globais key/value editáveis no front (`random_mode`) |
 | `schedule_slots` | agenda em banco: data+hora+vídeo, claim do dispatcher |
 | `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
 | `youtube_shorts` | estoque; ciclo `ready_at` → `processed_video_path` → `posted_*_at` |
@@ -279,8 +292,11 @@ make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
 
 1. `php artisan migrate`
 2. `php artisan schedule:migrate-legacy` (senão nada posta)
-3. Setar `OBSERVABILITY_TOKEN` no Laravel + nos `.env` dos 4 serviços
-4. Conferir `TIKTOK_POST_WEBHOOK_URL` (em prod: domínio real, não `:8000`)
+3. Setar `OBSERVABILITY_TOKEN` no Laravel + nos `.env` dos 4 serviços (o
+   webhook do TikTok também autentica por ele — sem token, post não fecha)
+4. Conferir `TIKTOK_POST_WEBHOOK_URL` (em prod: domínio real, não `:8000`) e
+   `TIKTOK_POST_API_TOKEN` = `API_TOKEN` do uploader. Worker SEMPRE
+   `queue:listen` (o `once()` dos toggles não é limpo em `queue:work` daemon)
 5. Revisar `/agenda` (atribuir vídeos aos slots) e toggles em `platform_settings`
 6. ⚠️ Rotacionar a chave Roboflow e o webhook Discord que estavam commitados
    no `.env.example` antigo do TikTokUploader (continuam no histórico git)

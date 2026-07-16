@@ -90,28 +90,54 @@ final class ScheduleSlot extends Model
      */
     protected function scopeDue(Builder $query, CarbonImmutable $now, int $graceMinutes): Builder
     {
-        $from = $now->subMinutes($graceMinutes);
-
         return $query
             ->where('is_active', true)
             ->whereNotNull('youtube_short_id')
             ->whereNull('dispatched_at')
-            // Janela de graça pode cruzar a meia-noite — compara por (date, time).
-            ->where(function (Builder $q) use ($from, $now): void {
-                if ($from->isSameDay($now)) {
-                    $q->where('slot_date', $now->toDateString())
-                        ->whereBetween('slot_time', [$from->format('H:i:00'), $now->format('H:i:59')]);
+            ->tap(fn (Builder $q) => $this->whereInDueWindow($q, $now, $graceMinutes));
+    }
 
-                    return;
-                }
+    /**
+     * Slots VAZIOS devidos agora — só o modo aleatório olha pra eles
+     * (o dispatcher sorteia um vídeo pronto e roda o fluxo reencode+post).
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    protected function scopeDueEmpty(Builder $query, CarbonImmutable $now, int $graceMinutes): Builder
+    {
+        return $query
+            ->where('is_active', true)
+            ->whereNull('youtube_short_id')
+            ->whereNull('dispatched_at')
+            ->tap(fn (Builder $q) => $this->whereInDueWindow($q, $now, $graceMinutes));
+    }
 
-                $q->where(fn (Builder $q2): Builder => $q2
-                    ->where('slot_date', $from->toDateString())
-                    ->where('slot_time', '>=', $from->format('H:i:00')))
-                    ->orWhere(fn (Builder $q2): Builder => $q2
-                        ->where('slot_date', $now->toDateString())
-                        ->where('slot_time', '<=', $now->format('H:i:59')));
-            });
+    /**
+     * Janela "devido agora" [now-grace, now] — pode cruzar a meia-noite,
+     * então compara por (date, time).
+     *
+     * @param  Builder<self>  $query
+     */
+    private function whereInDueWindow(Builder $query, CarbonImmutable $now, int $graceMinutes): void
+    {
+        $from = $now->subMinutes($graceMinutes);
+
+        $query->where(function (Builder $q) use ($from, $now): void {
+            if ($from->isSameDay($now)) {
+                $q->where('slot_date', $now->toDateString())
+                    ->whereBetween('slot_time', [$from->format('H:i:00'), $now->format('H:i:59')]);
+
+                return;
+            }
+
+            $q->where(fn (Builder $q2): Builder => $q2
+                ->where('slot_date', $from->toDateString())
+                ->where('slot_time', '>=', $from->format('H:i:00')))
+                ->orWhere(fn (Builder $q2): Builder => $q2
+                    ->where('slot_date', $now->toDateString())
+                    ->where('slot_time', '<=', $now->format('H:i:59')));
+        });
     }
 
     /**

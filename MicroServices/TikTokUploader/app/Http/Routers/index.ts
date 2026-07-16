@@ -1,7 +1,8 @@
 import { Router } from 'express';
 
 import { asyncHandler } from '@/Http/Helpers/AsyncHandler';
-import { PostQueueService } from '@/Services/PostQueueService';
+import { apiToken } from '@/Http/Middleware/ApiToken';
+import { postQueue, PostQueueService } from '@/Services/PostQueueService';
 import { SessionService } from '@/Services/SessionService';
 
 import { AuthController } from '../Controllers/AuthController';
@@ -18,12 +19,12 @@ export class Routers {
     private readonly postController: PostController;
 
     public constructor(
-        postQueue: PostQueueService = new PostQueueService(),
+        queue: PostQueueService = postQueue,
         sessionService: SessionService = new SessionService(),
     ) {
         this.docsController = new DocsController();
         this.healthController = new HealthController();
-        this.postController = new PostController(postQueue);
+        this.postController = new PostController(queue);
         this.authController = new AuthController(sessionService);
         this.initializeRoutes();
     }
@@ -38,15 +39,18 @@ export class Routers {
 
         this.router.post(
             '/session',
+            apiToken,
             asyncHandler((req, res) => this.authController.session(req, res)),
         );
         this.router.post(
             '/login',
+            apiToken,
             asyncHandler((req, res) => this.authController.login(req, res)),
         );
 
         this.router.post(
             '/posts',
+            apiToken,
             videoUpload,
             asyncHandler((req, res) => this.postController.createPost(req, res)),
         );

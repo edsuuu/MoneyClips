@@ -18,7 +18,9 @@ use Illuminate\Support\Facades\Log;
  * Exige conta IG Business/Creator ligada a uma Página + token com
  * instagram_content_publish (social_accounts, platform=instagram).
  * A Graph API só aceita video_url público — servir via URL pré-assinada do
- * MinIO ou proxy no Laravel. Habilite em platform_settings quando implementado.
+ * MinIO ou proxy no Laravel. Credenciais do app: META_APP_ID/META_APP_SECRET
+ * no .env (config/services.php → meta). Habilite em platform_settings quando
+ * implementado.
  */
 final readonly class InstagramReelsPosterService implements PosterInterface
 {

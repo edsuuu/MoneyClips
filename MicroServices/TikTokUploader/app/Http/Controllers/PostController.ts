@@ -48,7 +48,18 @@ export class PostController {
         }
 
         const metadata: VideoMetadata = { title, hashtags: parseHashtags(body.hashtags) };
-        const jobId = this.queue.enqueue({ videoPath, metadata, cookies, webhookUrl });
+        const accountId =
+            typeof body.account_id === 'string' && body.account_id.trim() !== ''
+                ? body.account_id.trim()
+                : undefined;
+
+        const jobId = this.queue.enqueue({
+            videoPath,
+            metadata,
+            cookies,
+            webhookUrl,
+            ...(accountId !== undefined ? { accountId } : {}),
+        });
 
         res.status(202).json({ job_id: jobId, status: 'queued', title });
     }

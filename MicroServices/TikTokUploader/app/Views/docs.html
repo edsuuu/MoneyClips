@@ -132,6 +132,7 @@
                     { name: 'video', type: 'file', required: true, control: 'file', desc: 'Arquivo do vídeo (binário, multipart/form-data).' },
                     { name: 'cookies', type: 'string(JSON)', required: true, control: 'textarea', placeholder: '[ { … } ]', desc: 'Array de cookies da sessão, serializado.' },
                     { name: 'webhook_url', type: 'string', required: true, control: 'text', placeholder: 'http://127.0.0.1:8000/api/tiktok-posts/webhook', desc: 'URL que recebe o desfecho do post (POST JSON).' },
+                    { name: 'account_id', type: 'string', required: false, control: 'text', placeholder: '1', desc: 'Id da conta no chamador — ecoado no webhook (sincroniza cookies na conta certa).' },
                     { name: 'title', type: 'string', required: false, control: 'text', placeholder: 'minha legenda', desc: 'Descrição/legenda do post.' },
                     { name: 'hashtags', type: 'string', required: false, control: 'text', placeholder: '["fyp","clips"]', desc: 'JSON array ou lista separada por vírgula.' },
                 ],

@@ -29,7 +29,9 @@ final readonly class TiktokUploaderService
 {
     /**
      * Enfileira o post no uploader e retorna o job_id do microserviço
-     * (gravado em social_posts.uuid pra casar com o webhook).
+     * (gravado em social_posts.uuid pra casar com o webhook). O account_id é
+     * ecoado no webhook — garante que cookies renovados/session_status caiam
+     * na conta certa mesmo com 2+ contas cadastradas.
      *
      * @param  array<array-key, mixed>  $cookies  Cookies Playwright da conta.
      * @param  list<string>  $hashtags
@@ -37,7 +39,7 @@ final readonly class TiktokUploaderService
      * @throws ConnectionException em timeout/conexão.
      * @throws RuntimeException quando o uploader recusa o enfileiramento.
      */
-    public function queuePost(string $videoPath, array $cookies, string $title, array $hashtags): string
+    public function queuePost(string $videoPath, array $cookies, string $title, array $hashtags, int $accountId): string
     {
         $stream = Storage::disk('s3')->readStream($videoPath);
         throw_unless(is_resource($stream), RuntimeException::class, sprintf('Vídeo não encontrado no MinIO: %s', $videoPath));
@@ -50,6 +52,7 @@ final readonly class TiktokUploaderService
                     'title' => $title,
                     'hashtags' => json_encode($hashtags, JSON_THROW_ON_ERROR),
                     'webhook_url' => (string) config('services.tiktok_post.webhook_url'),
+                    'account_id' => (string) $accountId,
                 ]);
         } finally {
             if (is_resource($stream)) {

@@ -205,3 +205,13 @@ a 1ª entrega; onde divergir, vale o CLAUDE.md e o que segue:
    /agenda).
 5. `.claude/worktrees/` blindado no `.gitignore` (worktrees do Claude Code
    nunca entram no repo).
+6. **Modo aleatório de volta, opt-in**: o comportamento antigo (sortear vídeo
+   do estoque na hora de postar) voltou como flag `app_settings.random_mode`
+   (toggle na /agenda). Ligado: slot vazio devido recebe vídeo pronto
+   sorteado e roda o fluxo à parte `ReencodeAndPostSlotJob` (pega o vídeo →
+   reencoda via `ReencodeShortService`, extraído do `RunReencodeJob` → posta
+   pelo `dispatchSlot` normal). Desligado (default): slot vazio fica pulado.
+7. **Env pronto pra credenciais das APIs oficiais**: `config/services.php`
+   ganhou `tiktok` (client_key/secret), `meta` (app_id/secret) e `kwai`
+   (app_id/secret) com envs vazios no `.env.example` — preencher quando cada
+   poster sair de stub.

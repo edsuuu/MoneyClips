@@ -1,3 +1,4 @@
+import { settings } from '@/Config/Env';
 import { logger } from '@/Config/Logger';
 import { sleep } from '@/Utils/Sleep';
 
@@ -7,6 +8,14 @@ const RETRY_DELAYS_MS = [0, 1_000, 5_000, 15_000];
 const TIMEOUT_MS = 30_000;
 
 export async function sendWebhook(url: string, payload: unknown): Promise<boolean> {
+    // O webhook do Laravel escreve credenciais — vai autenticado com o mesmo
+    // token compartilhado da observabilidade (fail-closed do lado de lá).
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+    if (settings.observabilityToken !== '') {
+        headers['X-Observability-Token'] = settings.observabilityToken;
+    }
+
     for (let attempt = 1; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
         const delay = RETRY_DELAYS_MS[attempt - 1] ?? 0;
 
@@ -17,7 +26,7 @@ export async function sendWebhook(url: string, payload: unknown): Promise<boolea
         try {
             const response = await fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify(payload),
                 signal: AbortSignal.timeout(TIMEOUT_MS),
             });

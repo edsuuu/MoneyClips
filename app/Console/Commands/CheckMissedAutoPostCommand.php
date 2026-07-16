@@ -17,7 +17,9 @@ use Illuminate\Support\Facades\Cache;
  * dedupe via Cache::add) sobre:
  *  - slot com vídeo que passou do horário sem despacho ("Forçar agora" resolve);
  *  - slot ativo sem vídeo atribuído que passou em branco;
- *  - slot despachado cujas plataformas falharam todas.
+ *  - slot despachado cujas plataformas falharam todas;
+ *  - slot despachado com post pendente (queued/processing) há tempo demais —
+ *    cobre uploader reiniciado/webhook perdido no fluxo assíncrono do TikTok.
  *
  * Não posta nada — só avisa o operador.
  */
@@ -25,6 +27,9 @@ final class CheckMissedAutoPostCommand extends Command
 {
     /** Quanto pra trás olhamos. */
     private const int LOOKBACK_HOURS = 6;
+
+    /** Pendência além disso = desfecho provavelmente perdido (post real leva ~15 min). */
+    private const int STALE_PENDING_HOURS = 2;
 
     /** @var string */
     protected $signature = 'auto-post:check-missed';
@@ -83,6 +88,27 @@ final class CheckMissedAutoPostCommand extends Command
                         $label,
                         PHP_EOL,
                         $reasons,
+                    ));
+
+                    continue;
+                }
+
+                // Pendência presa: post assíncrono cujo desfecho nunca chegou
+                // (uploader reiniciado com job na fila em memória, webhook
+                // esgotado). Sem este alerta a linha `queued` suprimiria o
+                // aviso de falha pra sempre.
+                if ($pending->isNotEmpty() && $slot->scheduledAt()->lessThan($now->subHours(self::STALE_PENDING_HOURS))) {
+                    $platforms = $pending
+                        ->map(fn (SocialPost $post): string => sprintf('- %s: %s', $post->platform, $post->status))
+                        ->implode(PHP_EOL);
+
+                    $alerts += $this->alertOnce($discord, 'stale:'.$slot->id, '⚠️ Post pendente há tempo demais', sprintf(
+                        'Slot %s (SP) segue sem desfecho após %dh:%s%s%sConfira o uploader/observabilidade e o vídeo no TikTok antes de repostar.',
+                        $label,
+                        self::STALE_PENDING_HOURS,
+                        PHP_EOL,
+                        $platforms,
+                        PHP_EOL,
                     ));
                 }
             }

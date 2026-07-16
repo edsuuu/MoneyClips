@@ -3,4 +3,5 @@ export interface CreatePostRequest {
     hashtags?: unknown;
     cookies?: unknown;
     webhook_url?: unknown;
+    account_id?: unknown;
 }

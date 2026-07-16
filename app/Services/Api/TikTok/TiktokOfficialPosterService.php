@@ -17,8 +17,8 @@ use Illuminate\Support\Facades\Log;
  * (modo FILE_UPLOAD ou PULL_FROM_URL) com OAuth2 da conta em social_accounts
  * (platform=tiktok_official; access_token/refresh_token já são colunas
  * criptografadas). O app TikTok for Developers já está pré-configurado com
- * credenciais — client_key/client_secret entram em config/services.php quando
- * a integração for ligada. Habilite em platform_settings quando implementado.
+ * credenciais — preencha TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET no .env
+ * (config/services.php → tiktok) quando ligar a integração. Habilite em platform_settings quando implementado.
  */
 final readonly class TiktokOfficialPosterService implements PosterInterface
 {

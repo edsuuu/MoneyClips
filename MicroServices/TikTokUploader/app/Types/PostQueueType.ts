@@ -6,6 +6,8 @@ export interface PostJob {
     metadata: VideoMetadata;
     cookies: Cookie[];
     webhookUrl: string;
+    /** Id da social_account no Laravel — ecoado no webhook pra sincronizar a conta certa. */
+    accountId?: string;
 }
 
 export type PostOutcome = 'completed' | 'dry-run' | 'restricted' | 'failed';
@@ -21,4 +23,5 @@ export interface PostWebhookPayload {
     error?: string;
     session_status: SessionStatus;
     refreshed_cookies?: Cookie[];
+    account_id?: string;
 }

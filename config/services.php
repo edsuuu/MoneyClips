@@ -77,6 +77,32 @@ return [
         'account_name' => env('TIKTOK_ACCOUNT_NAME', ''),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Credenciais de APP das APIs oficiais (posters em App\Services\Api\*)
+    |--------------------------------------------------------------------------
+    | Estrutura pronta — só preencher os envs quando cada poster sair de stub.
+    | Tokens por conta conectada (OAuth) vivem em social_accounts; aqui ficam
+    | as credenciais do aplicativo registrado em cada plataforma.
+    */
+    'tiktok' => [
+        // TikTok for Developers → Content Posting API (app já pré-configurado).
+        'client_key' => env('TIKTOK_CLIENT_KEY', ''),
+        'client_secret' => env('TIKTOK_CLIENT_SECRET', ''),
+    ],
+
+    'meta' => [
+        // Meta for Developers — o mesmo app cobre Instagram Reels + Facebook Reels.
+        'app_id' => env('META_APP_ID', ''),
+        'app_secret' => env('META_APP_SECRET', ''),
+    ],
+
+    'kwai' => [
+        // Kwai Open Platform (open.kwai.com) — validar disponibilidade BR.
+        'app_id' => env('KWAI_APP_ID', ''),
+        'app_secret' => env('KWAI_APP_SECRET', ''),
+    ],
+
     'reencode' => [
         'base_url' => env('REENCODE_URL', 'http://127.0.0.1:8790'),
         'timeout' => (int) env('REENCODE_TIMEOUT', 900),

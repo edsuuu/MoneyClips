@@ -22,11 +22,17 @@ use Illuminate\Support\Facades\Log;
  */
 final class TiktokPostWebhookController extends Controller
 {
-    private const array FINISHED_STATUSES = ['completed', 'dry-run', 'restricted', 'failed'];
+    /**
+     * Desfechos que fecham o ledger de vez. `failed` NÃO está aqui de
+     * propósito: se o worker morrer entre o 202 e o webhook, o failed() do
+     * job marca o ledger `failed` — o desfecho real (que pode ser "postado!")
+     * ainda precisa conseguir sobrescrever, senão repost manual = duplicado.
+     */
+    private const array FINISHED_STATUSES = ['completed', 'dry-run', 'restricted'];
 
     public function __invoke(Request $request, DiscordNotifierService $discord): JsonResponse
     {
-        /** @var array{job_id: string, status: string, detail?: string|null, error?: string|null, session_status?: string|null, refreshed_cookies?: array<array-key, mixed>|null} $data */
+        /** @var array{job_id: string, status: string, detail?: string|null, error?: string|null, session_status?: string|null, refreshed_cookies?: array<array-key, mixed>|null, account_id?: string|null} $data */
         $data = $request->validate([
             'job_id' => ['required', 'string'],
             'status' => ['required', 'in:completed,dry-run,restricted,failed'],
@@ -34,6 +40,7 @@ final class TiktokPostWebhookController extends Controller
             'error' => ['nullable', 'string'],
             'session_status' => ['nullable', 'in:valid,invalid,unknown'],
             'refreshed_cookies' => ['nullable', 'array'],
+            'account_id' => ['nullable', 'string'],
         ]);
 
         $post = SocialPost::query()
@@ -45,30 +52,34 @@ final class TiktokPostWebhookController extends Controller
             return response()->json(['status' => 'unknown-job'], 404);
         }
 
-        $this->syncAccount($data, $discord);
+        // Claim atômico: entregas concorrentes/replay não duplicam Discord
+        // nem sobrescrevem um desfecho final; replay tardio também não passa
+        // pro syncAccount (não regrava cookies já renovados em /contas).
+        $claimed = SocialPost::query()
+            ->whereKey($post->id)
+            ->whereNotIn('status', self::FINISHED_STATUSES)
+            ->update([
+                'status' => $data['status'],
+                'error' => $data['error'] ?? $data['detail'] ?? null,
+                'posted_at' => in_array($data['status'], ['completed', 'dry-run'], true) ? now() : null,
+            ]);
 
-        // Idempotência: retry do webhook depois do desfecho não refaz nada.
-        if (in_array($post->status, self::FINISHED_STATUSES, true)) {
+        if ($claimed !== 1) {
             return response()->json(['status' => 'already-finished']);
         }
 
-        $this->settleLedger($post, $data, $discord);
+        $this->notifyOutcome($post->refresh(), $data, $discord);
+        $this->syncAccount($data, $discord);
 
         return response()->json(['status' => 'ok']);
     }
 
     /**
-     * @param  array{job_id: string, status: string, detail?: string|null, error?: string|null, session_status?: string|null, refreshed_cookies?: array<array-key, mixed>|null}  $data
+     * @param  array{job_id: string, status: string, detail?: string|null, error?: string|null, session_status?: string|null, refreshed_cookies?: array<array-key, mixed>|null, account_id?: string|null}  $data
      */
-    private function settleLedger(SocialPost $post, array $data, DiscordNotifierService $discord): void
+    private function notifyOutcome(SocialPost $post, array $data, DiscordNotifierService $discord): void
     {
         $title = $post->title ?? $post->youtube_id ?? $post->uuid;
-
-        $post->fill([
-            'status' => $data['status'],
-            'error' => $data['error'] ?? $data['detail'] ?? null,
-            'posted_at' => in_array($data['status'], ['completed', 'dry-run'], true) ? now() : null,
-        ])->save();
 
         match ($data['status']) {
             'completed' => $this->markPosted($post, $title, $discord),
@@ -97,11 +108,12 @@ final class TiktokPostWebhookController extends Controller
     }
 
     /**
-     * Reflete o resultado da sessão na conta ativa: cookies renovados que o
-     * Playwright capturou pós-upload + session_status (invalid faz o
+     * Reflete o resultado da sessão na conta que originou o post (account_id
+     * ecoado pelo uploader; fallback: conta ativa mais recente): cookies
+     * renovados capturados pós-upload + session_status (invalid faz o
      * TiktokPosterService pular os próximos slots até renovar em /contas).
      *
-     * @param  array{job_id: string, status: string, detail?: string|null, error?: string|null, session_status?: string|null, refreshed_cookies?: array<array-key, mixed>|null}  $data
+     * @param  array{job_id: string, status: string, detail?: string|null, error?: string|null, session_status?: string|null, refreshed_cookies?: array<array-key, mixed>|null, account_id?: string|null}  $data
      */
     private function syncAccount(array $data, DiscordNotifierService $discord): void
     {
@@ -112,10 +124,12 @@ final class TiktokPostWebhookController extends Controller
             return;
         }
 
+        $accountId = $data['account_id'] ?? null;
+
         $account = SocialAccount::query()
             ->where('platform', 'tiktok')
-            ->where('is_active', true)
-            ->latest('id')
+            ->when($accountId !== null && $accountId !== '', fn ($q) => $q->whereKey((int) $accountId))
+            ->when($accountId === null || $accountId === '', fn ($q) => $q->where('is_active', true)->latest('id'))
             ->first();
 
         if (! $account instanceof SocialAccount) {
