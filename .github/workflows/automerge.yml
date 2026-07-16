@@ -46,4 +46,10 @@ jobs:
           pr=$(gh pr list --repo "$REPO" --search "$SHA" --state open --draft=false --json number --jq '.[0].number')
           [ -z "$pr" ] && { echo "nenhum PR aberto (nao-draft) para $SHA"; exit 0; }
 
-          gh pr merge "$pr" --repo "$REPO" --squash
+          # REST em vez de `gh pr merge`: a mutation GraphQL do gh devolve
+          # "Resource not accessible by integration" (403) com o GITHUB_TOKEN
+          # em repo privado, mesmo com contents/pull-requests: write.
+          # Ressalva documentada: PR que altera .github/workflows/ nao pode
+          # ser mergeado pelo GITHUB_TOKEN (exige escopo `workflows`) — esses
+          # continuam pedindo merge manual.
+          gh api -X PUT "repos/$REPO/pulls/$pr/merge" -f merge_method=squash
