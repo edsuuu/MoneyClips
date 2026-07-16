@@ -11,14 +11,13 @@
  *                     200 JSON {status: "skipped"} quando não precisou
  */
 
+import express, { type NextFunction, type Request, type Response } from 'express';
+import multer from 'multer';
 import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
-
-import express, { type NextFunction, type Request, type Response } from 'express';
-import multer from 'multer';
 
 import { App } from '@/app';
 import { settings } from '@/config/env/Env';

@@ -10,6 +10,7 @@ a saída primária.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import resource
@@ -17,7 +18,8 @@ import socket
 import sys
 import threading
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 
 import httpx
 
@@ -55,7 +57,7 @@ class RemoteLogHandler(logging.Handler):
         self._token = token
         self._service = service
         self._hostname = socket.gethostname()
-        self._buffer: list[dict] = []
+        self._buffer: list[dict[str, Any]] = []
         self._lock = threading.Lock()
 
         thread = threading.Thread(target=self._flush_loop, daemon=True)
@@ -67,9 +69,9 @@ class RemoteLogHandler(logging.Handler):
                 "level": _LEVELS.get(record.levelno, "info"),
                 "message": record.getMessage(),
                 "context": None,
-                "logged_at": datetime.now(timezone.utc).isoformat(),
+                "logged_at": datetime.now(UTC).isoformat(),
             }
-        except Exception:  # noqa: BLE001
+        except Exception:
             return
 
         with self._lock:
@@ -89,21 +91,20 @@ class RemoteLogHandler(logging.Handler):
                 return
             entries, self._buffer = self._buffer, []
 
-        try:
+        # Laravel fora do ar: descarta e segue.
+        with contextlib.suppress(Exception):
             httpx.post(
                 f"{self._url}/logs",
                 json={"service": self._service, "hostname": self._hostname, "entries": entries},
                 headers={"X-Observability-Token": self._token},
                 timeout=REQUEST_TIMEOUT_SECONDS,
             )
-        except Exception:  # noqa: BLE001, S110
-            pass  # Laravel fora do ar: descarta e segue
 
 
 def _heartbeat_loop(url: str, token: str, service: str) -> None:
     hostname = socket.gethostname()
     while True:
-        try:
+        with contextlib.suppress(Exception):
             httpx.post(
                 f"{url}/heartbeat",
                 json={
@@ -115,8 +116,6 @@ def _heartbeat_loop(url: str, token: str, service: str) -> None:
                 headers={"X-Observability-Token": token},
                 timeout=REQUEST_TIMEOUT_SECONDS,
             )
-        except Exception:  # noqa: BLE001, S110
-            pass
         time.sleep(HEARTBEAT_INTERVAL_SECONDS)
 
 
@@ -130,7 +129,8 @@ def start_observability(service_name: str, logger_name: str) -> None:
 
     if not url or not token:
         logger.warning(
-            "[Observability] OBSERVABILITY_URL/OBSERVABILITY_TOKEN não configurados — push remoto desativado."
+            "[Observability] OBSERVABILITY_URL/OBSERVABILITY_TOKEN não configurados — "
+            "push remoto desativado."
         )
         return
 

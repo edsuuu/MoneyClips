@@ -71,7 +71,9 @@ export function initObservability(serviceName: string): void {
     service = process.env['SERVICE_NAME'] ?? serviceName;
 
     if (!baseUrl || !token) {
-        logger.warn('[Observability] OBSERVABILITY_URL/OBSERVABILITY_TOKEN não configurados — push remoto desativado.');
+        logger.warn(
+            '[Observability] OBSERVABILITY_URL/OBSERVABILITY_TOKEN não configurados — push remoto desativado.',
+        );
         return;
     }
 

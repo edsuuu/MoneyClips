@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Any
 
 import httpx
 
@@ -18,7 +19,7 @@ _RETRY_DELAYS = (0.0, 1.0, 5.0, 15.0)
 _TIMEOUT_SECONDS = 30.0
 
 
-def send_webhook(url: str, payload: dict) -> bool:
+def send_webhook(url: str, payload: dict[str, Any]) -> bool:
     for attempt, delay in enumerate(_RETRY_DELAYS, start=1):
         if delay:
             time.sleep(delay)
