@@ -64,10 +64,14 @@ return [
 
     'tiktok_post' => [
         'base_url' => env('TIKTOK_POST_URL', 'http://127.0.0.1:8090'),
-        // Post síncrono via Playwright: a verificação de conteúdo do TikTok
-        // pode levar ~15 min — o client só roda dentro de job de fila.
-        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 1500),
+        // Só cobre o envio do binário + 202 {job_id} — a publicação roda em
+        // background no uploader e o desfecho volta pela webhook_url.
+        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 120),
         'api_token' => env('TIKTOK_POST_API_TOKEN', ''),
+        'webhook_url' => env(
+            'TIKTOK_POST_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/tiktok-posts/webhook',
+        ),
         // Conta TikTok ativa (handle público sem @). Usada em mensagens do
         // Discord pra rotular o destino. A autenticação real vive em cookies.
         'account_name' => env('TIKTOK_ACCOUNT_NAME', ''),

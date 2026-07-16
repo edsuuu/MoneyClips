@@ -32,35 +32,57 @@ direto pro MinIO.
 download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
   → /meus-videos: revisão (título/hashtags) → ready_at
       → opcional: reencode (síncrono) OU template via AutoCaption (assíncrono)
-  → /agenda: schedule_slots (data+hora+vídeo) → AutoPostDispatcher (cron)
-      → claim atômico do slot → 1 job PostSlotToPlatform por plataforma habilitada
-          → YoutubePoster (Data API) / TiktokPoster (multipart síncrono) / stubs
+  → /agenda: schedule_slots (data+hora+vídeo) → AutoPostDispatcherService (cron)
+      → claim atômico do slot → 1 job PostSlotToPlatformJob por plataforma habilitada
+          → YoutubePosterService (Data API, síncrono no job)
+          → TiktokPosterService (202 {job_id} → webhook fecha o desfecho)
+          → stubs (TikTok oficial, Instagram, Facebook, Kwai)
 ```
+
+## Organização de código (sufixos + pastas por plataforma)
+
+- **Sufixo obrigatório no nome da classe**: `*Service` (services), `*Interface`
+  (`app/Contracts/`), `*Data` (DTOs em `app/DataTransferObjects/`), `*Enum`
+  (`app/Enums/`), `*Job` (`app/Jobs/`), `*Cast` (`app/Casts/`), `*Exception`,
+  `*Controller`, `*Command`. SOLID simples — sem camadas de clean architecture.
+- **Services agrupados por plataforma/domínio**:
+  `app/Services/TikTok/{Unofficial,Official}/`, `app/Services/Youtube/`
+  (+ `Youtube/DownloadShorts/`), `app/Services/Meta/{Instagram,Facebook}/`,
+  `app/Services/Kwai/`, `app/Services/AutoPost/` (orquestração da agenda),
+  `app/Services/{Reencode,AutoCaption,Processing,Discord}/`.
+- **Fuso horário**: `config/app.php` já define `America/Sao_Paulo` — NUNCA
+  repita o timezone em código (`now()`/`CarbonImmutable::now()` já resolvem).
+  `Date::use(CarbonImmutable::class)` é global (`AppServiceProvider`).
+- **Horários de postagem vêm SEMPRE do banco** (semana anterior →
+  `users.auto_post_schedule`) — não existe horário default em código.
 
 ### Agenda (`schedule_slots` + `App\Services\AutoPost\`)
 
-- `ScheduleSlot` — slot concreto: `slot_date` + `slot_time` (fuso
-  `America/Sao_Paulo`, constante `AutoPost::TIMEZONE`), `youtube_short_id`
-  (null = vazio), `is_active`, `dispatched_at` (claim atômico). Máx. 5/dia.
-  `scheduledAt()` é o único ponto que combina data+hora (fuso).
-- `AutoPostDispatcher` — a cada minuto busca slots devidos (tolerância
+- `ScheduleSlot` — slot concreto: `slot_date` + `slot_time` (fuso da
+  aplicação), `youtube_short_id` (null = vazio), `is_active`, `dispatched_at`
+  (claim atômico). Máx. 5/dia. `scheduledAt()` é o único ponto que combina
+  data+hora.
+- `AutoPostDispatcherService` — a cada minuto busca slots devidos (tolerância
   `GRACE_MINUTES = 5`), reivindica via `UPDATE ... WHERE dispatched_at IS NULL`
-  e enfileira `PostSlotToPlatform` (fila `posting`, `tries=1` — repost às
+  e enfileira `PostSlotToPlatformJob` (fila `posting`, `tries=1` — repost às
   cegas arrisca duplicado). O tick nunca posta nada.
-- `PosterRegistry` (singleton no `AppServiceProvider`) — 1 Poster por
-  plataforma implementando `Posters\PosterContract`
-  (`post(PostTask): PosterResult`; outcomes `ok|dry-run|restricted|failed`).
-  Toggles em **`platform_settings`** (tela /agenda). Stubs prontos:
-  `TiktokOfficialPoster`, `InstagramReelsPoster`, `FacebookReelsPoster`,
-  `KwaiPoster` (docblocks apontam a API alvo; credenciais irão em
-  `social_accounts`).
-- `SlotStatus` — status de exibição computado na leitura (nunca persistido):
-  `empty|paused|future|next|due|skipped` e, pós-despacho, agregado das
-  `social_posts` do slot: `posting|posted|partial|failed` (por plataforma).
-- `WeekGenerator` — "Gerar semana": copia horários da última semana com slots
-  (fallback: agenda legada `users.auto_post_schedule`, depois
-  `AutoPost::DEFAULT_TIMES`) e auto-atribui vídeos prontos (FIFO `ready_at`).
-- `StockAlert` — 1×/dia compara estoque pronto × slots vazios de 7 dias.
+- `PosterRegistryService` (singleton no `AppServiceProvider`) — 1 Poster por
+  plataforma implementando `App\Contracts\PosterInterface`
+  (`post(PostTaskData): PosterResultData`; outcomes
+  `ok|queued|dry-run|restricted|failed` — `queued` = desfecho chega por
+  webhook, `externalId` gravado como uuid do ledger). Toggles em
+  **`platform_settings`** (tela /agenda). Stubs prontos:
+  `TiktokOfficialPosterService`, `InstagramReelsPosterService`,
+  `FacebookReelsPosterService`, `KwaiPosterService` (docblocks apontam a API
+  alvo; credenciais irão em `social_accounts`).
+- `SlotStatusService` — status de exibição computado na leitura (nunca
+  persistido): `empty|paused|future|next|due|skipped` e, pós-despacho,
+  agregado das `social_posts` do slot: `posting|posted|partial|failed`.
+- `WeekGeneratorService` — "Gerar semana": copia horários da última semana com
+  slots (fallback: agenda legada `users.auto_post_schedule`) e auto-atribui
+  vídeos prontos (FIFO `ready_at`). Sem nada no banco, não cria slot — o
+  operador monta a primeira semana na /agenda.
+- `StockAlertService` — 1×/dia compara estoque pronto × slots vazios de 7 dias.
 - Deploy da agenda: rodar `php artisan schedule:migrate-legacy` UMA vez após
   `migrate` (materializa slots da agenda legada; sem isso nada posta).
 
@@ -77,34 +99,42 @@ tab "Com template".
 Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
 
 - `VideoProcessingService::startReencode()` → `RunReencodeJob` (fila
-  `processing`): MinIO → multipart `POST /reencode` (síncrono, resposta =
-  binário `_HQ` ou JSON `skipped`) → MinIO → `processed_video_path`.
+  `processing`): MinIO → multipart `POST /reencode` via
+  `App\Services\Reencode\ReencodeService` (síncrono, resposta = binário `_HQ`
+  ou JSON `skipped`) → MinIO → `processed_video_path`.
 - `VideoProcessingService::startTemplateRender()` → `StartTemplateRenderJob`:
-  MinIO → multipart `POST /videos` no AutoCaption (com `webhook_url`) →
+  MinIO → multipart `POST /videos` no AutoCaption
+  (`App\Services\AutoCaption\AutoCaptionService`, com `webhook_url`) →
   webhook `POST /api/autocaption/webhook` → `FetchTemplateOutputJob` baixa o
-  variant e grava no MinIO. Estilos: `TemplateStyle` (Claro/Escuro/Vertical →
-  variants `template_white|template_black|vertical` do AutoCaption).
+  variant e grava no MinIO. Estilos: `TemplateStyleEnum` (Claro/Escuro/Vertical
+  → variants `template_white|template_black|vertical` do AutoCaption).
 - 1 job pendente por vídeo (guard em `processing_jobs`).
 
 ### YouTube
 
-- `App\Services\Youtube\ShortsPoster` — upload resumível na YouTube Data API
-  v3 (HTTP puro). Credenciais em `social_accounts` (platform=`youtube`, OAuth
-  Google, refresh via `YoutubeTokenRefresher`). Connect em `/contas`.
+- `App\Services\Youtube\ShortsPosterService` — upload resumível na YouTube
+  Data API v3 (HTTP puro), chamado pelo `YoutubePosterService`. Credenciais em
+  `social_accounts` (platform=`youtube`, OAuth Google, refresh via
+  `YoutubeTokenRefresherService`). Connect em `/contas`. Download de canal:
+  `App\Services\Youtube\DownloadShorts\{DownloadShortsService,
+  DownloadYoutubeImportService}`.
 
 ### TikTok (não-oficial, Playwright)
 
-- **Integração NOVA (síncrona)**: `App\Services\TikTok\TiktokUploaderClient`
-  faz `POST /posts` **multipart** (`video` binário + `cookies` JSON + `title`
-  + `hashtags`) e recebe o desfecho na resposta:
-  `{status: completed|dry-run|restricted}`; `401` = cookies inválidos →
-  `SessionInvalidException` → conta marcada `session_status=invalid` +
-  Discord (o poster curto-circuita até renovar em /contas). Timeout 1500s
-  (verificação de conteúdo pode levar ~15 min) — roda só dentro do job de fila.
+- **Integração ASSÍNCRONA**: `App\Services\TikTok\Unofficial\
+  TiktokUploaderService` faz `POST /posts` **multipart** (`video` binário +
+  `cookies` JSON + `title` + `hashtags` + `webhook_url`) e recebe
+  `202 {job_id}` na hora — o job_id vira o `uuid` do ledger. O Playwright
+  publica em background e o desfecho chega em
+  `POST /api/tiktok-posts/webhook` (`TiktokPostWebhookController`):
+  `{job_id, status: completed|dry-run|restricted|failed, session_status,
+  refreshed_cookies?}` — fecha o ledger, marca `posted_tiktok_at` e atualiza
+  a conta (`session_status=invalid` → Discord + `TiktokPosterService`
+  curto-circuita os próximos slots até renovar em /contas).
 - Cookies vivem **criptografados no banco**: `social_accounts.cookies`
-  (cast `encrypted:array`). Não existe mais webhook de callback nem
-  `refreshed_cookies` — renovação de sessão é manual em `/contas`
-  (fallback de emergência: `tiktok:import-cookies-from-file`).
+  (cast `encrypted:array`). O webhook devolve `refreshed_cookies` (capturados
+  pós-upload) e o Laravel renova a sessão sozinho; fallback manual em
+  `/contas` (emergência: `tiktok:import-cookies-from-file`).
 - Status `restricted` (modal de moderação do TikTok) não volta pro estoque e
   gera warning (não error) no Discord; a sessão continua válida.
 - O microserviço `MicroServices/TikTokUploader` é a fonte do contrato.
@@ -214,7 +244,7 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 | Serviço | Porta | Stack | Contrato |
 | --- | --- | --- | --- |
 | download-shorts | 8770 | FastAPI + yt-dlp | `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item; sobe direto pro MinIO (exceção da regra S3) |
-| tiktok-uploader | 8090 | Node 22 + Playwright | `POST /posts` multipart {video, cookies, title, hashtags} → SÍNCRONO `{status}`; `POST /session`, `POST /login`, `GET /health` |
+| tiktok-uploader | 8090 | Node 22 + Playwright | `POST /posts` multipart {video, cookies, title, hashtags, webhook_url} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status, session_status, refreshed_cookies?}`; `POST /session`, `POST /login`, `GET /health` |
 | reencode | 8790 | Node 22 + ffmpeg | `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped`; 1 ffmpeg por vez; `API_TOKEN` opcional |
 | autocaption | 8780 | FastAPI + WhisperX (CUDA) | `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; webhook `{uuid, status: done|failed}`; output em `GET /videos/{uuid}/output/{variant}` |
 | GenerateClips | 8765 | — | fora do fluxo atual (não entra no `make up`) |
@@ -242,8 +272,9 @@ make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
 1. `php artisan migrate`
 2. `php artisan schedule:migrate-legacy` (senão nada posta)
 3. Setar `OBSERVABILITY_TOKEN` no Laravel + nos `.env` dos 4 serviços
-4. Revisar `/agenda` (atribuir vídeos aos slots) e toggles em `platform_settings`
-5. ⚠️ Rotacionar a chave Roboflow e o webhook Discord que estavam commitados
+4. Conferir `TIKTOK_POST_WEBHOOK_URL` (em prod: domínio real, não `:8000`)
+5. Revisar `/agenda` (atribuir vídeos aos slots) e toggles em `platform_settings`
+6. ⚠️ Rotacionar a chave Roboflow e o webhook Discord que estavam commitados
    no `.env.example` antigo do TikTokUploader (continuam no histórico git)
 
 ## Agentes e contexto

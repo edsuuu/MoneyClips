@@ -7,8 +7,8 @@ namespace App\Jobs;
 use App\Jobs\Concerns\TransfersStorageFiles;
 use App\Models\ProcessingJob;
 use App\Models\YoutubeShort;
-use App\Services\DiscordNotifier;
-use App\Services\Processing\ReencodeClient;
+use App\Services\Discord\DiscordNotifierService;
+use App\Services\Reencode\ReencodeService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -37,7 +37,7 @@ final class RunReencodeJob implements ShouldQueue
         $this->onQueue('processing');
     }
 
-    public function handle(ReencodeClient $client): void
+    public function handle(ReencodeService $client): void
     {
         $job = ProcessingJob::query()->with('youtubeShort')->find($this->processingJobId);
         $short = $job?->youtubeShort;
@@ -86,7 +86,7 @@ final class RunReencodeJob implements ShouldQueue
         ProcessingJob::query()->whereKey($this->processingJobId)
             ->update(['status' => 'failed', 'error' => $error, 'finished_at' => now()]);
 
-        resolve(DiscordNotifier::class)->error('❌ Reencode falhou', sprintf('Job #%d%s%s', $this->processingJobId, PHP_EOL, $error));
+        resolve(DiscordNotifierService::class)->error('❌ Reencode falhou', sprintf('Job #%d%s%s', $this->processingJobId, PHP_EOL, $error));
     }
 
     /** "shorts/x/short_x.mp4" → "shorts/x/short_x_HQ.mp4". */

@@ -165,3 +165,40 @@ registradas no CLAUDE.md):
   evolução natural.
 - Tetos assumidos (comentários `ponytail:` no código): grids sem paginação
   (`SECTION_LIMIT=60`), 1 ffmpeg por vez no Reencode, worker de fila único.
+
+## Adendo (2ª passada, pós-PR #48): estrutura + TikTok assíncrono
+
+Feedback do dono do projeto corrigido nesta passada — o texto acima descreve
+a 1ª entrega; onde divergir, vale o CLAUDE.md e o que segue:
+
+1. **TikTok não-oficial voltou a ser ASSÍNCRONO, do jeito certo.** O item 4
+   acima ("virou síncrono") foi revertido: o `POST /posts` do uploader agora
+   responde `202 {job_id}` e processa numa fila serial em memória
+   (`PostQueueService`); ao terminar dispara webhook pro Laravel
+   (`POST /api/tiktok-posts/webhook`) com
+   `{job_id, status, session_status, refreshed_cookies?}`. O poster devolve
+   `queued` e grava o job_id como uuid do ledger; o
+   `TiktokPostWebhookController` fecha o desfecho. Bônus recuperado do
+   contrato antigo: `refreshed_cookies` renovam a sessão no banco
+   automaticamente. Timeout do client caiu de 1500s para 120s.
+2. **Reorganização por plataforma + sufixos obrigatórios**
+   (`Service`/`Interface`/`Data`/`Enum`/`Job`/`Cast`): `PosterContract` →
+   `App\Contracts\PosterInterface`; DTOs em `App\DataTransferObjects`
+   (`PostTaskData`, `PosterResultData`, `TemplateRenderOptionsData`);
+   `App\Enums\TemplateStyleEnum`; services em pastas por plataforma —
+   `TikTok/{Unofficial,Official}`, `Youtube` (+`Youtube/DownloadShorts`),
+   `Meta/{Instagram,Facebook}`, `Kwai`, `Reencode`, `AutoCaption`, `Discord`;
+   `PostSlotToPlatform` → `PostSlotToPlatformJob`; `DateOnly` →
+   `DateOnlyCast`. Código morto deletado: `PublishResult`,
+   `PublishException`, `TiktokUploadResult`, `SessionInvalidException`,
+   classe de constantes `AutoPost`.
+3. **Zero timezone explícito**: `config/app.php` já define
+   `America/Sao_Paulo` e `Date::use(CarbonImmutable)` é global — todas as
+   conversões `AutoPost::TIMEZONE`/`timezone('America/Sao_Paulo')` e os
+   `->timezone()` do scheduler foram removidos.
+4. **Horários só do banco**: `AutoPost::DEFAULT_TIMES` morreu — o
+   `WeekGeneratorService` copia a semana anterior ou a agenda legada; sem
+   nada no banco, não cria slot (o operador monta a primeira semana na
+   /agenda).
+5. `.claude/worktrees/` blindado no `.gitignore` (worktrees do Claude Code
+   nunca entram no repo).

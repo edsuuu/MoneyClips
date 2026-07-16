@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\FetchTemplateOutputJob;
 use App\Models\ProcessingJob;
-use App\Services\DiscordNotifier;
+use App\Services\Discord\DiscordNotifierService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -18,7 +18,7 @@ use Illuminate\Http\Request;
  */
 final class AutoCaptionWebhookController extends Controller
 {
-    public function __invoke(Request $request, DiscordNotifier $discord): JsonResponse
+    public function __invoke(Request $request, DiscordNotifierService $discord): JsonResponse
     {
         /** @var array{uuid: string, status: string, error?: string|null} $data */
         $data = $request->validate([

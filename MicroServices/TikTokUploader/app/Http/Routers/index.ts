@@ -1,8 +1,8 @@
 import { Router } from 'express';
 
 import { asyncHandler } from '@/Http/Helpers/AsyncHandler';
+import { PostQueueService } from '@/Services/PostQueueService';
 import { SessionService } from '@/Services/SessionService';
-import { TikTokUploader } from '@/Services/TikTok/TikTokUploader';
 
 import { AuthController } from '../Controllers/AuthController';
 import { DocsController } from '../Controllers/DocsController';
@@ -18,12 +18,12 @@ export class Routers {
     private readonly postController: PostController;
 
     public constructor(
-        uploader: TikTokUploader = new TikTokUploader(),
+        postQueue: PostQueueService = new PostQueueService(),
         sessionService: SessionService = new SessionService(),
     ) {
         this.docsController = new DocsController();
         this.healthController = new HealthController();
-        this.postController = new PostController(uploader);
+        this.postController = new PostController(postQueue);
         this.authController = new AuthController(sessionService);
         this.initializeRoutes();
     }

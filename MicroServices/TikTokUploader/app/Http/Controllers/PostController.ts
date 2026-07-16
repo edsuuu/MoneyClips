@@ -1,23 +1,28 @@
 import type { Request, Response } from 'express';
 import { rm } from 'node:fs/promises';
 
-import { TikTokContentRestrictionError } from '@/Exceptions/TikTokContentRestrictionError';
 import { ValidationError } from '@/Exceptions/ValidationError';
-import { discord } from '@/Services/Notifications/Discord';
-import { TikTokUploader } from '@/Services/TikTok/TikTokUploader';
+import { PostQueueService } from '@/Services/PostQueueService';
 import type { Cookie, VideoMetadata } from '@/Types/DomainType';
 
 import type { CreatePostRequest } from '../Requests/CreatePostRequest';
 
 export class PostController {
-    public constructor(private readonly uploader: TikTokUploader) {}
+    public constructor(private readonly queue: PostQueueService) {}
 
+    /**
+     * ASSÍNCRONO: valida, enfileira e responde 202 {job_id} na hora. O upload
+     * roda em background (PostQueueService) e o desfecho vai pro Laravel na
+     * webhook_url: {job_id, status: completed|dry-run|restricted|failed,
+     * session_status, refreshed_cookies?}.
+     */
     public async createPost(req: Request, res: Response): Promise<void> {
         const body = (req.body ?? {}) as CreatePostRequest;
         const videoPath = req.file?.path ?? '';
 
         const title = typeof body.title === 'string' ? body.title.trim() : '';
         const cookies = parseCookies(body.cookies);
+        const webhookUrl = typeof body.webhook_url === 'string' ? body.webhook_url.trim() : '';
 
         const errors: Record<string, string> = {};
 
@@ -30,32 +35,22 @@ export class PostController {
             errors['cookies'] = 'Cookies obrigatórios: array JSON de cookies no campo "cookies".';
         }
 
+        if (!/^https?:\/\//.test(webhookUrl)) {
+            errors['webhook_url'] =
+                'webhook_url obrigatória (http/https): o desfecho do post é assíncrono e chega por webhook.';
+        }
+
         if (Object.keys(errors).length > 0) {
+            // Request recusado não processa nada — não deixa o vídeo órfão no tmp.
+            await rm(videoPath, { force: true }).catch(() => undefined);
+
             throw new ValidationError(errors);
         }
 
         const metadata: VideoMetadata = { title, hashtags: parseHashtags(body.hashtags) };
+        const jobId = this.queue.enqueue({ videoPath, metadata, cookies, webhookUrl });
 
-        try {
-            const result = await this.uploader.upload({ videoPath, metadata, cookies });
-
-            void discord.notifySuccess(
-                '✅ Post no TikTok',
-                `\`${title || '(sem título)'}\` — status: ${result}`,
-            );
-
-            res.status(200).json({ status: result, title });
-        } catch (error) {
-            if (error instanceof TikTokContentRestrictionError) {
-                res.status(200).json({ status: 'restricted', title, detail: error.message });
-
-                return;
-            }
-
-            throw error;
-        } finally {
-            await rm(videoPath, { force: true }).catch(() => undefined);
-        }
+        res.status(202).json({ job_id: jobId, status: 'queued', title });
     }
 }
 

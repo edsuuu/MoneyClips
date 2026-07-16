@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
-    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00', 'America/Sao_Paulo'));
+    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00'));
     config()->set('services.youtube_shorts.discord_webhook', 'https://discord.test/webhook');
     Http::fake(['discord.test/*' => Http::response()]);
 });

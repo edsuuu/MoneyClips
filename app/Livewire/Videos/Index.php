@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
-use App\Jobs\PostSlotToPlatform;
+use App\Jobs\PostSlotToPlatformJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\PlatformSetting;
 use App\Models\ProcessingJob;
@@ -12,7 +12,7 @@ use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\Processing\VideoProcessingService;
-use App\Services\Youtube\DownloadShortsClient;
+use App\Services\Youtube\DownloadShorts\DownloadShortsService;
 use App\Support\Hashtags;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -213,7 +213,7 @@ final class Index extends Component
                 continue; // já em fila/postado nessa plataforma
             }
 
-            dispatch(new PostSlotToPlatform(null, $platform, $short->id));
+            dispatch(new PostSlotToPlatformJob(null, $platform, $short->id));
             $queued[] = $platform;
         }
 
@@ -239,7 +239,7 @@ final class Index extends Component
         $this->validate(['channelUrl' => ['required', 'url']]);
 
         try {
-            $count = resolve(DownloadShortsClient::class)->createDownload($this->channelUrl);
+            $count = resolve(DownloadShortsService::class)->createDownload($this->channelUrl);
             $this->showUpload = false;
             $this->toast(sprintf('Download iniciado: %d Shorts na fila do canal.', $count));
         } catch (Throwable $throwable) {

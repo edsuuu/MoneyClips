@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
-use App\Services\Youtube\DownloadYoutubeImportService;
+use App\Services\Youtube\DownloadShorts\DownloadYoutubeImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

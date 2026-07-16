@@ -50,11 +50,9 @@ export class App {
             }
         });
 
-        // Upload é síncrono e pode levar minutos (processamento + verificação do TikTok).
-        // Sem esses limites o Node derruba a conexão no meio e o cliente (Insomnia) toma timeout.
-        httpServer.requestTimeout = 0;
-        httpServer.timeout = 0;
-        httpServer.keepAliveTimeout = 10 * 60_000;
+        // POST /posts responde 202 na hora (upload roda em background); o
+        // requestTimeout só precisa cobrir o streaming do binário do vídeo.
+        httpServer.requestTimeout = 10 * 60_000;
 
         const shutdown = (): void => {
             logger.info('Encerrando API...');

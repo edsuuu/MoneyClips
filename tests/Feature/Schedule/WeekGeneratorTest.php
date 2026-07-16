@@ -3,24 +3,36 @@
 declare(strict_types=1);
 
 use App\Models\ScheduleSlot;
+use App\Models\User;
 use App\Models\YoutubeShort;
-use App\Services\AutoPost\WeekGenerator;
+use App\Services\AutoPost\WeekGeneratorService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 
 beforeEach(function (): void {
-    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00', 'America/Sao_Paulo'));
+    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00'));
 });
 
-it('creates default slots for an empty next week and assigns ready videos fifo', function (): void {
+/**
+ * Fonte de horários no banco (agenda legada): mesmo horário todos os dias.
+ *
+ * @param  list<string>  $times
+ */
+function legacyScheduleUser(array $times = ['09:00', '12:00', '15:00', '18:00', '21:00']): User
+{
+    return User::factory()->create(['auto_post_schedule' => array_fill_keys(range(1, 7), $times)]);
+}
+
+it('creates slots from the legacy schedule and assigns ready videos fifo', function (): void {
+    legacyScheduleUser();
     $first = YoutubeShort::factory()->ready()->create(['ready_at' => now()->subDays(3)]);
     $second = YoutubeShort::factory()->ready()->create(['ready_at' => now()->subDays(2)]);
     $third = YoutubeShort::factory()->ready()->create(['ready_at' => now()->subDay()]);
 
-    $nextMonday = CarbonImmutable::parse('2026-07-20', 'America/Sao_Paulo');
-    $created = resolve(WeekGenerator::class)->generate($nextMonday, 2);
+    $nextMonday = CarbonImmutable::parse('2026-07-20');
+    $created = resolve(WeekGeneratorService::class)->generate($nextMonday, 2);
 
-    // 5 horários default × 7 dias.
+    // 5 horários da agenda legada × 7 dias.
     expect($created)->toBe(35)
         ->and(ScheduleSlot::query()->count())->toBe(35);
 
@@ -37,8 +49,9 @@ it('creates default slots for an empty next week and assigns ready videos fifo',
 });
 
 it('is idempotent per slot and respects the per-day cap', function (): void {
-    $nextMonday = CarbonImmutable::parse('2026-07-20', 'America/Sao_Paulo');
-    $generator = resolve(WeekGenerator::class);
+    legacyScheduleUser();
+    $nextMonday = CarbonImmutable::parse('2026-07-20');
+    $generator = resolve(WeekGeneratorService::class);
 
     $generator->generate($nextMonday, 0);
 
@@ -59,7 +72,7 @@ it('copies times from the most recent week with slots', function (): void {
     ScheduleSlot::factory()->create(['slot_date' => '2026-07-14', 'slot_time' => '10:30:00']);
     ScheduleSlot::factory()->create(['slot_date' => '2026-07-14', 'slot_time' => '19:45:00']);
 
-    $created = resolve(WeekGenerator::class)->generate(CarbonImmutable::parse('2026-07-20', 'America/Sao_Paulo'), 0);
+    $created = resolve(WeekGeneratorService::class)->generate(CarbonImmutable::parse('2026-07-20'), 0);
 
     // Semana anterior só tinha horários na terça → nova semana idem.
     expect($created)->toBe(2);
@@ -75,12 +88,21 @@ it('copies times from the most recent week with slots', function (): void {
 });
 
 it('skips times already in the past when filling the current week', function (): void {
-    $monday = CarbonImmutable::parse('2026-07-13', 'America/Sao_Paulo');
+    legacyScheduleUser();
+    $monday = CarbonImmutable::parse('2026-07-13');
 
-    resolve(WeekGenerator::class)->generate($monday, 0);
+    resolve(WeekGeneratorService::class)->generate($monday, 0);
 
     // Hoje é quarta 15/07 12:00 — nada é criado antes de agora.
     expect(ScheduleSlot::query()->where('slot_date', '<', '2026-07-15')->count())->toBe(0)
         ->and(ScheduleSlot::query()->where('slot_date', '2026-07-15')->pluck('slot_time')->map(fn (string $t): string => mb_substr($t, 0, 5))->all())
         ->toBe(['15:00', '18:00', '21:00']);
+});
+
+it('creates nothing when the database has no times to copy', function (): void {
+    // Sem semana anterior e sem agenda legada: horário não é inventado em código.
+    $created = resolve(WeekGeneratorService::class)->generate(CarbonImmutable::parse('2026-07-20'), 0);
+
+    expect($created)->toBe(0)
+        ->and(ScheduleSlot::query()->count())->toBe(0);
 });

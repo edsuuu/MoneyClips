@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Services\Youtube\YoutubeAccountConnector;
+use App\Services\Youtube\YoutubeAccountConnectorService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
@@ -120,7 +120,7 @@ final class OAuthController extends Controller
             ->redirect();
     }
 
-    public function callback(string $platform, YoutubeAccountConnector $connector): RedirectResponse
+    public function callback(string $platform, YoutubeAccountConnectorService $connector): RedirectResponse
     {
         $config = self::PROVIDERS[$platform] ?? null;
         if ($config === null) {

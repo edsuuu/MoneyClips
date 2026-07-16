@@ -6,6 +6,7 @@ use App\Http\Controllers\AutoCaptionWebhookController;
 use App\Http\Controllers\DownloadYoutubeWebhookController;
 use App\Http\Controllers\Observability\StoreHeartbeatController;
 use App\Http\Controllers\Observability\StoreLogsController;
+use App\Http\Controllers\TiktokPostWebhookController;
 use App\Http\Middleware\VerifyObservabilityToken;
 use Illuminate\Support\Facades\Route;
 
@@ -14,6 +15,9 @@ Route::post('/download-youtube/webhook', DownloadYoutubeWebhookController::class
 
 Route::post('/autocaption/webhook', AutoCaptionWebhookController::class)
     ->name('autocaption.webhook');
+
+Route::post('/tiktok-posts/webhook', TiktokPostWebhookController::class)
+    ->name('tiktok-posts.webhook');
 
 // Observabilidade (OBSERVABILITY.md): push de logs em lote + heartbeat dos
 // microserviços, autenticado por token compartilhado.

@@ -8,10 +8,9 @@ use App\Livewire\Concerns\WithToasts;
 use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
 use App\Models\YoutubeShort;
-use App\Services\AutoPost\AutoPost;
-use App\Services\AutoPost\AutoPostDispatcher;
-use App\Services\AutoPost\SlotStatus;
-use App\Services\AutoPost\WeekGenerator;
+use App\Services\AutoPost\AutoPostDispatcherService;
+use App\Services\AutoPost\SlotStatusService;
+use App\Services\AutoPost\WeekGeneratorService;
 use App\Support\Hashtags;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
@@ -44,8 +43,6 @@ final class Index extends Component
 
     /** Plataformas com poster implementado (toggle liberado na UI). */
     private const array IMPLEMENTED_PLATFORMS = ['youtube', 'tiktok'];
-
-    private const string TIMEZONE = AutoPost::TIMEZONE;
 
     public int $weekOffset = 0;
 
@@ -317,12 +314,12 @@ final class Index extends Component
             return;
         }
 
-        $created = resolve(WeekGenerator::class)->generate($this->monday(), max(0, $this->videosPerDay));
+        $created = resolve(WeekGeneratorService::class)->generate($this->monday(), max(0, $this->videosPerDay));
 
         $this->loadWeek();
         $this->toast($created > 0
             ? sprintf('%d slots gerados. Revise e salve — nada é publicado sem confirmação.', $created)
-            : 'Nenhum slot novo — a semana já está preenchida.');
+            : 'Nenhum slot novo — semana já preenchida ou sem horários no banco pra copiar (adicione com "+ Horário").');
     }
 
     public function incPerDay(): void
@@ -346,7 +343,7 @@ final class Index extends Component
                 return;
             }
 
-            $dispatched = resolve(AutoPostDispatcher::class)->dispatchSlot($slot);
+            $dispatched = resolve(AutoPostDispatcherService::class)->dispatchSlot($slot);
             $this->loadWeek();
             $this->toast($dispatched
                 ? 'Disparo enviado — acompanhe o resultado no slot.'
@@ -378,7 +375,7 @@ final class Index extends Component
 
     private function monday(): CarbonImmutable
     {
-        return Date::now(self::TIMEZONE)->startOfWeek(CarbonImmutable::MONDAY)->addWeeks($this->weekOffset)->startOfDay();
+        return Date::now()->startOfWeek(CarbonImmutable::MONDAY)->addWeeks($this->weekOffset)->startOfDay();
     }
 
     private function isLockedWeek(): bool
@@ -485,7 +482,7 @@ final class Index extends Component
                 continue; // editável — vive no rascunho
             }
 
-            $resolved = SlotStatus::resolve($slot, $now);
+            $resolved = SlotStatusService::resolve($slot, $now);
             $entries[] = $this->slotEntry($resolved['status'], $resolved['platforms'], [
                 'editable' => false,
                 'id' => $slot->id,
@@ -505,7 +502,7 @@ final class Index extends Component
                 'is_active' => $draft['active'],
             ]);
 
-            $resolved = SlotStatus::resolve($transient, $now);
+            $resolved = SlotStatusService::resolve($transient, $now);
             $entries[] = $this->slotEntry($resolved['status'], [], [
                 'editable' => true,
                 'id' => $draft['id'],
@@ -712,7 +709,7 @@ final class Index extends Component
                     ->map(fn (ScheduleSlot $slot): array => [
                         'time' => $slot->timeLabel(),
                         'title' => $slot->youtubeShort?->title,
-                        'status' => SlotStatus::resolve($slot, $now)['status'],
+                        'status' => SlotStatusService::resolve($slot, $now)['status'],
                     ])->values()->all()
                 : [];
 
@@ -755,7 +752,7 @@ final class Index extends Component
 
     public function render(): View
     {
-        $now = Date::now(self::TIMEZONE);
+        $now = Date::now();
         $monday = $this->monday();
         $locked = $this->isLockedWeek();
 

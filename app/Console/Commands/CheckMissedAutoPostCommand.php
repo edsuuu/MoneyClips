@@ -6,9 +6,8 @@ namespace App\Console\Commands;
 
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
-use App\Services\AutoPost\AutoPost;
-use App\Services\AutoPost\AutoPostDispatcher;
-use App\Services\DiscordNotifier;
+use App\Services\AutoPost\AutoPostDispatcherService;
+use App\Services\Discord\DiscordNotifierService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -33,11 +32,11 @@ final class CheckMissedAutoPostCommand extends Command
     /** @var string */
     protected $description = 'Avisa no Discord sobre slots pulados ou com falha nas últimas 6h.';
 
-    public function handle(DiscordNotifier $discord): int
+    public function handle(DiscordNotifierService $discord): int
     {
-        $now = CarbonImmutable::now(AutoPost::TIMEZONE);
+        $now = CarbonImmutable::now();
         $cutoff = $now->subHours(self::LOOKBACK_HOURS);
-        $grace = $now->subMinutes(AutoPostDispatcher::GRACE_MINUTES);
+        $grace = $now->subMinutes(AutoPostDispatcherService::GRACE_MINUTES);
 
         $slots = ScheduleSlot::query()
             ->with('socialPosts')
@@ -97,7 +96,7 @@ final class CheckMissedAutoPostCommand extends Command
     }
 
     /** Cache::add é atômico — 1 alerta por chave, vence em 24h. */
-    private function alertOnce(DiscordNotifier $discord, string $key, string $title, string $message): int
+    private function alertOnce(DiscordNotifierService $discord, string $key, string $title, string $message): int
     {
         if (! Cache::add('auto-post:missed-alert:'.$key, true, now()->addDay())) {
             return 0;

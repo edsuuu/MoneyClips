@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\ServiceHeartbeat;
-use App\Services\DiscordNotifier;
+use App\Services\Discord\DiscordNotifierService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
@@ -22,7 +22,7 @@ final class CheckServiceHeartbeatsCommand extends Command
     /** @var string */
     protected $description = 'Alerta no Discord quando um microserviço para de mandar heartbeat (> 90s).';
 
-    public function handle(DiscordNotifier $discord): int
+    public function handle(DiscordNotifierService $discord): int
     {
         foreach (ServiceHeartbeat::query()->get() as $heartbeat) {
             $downKey = 'observability:down:'.$heartbeat->service;
@@ -36,7 +36,7 @@ final class CheckServiceHeartbeatsCommand extends Command
                             '%s (%s) sem heartbeat desde %s.%sVerifique o processo (pm2/systemd) e a rede.',
                             $heartbeat->service,
                             $heartbeat->hostname ?? 'host desconhecido',
-                            $heartbeat->last_seen_at->timezone('America/Sao_Paulo')->format('d/m H:i:s'),
+                            $heartbeat->last_seen_at->format('d/m H:i:s'),
                             PHP_EOL,
                         ),
                     );

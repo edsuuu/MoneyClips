@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Processing;
 
+use App\DataTransferObjects\TemplateRenderOptionsData;
 use App\Jobs\RunReencodeJob;
 use App\Jobs\StartTemplateRenderJob;
 use App\Models\ProcessingJob;
@@ -32,7 +33,7 @@ final readonly class VideoProcessingService
         return $job;
     }
 
-    public function startTemplateRender(YoutubeShort $short, TemplateRenderOptions $options): ProcessingJob
+    public function startTemplateRender(YoutubeShort $short, TemplateRenderOptionsData $options): ProcessingJob
     {
         $this->guardNoPendingJob($short);
 

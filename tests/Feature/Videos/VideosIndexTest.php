@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Jobs\PostSlotToPlatform;
+use App\Jobs\PostSlotToPlatformJob;
 use App\Livewire\Videos\Index;
 use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
@@ -62,8 +62,8 @@ it('queues instant posts only for enabled platforms without active posts', funct
         ->call('openInstant', $short->id)
         ->call('confirmInstant');
 
-    Queue::assertPushed(PostSlotToPlatform::class, 2);
-    Queue::assertPushed(fn (PostSlotToPlatform $job): bool => $job->slotId === null && $job->shortId === $short->id && $job->platform === 'youtube');
+    Queue::assertPushed(PostSlotToPlatformJob::class, 2);
+    Queue::assertPushed(fn (PostSlotToPlatformJob $job): bool => $job->slotId === null && $job->shortId === $short->id && $job->platform === 'youtube');
 });
 
 it('assigns a templated video to an empty slot', function (): void {
