@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Youtube\DownloadShorts;
+namespace App\Services\DownloadShorts;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;

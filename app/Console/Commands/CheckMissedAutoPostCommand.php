@@ -6,8 +6,8 @@ namespace App\Console\Commands;
 
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
+use App\Services\Api\Discord\DiscordNotifierService;
 use App\Services\AutoPost\AutoPostDispatcherService;
-use App\Services\Discord\DiscordNotifierService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;

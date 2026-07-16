@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\DataTransferObjects;
+namespace App\Services\AutoPost;
 
 use App\Models\ScheduleSlot;
 use App\Models\YoutubeShort;

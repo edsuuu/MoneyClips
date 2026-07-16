@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Enums;
+namespace App\Services\Processing;
 
 /**
  * Estilos de template disponíveis no editor — cada um mapeia para um variant

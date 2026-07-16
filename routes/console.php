@@ -20,8 +20,9 @@ Artisan::command('inspire', function (): void {
 | A cada minuto o dispatcher busca slots devidos em schedule_slots (com
 | tolerância de GRACE_MINUTES), reivindica cada um atomicamente
 | (dispatched_at) e enfileira 1 job por plataforma habilitada na fila
-| `posting`. Posters vivem por plataforma em App\Services\{TikTok,Youtube,
-| Meta,Kwai} — implemente App\Contracts\PosterInterface e registre no
+| `posting`. Posters vivem na pasta da integração (App\Services\Api\* para
+| APIs oficiais; App\Services\TikTokUploader para o microserviço) —
+| implemente App\Services\AutoPost\PosterInterface e registre no
 | AppServiceProvider; toggles em platform_settings (tela /agenda).
 |
 | Fuso: o scheduler usa o timezone da aplicação (config/app.php —

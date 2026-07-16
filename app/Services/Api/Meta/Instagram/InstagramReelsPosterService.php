@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Meta\Instagram;
+namespace App\Services\Api\Meta\Instagram;
 
-use App\Contracts\PosterInterface;
-use App\DataTransferObjects\PosterResultData;
-use App\DataTransferObjects\PostTaskData;
 use App\Models\PlatformSetting;
+use App\Services\AutoPost\PosterInterface;
+use App\Services\AutoPost\PosterResultData;
+use App\Services\AutoPost\PostTaskData;
 use Illuminate\Support\Facades\Log;
 
 /**

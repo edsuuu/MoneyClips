@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Youtube;
+namespace App\Services\Api\Youtube;
 
-use App\Contracts\PosterInterface;
-use App\DataTransferObjects\PosterResultData;
-use App\DataTransferObjects\PostTaskData;
 use App\Models\PlatformSetting;
-use App\Services\Discord\DiscordNotifierService;
+use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\AutoPost\PosterInterface;
+use App\Services\AutoPost\PosterResultData;
+use App\Services\AutoPost\PostTaskData;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 

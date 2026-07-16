@@ -7,7 +7,7 @@ namespace App\Jobs;
 use App\Jobs\Concerns\TransfersStorageFiles;
 use App\Models\ProcessingJob;
 use App\Models\YoutubeShort;
-use App\Services\Discord\DiscordNotifierService;
+use App\Services\Api\Discord\DiscordNotifierService;
 use App\Services\Reencode\ReencodeService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;

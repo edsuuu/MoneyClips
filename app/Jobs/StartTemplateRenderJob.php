@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\DataTransferObjects\TemplateRenderOptionsData;
 use App\Jobs\Concerns\TransfersStorageFiles;
 use App\Models\ProcessingJob;
 use App\Models\YoutubeShort;
+use App\Services\Api\Discord\DiscordNotifierService;
 use App\Services\AutoCaption\AutoCaptionService;
-use App\Services\Discord\DiscordNotifierService;
+use App\Services\Processing\TemplateRenderOptionsData;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;

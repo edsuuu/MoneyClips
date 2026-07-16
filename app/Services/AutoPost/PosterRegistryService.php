@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost;
 
-use App\Contracts\PosterInterface;
 use InvalidArgumentException;
 
 /**

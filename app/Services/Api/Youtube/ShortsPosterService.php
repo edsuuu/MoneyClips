@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Youtube;
+namespace App\Services\Api\Youtube;
 
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;

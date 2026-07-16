@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-use App\DataTransferObjects\PostTaskData;
 use App\Models\ScheduleSlot;
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;
-use App\Services\TikTok\Unofficial\TiktokPosterService;
+use App\Services\AutoPost\PostTaskData;
+use App\Services\TikTokUploader\TiktokPosterService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 

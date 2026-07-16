@@ -2,9 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\DataTransferObjects;
-
-use App\Enums\TemplateStyleEnum;
+namespace App\Services\Processing;
 
 /**
  * Opções de um render de template (editor da tela Meus vídeos). Persistidas

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\DataTransferObjects;
+namespace App\Services\AutoPost;
 
 /**
  * Resultado de uma tentativa de postagem em uma plataforma.

@@ -2,10 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Contracts;
-
-use App\DataTransferObjects\PosterResultData;
-use App\DataTransferObjects\PostTaskData;
+namespace App\Services\AutoPost;
 
 /**
  * Contrato de um poster por plataforma. Cada implementação encapsula a

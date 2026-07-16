@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-use App\Contracts\PosterInterface;
-use App\DataTransferObjects\PosterResultData;
-use App\DataTransferObjects\PostTaskData;
 use App\Jobs\PostSlotToPlatformJob;
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
+use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\AutoPost\PosterInterface;
 use App\Services\AutoPost\PosterRegistryService;
-use App\Services\Discord\DiscordNotifierService;
+use App\Services\AutoPost\PosterResultData;
+use App\Services\AutoPost\PostTaskData;
 use Illuminate\Support\Facades\Storage;
 
 function fakePoster(string $platform, PosterResultData $result): PosterInterface

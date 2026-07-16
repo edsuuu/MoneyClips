@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
-use App\DataTransferObjects\TemplateRenderOptionsData;
-use App\Enums\TemplateStyleEnum;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\YoutubeShort;
+use App\Services\Processing\TemplateRenderOptionsData;
+use App\Services\Processing\TemplateStyleEnum;
 use App\Services\Processing\VideoProcessingService;
 use App\Support\Hashtags;
 use Illuminate\View\View;

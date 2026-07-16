@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\TikTok\Unofficial;
+namespace App\Services\TikTokUploader;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;

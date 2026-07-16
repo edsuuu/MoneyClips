@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\DataTransferObjects\PostTaskData;
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
+use App\Services\Api\Discord\DiscordNotifierService;
 use App\Services\AutoPost\PosterRegistryService;
-use App\Services\Discord\DiscordNotifierService;
+use App\Services\AutoPost\PostTaskData;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;

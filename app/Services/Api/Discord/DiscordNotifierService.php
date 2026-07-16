@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Discord;
+namespace App\Services\Api\Discord;
 
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

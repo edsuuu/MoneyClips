@@ -6,7 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Jobs\FetchTemplateOutputJob;
 use App\Models\ProcessingJob;
-use App\Services\Discord\DiscordNotifierService;
+use App\Services\Api\Discord\DiscordNotifierService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 

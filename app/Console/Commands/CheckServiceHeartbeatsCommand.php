@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\ServiceHeartbeat;
-use App\Services\Discord\DiscordNotifierService;
+use App\Services\Api\Discord\DiscordNotifierService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 

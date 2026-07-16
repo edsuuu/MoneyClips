@@ -181,15 +181,18 @@ a 1ª entrega; onde divergir, vale o CLAUDE.md e o que segue:
    `TiktokPostWebhookController` fecha o desfecho. Bônus recuperado do
    contrato antigo: `refreshed_cookies` renovam a sessão no banco
    automaticamente. Timeout do client caiu de 1500s para 120s.
-2. **Reorganização por plataforma + sufixos obrigatórios**
-   (`Service`/`Interface`/`Data`/`Enum`/`Job`/`Cast`): `PosterContract` →
-   `App\Contracts\PosterInterface`; DTOs em `App\DataTransferObjects`
-   (`PostTaskData`, `PosterResultData`, `TemplateRenderOptionsData`);
-   `App\Enums\TemplateStyleEnum`; services em pastas por plataforma —
-   `TikTok/{Unofficial,Official}`, `Youtube` (+`Youtube/DownloadShorts`),
-   `Meta/{Instagram,Facebook}`, `Kwai`, `Reencode`, `AutoCaption`, `Discord`;
-   `PostSlotToPlatform` → `PostSlotToPlatformJob`; `DateOnly` →
-   `DateOnlyCast`. Código morto deletado: `PublishResult`,
+2. **Reorganização por integração + sufixos obrigatórios**
+   (`Service`/`Interface`/`Data`/`Enum`/`Job`/`Cast`). A arquitetura é
+   específica de cada serviço (vive na pasta dele), sem pastas gerais tipo
+   `app/Contracts`/`app/DataTransferObjects`: `PosterInterface`,
+   `PostTaskData` e `PosterResultData` em `App\Services\AutoPost`;
+   `TemplateStyleEnum` e `TemplateRenderOptionsData` em
+   `App\Services\Processing`. Integrações por API externa em
+   `App\Services\Api\{Youtube, TikTok (oficial), Meta\Instagram,
+   Meta\Facebook, Kwai, Discord}`; clients de microserviço espelham
+   `MicroServices/`: `App\Services\{TikTokUploader, DownloadShorts,
+   Reencode, AutoCaption}`. `PostSlotToPlatform` → `PostSlotToPlatformJob`;
+   `DateOnly` → `DateOnlyCast`. Código morto deletado: `PublishResult`,
    `PublishException`, `TiktokUploadResult`, `SessionInvalidException`,
    classe de constantes `AutoPost`.
 3. **Zero timezone explícito**: `config/app.php` já define

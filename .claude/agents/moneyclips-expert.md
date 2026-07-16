@@ -39,14 +39,18 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
 - **Posts nunca re-tentam às cegas** (`tries=1` nos jobs de postagem —
   timeout pode ter postado). O claim de slot é `UPDATE ... WHERE
   dispatched_at IS NULL`, atômico.
-- Plataforma nova = `*PosterService` na pasta da plataforma
-  (`App\Services\{TikTok,Youtube,Meta\...,Kwai}`) implementando
-  `App\Contracts\PosterInterface` + registro no `AppServiceProvider` + linha
-  em `platform_settings` (+ `IMPLEMENTED_PLATFORMS` no
+- Plataforma nova = `*PosterService` na pasta da integração — API oficial em
+  `app/Services/Api/<Plataforma>/`, microserviço em `app/Services/<Nome>/`
+  (espelhando `MicroServices/`) — implementando
+  `App\Services\AutoPost\PosterInterface` + registro no `AppServiceProvider`
+  + linha em `platform_settings` (+ `IMPLEMENTED_PLATFORMS` no
   `Livewire\Schedule\Index` quando sair de stub).
 - Sufixo obrigatório no nome da classe: `Service`/`Interface`/`Data`/`Enum`/
-  `Job`/`Cast`/`Exception` — DTOs em `app/DataTransferObjects/`, contratos em
-  `app/Contracts/`, enums em `app/Enums/`. SOLID simples, sem clean architecture.
+  `Job`/`Cast`/`Exception`. A arquitetura (interface/DTOs/enum) é ESPECÍFICA
+  de cada serviço e vive na pasta dele (ex.: `PosterInterface`+DTOs em
+  `Services/AutoPost/`; `TemplateStyleEnum` em `Services/Processing/`) —
+  proibido criar pastas gerais tipo `app/Contracts`/`app/DataTransferObjects`.
+  SOLID simples, sem clean architecture.
 - Status de slot é sempre COMPUTADO (`SlotStatusService`), nunca persistido.
 - Fuso: `config/app.php` já é `America/Sao_Paulo` — NUNCA passe timezone
   explícito (`now()` resolve; `Date::use(CarbonImmutable)` é global);

@@ -39,17 +39,25 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
           → stubs (TikTok oficial, Instagram, Facebook, Kwai)
 ```
 
-## Organização de código (sufixos + pastas por plataforma)
+## Organização de código (Services por integração)
 
-- **Sufixo obrigatório no nome da classe**: `*Service` (services), `*Interface`
-  (`app/Contracts/`), `*Data` (DTOs em `app/DataTransferObjects/`), `*Enum`
-  (`app/Enums/`), `*Job` (`app/Jobs/`), `*Cast` (`app/Casts/`), `*Exception`,
-  `*Controller`, `*Command`. SOLID simples — sem camadas de clean architecture.
-- **Services agrupados por plataforma/domínio**:
-  `app/Services/TikTok/{Unofficial,Official}/`, `app/Services/Youtube/`
-  (+ `Youtube/DownloadShorts/`), `app/Services/Meta/{Instagram,Facebook}/`,
-  `app/Services/Kwai/`, `app/Services/AutoPost/` (orquestração da agenda),
-  `app/Services/{Reencode,AutoCaption,Processing,Discord}/`.
+- **Sufixo obrigatório no nome da classe**: `*Service`, `*Interface`, `*Data`
+  (DTOs), `*Enum`, `*Job`, `*Cast`, `*Exception`, `*Controller`, `*Command`.
+  SOLID simples — sem camadas de clean architecture.
+- **A arquitetura é específica de cada serviço, não geral da aplicação**:
+  interface/DTOs/enums vivem NA PASTA do serviço dono (ex.:
+  `PosterInterface`, `PostTaskData` e `PosterResultData` em
+  `app/Services/AutoPost/`; `TemplateStyleEnum` e `TemplateRenderOptionsData`
+  em `app/Services/Processing/`). NÃO existem pastas gerais tipo
+  `app/Contracts` ou `app/DataTransferObjects`.
+- **`app/Services/Api/`** — cada integração externa por API (não-microserviço)
+  em sua pasta: `Api/Youtube/` (Data API v3 + OAuth), `Api/TikTok/` (Content
+  Posting API oficial, stub), `Api/Meta/{Instagram,Facebook}/`, `Api/Kwai/`,
+  `Api/Discord/` (webhook).
+- **Clients de microserviço** espelham `MicroServices/` na raiz de Services:
+  `app/Services/{TikTokUploader,DownloadShorts,Reencode,AutoCaption}/`.
+- **Orquestração**: `app/Services/AutoPost/` (agenda/postagem) e
+  `app/Services/Processing/` (pipeline reencode/template).
 - **Fuso horário**: `config/app.php` já define `America/Sao_Paulo` — NUNCA
   repita o timezone em código (`now()`/`CarbonImmutable::now()` já resolvem).
   `Date::use(CarbonImmutable::class)` é global (`AppServiceProvider`).
@@ -67,7 +75,7 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
   e enfileira `PostSlotToPlatformJob` (fila `posting`, `tries=1` — repost às
   cegas arrisca duplicado). O tick nunca posta nada.
 - `PosterRegistryService` (singleton no `AppServiceProvider`) — 1 Poster por
-  plataforma implementando `App\Contracts\PosterInterface`
+  plataforma implementando `App\Services\AutoPost\PosterInterface`
   (`post(PostTaskData): PosterResultData`; outcomes
   `ok|queued|dry-run|restricted|failed` — `queued` = desfecho chega por
   webhook, `externalId` gravado como uuid do ledger). Toggles em
@@ -112,16 +120,16 @@ Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
 
 ### YouTube
 
-- `App\Services\Youtube\ShortsPosterService` — upload resumível na YouTube
-  Data API v3 (HTTP puro), chamado pelo `YoutubePosterService`. Credenciais em
-  `social_accounts` (platform=`youtube`, OAuth Google, refresh via
-  `YoutubeTokenRefresherService`). Connect em `/contas`. Download de canal:
-  `App\Services\Youtube\DownloadShorts\{DownloadShortsService,
-  DownloadYoutubeImportService}`.
+- `App\Services\Api\Youtube\ShortsPosterService` — upload resumível na
+  YouTube Data API v3 (HTTP puro), chamado pelo `YoutubePosterService`.
+  Credenciais em `social_accounts` (platform=`youtube`, OAuth Google, refresh
+  via `YoutubeTokenRefresherService`). Connect em `/contas`. Download de
+  canal (client do microserviço): `App\Services\DownloadShorts\
+  {DownloadShortsService, DownloadYoutubeImportService}`.
 
 ### TikTok (não-oficial, Playwright)
 
-- **Integração ASSÍNCRONA**: `App\Services\TikTok\Unofficial\
+- **Integração ASSÍNCRONA**: `App\Services\TikTokUploader\
   TiktokUploaderService` faz `POST /posts` **multipart** (`video` binário +
   `cookies` JSON + `title` + `hashtags` + `webhook_url`) e recebe
   `202 {job_id}` na hora — o job_id vira o `uuid` do ledger. O Playwright
