@@ -177,9 +177,30 @@ Cron: `* * * * * php artisan schedule:run` + worker de fila
 
 - `declare(strict_types=1)` em todo PHP, classes `final`.
 - Pint impõe `mb_*` (`mb_trim`, `mb_rtrim`); `ext-mbstring` no `composer.json`.
+  O `ordered_class_elements` do pint.json NÃO ordena métodos de propósito —
+  a ordem é manual (regra abaixo).
 - PHPStan nível max (`larastan` + bleeding-edge).
 - Migrations consolidadas — em dev, prefira editar a migration de criação
   em vez de empilhar pequenas. Em prod, faça migration nova de drop/alter.
+
+### Livewire / Blade (front)
+
+- Tela = `Route::view()` → blade wrapper (`resources/views/<area>/index.blade.php`
+  com `<x-layout layout="navbar">` + `<livewire:...>`) → componente
+  `App\Livewire\<Area>\Index`.
+- **PROIBIDO `@php` em blade.** Lógica/formatos/labels/datas vêm prontos do
+  `render()` (view-models). Classes condicionais SEMPRE via `@class([...])` —
+  nunca ternário dentro de `class=""`. Mapas de cor por status viram strings
+  de classe no componente, aplicadas com `@class([$x => true])`.
+- Ordem de métodos no componente: `mount()` primeiro → ações públicas →
+  helpers privados → **`render()` por último**.
+- Propriedade pública = fronteira de confiança: valide/saneie nas ações.
+- Reuse antes de escrever: `App\Support\Hashtags` (hashtag ⇄ input),
+  `App\Jobs\Concerns\TransfersStorageFiles` (MinIO ⇄ tmp), componentes
+  `x-ui.toggle`, `x-ui.server-modal` (modal @if server-driven),
+  `x-ui.modal` (Alpine), `x-log-level-badge`, e
+  `App\View\Components\NavbarItems` (fonte ÚNICA de navegação —
+  navbar + drawer mobile).
 
 ## Qualidade / CI
 
@@ -224,6 +245,14 @@ make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
 4. Revisar `/agenda` (atribuir vídeos aos slots) e toggles em `platform_settings`
 5. ⚠️ Rotacionar a chave Roboflow e o webhook Discord que estavam commitados
    no `.env.example` antigo do TikTokUploader (continuam no histórico git)
+
+## Agentes e contexto
+
+- Agente especializado no projeto: `.claude/agents/moneyclips-expert.md`
+  (arquitetura, convenções e workflow de verificação — use para qualquer
+  feature/refactor/review neste repo).
+- Contexto completo da refatoração de 07/2026 (decisões, incidentes de CI e
+  lições): [REFACTORING.md](REFACTORING.md).
 
 ## Histórico (apagados nesta refatoração)
 
