@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
 // Raiz: logado vai pro estoque, deslogado pra tela de login (Fortify).
-Route::get('/', fn () => Auth::check() ? to_route('downloads.index') : to_route('login'))->name('home');
+Route::get('/', fn () => Auth::check() ? to_route('videos.index') : to_route('login'))->name('home');
 Route::view('/terms-of-service', 'legal.terms')->name('legal.terms');
 Route::view('/privacy-policy', 'legal.privacy')->name('legal.privacy');
 
@@ -17,7 +17,10 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::middleware(['auth'])->group(function (): void {
-    Route::view('/downloads', 'downloads.index')->name('downloads.index');
+    // Estoque e postagens (design Estoque.dc.html). Path pt-BR (UX);
+    // namespace/view/classe em inglês (App\Livewire\Videos).
+    Route::view('/meus-videos', 'videos.index')->name('videos.index');
+    Route::redirect('/downloads', '/meus-videos');
 
     // Visão semanal do schedule (horários sorteados + status por slot).
     // Path em pt-BR (UX); namespace/view/classe em inglês (App\Livewire\Schedule).
@@ -29,7 +32,9 @@ Route::middleware(['auth'])->group(function (): void {
     // namespace/view/classe em inglês (App\Livewire\Accounts).
     Route::view('/contas', 'accounts.index')->name('accounts.index');
 
-    Route::view('/microservices', 'microservices.index')->name('microservices.index');
+    // Observabilidade dos microserviços (logs + heartbeats via banco).
+    Route::view('/observabilidade', 'observability.index')->name('observability.index');
+    Route::redirect('/microservices', '/observabilidade');
 
     // OAuth das redes sociais (conectar contas com 1 clique).
     Route::get('/oauth/{platform}/connect', [OAuthController::class, 'connect'])->name('oauth.connect');

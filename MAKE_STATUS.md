@@ -1,27 +1,27 @@
-# Status do Makefile — ⚠️ NÃO totalmente configurado
+# Status do Makefile — nativo, sem Docker
 
-O `make` foi migrado pra rodar tudo **nativo** (sem Docker), mas ainda **não
-está 100% configurado/validado**. Use com cuidado no primeiro momento.
+O `make` roda tudo **nativo** (sem Docker): Laravel + DownloadShorts +
+TikTokUploader + Reencode + AutoCaption. GenerateClips fica de fora de
+propósito (não faz parte do fluxo atual).
 
-## O que já existe
+## O que existe
 
 - `make setup` — copia os `.env`, roda `composer install` + `pnpm install`,
-  cria a venv do DownloadShorts e instala as deps dos microserviços Node.
-- `make up` — sobe Laravel (`serve`/`queue`/`pail`/`vite`) + DownloadShorts +
-  TikTokUploader + Reencode juntos, via `concurrently`.
+  cria as venvs (DownloadShorts, AutoCaption) e instala as deps dos serviços.
+- `make up` — sobe Laravel (`serve`/`queue`/`pail`/`vite`) + os 4 microserviços
+  juntos, via `concurrently`. O worker de fila escuta
+  `--queue=posting,processing,default --timeout=1800`.
 
-## Pendências / não validado
+## Pendências
 
-- [ ] `make setup` e `make up` ainda **não foram executados de ponta a ponta** —
-      podem quebrar na 1ª rodada.
-- [ ] Pré-requisitos do host não são instalados pelo make: **ffmpeg** (Reencode),
-      **MySQL** e **MinIO** externos (o compose que os subia foi removido).
+- [ ] Pré-requisitos do host não são instalados pelo make: **ffmpeg**
+      (Reencode), **MySQL** e **MinIO** externos.
 - [ ] `.env` dos serviços tem valores de exemplo — revisar antes de usar
-      (endpoints, credenciais, webhooks).
-- [ ] `AutoCaption` e `GenerateClips` **não** estão no `make` (não estavam no
-      compose antigo).
-- [ ] Docs `CLAUDE.md` / `README.md` ainda citam `docker compose` na seção
-      "Rodar tudo" — desatualizados.
+      (endpoints, tokens, webhooks; `OBSERVABILITY_TOKEN` precisa bater com o
+      do Laravel).
+- [x] `AutoCaption` incluído no `make` (GenerateClips fora, por decisão).
+- [x] Docs `CLAUDE.md` / `README.md` / `MicroServices/README.md` atualizados —
+      sem docker compose.
 
 ## Como era antes
 

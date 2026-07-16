@@ -6,16 +6,20 @@ namespace App\Models;
 
 use Database\Factories\YoutubeShortFactory;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 
 /**
  * Um Short do YouTube baixado de um canal e armazenado no MinIO.
  *
- * O ciclo de vida é: baixado (video_path + downloaded_at preenchidos) →
- * sorteado pelo comando youtube:dispatch-posts → postado
- * (posted_youtube_at + youtube_video_id preenchidos pelo ShortsPoster).
+ * Ciclo de vida do estoque: baixado (video_path + downloaded_at) →
+ * opcionalmente processado (reencode/template → processed_video_path) →
+ * pronto para postar (ready_at) → atribuído a um slot da agenda
+ * (schedule_slots) → postado (posted_youtube_at / posted_tiktok_at +
+ * social_posts por plataforma).
  *
  * @property int $id
  * @property string $youtube_id
@@ -23,12 +27,16 @@ use Illuminate\Support\Carbon;
  * @property string|null $title
  * @property array<int, string>|null $hashtags
  * @property string|null $video_path
+ * @property string|null $processed_video_path
  * @property string|null $youtube_video_id
  * @property Carbon|null $downloaded_at
+ * @property Carbon|null $ready_at
+ * @property Carbon|null $template_rendered_at
  * @property Carbon|null $posted_at
  * @property Carbon|null $dispatched_at
  * @property Carbon|null $posted_youtube_at
  * @property Carbon|null $posted_tiktok_at
+ * @property-read Collection<int, ScheduleSlot> $scheduleSlots
  */
 final class YoutubeShort extends Model
 {
@@ -37,28 +45,38 @@ final class YoutubeShort extends Model
 
     protected $fillable = [
         'youtube_id', 'channel_url', 'title', 'hashtags',
-        'video_path', 'youtube_video_id', 'downloaded_at', 'posted_at',
+        'video_path', 'processed_video_path', 'youtube_video_id',
+        'downloaded_at', 'ready_at', 'template_rendered_at', 'posted_at',
         'dispatched_at', 'posted_youtube_at', 'posted_tiktok_at',
     ];
 
-    public function wasPostedToYoutube(): bool
+    /** @return HasMany<ScheduleSlot, $this> */
+    public function scheduleSlots(): HasMany
     {
-        return $this->posted_youtube_at !== null;
+        return $this->hasMany(ScheduleSlot::class);
+    }
+
+    /** O que os posters publicam: a saída processada quando existir, senão o original. */
+    public function postableVideoPath(): string
+    {
+        return (string) ($this->processed_video_path ?? $this->video_path);
     }
 
     /**
-     * Shorts baixados (têm vídeo no storage), ainda não postados no YouTube e
-     * ainda não reservados pelo sorteio automático (dispatched_at).
+     * Prontos para entrar na agenda: com vídeo, marcados como prontos, ainda
+     * não postados e sem slot pendente segurando o vídeo.
      *
      * @param  Builder<self>  $query
      * @return Builder<self>
      */
-    protected function scopeAvailableToPost(Builder $query): Builder
+    protected function scopeReadyToSchedule(Builder $query): Builder
     {
         return $query
             ->whereNotNull('video_path')
+            ->whereNotNull('ready_at')
             ->whereNull('posted_youtube_at')
-            ->whereNull('dispatched_at');
+            ->whereNull('posted_tiktok_at')
+            ->whereDoesntHave('scheduleSlots', fn (Builder $q) => $q->whereNull('dispatched_at'));
     }
 
     protected function casts(): array
@@ -66,6 +84,8 @@ final class YoutubeShort extends Model
         return [
             'hashtags' => 'array',
             'downloaded_at' => 'datetime',
+            'ready_at' => 'datetime',
+            'template_rendered_at' => 'datetime',
             'posted_at' => 'datetime',
             'dispatched_at' => 'datetime',
             'posted_youtube_at' => 'datetime',

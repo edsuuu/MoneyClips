@@ -48,4 +48,10 @@ final class YoutubeShortFactory extends Factory
             'downloaded_at' => null,
         ]);
     }
+
+    /** Pronto para agendar (ready_at preenchido). */
+    public function ready(): self
+    {
+        return $this->state(fn (): array => ['ready_at' => now()]);
+    }
 }
