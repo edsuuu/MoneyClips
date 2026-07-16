@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <style>
+    body { margin: 0; background: oklch(0.16 0.02 260); }
+    * { box-sizing: border-box; font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { height: 8px; width: 8px; }
+    ::-webkit-scrollbar-thumb { background: oklch(0.32 0.02 260); border-radius: 4px; }
+    a { color: oklch(0.72 0.13 230); text-decoration: none; }
+    a:hover { color: oklch(0.8 0.13 230); text-decoration: underline; }
+    @media (max-width:1440px){ .page-main{padding-left:30px!important;padding-right:30px!important;} .nav-inner{padding-left:30px!important;padding-right:30px!important;gap:18px!important;} }
+    @media (max-width:640px){ .page-main{padding-left:16px!important;padding-right:16px!important;} .nav-inner{padding-left:16px!important;padding-right:16px!important;gap:10px!important;overflow-x:auto;} .nav-inner .nav-brand{display:none!important;} }
+  </style>
+</helmet>
+
+<div style="min-height:100vh; background: oklch(0.16 0.02 260); color: oklch(0.92 0.01 260);">
+
+  <!-- Navbar -->
+  <div style="border-bottom:1px solid oklch(0.26 0.02 260); position:sticky; top:0; z-index:40; background: oklch(0.17 0.02 260);">
+    <div class="nav-inner" style="max-width:1400px; margin:0 auto; padding:0 44px; height:62px; display:flex; align-items:center; gap:28px;">
+      <div class="nav-brand" style="display:flex; align-items:center; gap:10px; margin-right:8px;">
+        <div style="width:32px; height:32px; border-radius:9px; background: oklch(0.72 0.13 230); display:flex; align-items:center; justify-content:center;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="oklch(0.16 0.02 260)" stroke="none"><path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"></path></svg>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:4px; height:100%;">
+        <a href="Estoque.dc.html" style="display:flex; align-items:center; gap:9px; padding:0 14px; height:100%; color: oklch(0.6 0.02 260); font-weight:600; font-size:14px; text-decoration:none; border-bottom:2px solid transparent;" style-hover="color: oklch(0.9 0.01 260);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect></svg>
+          Meus vídeos
+        </a>
+        <a href="Agenda.dc.html" style="display:flex; align-items:center; gap:9px; padding:0 14px; height:100%; color: oklch(0.95 0.01 260); font-weight:600; font-size:14px; text-decoration:none; border-bottom:2px solid oklch(0.72 0.13 230);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="8" y1="3" x2="8" y2="7"></line><line x1="16" y1="3" x2="16" y2="7"></line></svg>
+          Agenda
+        </a>
+        <a href="Contas.dc.html" style="display:flex; align-items:center; gap:9px; padding:0 14px; height:100%; color: oklch(0.6 0.02 260); font-weight:600; font-size:14px; text-decoration:none; border-bottom:2px solid transparent;" style-hover="color: oklch(0.9 0.01 260);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"></circle><path d="M4 20c0-3 2.2-5 5-5s5 2 5 5"></path><circle cx="17.5" cy="9" r="2.4"></circle><path d="M15.5 20c0-2.3 1-3.9 2.6-4.7"></path></svg>
+          Contas
+        </a>
+        <a href="Observabilidade.dc.html" style="display:flex; align-items:center; gap:9px; padding:0 14px; height:100%; color: oklch(0.6 0.02 260); font-weight:600; font-size:14px; text-decoration:none; border-bottom:2px solid transparent;" style-hover="color: oklch(0.9 0.01 260);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l2 6 4-14 2 8h6"></path></svg>
+          Observabilidade
+        </a>
+      </div>
+
+      <div style="margin-left:auto; position:relative;">
+        <div onClick="{{ toggleUserMenu }}" style="display:flex; align-items:center; gap:10px; cursor:pointer; padding:6px 10px; border-radius:9px;" style-hover="background:oklch(0.22 0.02 260);">
+          <div style="width:30px; height:30px; border-radius:50%; background:oklch(0.35 0.02 260); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; color:oklch(0.9 0.01 260);">A</div>
+          <div style="font-size:13.5px; font-weight:600; color:oklch(0.8 0.02 260);">Administrador</div>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.02 260)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+        </div>
+        <sc-if value="{{ userMenuOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="position:fixed; inset:0; z-index:45;" onClick="{{ closeUserMenu }}"></div>
+          <div style="position:absolute; top:calc(100% + 8px); right:0; z-index:46; width:210px; background:oklch(0.22 0.02 260); border:1px solid oklch(0.32 0.02 260); border-radius:12px; padding:6px; box-shadow:0 14px 34px oklch(0.1 0.02 260 / 0.55);">
+            <div style="padding:10px 12px 8px; border-bottom:1px solid oklch(0.28 0.02 260); margin-bottom:4px;">
+              <div style="font-size:13px; font-weight:700;">Administrador</div>
+              <div class="mono" style="font-size:11px; color:oklch(0.55 0.02 260);">admin@cortes.app</div>
+            </div>
+            <button style="display:flex; align-items:center; gap:10px; width:100%; background:transparent; border:none; color:oklch(0.85 0.02 260); padding:9px 12px; border-radius:8px; font-size:13.5px; font-weight:600; cursor:pointer; text-align:left;" style-hover="background:oklch(0.27 0.02 260);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+              Configurações
+            </button>
+            <button style="display:flex; align-items:center; gap:10px; width:100%; background:transparent; border:none; color:oklch(0.72 0.16 25); padding:9px 12px; border-radius:8px; font-size:13.5px; font-weight:600; cursor:pointer; text-align:left;" style-hover="background:oklch(0.32 0.1 25 / 0.25);">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><path d="M16 17l5-5-5-5"></path><path d="M21 12H9"></path></svg>
+              Sair
+            </button>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="page-main" style="max-width:1400px; margin:0 auto; padding: 34px 44px 60px; min-width:0;">
+
+  <!-- Header -->
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; gap:24px;">
+    <div>
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
+        <h1 style="margin:0; font-size:32px; font-weight:800; letter-spacing:-0.02em;">Agenda</h1>
+        <div style="display:flex; align-items:center; gap:8px; background:oklch(0.2 0.02 260); border:1px solid oklch(0.28 0.02 260); border-radius:20px; padding:5px 12px;">
+          <div style="width:6px; height:6px; border-radius:50%; background:oklch(0.72 0.16 150);"></div>
+          <span style="font-size:12.5px; color:oklch(0.62 0.02 260);">Próximo disparo</span>
+          <span style="font-size:12.5px; font-weight:700;">{{ nextDispatch.time }}</span>
+          <span class="mono" style="font-size:11px; color:oklch(0.55 0.02 260);">· {{ nextDispatch.countdown }}</span>
+        </div>
+      </div>
+      <div style="font-size:12.5px; color: oklch(0.55 0.02 260); margin-top:8px;">Semana de <span style="color:oklch(0.7 0.1 230); font-weight:600;">{{ weekRange }}</span> · arraste para reordenar, clique num slot vazio para agendar.</div>
+    </div>
+    <div style="display:flex; align-items:flex-start; gap:12px;">
+      <div style="display:flex; background:oklch(0.2 0.02 260); border:1px solid oklch(0.3 0.02 260); border-radius:10px; padding:3px;">
+        <button onClick="{{ setWeek }}" style="border:none; cursor:pointer; padding:7px 15px; border-radius:8px; font-weight:600; font-size:13px; background: {{ weekBg }}; color: {{ weekColor }};">Semana</button>
+        <button onClick="{{ setMonth }}" style="border:none; cursor:pointer; padding:7px 15px; border-radius:8px; font-weight:600; font-size:13px; background: {{ monthBg }}; color: {{ monthColor }};">Mês</button>
+      </div>
+      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px;">
+        <button onClick="{{ save }}" style="background: oklch(0.72 0.13 230); color: oklch(0.16 0.02 260); border:none; padding:11px 22px; border-radius:10px; font-weight:700; font-size:14px; cursor:pointer;" style-hover="background: oklch(0.78 0.13 230);">Salvar agenda</button>
+        <sc-if value="{{ dirty }}" hint-placeholder-val="{{ false }}">
+          <div class="mono" style="font-size:11.5px; color:oklch(0.75 0.14 70); display:flex; align-items:center; gap:6px; white-space:nowrap;">
+            <div style="width:6px; height:6px; border-radius:50%; background:oklch(0.75 0.14 70); flex-shrink:0;"></div>
+            alterações não salvas
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <!-- Week tabs -->
+  <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+    <div style="display:flex; gap:6px; background:oklch(0.19 0.02 260); border:1px solid oklch(0.28 0.02 260); border-radius:12px; padding:5px;">
+      <sc-for list="{{ weekTabs }}" as="wt" hint-placeholder-count="4">
+        <button onClick="{{ wt.select }}" style="display:flex; flex-direction:column; align-items:flex-start; gap:2px; border:1px solid {{ wt.borderColor }}; background: {{ wt.bg }}; border-radius:9px; padding:8px 14px; cursor:pointer; min-width:112px;">
+          <span style="font-size:13px; font-weight:700; color: {{ wt.labelColor }};">{{ wt.label }}</span>
+          <span class="mono" style="font-size:10px; color:oklch(0.52 0.02 260);">{{ wt.range }} · {{ wt.statusLabel }}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+      <sc-if value="{{ canGenerate }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex; align-items:center; gap:9px;">
+          <span style="font-size:12.5px; color:oklch(0.6 0.02 260);">Vídeos/dia</span>
+          <div style="display:flex; align-items:center; gap:2px; background:oklch(0.2 0.02 260); border:1px solid oklch(0.3 0.02 260); border-radius:9px; padding:3px;">
+            <button onClick="{{ decPerDay }}" style="width:26px; height:26px; border:none; background:transparent; color:oklch(0.8 0.02 260); cursor:pointer; border-radius:6px; font-size:16px; display:flex; align-items:center; justify-content:center;" style-hover="background:oklch(0.28 0.02 260);">−</button>
+            <div class="mono" style="width:22px; text-align:center; font-size:14px; font-weight:700;">{{ videosPerDay }}</div>
+            <button onClick="{{ incPerDay }}" style="width:26px; height:26px; border:none; background:transparent; color:oklch(0.8 0.02 260); cursor:pointer; border-radius:6px; font-size:16px; display:flex; align-items:center; justify-content:center;" style-hover="background:oklch(0.28 0.02 260);">+</button>
+          </div>
+          <button onClick="{{ generateWeek }}" style="display:flex; align-items:center; gap:8px; background:oklch(0.24 0.06 290 / 0.5); color:oklch(0.85 0.1 290); border:1px solid oklch(0.5 0.12 290 / 0.5); padding:9px 16px; border-radius:10px; font-weight:600; font-size:13px; cursor:pointer;" style-hover="background:oklch(0.3 0.08 290 / 0.6);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.8L19 9l-4.1 3 1.3 5L12 14.8 7.8 17l1.3-5L5 9l5.1-1.2z"></path></svg>
+            Gerar próxima semana
+          </button>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+
+  <!-- Locked / generated banners -->
+  <sc-if value="{{ weekLocked }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex; align-items:center; gap:10px; background:oklch(0.22 0.02 260); border:1px solid oklch(0.3 0.02 260); border-radius:11px; padding:11px 16px; margin-bottom:18px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.06 150)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>
+      <span style="font-size:13px; color:oklch(0.72 0.02 260);">Semana concluída e publicada — <strong style="color:oklch(0.85 0.02 260);">bloqueada para edição</strong>.</span>
+    </div>
+  </sc-if>
+  <sc-if value="{{ weekGeneratedBanner }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex; align-items:center; gap:10px; background:oklch(0.24 0.06 290 / 0.25); border:1px solid oklch(0.5 0.12 290 / 0.4); border-radius:11px; padding:11px 16px; margin-bottom:18px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="oklch(0.8 0.12 290)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 3l1.9 4.8L19 9l-4.1 3 1.3 5L12 14.8 7.8 17l1.3-5L5 9l5.1-1.2z"></path></svg>
+      <span style="font-size:13px; color:oklch(0.82 0.06 290);"><strong>Programação gerada automaticamente.</strong> Revise, ajuste os horários/vídeos e salve — nada é publicado sem a sua confirmação.</span>
+    </div>
+  </sc-if>
+
+  <!-- Kanban week board -->
+  <sc-if value="{{ isWeek }}" hint-placeholder-val="{{ true }}">
+  <div>
+    <div style="margin-bottom:14px;">
+      
+      
+    </div>
+
+    <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:10px; align-items:flex-start;">
+      <sc-for list="{{ days }}" as="day" hint-placeholder-count="7">
+        <div style="width:222px; flex-shrink:0; background: oklch(0.2 0.02 260); border:1px solid oklch(0.28 0.02 260); border-radius:14px; display:flex; flex-direction:column; max-height:640px; overflow:hidden;">
+          <!-- Column header -->
+          <div style="padding:14px 16px; border-bottom:1px solid oklch(0.27 0.02 260); display:flex; align-items:center; justify-content:space-between; background: {{ day.isToday ? 'oklch(0.24 0.05 230 / 0.3)' : 'transparent' }};">
+            <div>
+              <div style="display:flex; align-items:center; gap:7px;">
+                <div style="font-size:15px; font-weight:700;">{{ day.name }}</div>
+                <sc-if value="{{ day.isToday }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:9.5px; font-weight:700; letter-spacing:0.05em; color:oklch(0.72 0.13 230); background:oklch(0.72 0.13 230 / 0.15); padding:2px 6px; border-radius:5px;">HOJE</div>
+                </sc-if>
+              </div>
+              <div class="mono" style="font-size:11px; color:oklch(0.58 0.02 260); margin-top:2px;">{{ day.date }}</div>
+            </div>
+            <div style="text-align:right;">
+              <div class="mono" style="font-size:10px; color:oklch(0.55 0.02 260);">POSTADOS</div>
+              <div style="font-size:13px; font-weight:700;">{{ day.postedCount }}<span style="color:oklch(0.5 0.02 260); font-weight:500;">/{{ day.slots.length }}</span></div>
+            </div>
+          </div>
+
+          <!-- Slots -->
+          <div style="padding:10px; display:flex; flex-direction:column; gap:8px; overflow-y:auto;">
+            <sc-if value="{{ day.full }}" hint-placeholder-val="{{ false }}">
+              <div style="text-align:center; font-size:10.5px; font-weight:600; color:oklch(0.55 0.02 260); background:oklch(0.24 0.02 260); border-radius:7px; padding:5px 0;">Máx. 5 horários/dia</div>
+            </sc-if>
+            <sc-for list="{{ day.slots }}" as="slot" hint-placeholder-count="5">
+              <div draggable="{{ slot.draggable }}" onDragStart="{{ slot.dragStart }}" onDragOver="{{ allowDrop }}" onDrop="{{ slot.drop }}" style="cursor: {{ slot.dragCursor }};">
+                <dc-import name="Slot" slot="{{ slot }}" hint-size="100%,60px"></dc-import>
+              </div>
+            </sc-for>
+            <sc-if value="{{ day.canAdd }}" hint-placeholder-val="{{ true }}">
+              <button onClick="{{ day.addSlot }}" style="border-radius:10px; border:1.5px dashed oklch(0.35 0.02 260); background:transparent; color:oklch(0.55 0.02 260); cursor:pointer; font-size:13px; font-weight:600; padding:9px; display:flex; align-items:center; justify-content:center; gap:6px;" style-hover="border-color:oklch(0.72 0.13 230); color:oklch(0.72 0.13 230);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                Horário
+              </button>
+            </sc-if>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="margin-top:14px; font-size:12px; color:oklch(0.5 0.02 260); display:flex; gap:20px;">
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:8px;height:8px;border-radius:50%;background:oklch(0.72 0.16 150);"></div> Publicado</div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:8px;height:8px;border-radius:50%;background:oklch(0.75 0.14 70);"></div> Agendado, ação disponível</div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:8px;height:8px;border-radius:50%;background:oklch(0.8 0.15 85);"></div> Pulado (postagem desativada)</div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:8px;height:8px;border-radius:50%;background:oklch(0.65 0.2 25);"></div> Não postado</div>
+    <div style="display:flex; align-items:center; gap:6px;"><div style="width:8px;height:8px;border-radius:50%;border:1.5px solid oklch(0.4 0.02 260);"></div> Vazio</div>
+  </div>
+  </sc-if>
+
+  <!-- Month calendar view -->
+  <sc-if value="{{ isMonth }}" hint-placeholder-val="{{ false }}">
+  <div>
+    <div style="margin-bottom:14px;">
+      <div class="mono" style="font-size:11px; letter-spacing:0.08em; color:oklch(0.6 0.02 260); margin-bottom:4px;">JULHO 2026</div>
+      <div style="font-size:13px; color:oklch(0.6 0.02 260);">Passe o mouse sobre um dia para ver os horários e vídeos agendados.</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:8px; margin-bottom:8px;">
+      <sc-for list="{{ weekdayLabels }}" as="w" hint-placeholder-count="7">
+        <div style="text-align:center; font-size:11px; font-weight:700; letter-spacing:0.05em; color:oklch(0.55 0.02 260); text-transform:uppercase;">{{ w }}</div>
+      </sc-for>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:8px;">
+      <sc-for list="{{ monthCells }}" as="cell" hint-placeholder-count="35">
+        <div style="min-height:104px;">
+          <sc-if value="{{ cell.real }}" hint-placeholder-val="{{ true }}">
+            <div onMouseEnter="{{ cell.enter }}" onMouseLeave="{{ cell.leave }}" style="position:relative; height:100%; border-radius:11px; border:1px solid {{ cell.borderColor }}; background: {{ cell.bg }}; padding:8px 9px; display:flex; flex-direction:column; gap:5px;" style-hover="border-color:oklch(0.5 0.06 230);">
+              <div style="display:flex; align-items:center; justify-content:space-between;">
+                <div style="font-size:13px; font-weight:700; color: {{ cell.numColor }};">{{ cell.dnum }}</div>
+                <sc-if value="{{ cell.isToday }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:8.5px; font-weight:700; letter-spacing:0.05em; color:oklch(0.72 0.13 230); background:oklch(0.72 0.13 230 / 0.15); padding:2px 5px; border-radius:4px;">HOJE</div>
+                </sc-if>
+              </div>
+
+              <div style="display:flex; flex-direction:column; gap:3px;">
+                <sc-for list="{{ cell.preview }}" as="p" hint-placeholder-count="2">
+                  <div style="display:flex; align-items:center; gap:5px; background: {{ p.chipBg }}; border-radius:5px; padding:2px 5px;">
+                    <div style="width:5px; height:5px; border-radius:50%; background: {{ p.dot }}; flex-shrink:0;"></div>
+                    <span class="mono" style="font-size:9.5px; font-weight:600; color:oklch(0.8 0.02 260);">{{ p.time }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ cell.hasMore }}" hint-placeholder-val="{{ false }}">
+                  <div style="font-size:9.5px; color:oklch(0.55 0.02 260); padding-left:2px;">{{ cell.moreLabel }}</div>
+                </sc-if>
+              </div>
+
+              <sc-if value="{{ cell.hovered }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute; top:calc(100% + 6px); left:0; width:230px; z-index:30; background:oklch(0.23 0.02 260); border:1px solid oklch(0.34 0.02 260); border-radius:12px; padding:12px 14px; box-shadow:0 12px 30px oklch(0.1 0.02 260 / 0.6);">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                    <div style="font-size:13px; font-weight:700;">{{ cell.dow }} {{ cell.dateStr }}</div>
+                    <div class="mono" style="font-size:10px; color:oklch(0.58 0.02 260);">{{ cell.count }} post</div>
+                  </div>
+                  <sc-if value="{{ cell.hasNone }}" hint-placeholder-val="{{ false }}">
+                    <div style="font-size:12px; color:oklch(0.55 0.02 260);">Nenhuma postagem agendada.</div>
+                  </sc-if>
+                  <div style="display:flex; flex-direction:column; gap:8px;">
+                    <sc-for list="{{ cell.slots }}" as="s" hint-placeholder-count="2">
+                      <div style="display:flex; gap:8px; align-items:flex-start;">
+                        <div class="mono" style="font-size:11px; font-weight:700; color: {{ s.timeColor }}; flex-shrink:0; width:38px;">{{ s.time }}</div>
+                        <div style="min-width:0;">
+                          <div style="font-size:11.5px; line-height:1.3; color:oklch(0.85 0.02 260); overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical;">{{ s.title }}</div>
+                          <div style="font-size:9.5px; font-weight:600; color: {{ s.statusColor }}; margin-top:2px;">{{ s.statusLabel }}</div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  </sc-if>
+
+  <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; background:oklch(0.1 0.02 260 / 0.65); display:flex; align-items:center; justify-content:center; z-index:50;" onClick="{{ closePicker }}">
+      <div style="width:640px; max-width:92vw; max-height:84vh; background:oklch(0.2 0.02 260); border:1px solid oklch(0.3 0.02 260); border-radius:16px; overflow:hidden; display:flex; flex-direction:column;" onClick="{{ stopClick }}">
+
+        <div style="padding:18px 22px; border-bottom:1px solid oklch(0.28 0.02 260); display:flex; align-items:center; justify-content:space-between;">
+          <div style="font-size:16px; font-weight:700;">{{ pickerHeading }}</div>
+          <button onClick="{{ closePicker }}" style="width:30px; height:30px; border-radius:8px; border:none; background:transparent; color:oklch(0.6 0.02 260); cursor:pointer; display:flex; align-items:center; justify-content:center;" style-hover="background:oklch(0.28 0.02 260); color:oklch(0.9 0.01 260);">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg>
+          </button>
+        </div>
+
+        <!-- Time field -->
+        <div style="padding:16px 22px; border-bottom:1px solid oklch(0.27 0.02 260); display:flex; align-items:center; gap:14px;">
+          <div class="mono" style="font-size:11px; letter-spacing:0.08em; color:oklch(0.6 0.02 260); flex-shrink:0;">HORÁRIO</div>
+          <input value="{{ pickerTime }}" onChange="{{ pickerTimeChange }}" placeholder="HH:MM" class="mono" style="width:120px; background:oklch(0.16 0.02 260); border:1px solid oklch(0.32 0.02 260); border-radius:9px; padding:9px 12px; color:oklch(0.92 0.01 260); font-size:15px; font-weight:700; text-align:center; outline:none;">
+        </div>
+
+        <!-- Body -->
+        <div style="padding:16px 22px; overflow-y:auto;">
+
+          <!-- Selected video (collapsed view) -->
+          <sc-if value="{{ pickerShowSelected }}" hint-placeholder-val="{{ true }}">
+            <div style="background:oklch(0.17 0.02 260); border:1px solid oklch(0.3 0.02 260); border-radius:12px; padding:16px; display:flex; gap:14px;">
+              <div style="width:82px; flex-shrink:0; aspect-ratio:9/16; border-radius:9px; background: repeating-linear-gradient(135deg, oklch(0.3 0.02 260) 0px, oklch(0.3 0.02 260) 5px, oklch(0.27 0.02 260) 5px, oklch(0.27 0.02 260) 10px); display:flex; align-items:center; justify-content:center;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.02 260)" stroke-width="1.6"><circle cx="12" cy="12" r="9"></circle><path d="M10 8.5v7l6-3.5-6-3.5z" fill="oklch(0.6 0.02 260)" stroke="none"></path></svg>
+              </div>
+              <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:12px;">
+                <div class="mono" style="font-size:10.5px; letter-spacing:0.08em; color:oklch(0.72 0.13 230);">SERÁ POSTADO</div>
+                <div>
+                  <div style="font-size:10.5px; font-weight:600; color:oklch(0.58 0.02 260); margin-bottom:5px;">Título</div>
+                  <input value="{{ pickerTitle }}" onChange="{{ pickerTitleChange }}" style="width:100%; background:oklch(0.14 0.02 260); border:1px solid oklch(0.32 0.02 260); border-radius:8px; padding:8px 11px; color:oklch(0.92 0.01 260); font-size:13.5px; font-weight:600; outline:none;">
+                </div>
+                <div>
+                  <div style="font-size:10.5px; font-weight:600; color:oklch(0.58 0.02 260); margin-bottom:5px;">Hashtags</div>
+                  <input value="{{ pickerTags }}" onChange="{{ pickerTagsChange }}" placeholder="#shorts #podcast" class="mono" style="width:100%; background:oklch(0.14 0.02 260); border:1px solid oklch(0.32 0.02 260); border-radius:8px; padding:8px 11px; color:oklch(0.68 0.1 230); font-size:12.5px; outline:none;">
+                </div>
+                <button onClick="{{ browseOther }}" style="align-self:flex-start; display:flex; align-items:center; gap:7px; background:oklch(0.24 0.02 260); border:1px solid oklch(0.34 0.02 260); color:oklch(0.85 0.02 260); padding:8px 14px; border-radius:9px; font-weight:600; font-size:12.5px; cursor:pointer;" style-hover="border-color:oklch(0.72 0.13 230); color:oklch(0.72 0.13 230);">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path></svg>
+                  Selecionar outro vídeo
+                </button>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- Gallery (browse view) -->
+          <sc-if value="{{ pickerBrowse }}" hint-placeholder-val="{{ false }}">
+            <input value="{{ pickerQuery }}" onChange="{{ pickerQueryChange }}" placeholder="Buscar vídeo..." style="width:100%; background:oklch(0.16 0.02 260); border:1px solid oklch(0.32 0.02 260); border-radius:9px; padding:9px 12px; color:oklch(0.92 0.01 260); font-size:13.5px; outline:none; margin-bottom:14px;">
+            <div class="mono" style="font-size:11px; letter-spacing:0.08em; color:oklch(0.6 0.02 260); margin-bottom:12px;">ESCOLHA O VÍDEO</div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap:12px;">
+              <sc-for list="{{ pickerVideos }}" as="v" hint-placeholder-count="6">
+              <div onClick="{{ v.preview }}" style="cursor:pointer; border-radius:11px; overflow:hidden; border:2px solid {{ v.borderColor }}; background:oklch(0.18 0.02 260);" style-hover="border-color:oklch(0.72 0.13 230);">
+                <div style="width:100%; aspect-ratio:9/16; background: repeating-linear-gradient(135deg, oklch(0.3 0.02 260) 0px, oklch(0.3 0.02 260) 5px, oklch(0.27 0.02 260) 5px, oklch(0.27 0.02 260) 10px); display:flex; align-items:center; justify-content:center; position:relative;" style-hover="filter:brightness(1.1);">
+                  <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="oklch(0.6 0.02 260)" stroke-width="1.6"><circle cx="12" cy="12" r="9"></circle><path d="M10 8.5v7l6-3.5-6-3.5z" fill="oklch(0.6 0.02 260)" stroke="none"></path></svg>
+                  <sc-if value="{{ v.selected }}" hint-placeholder-val="{{ false }}">
+                    <div style="position:absolute; top:6px; right:6px; width:22px; height:22px; border-radius:50%; background:oklch(0.72 0.16 150); display:flex; align-items:center; justify-content:center;">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="oklch(0.15 0.02 260)" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12l5 5 9-11"></path></svg>
+                    </div>
+                  </sc-if>
+                </div>
+                <div style="padding:8px 9px;">
+                  <div style="font-size:11.5px; font-weight:600; line-height:1.3;">{{ v.title }}</div>
+                  <div class="mono" style="font-size:10px; color:oklch(0.6 0.1 230); margin-top:4px;">{{ v.tags }}</div>
+                </div>
+              </div>
+            </sc-for>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:14px 22px; border-top:1px solid oklch(0.28 0.02 260); display:flex; justify-content:flex-end; gap:8px;">
+          <button onClick="{{ closePicker }}" style="background:transparent; border:1px solid oklch(0.34 0.02 260); color:oklch(0.75 0.02 260); padding:9px 18px; border-radius:9px; font-weight:600; font-size:13.5px; cursor:pointer;" style-hover="border-color:oklch(0.42 0.02 260); color:oklch(0.9 0.02 260);">Cancelar</button>
+          <button onClick="{{ savePicker }}" style="background:oklch(0.72 0.13 230); border:none; color:oklch(0.16 0.02 260); padding:9px 18px; border-radius:9px; font-weight:700; font-size:13.5px; cursor:pointer;" style-hover="background:oklch(0.78 0.13 230);">Salvar horário</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+  <sc-if value="{{ previewOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed; inset:0; background:oklch(0.1 0.02 260 / 0.75); display:flex; align-items:center; justify-content:center; z-index:60;" onClick="{{ closePreview }}">
+      <div style="width:360px; max-width:92vw; background:oklch(0.2 0.02 260); border:1px solid oklch(0.32 0.02 260); border-radius:16px; overflow:hidden; display:flex; flex-direction:column;" onClick="{{ stopClick }}">
+        <div style="width:100%; aspect-ratio:9/16; max-height:52vh; background: repeating-linear-gradient(135deg, oklch(0.3 0.02 260) 0px, oklch(0.3 0.02 260) 6px, oklch(0.27 0.02 260) 6px, oklch(0.27 0.02 260) 12px); display:flex; align-items:center; justify-content:center; position:relative;">
+          <div style="width:56px; height:56px; border-radius:50%; background:oklch(0.72 0.13 230); display:flex; align-items:center; justify-content:center;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="oklch(0.16 0.02 260)" stroke="none"><path d="M8 5v14l11-7-11-7z"></path></svg>
+          </div>
+          <button onClick="{{ closePreview }}" style="position:absolute; top:10px; right:10px; width:30px; height:30px; border-radius:8px; border:none; background:oklch(0.16 0.02 260 / 0.7); color:oklch(0.9 0.01 260); cursor:pointer; display:flex; align-items:center; justify-content:center;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="5" y1="5" x2="19" y2="19"></line><line x1="19" y1="5" x2="5" y2="19"></line></svg>
+          </button>
+        </div>
+        <div style="padding:16px 18px; display:flex; flex-direction:column; gap:8px;">
+          <div style="font-size:15px; font-weight:700; line-height:1.35;">{{ previewTitle }}</div>
+          <div class="mono" style="font-size:12px; color:oklch(0.68 0.1 230);">{{ previewTags }}</div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button onClick="{{ closePreview }}" style="flex:1; background:transparent; border:1px solid oklch(0.34 0.02 260); color:oklch(0.75 0.02 260); padding:10px; border-radius:9px; font-weight:600; font-size:13.5px; cursor:pointer;" style-hover="border-color:oklch(0.42 0.02 260); color:oklch(0.9 0.02 260);">Voltar</button>
+            <button onClick="{{ selectFromPreview }}" style="flex:1; background:oklch(0.72 0.13 230); border:none; color:oklch(0.16 0.02 260); padding:10px; border-radius:9px; font-weight:700; font-size:13.5px; cursor:pointer;" style-hover="background:oklch(0.78 0.13 230);">Usar este vídeo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div></x-dc>
+<script type="text/x-dc" data-dc-script>
+function buildWeekDays(dates) {
+  const times = ['09:00', '12:30', '15:15', '18:40', '21:10'];
+  return dates.map(d => ({
+    name: d.name, date: d.date, isToday: !!d.isToday,
+    slots: times.map(t => ({ time: t, status: 'empty', active: true })),
+  }));
+}
+class Component extends DCLogic {
+  state = {
+    dirty: false,
+    view: 'week',
+    hoverDay: null,
+    userMenu: false,
+    picker: null,
+    pickerQuery: '',
+    availableVideos: [
+      { title: 'O Brasil É VIOLENTO?', tags: '#shorts #cortes' },
+      { title: 'Tem que SER BOM e não BONZINHO!', tags: '#podcast' },
+      { title: 'This is THE SECRET', tags: '#shorts' },
+      { title: 'O LADO PODRE DO CRIME!', tags: '#podcast #shorts' },
+      { title: 'A PARTÍCULA de DEUS!', tags: '#cortes #podcast' },
+      { title: 'ALOK tells us what LIFE WAS LIKE BEFORE FAME!', tags: '#podcast #shorts' },
+      { title: 'O Orocinho ficou sem graça depois dessa', tags: '#podcast #shorts' },
+      { title: 'ESSE CASO É SINISTRO!', tags: '#shorts #cortes' },
+      { title: 'VOCÊ PRECISA APROVEITAR A VIDA!', tags: '#shorts #podcast' },
+      { title: 'Por que algumas MULHERES TRAEM seus MARIDOS?', tags: '#cortes #podcast' },
+      { title: 'ANDRÉ LAMOGLIA shares how he got his role in ELITE!', tags: '#shorts #podcast' },
+      { title: 'That goal was MAGICAL!', tags: '#shorts #podcast' },
+    ],
+    platforms: [
+      { name: 'YOUTUBE', active: true },
+      { name: 'TIKTOK', active: true },
+    ],
+    activeWeek: 0,
+    videosPerDay: 3,
+    weeks: [
+    { label: 'Semana 1', range: '06/07 – 12/07', locked: true, generated: true, days: [
+      { name: 'Seg', date: '06/07', isToday: false, slots: [
+        { time: '09:18', status: 'posted', title: 'O Orocinho ficou sem graça depois dessa', tags: '#shorts #podcast' },
+        { time: '12:42', status: 'failed', title: 'A PARTÍCULA de DEUS!', tags: '#cortes #podcast', platforms: [
+          { name: 'TikTok', ok: true },
+          { name: 'Facebook', ok: true },
+          { name: 'YouTube', ok: false, reason: 'Sinalizado por direitos autorais na trilha de áudio.' },
+        ] },
+        { time: '15:09', status: 'posted', title: 'ALOK antes da fama', tags: '#shorts' },
+        { time: '18:08', status: 'posted', title: 'O Brasil É VIOLENTO?', tags: '#shorts #cortes' },
+        { time: '21:55', status: 'posted', title: 'Tem que SER BOM e não BONZINHO!', tags: '#podcast' },
+      ]},
+      { name: 'Ter', date: '07/07', isToday: false, slots: [
+        { time: '09:05', status: 'posted', title: 'This is THE SECRET', tags: '#shorts' },
+        { time: '12:55', status: 'posted', title: 'O LADO PODRE DO CRIME!', tags: '#podcast #shorts' },
+        { time: '15:04', status: 'failed', title: 'ESSE CASO É SINISTRO!', tags: '#shorts #cortes', platforms: [
+          { name: 'TikTok', ok: true },
+          { name: 'YouTube', ok: false, reason: 'Autenticação expirada — token inválido. Revincule em Contas.' },
+          { name: 'Facebook', ok: false, reason: 'Página não conectada no momento do disparo.' },
+        ] },
+        { time: '18:21', status: 'failed', title: 'VOCÊ PRECISA APROVEITAR A VIDA!', tags: '#shorts #podcast', platforms: [
+          { name: 'TikTok', ok: false, reason: 'Limite diário de uploads da conta atingido.' },
+          { name: 'YouTube', ok: false, reason: 'Limite diário de uploads da conta atingido.' },
+        ] },
+        { time: '21:22', status: 'posted', title: 'Por que algumas MULHERES TRAEM?', tags: '#cortes' },
+      ]},
+      { name: 'Qua', date: '08/07', isToday: false, slots: [
+        { time: '09:52', status: 'empty' },
+        { time: '12:37', status: 'empty' },
+        { time: '15:30', status: 'empty' },
+        { time: '18:03', status: 'empty' },
+        { time: '21:00', status: 'empty' },
+      ]},
+      { name: 'Qui', date: '09/07', isToday: false, slots: [
+        { time: '09:51', status: 'failed', title: 'Corte que não subiu — erro de upload', tags: '#shorts', platforms: [
+          { name: 'TikTok', ok: true },
+          { name: 'YouTube', ok: false, reason: 'Erro de rede durante o upload (timeout).' },
+        ] },
+        { time: '12:40', status: 'posted', title: 'ANDRÉ LAMOGLIA shares how he got his role in ELITE!', tags: '#shorts #podcast' },
+        { time: '15:19', status: 'posted', title: 'That goal was MAGICAL!', tags: '#shorts #podcast' },
+        { time: '18:50', status: 'posted', title: 'Leandro Hassum ANTES DA FAMA', tags: '#shorts #podcast' },
+        { time: '21:01', status: 'posted', title: 'Por que algumas MULHERES TRAEM seus MARIDOS?', tags: '#cortes #podcast' },
+      ]},
+      { name: 'Sex', date: '10/07', isToday: false, slots: [
+        { time: '09:25', status: 'empty' },
+        { time: '12:06', status: 'empty' },
+        { time: '15:49', status: 'empty' },
+        { time: '18:36', status: 'empty' },
+        { time: '21:51', status: 'empty' },
+      ]},
+      { name: 'Sáb', date: '11/07', isToday: false, slots: [
+        { time: '09:26', status: 'skipped', title: 'Slot pulado — auto-postagem desativada', tags: '#shorts', active: false },
+        { time: '12:47', status: 'posted', title: 'ESSE CASO É SINISTRO!', tags: '#shorts #cortes' },
+        { time: '15:44', status: 'posted', title: 'VOCÊ PRECISA APROVEITAR A VIDA!', tags: '#shorts #podcast' },
+        { time: '18:41', status: 'due', title: 'O LADO PODRE DO CRIME!', tags: '#podcast #shorts' },
+        { time: '21:10', status: 'next', title: 'A PARTÍCULA de DEUS!', tags: '#cortes #podcast' },
+      ]},
+      { name: 'Dom', date: '12/07', isToday: false, slots: [
+        { time: '09:27', status: 'empty' },
+        { time: '12:09', status: 'empty' },
+        { time: '15:26', status: 'empty' },
+        { time: '18:47', status: 'empty' },
+        { time: '21:52', status: 'empty' },
+      ]},
+    ]},
+    { label: 'Semana 2', range: '13/07 – 19/07', locked: false, generated: false, days: buildWeekDays([
+      { name: 'Seg', date: '13/07', isToday: true }, { name: 'Ter', date: '14/07' }, { name: 'Qua', date: '15/07' },
+      { name: 'Qui', date: '16/07' }, { name: 'Sex', date: '17/07' }, { name: 'Sáb', date: '18/07' }, { name: 'Dom', date: '19/07' },
+    ]) },
+    { label: 'Semana 3', range: '20/07 – 26/07', locked: false, generated: false, days: buildWeekDays([
+      { name: 'Seg', date: '20/07' }, { name: 'Ter', date: '21/07' }, { name: 'Qua', date: '22/07' },
+      { name: 'Qui', date: '23/07' }, { name: 'Sex', date: '24/07' }, { name: 'Sáb', date: '25/07' }, { name: 'Dom', date: '26/07' },
+    ]) },
+    { label: 'Semana 4', range: '27/07 – 02/08', locked: false, generated: false, days: buildWeekDays([
+      { name: 'Seg', date: '27/07' }, { name: 'Ter', date: '28/07' }, { name: 'Qua', date: '29/07' },
+      { name: 'Qui', date: '30/07' }, { name: 'Sex', date: '31/07' }, { name: 'Sáb', date: '01/08' }, { name: 'Dom', date: '02/08' },
+    ]) },
+    ],
+  };
+
+  togglePlatform(idx) {
+    this.setState(s => {
+      const platforms = s.platforms.slice();
+      platforms[idx] = { ...platforms[idx], active: !platforms[idx].active };
+      return { platforms, dirty: true };
+    });
+  }
+
+  _setDays(updater) {
+    this.setState(s => {
+      const weeks = s.weeks.map((w, i) => {
+        if (i !== s.activeWeek) return w;
+        const days = w.days.map(d => ({ ...d, slots: d.slots.slice() }));
+        return { ...w, days: updater(days) };
+      });
+      return { weeks, dirty: true };
+    });
+  }
+
+  selectWeek(idx) {
+    this.setState({ activeWeek: idx });
+  }
+
+  setVideosPerDay(n) {
+    this.setState({ videosPerDay: Math.max(1, Math.min(5, n)) });
+  }
+
+  addSlot(dayIdx) {
+    this._setDays(days => {
+      const day = { ...days[dayIdx] };
+      if (day.slots.length >= 5) return days;
+      day.slots = [...day.slots, { time: '--:--', status: 'empty', active: true }];
+      days[dayIdx] = day;
+      return days;
+    });
+  }
+
+  setView(view) {
+    this.setState({ view });
+  }
+
+  generateWeek() {
+    const perDay = this.state.videosPerDay || 3;
+    this.setState(s => {
+      const target = s.activeWeek;
+      if (s.weeks[target].locked || s.weeks[target].generated) return {};
+      const vids = s.availableVideos;
+      let vi = Math.floor(Math.random() * vids.length);
+      const weeks = s.weeks.map((w, i) => {
+        if (i !== target) return w;
+        const days = w.days.map(d => {
+          const slots = d.slots.slice().map((sl, idx) => {
+            if (sl.status !== 'empty') return sl;
+            if (idx < perDay) {
+              const v = vids[vi % vids.length];
+              vi += 1;
+              return { ...sl, title: v.title, tags: v.tags, status: 'due', active: true };
+            }
+            return sl;
+          });
+          return { ...d, slots };
+        });
+        return { ...w, days, generated: true };
+      });
+      return { weeks, dirty: true };
+    });
+  }
+
+  forceSlot(dayIdx, slotIdx) {
+    this._setDays(days => {
+      days[dayIdx].slots[slotIdx] = { ...days[dayIdx].slots[slotIdx], status: 'posted', active: true };
+      return days;
+    });
+  }
+
+  removeSlot(dayIdx, slotIdx) {
+    this._setDays(days => {
+      days[dayIdx].slots = days[dayIdx].slots.filter((_, i) => i !== slotIdx);
+      return days;
+    });
+  }
+
+  toggleSlotActive(dayIdx, slotIdx) {
+    this._setDays(days => {
+      days[dayIdx].slots = days[dayIdx].slots.map((sl, i) => i === slotIdx ? { ...sl, active: sl.active === false ? true : false } : sl);
+      return days;
+    });
+  }
+
+  setTime(dayIdx, slotIdx, value) {
+    this._setDays(days => {
+      days[dayIdx].slots = days[dayIdx].slots.map((sl, i) => i === slotIdx ? { ...sl, time: value || sl.time } : sl);
+      return days;
+    });
+  }
+
+  dragStart(dayIdx, slotIdx) {
+    this._dragSrc = { dayIdx, slotIdx };
+  }
+
+  dropOnto(dayIdx, slotIdx) {
+    const src = this._dragSrc;
+    this._dragSrc = null;
+    if (!src) return;
+    if (src.dayIdx === dayIdx && src.slotIdx === slotIdx) return;
+    const curDays = this.state.weeks[this.state.activeWeek].days;
+    const destStatus = curDays[dayIdx].slots[slotIdx].status;
+    if (destStatus === 'posted' || destStatus === 'failed') return;
+    this._setDays(days => {
+      const item = days[src.dayIdx].slots[src.slotIdx];
+      days[src.dayIdx].slots.splice(src.slotIdx, 1);
+      let destIdx = slotIdx;
+      if (src.dayIdx === dayIdx && src.slotIdx < slotIdx) destIdx -= 1;
+      days[dayIdx].slots.splice(destIdx, 0, item);
+      return days;
+    });
+  }
+
+  openPicker(dayIdx, slotIdx) {
+    const slot = this.state.weeks[this.state.activeWeek].days[dayIdx].slots[slotIdx];
+    const match = this.state.availableVideos.find(v => v.title === slot.title);
+    this.setState({
+      picker: { dayIdx, slotIdx },
+      pickerQuery: '',
+      pickerTime: slot.time && slot.time !== '--:--' ? slot.time : '',
+      pickerSelected: match ? match.title : (slot.title || null),
+      pickerTitle: slot.title || (match ? match.title : ''),
+      pickerTags: slot.tags || (match ? match.tags : ''),
+      pickerBrowse: !slot.title,
+    });
+  }
+
+  closePicker() {
+    this.setState({ picker: null });
+  }
+
+  selectVideo(title) {
+    const v = this.state.availableVideos.find(x => x.title === title);
+    this.setState({ pickerSelected: title, pickerTitle: v ? v.title : title, pickerTags: v ? v.tags : '', pickerBrowse: false });
+  }
+
+  browseOther() {
+    this.setState({ pickerBrowse: true, pickerQuery: '' });
+  }
+
+  openPreview(title) {
+    this.setState({ previewVideo: title });
+  }
+
+  closePreview() {
+    this.setState({ previewVideo: null });
+  }
+
+  selectFromPreview() {
+    this.setState(s => {
+      const v = s.availableVideos.find(x => x.title === s.previewVideo);
+      return { pickerSelected: s.previewVideo, pickerTitle: v ? v.title : s.previewVideo, pickerTags: v ? v.tags : '', previewVideo: null, pickerBrowse: false };
+    });
+  }
+
+  savePicker() {
+    const p = this.state.picker;
+    if (!p) return;
+    const time = (this.state.pickerTime || '').trim();
+    const title = (this.state.pickerTitle || '').trim();
+    const tags = (this.state.pickerTags || '').trim();
+    const hasSel = !!this.state.pickerSelected;
+    this._setDays(days => {
+      const slot = { ...days[p.dayIdx].slots[p.slotIdx] };
+      if (time) slot.time = time;
+      if (hasSel) {
+        slot.title = title;
+        slot.tags = tags;
+        slot.status = slot.status === 'posted' ? slot.status : 'due';
+      }
+      days[p.dayIdx].slots[p.slotIdx] = slot;
+      return days;
+    });
+    this.setState({ picker: null });
+  }
+
+  save() {
+    this.setState({ dirty: false });
+  }
+
+  renderVals() {
+    const platforms = this.state.platforms.map((p, i) => ({
+      name: p.name,
+      statusLabel: p.active ? 'Ativo' : 'Inativo',
+      dotColor: p.active ? 'oklch(0.72 0.16 150)' : 'oklch(0.45 0.02 260)',
+      trackColor: p.active ? 'oklch(0.55 0.14 150)' : 'oklch(0.32 0.02 260)',
+      knobPos: p.active ? '21px' : '3px',
+      toggle: () => this.togglePlatform(i),
+    }));
+
+    const activeWeekObj = this.state.weeks[this.state.activeWeek];
+    const weekLocked = !!activeWeekObj.locked;
+    const days = activeWeekObj.days.map((day, i) => {
+      const postedCount = day.slots.filter(s => s.status === 'posted').length;
+      return {
+        name: day.name,
+        date: day.date,
+        isToday: day.isToday,
+        postedCount,
+        slots: day.slots.map((s, si) => ({
+          ...s,
+          readonly: weekLocked,
+          draggable: !weekLocked && s.status !== 'posted' && s.status !== 'failed',
+          dragCursor: (weekLocked || s.status === 'posted' || s.status === 'failed') ? 'default' : 'grab',
+          toggle: () => this.toggleSlotActive(i, si),
+          remove: () => this.removeSlot(i, si),
+          commitTime: (e) => this.setTime(i, si, e.target.textContent.trim()),
+          timeKeyDown: (e) => { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } },
+          dragStart: () => this.dragStart(i, si),
+          drop: (e) => { e.preventDefault(); this.dropOnto(i, si); },
+          openPicker: () => this.openPicker(i, si),
+          force: () => this.forceSlot(i, si),
+        })),
+        addSlot: () => this.addSlot(i),
+        canAdd: !weekLocked && day.slots.length < 5,
+        full: day.slots.length >= 5,
+      };
+    });
+
+    const weekTabs = this.state.weeks.map((w, i) => {
+      const active = i === this.state.activeWeek;
+      const status = w.locked ? 'Publicada' : (w.generated ? 'Gerada' : 'Vazia');
+      return {
+        label: w.label,
+        range: w.range,
+        statusLabel: status,
+        active,
+        bg: active ? 'oklch(0.24 0.02 260)' : 'transparent',
+        borderColor: active ? 'oklch(0.72 0.13 230)' : 'transparent',
+        labelColor: active ? 'oklch(0.95 0.01 260)' : 'oklch(0.62 0.02 260)',
+        select: () => this.selectWeek(i),
+      };
+    });
+
+    // Month calendar cells
+    const statusMeta = (st) => {
+      if (st === 'posted') return { dot: 'oklch(0.72 0.16 150)', chipBg: 'oklch(0.28 0.05 150 / 0.25)', label: 'Publicado', color: 'oklch(0.72 0.14 150)', timeColor: 'oklch(0.75 0.12 150)' };
+      if (st === 'failed') return { dot: 'oklch(0.65 0.2 25)', chipBg: 'oklch(0.32 0.12 25 / 0.28)', label: 'Não postado', color: 'oklch(0.72 0.18 25)', timeColor: 'oklch(0.72 0.16 25)' };
+      if (st === 'next') return { dot: 'oklch(0.75 0.16 150)', chipBg: 'oklch(0.28 0.06 150 / 0.3)', label: 'Próximo', color: 'oklch(0.78 0.14 150)', timeColor: 'oklch(0.8 0.12 150)' };
+      if (st === 'skipped') return { dot: 'oklch(0.8 0.15 85)', chipBg: 'oklch(0.32 0.1 85 / 0.28)', label: 'Pulado', color: 'oklch(0.82 0.14 85)', timeColor: 'oklch(0.82 0.13 85)' };
+      return { dot: 'oklch(0.6 0.13 230)', chipBg: 'oklch(0.28 0.06 230 / 0.25)', label: 'Agendado', color: 'oklch(0.7 0.12 230)', timeColor: 'oklch(0.72 0.12 230)' };
+    };
+    const weekdayLabels = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const dows = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const weekMap = {};
+    this.state.weeks.forEach(w => w.days.forEach(d => { weekMap[d.date] = d.slots; }));
+    const startPad = new Date(2026, 6, 1).getDay();
+    const daysInMonth = 31;
+    const monthCells = [];
+    for (let i = 0; i < startPad; i++) monthCells.push({ real: false, empty: true });
+    for (let dn = 1; dn <= daysInMonth; dn++) {
+      const dd = String(dn).padStart(2, '0');
+      const dateStr = dd + '/07';
+      let slots = weekMap[dateStr];
+      if (!slots) {
+        slots = [];
+        const count = (dn * 3) % 4;
+        const past = dn < 13;
+        const titlePool = ['ESSE CASO É SINISTRO!', 'A PARTÍCULA de DEUS!', 'O LADO PODRE DO CRIME!', 'This is THE SECRET', 'O Brasil É VIOLENTO?'];
+        const timePool = ['09:00', '12:30', '15:15', '18:40', '21:10'];
+        for (let k = 0; k < count; k++) {
+          let st = past ? (((dn + k) % 5 === 0) ? 'failed' : 'posted') : 'due';
+          slots.push({ time: timePool[k], status: st, title: titlePool[(dn + k) % titlePool.length] });
+        }
+      }
+      const active = slots.filter(s => s.status === 'posted' || s.status === 'due' || s.status === 'next' || s.status === 'failed' || s.status === 'skipped');
+      const isToday = dn === 13;
+      const dow = dows[new Date(2026, 6, dn).getDay()];
+      monthCells.push({
+        real: true,
+        empty: false,
+        dnum: dn,
+        dateStr,
+        dow,
+        isToday,
+        borderColor: isToday ? 'oklch(0.5 0.08 230)' : 'oklch(0.27 0.02 260)',
+        bg: isToday ? 'oklch(0.24 0.05 230 / 0.25)' : 'oklch(0.19 0.02 260)',
+        numColor: isToday ? 'oklch(0.82 0.12 230)' : 'oklch(0.85 0.01 260)',
+        preview: active.map(s => { const m = statusMeta(s.status); return { time: s.time, dot: m.dot, chipBg: m.chipBg }; }),
+        hasMore: false,
+        moreLabel: '',
+        count: active.length,
+        hasNone: active.length === 0,
+        slots: active.map(s => { const m = statusMeta(s.status); return { time: s.time, title: s.title || '—', statusLabel: m.label, statusColor: m.color, timeColor: m.timeColor }; }),
+        hovered: this.state.hoverDay === dn,
+        enter: () => this.setState({ hoverDay: dn }),
+        leave: () => this.setState({ hoverDay: null }),
+      });
+    }
+
+    const view = this.state.view || 'week';
+    const picker = this.state.picker;
+    const query = (this.state.pickerQuery || '').toLowerCase();
+    const selected = this.state.pickerSelected;
+    const pickerSlot = picker ? activeWeekObj.days[picker.dayIdx].slots[picker.slotIdx] : null;
+    const pickerVideos = picker ? this.state.availableVideos
+      .filter(v => v.title.toLowerCase().includes(query))
+      .map(v => ({
+        title: v.title,
+        tags: v.tags,
+        selected: v.title === selected,
+        borderColor: v.title === selected ? 'oklch(0.72 0.16 150)' : 'transparent',
+        select: () => this.selectVideo(v.title),
+        preview: () => this.openPreview(v.title),
+      }))
+      : [];
+
+    const previewVideo = this.state.previewVideo
+      ? this.state.availableVideos.find(v => v.title === this.state.previewVideo)
+      : null;
+
+    return {
+      dirty: this.state.dirty,
+      platforms,
+      days,
+      weekTabs,
+      weekLocked,
+      weekGenerated: !!activeWeekObj.generated,
+      weekRange: activeWeekObj.range,
+      videosPerDay: this.state.videosPerDay || 3,
+      incPerDay: () => this.setVideosPerDay((this.state.videosPerDay || 3) + 1),
+      decPerDay: () => this.setVideosPerDay((this.state.videosPerDay || 3) - 1),
+      canGenerate: !weekLocked && !activeWeekObj.generated,
+      weekGeneratedBanner: !weekLocked && !!activeWeekObj.generated,
+      isWeek: view === 'week',
+      isMonth: view === 'month',
+      weekBg: view === 'week' ? 'oklch(0.72 0.13 230)' : 'transparent',
+      weekColor: view === 'week' ? 'oklch(0.16 0.02 260)' : 'oklch(0.7 0.02 260)',
+      monthBg: view === 'month' ? 'oklch(0.72 0.13 230)' : 'transparent',
+      monthColor: view === 'month' ? 'oklch(0.16 0.02 260)' : 'oklch(0.7 0.02 260)',
+      setWeek: () => this.setView('week'),
+      setMonth: () => this.setView('month'),
+      generateWeek: () => this.generateWeek(),
+      userMenuOpen: this.state.userMenu,
+      toggleUserMenu: () => this.setState(s => ({ userMenu: !s.userMenu })),
+      closeUserMenu: () => this.setState({ userMenu: false }),
+      weekdayLabels,
+      monthCells,
+      nextDispatch: { time: 'Sáb 21:10', countdown: '1h 50min', dayLabel: 'HOJE' },
+      save: () => this.save(),
+      allowDrop: (e) => e.preventDefault(),
+      pickerOpen: !!picker,
+      pickerHeading: pickerSlot && pickerSlot.title ? 'Editar horário' : 'Agendar horário',
+      pickerVideos,
+      pickerQuery: this.state.pickerQuery || '',
+      pickerTime: this.state.pickerTime || '',
+      pickerHasSelection: !!this.state.pickerSelected,
+      pickerBrowse: !!this.state.pickerBrowse,
+      pickerShowSelected: !!this.state.pickerSelected && !this.state.pickerBrowse,
+      browseOther: () => this.browseOther(),
+      pickerTitle: this.state.pickerTitle || '',
+      pickerTags: this.state.pickerTags || '',
+      pickerQueryChange: (e) => this.setState({ pickerQuery: e.target.value }),
+      pickerTimeChange: (e) => this.setState({ pickerTime: e.target.value }),
+      pickerTitleChange: (e) => this.setState({ pickerTitle: e.target.value }),
+      pickerTagsChange: (e) => this.setState({ pickerTags: e.target.value }),
+      closePicker: () => this.closePicker(),
+      savePicker: () => this.savePicker(),
+      previewOpen: !!previewVideo,
+      previewTitle: previewVideo ? previewVideo.title : '',
+      previewTags: previewVideo ? previewVideo.tags : '',
+      closePreview: () => this.closePreview(),
+      selectFromPreview: () => this.selectFromPreview(),
+      stopClick: (e) => e.stopPropagation(),
+    };
+  }
+}
+
+</script>
+</body>
+</html>
+

@@ -4,25 +4,26 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Database\Factories\SocialPostFactory;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * Ledger genérico de postagens em redes sociais. Substitui o antigo
- * TiktokPost — a coluna `platform` discrimina o destino (tiktok, youtube,
- * instagram, ...). Cada poster grava uma linha aqui pra o Laravel
- * conseguir mostrar histórico e impedir duplicação por (platform, short).
+ * Ledger genérico de postagens em redes sociais. A coluna `platform`
+ * discrimina o destino (tiktok, youtube, instagram, ...). Cada postagem de
+ * slot gera 1 linha por (schedule_slot_id, platform) — é a fonte do status
+ * por plataforma que a /agenda mostra (posted / parcial / failed).
  *
- * Os Posters (App\Services\AutoPost\Posters) é quem criam/atualizam
- * essas linhas. Para o TikTok, o microserviço uploader manda o status
- * final via webhook (TiktokPostCallbackController).
+ * Quem cria/atualiza essas linhas é o job PostSlotToPlatform (via Posters
+ * de App\Services\AutoPost\Posters). Posts manuais ficam com slot null.
  *
  * @property int $id
  * @property string $platform
  * @property string $uuid
+ * @property int|null $schedule_slot_id
  * @property string|null $youtube_id
  * @property string|null $video_key
  * @property string|null $title
@@ -33,37 +34,29 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $requested_at
  * @property Carbon|null $started_at
  * @property Carbon|null $posted_at
+ * @property-read ScheduleSlot|null $scheduleSlot
  */
 final class SocialPost extends Model
 {
-    /** @use HasFactory<Factory> */
+    /** @use HasFactory<SocialPostFactory> */
     use HasFactory;
 
-    public const string PLATFORM_TIKTOK = 'tiktok';
-
-    public const string PLATFORM_YOUTUBE = 'youtube';
-
-    /** Status que bloqueiam novo sorteio/post automático do mesmo Short. */
+    /** Status que bloqueiam novo post automático do mesmo Short. */
     public const array ACTIVE_STATUSES = ['queued', 'processing', 'completed', 'dry-run', 'restricted'];
 
     protected $fillable = [
-        'platform', 'uuid', 'youtube_id', 'video_key', 'title', 'hashtags',
+        'platform', 'uuid', 'schedule_slot_id', 'youtube_id', 'video_key', 'title', 'hashtags',
         'account_name', 'status', 'error', 'requested_at', 'started_at', 'posted_at',
     ];
 
-    /**
-     * Filtra por plataforma. Use `SocialPost::query()->platform('tiktok')`.
-     *
-     * @param  Builder<self>  $query
-     * @return Builder<self>
-     */
-    protected function scopePlatform(Builder $query, string $platform): Builder
+    /** @return BelongsTo<ScheduleSlot, $this> */
+    public function scheduleSlot(): BelongsTo
     {
-        return $query->where('platform', $platform);
+        return $this->belongsTo(ScheduleSlot::class);
     }
 
     /**
-     * Posts enfileirados, em andamento ou concluídos — bloqueiam novo sorteio
+     * Posts enfileirados, em andamento ou concluídos — bloqueiam novo post
      * do mesmo Short (falhas liberam o vídeo para tentar de novo).
      *
      * @param  Builder<self>  $query

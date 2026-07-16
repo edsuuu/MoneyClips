@@ -10,6 +10,7 @@ from pydantic import BaseModel, HttpUrl
 from app.config.settings import settings
 from app.jobs.worker import ChannelAlreadyDownloadingError, start_download
 from app.logging_config import configure_logging
+from app.observability import start_observability
 
 logger = logging.getLogger("shorts.api")
 
@@ -28,6 +29,7 @@ class AcceptedResponse(BaseModel):
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging(settings.log_level)
+    start_observability("download-shorts", "shorts")
     logger.info("starting download-shorts on %s:%s", settings.api_host, settings.api_port)
     yield
 

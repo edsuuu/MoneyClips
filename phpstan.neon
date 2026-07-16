@@ -28,7 +28,9 @@ parameters:
     ignoreErrors:
         - identifier: cast.string
         - identifier: cast.int
-        - identifier: cast.double
+        -
+            identifier: cast.double
+            reportUnmatched: false
 
     excludePaths:
         - database/migrations/*

@@ -4,6 +4,7 @@ import morgan from 'morgan';
 import { settings } from '@/Config/Env';
 import { logger } from '@/Config/Logger';
 import { discord } from '@/Services/Notifications/Discord';
+import { initObservability } from '@/Services/Observability/RemoteObservability';
 
 import errorHandler from './Http/Middleware/ErrorHandler';
 import notFound from './Http/Middleware/NotFound';
@@ -39,6 +40,8 @@ export class App {
     }
 
     public server(port: number): void {
+        initObservability('tiktok-uploader');
+
         const httpServer = this.app.listen(port, () => {
             logger.info(`API do tiktok-uploader ouvindo em http://0.0.0.0:${port}`);
 

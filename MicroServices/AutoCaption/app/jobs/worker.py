@@ -16,6 +16,7 @@ from app.pipeline.variants import (
     write_video_benchmark,
 )
 from app.storage.local import VideoStore
+from app.webhook import send_webhook
 
 logger = logging.getLogger("autocaption.worker")
 
@@ -108,6 +109,23 @@ def _process(uuid: str, options: JobOptions) -> None:
         except Exception as exc:  # noqa: BLE001
             logger.exception("[%s] pipeline falhou", uuid)
             _set_status(uuid, "failed", "error", error=str(exc), files=_files(uuid))
+        finally:
+            _notify_webhook(uuid)
+
+
+def _notify_webhook(uuid: str) -> None:
+    """Avisa o Laravel do desfecho (done|failed) quando webhook_url foi passado
+    no POST /videos. Fire-and-forget: falha de webhook não muda o status."""
+    status = store.read_status(uuid) or {}
+    url = str(status.get("webhook_url") or "")
+    if not url:
+        return
+    send_webhook(url, {
+        "uuid": uuid,
+        "status": status.get("status"),
+        "error": status.get("error"),
+        "files": status.get("files"),
+    })
 
 
 def start_processing(uuid: str, options: JobOptions | None = None) -> None:

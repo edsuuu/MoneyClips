@@ -12,6 +12,7 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from app.config.settings import settings
 from app.jobs.worker import start_processing, store
 from app.logging_config import configure_logging
+from app.observability import start_observability
 from app.pipeline.variants import ALL_VARIANTS, JobOptions
 
 logger = logging.getLogger("autocaption.api")
@@ -24,6 +25,7 @@ _CHUNK = 1024 * 1024
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging(settings.log_level)
+    start_observability("autocaption", "autocaption")
     logger.info("starting autocaption on %s:%s", settings.api_host, settings.api_port)
     yield
 
@@ -65,6 +67,7 @@ async def create_video(
     channel_handle: str = Form(""),
     subtitle_offset: float = Form(0.0),
     with_captions: bool = Form(True),
+    webhook_url: str = Form(""),
 ) -> JSONResponse:
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in _ALLOWED_SUFFIXES:
@@ -91,6 +94,11 @@ async def create_video(
         while chunk := await file.read(_CHUNK):
             out.write(chunk)
     logger.info("[%s] vídeo recebido: %s (%s) variants=%s", uuid, file.filename, suffix, selected)
+
+    # webhook_url sobrevive às trocas de step (write_status faz merge) e é
+    # lido pelo worker no fim do pipeline para avisar o Laravel.
+    if webhook_url.strip():
+        store.write_status(uuid, {"uuid": uuid, "webhook_url": webhook_url.strip()})
 
     start_processing(uuid, options)
     return JSONResponse(status_code=202, content={"uuid": uuid, "status": "processing"})

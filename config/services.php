@@ -64,14 +64,34 @@ return [
 
     'tiktok_post' => [
         'base_url' => env('TIKTOK_POST_URL', 'http://127.0.0.1:8090'),
-        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 30),
+        // Post síncrono via Playwright: a verificação de conteúdo do TikTok
+        // pode levar ~15 min — o client só roda dentro de job de fila.
+        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 1500),
         'api_token' => env('TIKTOK_POST_API_TOKEN', ''),
         // Conta TikTok ativa (handle público sem @). Usada em mensagens do
         // Discord pra rotular o destino. A autenticação real vive em cookies.
         'account_name' => env('TIKTOK_ACCOUNT_NAME', ''),
-        'callback_url' => env(
-            'TIKTOK_POST_CALLBACK_URL',
-            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/tiktok-posts/callback',
+    ],
+
+    'reencode' => [
+        'base_url' => env('REENCODE_URL', 'http://127.0.0.1:8790'),
+        'timeout' => (int) env('REENCODE_TIMEOUT', 900),
+        'api_token' => env('REENCODE_API_TOKEN', ''),
+    ],
+
+    'observability' => [
+        // Token compartilhado dos endpoints /api/observability/* (header
+        // X-Observability-Token). Precisa bater com o OBSERVABILITY_TOKEN
+        // configurado em cada microserviço.
+        'token' => env('OBSERVABILITY_TOKEN', ''),
+    ],
+
+    'autocaption' => [
+        'base_url' => env('AUTOCAPTION_URL', 'http://127.0.0.1:8780'),
+        'timeout' => (int) env('AUTOCAPTION_TIMEOUT', 300),
+        'webhook_url' => env(
+            'AUTOCAPTION_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/autocaption/webhook',
         ),
     ],
 
