@@ -67,7 +67,7 @@ final class Profile extends Component
         $user = Auth::user();
 
         if ($user->hasVerifiedEmail()) {
-            $this->redirectIntended(default: route('downloads.index', absolute: false));
+            $this->redirectIntended(default: route('videos.index', absolute: false));
 
             return;
         }

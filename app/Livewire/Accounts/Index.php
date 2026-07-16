@@ -130,6 +130,19 @@ final class Index extends Component
         $this->showYoutubeModal = true;
     }
 
+    /** Liga/desliga a conta para publicação (toggle do card). */
+    public function toggleActive(int $id): void
+    {
+        $account = $this->accountQuery()->whereKey($id)->first();
+        if (! $account instanceof SocialAccount) {
+            return;
+        }
+
+        $account->is_active = ! $account->is_active;
+        $account->save();
+        $this->toast(sprintf('Conta %s.', $account->is_active ? 'ativada' : 'desativada'));
+    }
+
     public function delete(int $id): void
     {
         $this->accountQuery()->whereKey($id)->delete();
@@ -148,20 +161,9 @@ final class Index extends Component
         $this->showYoutubeModal = false;
     }
 
-    public function render(): View
-    {
-        $accounts = $this->accountQuery()->latest()->get();
-
-        return view('livewire.accounts.index', [
-            'tiktokAccounts' => $this->decorateTiktokAccounts($accounts->where('platform', 'tiktok')),
-            'youtubeAccount' => $accounts->firstWhere('platform', 'youtube'),
-            'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
-        ]);
-    }
-
     /**
      * @param  Collection<int, SocialAccount>  $accounts
-     * @return Collection<int, array{id: int, name: string, login_email: string|null, is_active: bool, statusColor: string, statusLabel: string}>
+     * @return Collection<int, array{id: int, name: string, login_email: string|null, is_active: bool, statusColor: string, statusLabel: string, subtitle: string}>
      */
     private function decorateTiktokAccounts(Collection $accounts): Collection
     {
@@ -173,6 +175,7 @@ final class Index extends Component
                 'is_active' => $account->is_active,
                 'statusColor' => $this->sessionStatusColor($account->session_status),
                 'statusLabel' => $this->sessionStatusLabel($account->session_status),
+                'subtitle' => $account->name.($account->login_email !== null && $account->login_email !== '' ? ' · '.$account->login_email : ''),
             ])
             ->values();
     }
@@ -223,5 +226,25 @@ final class Index extends Component
     {
         $this->reset(['editingAccountId', 'showTiktokModal', 'name', 'login_email', 'login_password', 'is_active']);
         $this->resetValidation();
+    }
+
+    public function render(): View
+    {
+        $accounts = $this->accountQuery()->latest()->get();
+        $youtubeAccount = $accounts->firstWhere('platform', 'youtube');
+
+        return view('livewire.accounts.index', [
+            'tiktokAccounts' => $this->decorateTiktokAccounts($accounts->where('platform', 'tiktok')),
+            'youtubeAccount' => $youtubeAccount,
+            // Status pronto pro @class da view (mesmo padrão do card TikTok).
+            'youtubeStatus' => $youtubeAccount instanceof SocialAccount
+                ? [
+                    'expired' => $youtubeAccount->tokenExpired(),
+                    'label' => $youtubeAccount->tokenExpired() ? 'Token expirado' : 'Vinculado',
+                ]
+                : null,
+            'tiktokModalTitle' => $this->editingAccountId !== null ? 'Editar conta TikTok' : 'Nova conta TikTok',
+            'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
+        ]);
     }
 }

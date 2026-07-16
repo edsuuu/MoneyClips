@@ -39,7 +39,7 @@ final class Register extends Component
         Auth::login($user);
         session()->forget('auth.authenticated_via_google');
 
-        $this->redirect(route('downloads.index', absolute: false), navigate: true);
+        $this->redirect(route('videos.index', absolute: false), navigate: true);
     }
 
     /**

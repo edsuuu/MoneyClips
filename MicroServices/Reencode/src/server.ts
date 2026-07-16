@@ -5,18 +5,39 @@
  *   pnpm start   (ou: pnpm run api)
  *
  * Rotas:
- *   GET  /health    — heartbeat (tamanho da fila, REENCODE_ENABLED)
- *   POST /reencode  — enfileira um job; responde 202 e avisa no webhook ao fim
+ *   GET  /health    — heartbeat (REENCODE_ENABLED, limiar)
+ *   POST /reencode  — multipart {video, video_id?}; responde SÍNCRONO:
+ *                     200 binário do vídeo recodificado (X-Reencode: completed)
+ *                     200 JSON {status: "skipped"} quando não precisou
  */
 
 import express, { type NextFunction, type Request, type Response } from 'express';
+import multer from 'multer';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
+import { unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { extname, join } from 'node:path';
 
-import { App, ValidationError } from '@/app';
+import { App } from '@/app';
 import { settings } from '@/config/env/Env';
 import { logger } from '@/config/logger/Logger';
 import { sendDiscordError } from '@/services/notifications/Discord';
+import { initObservability } from '@/services/observability/RemoteObservability';
 
-const MAX_BODY_BYTES = 1_000_000;
+const UPLOAD_DIR = join(tmpdir(), 'reencode-uploads');
+const MAX_UPLOAD_BYTES = 1024 ** 3; // 1 GB
+
+mkdirSync(UPLOAD_DIR, { recursive: true });
+
+const videoUpload = multer({
+    storage: multer.diskStorage({
+        destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+        filename: (_req, file, cb) =>
+            cb(null, `${randomUUID()}${extname(file.originalname) || '.mp4'}`),
+    }),
+    limits: { fileSize: MAX_UPLOAD_BYTES },
+}).single('video');
 
 const app = new App();
 
@@ -39,37 +60,71 @@ function requireToken(req: Request, res: Response, next: NextFunction): void {
     res.status(401).json({ detail: 'não autorizado' });
 }
 
+async function removeQuietly(path: string | undefined): Promise<void> {
+    if (!path) {
+        return;
+    }
+    try {
+        await unlink(path);
+    } catch {
+        // arquivo já removido/ausente — nada a fazer
+    }
+}
+
 function main(): void {
+    initObservability('reencode');
+
     const server = express();
 
-    // /health fica aberto (healthcheck do container), antes do token.
+    // /health fica aberto (healthcheck), antes do token.
     server.get('/health', (_req, res) => {
         res.json(app.health());
     });
 
-    // Corpo JSON com teto de tamanho; o resto das rotas exige token.
-    server.use(express.json({ limit: MAX_BODY_BYTES }));
     server.use(requireToken);
 
-    server.post('/reencode', (req, res) => {
-        res.status(202).json(app.enqueue(req.body));
+    server.post('/reencode', videoUpload, (req, res, next) => {
+        void (async (): Promise<void> => {
+            const uploaded = req.file?.path;
+            if (!uploaded) {
+                res.status(422).json({ detail: 'campo "video" (arquivo) é obrigatório' });
+                return;
+            }
+
+            const videoId = typeof req.body?.video_id === 'string' ? req.body.video_id : '';
+
+            try {
+                const result = await app.process(uploaded, videoId);
+
+                if (!result.reencoded) {
+                    res.json({ status: 'skipped', reencoded: false });
+                    return;
+                }
+
+                res.setHeader('X-Reencode', 'completed');
+                res.sendFile(result.outputPath, (error) => {
+                    if (error) {
+                        logger.error(`Falha ao enviar o vídeo recodificado: ${error.message}`);
+                    }
+                    void removeQuietly(result.outputPath);
+                });
+            } finally {
+                await removeQuietly(uploaded);
+            }
+        })().catch(next);
     });
 
     server.use((_req, res) => {
         res.status(404).json({ detail: 'rota não encontrada' });
     });
 
-    // Error-middleware central: ValidationError -> 422, JSON malformado/grande
-    // -> 400, o resto -> 500 (com aviso no Discord). O 4º parâmetro (next) é
-    // obrigatório para o Express reconhecer isto como handler de erro.
+    // Error-middleware central: upload grande -> 413, o resto -> 500 (com
+    // aviso no Discord). O 4º parâmetro (next) é obrigatório para o Express
+    // reconhecer isto como handler de erro.
     server.use((error: unknown, req: Request, res: Response, _next: NextFunction): void => {
-        if (error instanceof ValidationError) {
-            res.status(422).json({ detail: error.message, errors: error.details });
-            return;
-        }
-        if (isBadJson(error)) {
-            const message = error instanceof Error ? error.message : 'JSON inválido.';
-            res.status(400).json({ detail: message });
+        if (error instanceof multer.MulterError) {
+            const status = error.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+            res.status(status).json({ detail: error.message });
             return;
         }
         const message = error instanceof Error ? error.message : String(error);
@@ -93,15 +148,6 @@ function main(): void {
     };
     process.on('SIGINT', shutdown);
     process.on('SIGTERM', shutdown);
-}
-
-/** Erro do body-parser do Express: JSON malformado (400) ou corpo grande (413). */
-function isBadJson(error: unknown): boolean {
-    if (typeof error !== 'object' || error === null) {
-        return false;
-    }
-    const { type, status } = error as { type?: unknown; status?: unknown };
-    return type === 'entity.parse.failed' || type === 'entity.too.large' || status === 400;
 }
 
 main();

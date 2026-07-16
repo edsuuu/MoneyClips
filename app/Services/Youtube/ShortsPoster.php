@@ -41,8 +41,8 @@ final readonly class ShortsPoster
 
         throw_if($account === null, RuntimeException::class, 'Nenhuma conta do YouTube conectada. Conecte em /social-accounts ou rode: php artisan youtube:link');
 
-        $videoPath = $short->video_path;
-        if ($videoPath === null || $videoPath === '') {
+        $videoPath = $short->postableVideoPath();
+        if ($videoPath === '') {
             throw new RuntimeException(sprintf('Short %s não tem video_path.', $short->youtube_id));
         }
 

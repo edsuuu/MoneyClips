@@ -7,7 +7,6 @@ namespace App\Services\Youtube;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
-use Throwable;
 
 /**
  * Cliente HTTP do microserviço Python download-shorts (porta 8770).
@@ -38,18 +37,6 @@ final class DownloadShortsClient
         throw_unless(array_key_exists('count', $response), RuntimeException::class, 'Microserviço download-shorts não retornou count.');
 
         return (int) ($response['count']);
-    }
-
-    public function health(): bool
-    {
-        try {
-            return $this->client()
-                ->timeout(5)
-                ->get('/health')
-                ->successful();
-        } catch (Throwable) {
-            return false;
-        }
     }
 
     private function client(): PendingRequest

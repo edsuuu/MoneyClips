@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost\Posters;
 
-use App\Models\User;
-use App\Models\YoutubeShort;
+use App\Models\PlatformSetting;
 use App\Services\DiscordNotifier;
 use App\Services\Youtube\ShortsPoster;
 use Illuminate\Support\Facades\Log;
@@ -31,15 +30,13 @@ final readonly class YoutubePoster implements PosterContract
 
     public function isEnabled(): bool
     {
-        // Cron roda sem usuário autenticado — usamos o user mais antigo (admin)
-        // como fonte de verdade do toggle. Cada user mexe no seu pela /agenda.
-        $user = User::query()->orderBy('id')->first();
-
-        return $user instanceof User ? $user->auto_post_youtube_enabled : true;
+        return PlatformSetting::isEnabled($this->platform());
     }
 
-    public function post(YoutubeShort $short): PosterResult
+    public function post(PostTask $task): PosterResult
     {
+        $short = $task->short;
+
         try {
             $videoId = $this->poster->post($short);
             $link = 'https://www.youtube.com/shorts/'.$videoId;
@@ -47,7 +44,7 @@ final readonly class YoutubePoster implements PosterContract
             Log::info('[AutoPost][YouTube] Short postado.', ['id' => $short->id, 'link' => $link]);
             $this->discord->success(
                 '✅ Short postado no YouTube',
-                ($short->title ?? $short->youtube_id).PHP_EOL.$link,
+                ($task->title ?: $short->youtube_id).PHP_EOL.$link,
                 $link,
             );
 
