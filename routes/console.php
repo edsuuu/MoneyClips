@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Services\AutoPost\AutoPost;
-use App\Services\AutoPost\AutoPostDispatcher;
-use App\Services\AutoPost\StockAlert;
+use App\Services\AutoPost\AutoPostDispatcherService;
+use App\Services\AutoPost\StockAlertService;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -21,20 +20,21 @@ Artisan::command('inspire', function (): void {
 | A cada minuto o dispatcher busca slots devidos em schedule_slots (com
 | tolerância de GRACE_MINUTES), reivindica cada um atomicamente
 | (dispatched_at) e enfileira 1 job por plataforma habilitada na fila
-| `posting`. Plataformas são Posters em App\Services\AutoPost\Posters\ —
-| adicione novos lá e registre no AppServiceProvider; toggles em
-| platform_settings (tela /agenda).
+| `posting`. Posters vivem na pasta da integração (App\Services\Api\* para
+| APIs oficiais; App\Services\TikTokUploader para o microserviço) —
+| implemente App\Services\AutoPost\PosterInterface e registre no
+| AppServiceProvider; toggles em platform_settings (tela /agenda).
 |
-| Requer cron: `* * * * * php artisan schedule:run` (ou `schedule:work`)
-| e um worker de fila: `php artisan queue:listen --queue=posting,processing,default`.
+| Fuso: o scheduler usa o timezone da aplicação (config/app.php —
+| America/Sao_Paulo). Requer cron: `* * * * * php artisan schedule:run`
+| e um worker: `php artisan queue:listen --queue=posting,processing,default`.
 |
 */
 Schedule::call(function (): void {
-    resolve(AutoPostDispatcher::class)->dispatchDueSlots();
+    resolve(AutoPostDispatcherService::class)->dispatchDueSlots();
 })
     ->name('auto-post-slots')
     ->everyMinute()
-    ->timezone(AutoPost::TIMEZONE)
     ->withoutOverlapping();
 
 // Sentinela: avisa no Discord sobre slots pulados/sem vídeo/com falha total
@@ -42,16 +42,14 @@ Schedule::call(function (): void {
 Schedule::command('auto-post:check-missed')
     ->name('auto-post-check-missed')
     ->everyTenMinutes()
-    ->timezone(AutoPost::TIMEZONE)
     ->withoutOverlapping();
 
 // Estoque baixo: compara vídeos prontos × slots vazios dos próximos 7 dias.
 Schedule::call(function (): void {
-    resolve(StockAlert::class)->warnIfLow();
+    resolve(StockAlertService::class)->warnIfLow();
 })
     ->name('stock-alert')
-    ->dailyAt('08:00')
-    ->timezone(AutoPost::TIMEZONE);
+    ->dailyAt('08:00');
 
 // Observabilidade: microserviço sem heartbeat > 90s → Discord (1x por queda,
 // com aviso de recuperação). Prune diário mantém service_logs em 14 dias.
@@ -62,5 +60,4 @@ Schedule::command('observability:check-heartbeats')
 
 Schedule::command('model:prune')
     ->name('model-prune')
-    ->dailyAt('04:00')
-    ->timezone(AutoPost::TIMEZONE);
+    ->dailyAt('04:00');

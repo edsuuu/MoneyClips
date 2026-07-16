@@ -5,12 +5,17 @@ import { settings } from '@/Config/Env';
 import { logger } from '@/Config/Logger';
 import { discord } from '@/Services/Notifications/Discord';
 import { initObservability } from '@/Services/Observability/RemoteObservability';
+import { postQueue } from '@/Services/PostQueueService';
+import { sleep } from '@/Utils/Sleep';
 
 import errorHandler from './Http/Middleware/ErrorHandler';
 import notFound from './Http/Middleware/NotFound';
 import { Routers } from './Http/Routers';
 
 const MAX_BODY_BYTES = 1_000_000;
+
+// Um post no Playwright leva até ~15 min — o shutdown espera até isso.
+const SHUTDOWN_DRAIN_LIMIT_MS = 16 * 60_000;
 
 morgan.token('datetime', () => {
     const now = new Date();
@@ -50,15 +55,23 @@ export class App {
             }
         });
 
-        // Upload é síncrono e pode levar minutos (processamento + verificação do TikTok).
-        // Sem esses limites o Node derruba a conexão no meio e o cliente (Insomnia) toma timeout.
-        httpServer.requestTimeout = 0;
-        httpServer.timeout = 0;
-        httpServer.keepAliveTimeout = 10 * 60_000;
+        // POST /posts responde 202 na hora (upload roda em background); o
+        // requestTimeout só precisa cobrir o streaming do binário do vídeo.
+        httpServer.requestTimeout = 10 * 60_000;
 
+        // Shutdown gracioso: matar o Playwright no meio de um post pode
+        // publicar o vídeo SEM webhook (ledger preso em queued). Drena a fila
+        // (post leva até ~15 min) antes de sair — kill_timeout do pm2 no
+        // ecosystem.config.cjs acompanha esse limite.
         const shutdown = (): void => {
-            logger.info('Encerrando API...');
-            httpServer.close(() => process.exit(0));
+            logger.info(
+                `Encerrando API — drenando a fila de posts (${postQueue.size()} pendentes)...`,
+            );
+            httpServer.close();
+
+            void Promise.race([postQueue.drain(), sleep(SHUTDOWN_DRAIN_LIMIT_MS)]).then(() =>
+                process.exit(0),
+            );
         };
         process.on('SIGINT', shutdown);
         process.on('SIGTERM', shutdown);

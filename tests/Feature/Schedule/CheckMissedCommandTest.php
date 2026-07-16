@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function (): void {
-    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00', 'America/Sao_Paulo'));
+    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00'));
     config()->set('services.youtube_shorts.discord_webhook', 'https://discord.test/webhook');
     Http::fake(['discord.test/*' => Http::response()]);
 });
@@ -61,6 +61,44 @@ it('stays silent for future, inactive and partially posted slots', function (): 
     ]);
     SocialPost::factory()->create(['schedule_slot_id' => $partial->id, 'platform' => 'youtube', 'status' => 'completed']);
     SocialPost::factory()->create(['schedule_slot_id' => $partial->id, 'platform' => 'tiktok', 'status' => 'failed']);
+
+    $this->artisan('auto-post:check-missed')->assertSuccessful();
+
+    Http::assertNothingSent();
+});
+
+it('alerts when a dispatched slot is stuck pending for too long', function (): void {
+    // Post assíncrono cujo desfecho nunca chegou (uploader reiniciado /
+    // webhook esgotado): queued há mais de 2h precisa alertar — antes esse
+    // pendente suprimia o alerta de falha pra sempre.
+    $slot = ScheduleSlot::factory()->dispatched()->create([
+        'slot_date' => '2026-07-15',
+        'slot_time' => '08:00:00',
+        'youtube_short_id' => YoutubeShort::factory()->ready()->create()->id,
+    ]);
+    SocialPost::factory()->create([
+        'platform' => 'tiktok',
+        'schedule_slot_id' => $slot->id,
+        'status' => 'queued',
+    ]);
+
+    $this->artisan('auto-post:check-missed')->assertSuccessful();
+    $this->artisan('auto-post:check-missed')->assertSuccessful();
+
+    Http::assertSentCount(1);
+});
+
+it('does not flag a fresh pending post as stale', function (): void {
+    $slot = ScheduleSlot::factory()->dispatched()->create([
+        'slot_date' => '2026-07-15',
+        'slot_time' => '11:30:00',
+        'youtube_short_id' => YoutubeShort::factory()->ready()->create()->id,
+    ]);
+    SocialPost::factory()->create([
+        'platform' => 'tiktok',
+        'schedule_slot_id' => $slot->id,
+        'status' => 'queued',
+    ]);
 
     $this->artisan('auto-post:check-missed')->assertSuccessful();
 

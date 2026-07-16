@@ -112,7 +112,7 @@ final class Index extends Component
             return null;
         }
 
-        $loggedAt = $log->logged_at->timezone('America/Sao_Paulo');
+        $loggedAt = $log->logged_at;
 
         return [
             'level' => $log->level,
@@ -182,14 +182,14 @@ final class Index extends Component
                 'uptime' => $hb->isOnline() ? $this->formatUptime($hb->uptime_seconds) : '—',
                 'memory' => $hb->memory_mb !== null && $hb->isOnline() ? $hb->memory_mb.' MB' : '—',
                 'lastSeen' => $this->formatAgo((int) abs($hb->last_seen_at->diffInSeconds(now()))),
-                'lastSeenExact' => 'às '.$hb->last_seen_at->timezone('America/Sao_Paulo')->format('H:i'),
+                'lastSeenExact' => 'às '.$hb->last_seen_at->format('H:i'),
                 'selected' => $this->serviceFilter === $hb->service,
             ])->values()->all();
 
         $logs = $this->logsQuery()->get()
             ->map(fn (ServiceLog $log): array => [
                 'id' => $log->id,
-                'time' => $log->logged_at->timezone('America/Sao_Paulo')->format('H:i:s'),
+                'time' => $log->logged_at->format('H:i:s'),
                 'level' => $log->level,
                 'isError' => $log->level === 'error',
                 'service' => $log->service,

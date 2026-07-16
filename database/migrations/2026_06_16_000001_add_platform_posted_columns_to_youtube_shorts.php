@@ -17,7 +17,7 @@ return new class extends Migration
             $table->timestamp('dispatched_at')->nullable()->after('posted_at');
 
             // Confirmações de sucesso por plataforma — ambas retornam sucesso:
-            // YouTube pela Data API (ShortsPoster), TikTok pelo callback do
+            // YouTube pela Data API (ShortsPosterService), TikTok pelo callback do
             // microserviço uploader (TiktokPostCallbackController).
             $table->timestamp('posted_youtube_at')->nullable()->after('dispatched_at');
             $table->timestamp('posted_tiktok_at')->nullable()->after('posted_youtube_at');

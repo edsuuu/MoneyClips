@@ -25,6 +25,10 @@ export interface Settings {
     discordWebhookUrl: string;
     discordUserNotifier: string;
     apiPort: number;
+    /** Vazio = endpoints abertos (dev); setado = exige Bearer token. */
+    apiToken: string;
+    /** Compartilhado com o Laravel — autentica logs/heartbeat E o webhook de post. */
+    observabilityToken: string;
 }
 
 const env = process.env;
@@ -36,4 +40,6 @@ export const settings: Settings = {
     discordWebhookUrl: asStr(env['DISCORD_WEBHOOK_URL']),
     discordUserNotifier: asStr(env['DISCORD_USER_NOTIFIER']),
     apiPort: asInt(env['API_PORT'], 8090),
+    apiToken: asStr(env['API_TOKEN']),
+    observabilityToken: asStr(env['OBSERVABILITY_TOKEN']),
 };
