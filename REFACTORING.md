@@ -129,12 +129,16 @@ registradas no CLAUDE.md):
    `tiktok-uploader (CI)` (eslint/prettier + tsup build). Código Python novo
    precisa passar mypy strict (tipos genéricos completos, `datetime.UTC`,
    `contextlib.suppress`); TypeScript novo precisa passar prettier.
-3. **Auto Merge quebrado**: `gh pr merge` (mutation GraphQL) devolve
-   `Resource not accessible by integration (403)` com o `GITHUB_TOKEN` neste
-   repo privado, mesmo com permissions write. Fix no
+3. **Auto Merge quebrado (2 causas empilhadas)**: `gh pr merge` (mutation
+   GraphQL) devolve `Resource not accessible by integration (403)` com o
+   `GITHUB_TOKEN` neste repo privado — fix no
    [PR #49](https://github.com/edsuuu/MoneyClips/pull/49): merge via REST
-   (`PUT /pulls/{n}/merge`). Ressalva permanente: PR que altera
-   `.github/workflows/` nunca automergeia (exigiria escopo `workflows`).
+   (`PUT /pulls/{n}/merge`). Mas o workflow CONTINUOU 100% vermelho: o bloco
+   `permissions:` zera escopos não listados e faltava **`actions: read`** —
+   a primeira chamada (listar os runs do commit) morria em 403 antes do
+   merge (fix no PR #51, com breadcrumbs `[1/3..3/3]` no step). Ressalva
+   permanente: PR que altera `.github/workflows/` nunca automergeia
+   (exigiria escopo `workflows`).
 4. **Cache de blade compilado**: trocar componente anônimo por componente de
    classe com o mesmo nome (`navbar-items`) quebra com o cache antigo —
    `php artisan view:clear` faz parte do deploy.

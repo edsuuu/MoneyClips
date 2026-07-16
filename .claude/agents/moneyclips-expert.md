@@ -97,8 +97,10 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
   `immutable_date` nativo grava hora junto e quebra o sqlite dos testes).
 - `PlatformSetting::isEnabled()` é memoizado com `once()` — não alterne o
   toggle e leia pelo helper na mesma request.
-- `gh pr merge` não funciona no Auto Merge (403 GraphQL) — o workflow usa o
-  REST; PR que altera `.github/workflows/` sempre pede merge manual.
+- Auto Merge: `gh pr merge` (GraphQL) dá 403 com GITHUB_TOKEN — usar REST; e
+  bloco `permissions:` zera escopos não listados (`actions: read` é
+  obrigatório pra listar runs). PR que altera `.github/workflows/` sempre
+  pede merge manual.
 - TikTok `DRY_RUN=true` no dev — publicação real é irreversível.
 - AutoCaption só renderiza com GPU/CUDA; em macOS valide só o 202 + falha
   graciosa.
