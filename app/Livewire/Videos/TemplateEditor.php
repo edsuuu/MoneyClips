@@ -6,8 +6,8 @@ namespace App\Livewire\Videos;
 
 use App\Livewire\Concerns\WithToasts;
 use App\Models\YoutubeShort;
-use App\Services\Processing\TemplateRenderOptions;
-use App\Services\Processing\TemplateStyle;
+use App\Services\Processing\TemplateRenderOptionsData;
+use App\Services\Processing\TemplateStyleEnum;
 use App\Services\Processing\VideoProcessingService;
 use App\Support\Hashtags;
 use Illuminate\View\View;
@@ -52,7 +52,7 @@ final class TemplateEditor extends Component
 
     public function setStyle(string $style): void
     {
-        $this->style = TemplateStyle::tryFrom($style) instanceof TemplateStyle ? $style : 'white';
+        $this->style = TemplateStyleEnum::tryFrom($style) instanceof TemplateStyleEnum ? $style : 'white';
     }
 
     public function save(): void
@@ -77,7 +77,7 @@ final class TemplateEditor extends Component
         $short->save();
 
         try {
-            resolve(VideoProcessingService::class)->startTemplateRender($short, new TemplateRenderOptions(
+            resolve(VideoProcessingService::class)->startTemplateRender($short, new TemplateRenderOptionsData(
                 style: $this->currentStyle(),
                 channelName: mb_trim($this->channelName),
                 channelHandle: mb_trim($this->channelHandle),
@@ -95,9 +95,9 @@ final class TemplateEditor extends Component
 
     // ── Internos ─────────────────────────────────────────────────────────
 
-    private function currentStyle(): TemplateStyle
+    private function currentStyle(): TemplateStyleEnum
     {
-        return TemplateStyle::tryFrom($this->style) ?? TemplateStyle::White;
+        return TemplateStyleEnum::tryFrom($this->style) ?? TemplateStyleEnum::White;
     }
 
     /**
@@ -106,12 +106,12 @@ final class TemplateEditor extends Component
      *
      * @return array{preview: string, swatch: string, hasHeader: bool}
      */
-    private function stylePresentation(TemplateStyle $style): array
+    private function stylePresentation(TemplateStyleEnum $style): array
     {
         return match ($style) {
-            TemplateStyle::White => ['preview' => 'border-slate-300 bg-slate-100 text-slate-900', 'swatch' => 'bg-slate-200', 'hasHeader' => true],
-            TemplateStyle::Black => ['preview' => 'border-slate-700 bg-black text-slate-50', 'swatch' => 'bg-black', 'hasHeader' => true],
-            TemplateStyle::Vertical => ['preview' => 'border-slate-700 bg-slate-950 text-slate-50', 'swatch' => 'bg-slate-950', 'hasHeader' => false],
+            TemplateStyleEnum::White => ['preview' => 'border-slate-300 bg-slate-100 text-slate-900', 'swatch' => 'bg-slate-200', 'hasHeader' => true],
+            TemplateStyleEnum::Black => ['preview' => 'border-slate-700 bg-black text-slate-50', 'swatch' => 'bg-black', 'hasHeader' => true],
+            TemplateStyleEnum::Vertical => ['preview' => 'border-slate-700 bg-slate-950 text-slate-50', 'swatch' => 'bg-slate-950', 'hasHeader' => false],
         };
     }
 
@@ -138,16 +138,16 @@ final class TemplateEditor extends Component
 
         return view('livewire.videos.template-editor', [
             'sources' => $sources,
-            'styles' => array_map(fn (TemplateStyle $style): array => [
+            'styles' => array_map(fn (TemplateStyleEnum $style): array => [
                 'value' => $style->value,
                 'label' => $style->label(),
                 'selected' => $current === $style,
                 'swatchClass' => $this->stylePresentation($style)['swatch'],
                 'hasHeader' => $this->stylePresentation($style)['hasHeader'],
-            ], TemplateStyle::cases()),
+            ], TemplateStyleEnum::cases()),
             'previewClass' => $presentation['preview'],
             'showHeader' => $presentation['hasHeader'],
-            'isVertical' => $current === TemplateStyle::Vertical,
+            'isVertical' => $current === TemplateStyleEnum::Vertical,
             'channelInitial' => mb_strtoupper(mb_substr($channelName === '' ? 'C' : $channelName, 0, 1)),
             'channelNameDisplay' => $channelName !== '' ? $channelName : 'Nome do canal',
             'channelHandleDisplay' => mb_trim($this->channelHandle) !== '' ? mb_trim($this->channelHandle) : '@handle',

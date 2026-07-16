@@ -24,7 +24,12 @@ final class PlatformSetting extends Model
 
     protected $fillable = ['platform', 'display_name', 'enabled'];
 
-    /** Memoizado por request — o dispatcher consulta várias plataformas por tick. */
+    /**
+     * Memoizado por PROCESSO (once() não é limpo fora de teste): ok no
+     * scheduler e no queue:listen (processo novo por job); com queue:work
+     * daemon o toggle só seria visto após reiniciar o worker — por isso o
+     * worker oficial do projeto é queue:listen (Makefile/runbook).
+     */
     public static function isEnabled(string $platform): bool
     {
         return (bool) (self::map()[$platform]->enabled ?? false);

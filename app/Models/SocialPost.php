@@ -17,7 +17,7 @@ use Illuminate\Support\Carbon;
  * slot gera 1 linha por (schedule_slot_id, platform) — é a fonte do status
  * por plataforma que a /agenda mostra (posted / parcial / failed).
  *
- * Quem cria/atualiza essas linhas é o job PostSlotToPlatform (via Posters
+ * Quem cria/atualiza essas linhas é o job PostSlotToPlatformJob (via Posters
  * de App\Services\AutoPost\Posters). Posts manuais ficam com slot null.
  *
  * @property int $id

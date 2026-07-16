@@ -44,3 +44,6 @@ yarn-error.log
 
 # Override local do compose (Laravel nativo; nao comitado — cada host tem o seu)
 /docker-compose.override.yml
+
+# Worktrees do Claude Code (nunca commitar)
+/.claude/worktrees/

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Casts\DateOnly;
-use App\Services\AutoPost\AutoPost;
+use App\Casts\DateOnlyCast;
 use Carbon\CarbonImmutable;
 use Database\Factories\ScheduleSlotFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -54,15 +53,12 @@ final class ScheduleSlot extends Model
     }
 
     /**
-     * Momento exato do disparo no fuso de negócio — único ponto que combina
-     * slot_date + slot_time (evita bug de fuso espalhado pelo código).
+     * Momento exato do disparo — único ponto que combina slot_date +
+     * slot_time. Fuso: o da aplicação (config/app.php, America/Sao_Paulo).
      */
     public function scheduledAt(): CarbonImmutable
     {
-        return CarbonImmutable::parse(
-            $this->slot_date->format('Y-m-d').' '.$this->slot_time,
-            AutoPost::TIMEZONE,
-        );
+        return CarbonImmutable::parse($this->slot_date->format('Y-m-d').' '.$this->slot_time);
     }
 
     /** Horário "HH:MM" pra UI. */
@@ -94,29 +90,54 @@ final class ScheduleSlot extends Model
      */
     protected function scopeDue(Builder $query, CarbonImmutable $now, int $graceMinutes): Builder
     {
-        $nowSp = $now->timezone(AutoPost::TIMEZONE);
-        $from = $nowSp->subMinutes($graceMinutes);
-
         return $query
             ->where('is_active', true)
             ->whereNotNull('youtube_short_id')
             ->whereNull('dispatched_at')
-            // Janela de graça pode cruzar a meia-noite — compara por (date, time).
-            ->where(function (Builder $q) use ($from, $nowSp): void {
-                if ($from->isSameDay($nowSp)) {
-                    $q->where('slot_date', $nowSp->toDateString())
-                        ->whereBetween('slot_time', [$from->format('H:i:00'), $nowSp->format('H:i:59')]);
+            ->tap(fn (Builder $q) => $this->whereInDueWindow($q, $now, $graceMinutes));
+    }
 
-                    return;
-                }
+    /**
+     * Slots VAZIOS devidos agora — só o modo aleatório olha pra eles
+     * (o dispatcher sorteia um vídeo pronto e roda o fluxo reencode+post).
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    protected function scopeDueEmpty(Builder $query, CarbonImmutable $now, int $graceMinutes): Builder
+    {
+        return $query
+            ->where('is_active', true)
+            ->whereNull('youtube_short_id')
+            ->whereNull('dispatched_at')
+            ->tap(fn (Builder $q) => $this->whereInDueWindow($q, $now, $graceMinutes));
+    }
 
-                $q->where(fn (Builder $q2): Builder => $q2
-                    ->where('slot_date', $from->toDateString())
-                    ->where('slot_time', '>=', $from->format('H:i:00')))
-                    ->orWhere(fn (Builder $q2): Builder => $q2
-                        ->where('slot_date', $nowSp->toDateString())
-                        ->where('slot_time', '<=', $nowSp->format('H:i:59')));
-            });
+    /**
+     * Janela "devido agora" [now-grace, now] — pode cruzar a meia-noite,
+     * então compara por (date, time).
+     *
+     * @param  Builder<self>  $query
+     */
+    private function whereInDueWindow(Builder $query, CarbonImmutable $now, int $graceMinutes): void
+    {
+        $from = $now->subMinutes($graceMinutes);
+
+        $query->where(function (Builder $q) use ($from, $now): void {
+            if ($from->isSameDay($now)) {
+                $q->where('slot_date', $now->toDateString())
+                    ->whereBetween('slot_time', [$from->format('H:i:00'), $now->format('H:i:59')]);
+
+                return;
+            }
+
+            $q->where(fn (Builder $q2): Builder => $q2
+                ->where('slot_date', $from->toDateString())
+                ->where('slot_time', '>=', $from->format('H:i:00')))
+                ->orWhere(fn (Builder $q2): Builder => $q2
+                    ->where('slot_date', $now->toDateString())
+                    ->where('slot_time', '<=', $now->format('H:i:59')));
+        });
     }
 
     /**
@@ -127,21 +148,21 @@ final class ScheduleSlot extends Model
      */
     protected function scopePending(Builder $query, ?CarbonImmutable $now = null): Builder
     {
-        $nowSp = ($now ?? CarbonImmutable::now(AutoPost::TIMEZONE))->timezone(AutoPost::TIMEZONE);
+        $now ??= CarbonImmutable::now();
 
         return $query
             ->whereNull('dispatched_at')
             ->where(fn (Builder $q): Builder => $q
-                ->where('slot_date', '>', $nowSp->toDateString())
+                ->where('slot_date', '>', $now->toDateString())
                 ->orWhere(fn (Builder $q2): Builder => $q2
-                    ->where('slot_date', $nowSp->toDateString())
-                    ->where('slot_time', '>', $nowSp->format('H:i:s'))));
+                    ->where('slot_date', $now->toDateString())
+                    ->where('slot_time', '>', $now->format('H:i:s'))));
     }
 
     protected function casts(): array
     {
         return [
-            'slot_date' => DateOnly::class,
+            'slot_date' => DateOnlyCast::class,
             'is_active' => 'boolean',
             'dispatched_at' => 'datetime',
         ];

@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
-use App\Services\AutoPost\PosterRegistry;
-use App\Services\AutoPost\Posters\FacebookReelsPoster;
-use App\Services\AutoPost\Posters\InstagramReelsPoster;
-use App\Services\AutoPost\Posters\KwaiPoster;
-use App\Services\AutoPost\Posters\TiktokOfficialPoster;
-use App\Services\AutoPost\Posters\TiktokPoster;
-use App\Services\AutoPost\Posters\YoutubePoster;
+use App\Services\Api\Kwai\KwaiPosterService;
+use App\Services\Api\Meta\Facebook\FacebookReelsPosterService;
+use App\Services\Api\Meta\Instagram\InstagramReelsPosterService;
+use App\Services\Api\TikTok\TiktokOfficialPosterService;
+use App\Services\Api\Youtube\YoutubePosterService;
+use App\Services\AutoPost\PosterRegistryService;
+use App\Services\TikTokUploader\TiktokPosterService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
@@ -30,15 +30,17 @@ final class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         // Registro dos Posters por plataforma. Adicionar plataforma nova =
-        // criar o Poster em App\Services\AutoPost\Posters e listar aqui
+        // criar o *PosterService na pasta da integração (API oficial em
+        // App\Services\Api\<Plataforma>; microserviço em App\Services\<Nome>)
+        // implementando App\Services\AutoPost\PosterInterface e listar aqui
         // (o toggle vive em platform_settings, editável na /agenda).
-        $this->app->singleton(PosterRegistry::class, fn (Application $app): PosterRegistry => new PosterRegistry([
-            $app->make(YoutubePoster::class),
-            $app->make(TiktokPoster::class),
-            $app->make(TiktokOfficialPoster::class),
-            $app->make(InstagramReelsPoster::class),
-            $app->make(FacebookReelsPoster::class),
-            $app->make(KwaiPoster::class),
+        $this->app->singleton(PosterRegistryService::class, fn (Application $app): PosterRegistryService => new PosterRegistryService([
+            $app->make(YoutubePosterService::class),
+            $app->make(TiktokPosterService::class),
+            $app->make(TiktokOfficialPosterService::class),
+            $app->make(InstagramReelsPosterService::class),
+            $app->make(FacebookReelsPosterService::class),
+            $app->make(KwaiPosterService::class),
         ]));
     }
 

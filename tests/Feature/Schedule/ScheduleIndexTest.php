@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Date;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
-    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00', 'America/Sao_Paulo'));
+    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00'));
     $this->actingAs(User::factory()->create());
 });
 
