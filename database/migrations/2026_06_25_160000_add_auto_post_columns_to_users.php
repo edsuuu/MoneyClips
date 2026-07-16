@@ -12,8 +12,8 @@ use Illuminate\Support\Facades\Schema;
  * Substitui a tabela auto_post_settings, que era um pseudo-singleton e
  * adicionava 1 join pra ler 2 bools — agora basta um SELECT no users.
  *
- * O cron (sem auth) lê do primeiro user (admin, id=1) — ver YoutubePoster
- * e TiktokPoster.
+ * O cron (sem auth) lê do primeiro user (admin, id=1) — ver YoutubePosterService
+ * e TiktokPosterService.
  */
 return new class extends Migration
 {

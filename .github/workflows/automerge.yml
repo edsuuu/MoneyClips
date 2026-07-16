@@ -8,7 +8,11 @@ on:
       - download-shorts (CI)
     types: [completed]
 
+# Bloco permissions zera tudo que nao for listado: `actions: read` e
+# OBRIGATORIO pra primeira chamada (listar os workflow runs do commit) —
+# sem ele o job morre em 403 antes de qualquer merge.
 permissions:
+  actions: read
   contents: write
   pull-requests: write
 
@@ -27,6 +31,7 @@ jobs:
           # primeiro conclui (o GitHub cria juntos no sync do PR). Janela de corrida
           # de segundos; se virar problema, dar um sleep/poll antes de checar.
           # todos os workflow runs deste commit (menos o proprio Auto Merge)
+          echo "[1/3] listando workflow runs de $SHA..."
           runs=$(gh api "repos/$REPO/actions/runs?head_sha=$SHA&event=pull_request" \
             --paginate \
             --jq '.workflow_runs[] | select(.name != "Auto Merge") | [.status, .conclusion] | @tsv')
@@ -43,6 +48,7 @@ jobs:
             echo "checks nao verdes para $SHA:"; echo "$bad"; exit 0
           fi
 
+          echo "[2/3] checks verdes — procurando o PR aberto de $SHA..."
           pr=$(gh pr list --repo "$REPO" --search "$SHA" --state open --draft=false --json number --jq '.[0].number')
           [ -z "$pr" ] && { echo "nenhum PR aberto (nao-draft) para $SHA"; exit 0; }
 
@@ -52,4 +58,5 @@ jobs:
           # Ressalva documentada: PR que altera .github/workflows/ nao pode
           # ser mergeado pelo GITHUB_TOKEN (exige escopo `workflows`) — esses
           # continuam pedindo merge manual.
+          echo "[3/3] mergeando PR #$pr (squash)..."
           gh api -X PUT "repos/$REPO/pulls/$pr/merge" -f merge_method=squash

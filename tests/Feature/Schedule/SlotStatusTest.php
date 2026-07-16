@@ -5,12 +5,12 @@ declare(strict_types=1);
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
-use App\Services\AutoPost\SlotStatus;
+use App\Services\AutoPost\SlotStatusService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 
 beforeEach(function (): void {
-    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00', 'America/Sao_Paulo'));
+    Date::setTestNow(CarbonImmutable::parse('2026-07-15 12:00:00'));
 });
 
 function slotWith(array $attributes = []): ScheduleSlot
@@ -25,7 +25,7 @@ function slotWith(array $attributes = []): ScheduleSlot
 
 function statusOf(ScheduleSlot $slot): array
 {
-    return SlotStatus::resolve($slot->fresh(['socialPosts', 'youtubeShort']), CarbonImmutable::now('America/Sao_Paulo'));
+    return SlotStatusService::resolve($slot->fresh(['socialPosts', 'youtubeShort']), CarbonImmutable::now());
 }
 
 it('resolves pre-dispatch states', function (): void {

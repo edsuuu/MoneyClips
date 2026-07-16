@@ -6,9 +6,8 @@ namespace App\Console\Commands;
 
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
-use App\Services\AutoPost\AutoPost;
-use App\Services\AutoPost\AutoPostDispatcher;
-use App\Services\DiscordNotifier;
+use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\AutoPost\AutoPostDispatcherService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -18,7 +17,9 @@ use Illuminate\Support\Facades\Cache;
  * dedupe via Cache::add) sobre:
  *  - slot com vídeo que passou do horário sem despacho ("Forçar agora" resolve);
  *  - slot ativo sem vídeo atribuído que passou em branco;
- *  - slot despachado cujas plataformas falharam todas.
+ *  - slot despachado cujas plataformas falharam todas;
+ *  - slot despachado com post pendente (queued/processing) há tempo demais —
+ *    cobre uploader reiniciado/webhook perdido no fluxo assíncrono do TikTok.
  *
  * Não posta nada — só avisa o operador.
  */
@@ -27,17 +28,20 @@ final class CheckMissedAutoPostCommand extends Command
     /** Quanto pra trás olhamos. */
     private const int LOOKBACK_HOURS = 6;
 
+    /** Pendência além disso = desfecho provavelmente perdido (post real leva ~15 min). */
+    private const int STALE_PENDING_HOURS = 2;
+
     /** @var string */
     protected $signature = 'auto-post:check-missed';
 
     /** @var string */
     protected $description = 'Avisa no Discord sobre slots pulados ou com falha nas últimas 6h.';
 
-    public function handle(DiscordNotifier $discord): int
+    public function handle(DiscordNotifierService $discord): int
     {
-        $now = CarbonImmutable::now(AutoPost::TIMEZONE);
+        $now = CarbonImmutable::now();
         $cutoff = $now->subHours(self::LOOKBACK_HOURS);
-        $grace = $now->subMinutes(AutoPostDispatcher::GRACE_MINUTES);
+        $grace = $now->subMinutes(AutoPostDispatcherService::GRACE_MINUTES);
 
         $slots = ScheduleSlot::query()
             ->with('socialPosts')
@@ -85,6 +89,27 @@ final class CheckMissedAutoPostCommand extends Command
                         PHP_EOL,
                         $reasons,
                     ));
+
+                    continue;
+                }
+
+                // Pendência presa: post assíncrono cujo desfecho nunca chegou
+                // (uploader reiniciado com job na fila em memória, webhook
+                // esgotado). Sem este alerta a linha `queued` suprimiria o
+                // aviso de falha pra sempre.
+                if ($pending->isNotEmpty() && $slot->scheduledAt()->lessThan($now->subHours(self::STALE_PENDING_HOURS))) {
+                    $platforms = $pending
+                        ->map(fn (SocialPost $post): string => sprintf('- %s: %s', $post->platform, $post->status))
+                        ->implode(PHP_EOL);
+
+                    $alerts += $this->alertOnce($discord, 'stale:'.$slot->id, '⚠️ Post pendente há tempo demais', sprintf(
+                        'Slot %s (SP) segue sem desfecho após %dh:%s%s%sConfira o uploader/observabilidade e o vídeo no TikTok antes de repostar.',
+                        $label,
+                        self::STALE_PENDING_HOURS,
+                        PHP_EOL,
+                        $platforms,
+                        PHP_EOL,
+                    ));
                 }
             }
         }
@@ -97,7 +122,7 @@ final class CheckMissedAutoPostCommand extends Command
     }
 
     /** Cache::add é atômico — 1 alerta por chave, vence em 24h. */
-    private function alertOnce(DiscordNotifier $discord, string $key, string $title, string $message): int
+    private function alertOnce(DiscordNotifierService $discord, string $key, string $title, string $message): int
     {
         if (! Cache::add('auto-post:missed-alert:'.$key, true, now()->addDay())) {
             return 0;

@@ -39,12 +39,26 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
 - **Posts nunca re-tentam às cegas** (`tries=1` nos jobs de postagem —
   timeout pode ter postado). O claim de slot é `UPDATE ... WHERE
   dispatched_at IS NULL`, atômico.
-- Plataforma nova = `PosterContract` em `App\Services\AutoPost\Posters\` +
-  registro no `AppServiceProvider` + linha em `platform_settings` (+
-  `IMPLEMENTED_PLATFORMS` no `Livewire\Schedule\Index` quando sair de stub).
-- Status de slot é sempre COMPUTADO (`SlotStatus`), nunca persistido.
-- Fuso de negócio: `America/Sao_Paulo` (`AutoPost::TIMEZONE`);
+- Plataforma nova = `*PosterService` na pasta da integração — API oficial em
+  `app/Services/Api/<Plataforma>/`, microserviço em `app/Services/<Nome>/`
+  (espelhando `MicroServices/`) — implementando
+  `App\Services\AutoPost\PosterInterface` + registro no `AppServiceProvider`
+  + linha em `platform_settings` (+ `IMPLEMENTED_PLATFORMS` no
+  `Livewire\Schedule\Index` quando sair de stub).
+- Sufixo obrigatório no nome da classe: `Service`/`Interface`/`Data`/`Enum`/
+  `Job`/`Cast`/`Exception`. A arquitetura (interface/DTOs/enum) é ESPECÍFICA
+  de cada serviço e vive na pasta dele (ex.: `PosterInterface`+DTOs em
+  `Services/AutoPost/`; `TemplateStyleEnum` em `Services/Processing/`) —
+  proibido criar pastas gerais tipo `app/Contracts`/`app/DataTransferObjects`.
+  SOLID simples, sem clean architecture.
+- Status de slot é sempre COMPUTADO (`SlotStatusService`), nunca persistido.
+- Fuso: `config/app.php` já é `America/Sao_Paulo` — NUNCA passe timezone
+  explícito (`now()` resolve; `Date::use(CarbonImmutable)` é global);
   `ScheduleSlot::scheduledAt()` é o único ponto que combina data+hora.
+- Horários de postagem vêm do banco (semana anterior → agenda legada) — não
+  existe horário default em código.
+- TikTok não-oficial é ASSÍNCRONO: poster devolve `queued` + job_id (uuid do
+  ledger); o webhook `/api/tiktok-posts/webhook` fecha o desfecho.
 
 ## Convenções de código (o CI barra violações)
 
@@ -79,12 +93,14 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
 
 - **Case-sensitivity**: rename que só muda maiúscula/minúscula exige
   `git mv` explícito (macOS esconde, o Linux do CI quebra o PSR-4).
-- `schedule_slots.slot_date` usa o cast `App\Casts\DateOnly` (o
+- `schedule_slots.slot_date` usa o cast `App\Casts\DateOnlyCast` (o
   `immutable_date` nativo grava hora junto e quebra o sqlite dos testes).
 - `PlatformSetting::isEnabled()` é memoizado com `once()` — não alterne o
   toggle e leia pelo helper na mesma request.
-- `gh pr merge` não funciona no Auto Merge (403 GraphQL) — o workflow usa o
-  REST; PR que altera `.github/workflows/` sempre pede merge manual.
+- Auto Merge: `gh pr merge` (GraphQL) dá 403 com GITHUB_TOKEN — usar REST; e
+  bloco `permissions:` zera escopos não listados (`actions: read` é
+  obrigatório pra listar runs). PR que altera `.github/workflows/` sempre
+  pede merge manual.
 - TikTok `DRY_RUN=true` no dev — publicação real é irreversível.
 - AutoCaption só renderiza com GPU/CUDA; em macOS valide só o 202 + falha
   graciosa.

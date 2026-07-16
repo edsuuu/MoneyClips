@@ -129,12 +129,16 @@ registradas no CLAUDE.md):
    `tiktok-uploader (CI)` (eslint/prettier + tsup build). Código Python novo
    precisa passar mypy strict (tipos genéricos completos, `datetime.UTC`,
    `contextlib.suppress`); TypeScript novo precisa passar prettier.
-3. **Auto Merge quebrado**: `gh pr merge` (mutation GraphQL) devolve
-   `Resource not accessible by integration (403)` com o `GITHUB_TOKEN` neste
-   repo privado, mesmo com permissions write. Fix no
+3. **Auto Merge quebrado (2 causas empilhadas)**: `gh pr merge` (mutation
+   GraphQL) devolve `Resource not accessible by integration (403)` com o
+   `GITHUB_TOKEN` neste repo privado — fix no
    [PR #49](https://github.com/edsuuu/MoneyClips/pull/49): merge via REST
-   (`PUT /pulls/{n}/merge`). Ressalva permanente: PR que altera
-   `.github/workflows/` nunca automergeia (exigiria escopo `workflows`).
+   (`PUT /pulls/{n}/merge`). Mas o workflow CONTINUOU 100% vermelho: o bloco
+   `permissions:` zera escopos não listados e faltava **`actions: read`** —
+   a primeira chamada (listar os runs do commit) morria em 403 antes do
+   merge (fix no PR #51, com breadcrumbs `[1/3..3/3]` no step). Ressalva
+   permanente: PR que altera `.github/workflows/` nunca automergeia
+   (exigiria escopo `workflows`).
 4. **Cache de blade compilado**: trocar componente anônimo por componente de
    classe com o mesmo nome (`navbar-items`) quebra com o cache antigo —
    `php artisan view:clear` faz parte do deploy.
@@ -165,3 +169,53 @@ registradas no CLAUDE.md):
   evolução natural.
 - Tetos assumidos (comentários `ponytail:` no código): grids sem paginação
   (`SECTION_LIMIT=60`), 1 ffmpeg por vez no Reencode, worker de fila único.
+
+## Adendo (2ª passada, pós-PR #48): estrutura + TikTok assíncrono
+
+Feedback do dono do projeto corrigido nesta passada — o texto acima descreve
+a 1ª entrega; onde divergir, vale o CLAUDE.md e o que segue:
+
+1. **TikTok não-oficial voltou a ser ASSÍNCRONO, do jeito certo.** O item 4
+   acima ("virou síncrono") foi revertido: o `POST /posts` do uploader agora
+   responde `202 {job_id}` e processa numa fila serial em memória
+   (`PostQueueService`); ao terminar dispara webhook pro Laravel
+   (`POST /api/tiktok-posts/webhook`) com
+   `{job_id, status, session_status, refreshed_cookies?}`. O poster devolve
+   `queued` e grava o job_id como uuid do ledger; o
+   `TiktokPostWebhookController` fecha o desfecho. Bônus recuperado do
+   contrato antigo: `refreshed_cookies` renovam a sessão no banco
+   automaticamente. Timeout do client caiu de 1500s para 120s.
+2. **Reorganização por integração + sufixos obrigatórios**
+   (`Service`/`Interface`/`Data`/`Enum`/`Job`/`Cast`). A arquitetura é
+   específica de cada serviço (vive na pasta dele), sem pastas gerais tipo
+   `app/Contracts`/`app/DataTransferObjects`: `PosterInterface`,
+   `PostTaskData` e `PosterResultData` em `App\Services\AutoPost`;
+   `TemplateStyleEnum` e `TemplateRenderOptionsData` em
+   `App\Services\Processing`. Integrações por API externa em
+   `App\Services\Api\{Youtube, TikTok (oficial), Meta\Instagram,
+   Meta\Facebook, Kwai, Discord}`; clients de microserviço espelham
+   `MicroServices/`: `App\Services\{TikTokUploader, DownloadShorts,
+   Reencode, AutoCaption}`. `PostSlotToPlatform` → `PostSlotToPlatformJob`;
+   `DateOnly` → `DateOnlyCast`. Código morto deletado: `PublishResult`,
+   `PublishException`, `TiktokUploadResult`, `SessionInvalidException`,
+   classe de constantes `AutoPost`.
+3. **Zero timezone explícito**: `config/app.php` já define
+   `America/Sao_Paulo` e `Date::use(CarbonImmutable)` é global — todas as
+   conversões `AutoPost::TIMEZONE`/`timezone('America/Sao_Paulo')` e os
+   `->timezone()` do scheduler foram removidos.
+4. **Horários só do banco**: `AutoPost::DEFAULT_TIMES` morreu — o
+   `WeekGeneratorService` copia a semana anterior ou a agenda legada; sem
+   nada no banco, não cria slot (o operador monta a primeira semana na
+   /agenda).
+5. `.claude/worktrees/` blindado no `.gitignore` (worktrees do Claude Code
+   nunca entram no repo).
+6. **Modo aleatório de volta, opt-in**: o comportamento antigo (sortear vídeo
+   do estoque na hora de postar) voltou como flag `app_settings.random_mode`
+   (toggle na /agenda). Ligado: slot vazio devido recebe vídeo pronto
+   sorteado e roda o fluxo à parte `ReencodeAndPostSlotJob` (pega o vídeo →
+   reencoda via `ReencodeShortService`, extraído do `RunReencodeJob` → posta
+   pelo `dispatchSlot` normal). Desligado (default): slot vazio fica pulado.
+7. **Env pronto pra credenciais das APIs oficiais**: `config/services.php`
+   ganhou `tiktok` (client_key/secret), `meta` (app_id/secret) e `kwai`
+   (app_id/secret) com envs vazios no `.env.example` — preencher quando cada
+   poster sair de stub.

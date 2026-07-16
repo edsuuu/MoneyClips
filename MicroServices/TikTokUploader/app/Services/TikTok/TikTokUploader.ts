@@ -1,5 +1,5 @@
 import { basename, extname } from 'node:path';
-import type { Locator, Page } from 'playwright';
+import type { BrowserContext, Locator, Page } from 'playwright';
 
 import { settings } from '@/Config/Env';
 import { logger } from '@/Config/Logger';
@@ -7,7 +7,7 @@ import * as Selectors from '@/Constants/Selectors';
 import { LoginFailedError } from '@/Exceptions/LoginFailedError';
 import { TikTokContentRestrictionError } from '@/Exceptions/TikTokContentRestrictionError';
 import { runRecordedSession } from '@/Services/Browser';
-import type { UploadResult, VideoMetadata } from '@/Types/DomainType';
+import type { Cookie, UploadOutcome, UploadResult, VideoMetadata } from '@/Types/DomainType';
 import type { UploadRequest } from '@/Types/UploadType';
 import { sleep } from '@/Utils/Sleep';
 
@@ -41,7 +41,7 @@ export class TikTokUploader {
         this.dryRun = dryRun;
     }
 
-    public async upload(request: UploadRequest): Promise<UploadResult> {
+    public async upload(request: UploadRequest): Promise<UploadOutcome> {
         const { videoPath, metadata, cookies } = request;
 
         logger.info(`[1/7] Abrindo navegador (headless=${this.headless})...`);
@@ -72,11 +72,24 @@ export class TikTokUploader {
                 // waitForUploadReady já lançaria restrição/erro; aqui só encerra sem publicar.
                 logger.warn('DRY_RUN ativo: processo concluído SEM publicar.');
 
-                return 'dry-run';
+                return { status: 'dry-run', refreshedCookies: await this.captureCookies(context) };
             }
 
-            return await this.submit(page);
+            const status: UploadResult = await this.submit(page);
+
+            return { status, refreshedCookies: await this.captureCookies(context) };
         });
+    }
+
+    /** Cookies pós-upload (sessão renovada) — falha aqui nunca derruba o post. */
+    private async captureCookies(context: BrowserContext): Promise<Cookie[]> {
+        try {
+            return (await context.cookies()) as Cookie[];
+        } catch (error) {
+            logger.warn(`Não foi possível capturar os cookies pós-upload: ${String(error)}`);
+
+            return [];
+        }
     }
 
     private async assertSessionValid(page: Page): Promise<void> {

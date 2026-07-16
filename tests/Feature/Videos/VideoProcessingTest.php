@@ -7,12 +7,12 @@ use App\Jobs\RunReencodeJob;
 use App\Jobs\StartTemplateRenderJob;
 use App\Models\ProcessingJob;
 use App\Models\YoutubeShort;
-use App\Services\DiscordNotifier;
-use App\Services\Processing\AutoCaptionClient;
-use App\Services\Processing\ReencodeClient;
-use App\Services\Processing\TemplateRenderOptions;
-use App\Services\Processing\TemplateStyle;
+use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\AutoCaption\AutoCaptionService;
+use App\Services\Processing\TemplateRenderOptionsData;
+use App\Services\Processing\TemplateStyleEnum;
 use App\Services\Processing\VideoProcessingService;
+use App\Services\Reencode\ReencodeShortService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
@@ -35,7 +35,7 @@ it('blocks a second processing while one is pending', function (): void {
     $service = resolve(VideoProcessingService::class);
 
     $service->startReencode($short);
-    $service->startTemplateRender($short, new TemplateRenderOptions(TemplateStyle::Black, 'Canal', '@canal'));
+    $service->startTemplateRender($short, new TemplateRenderOptionsData(TemplateStyleEnum::Black, 'Canal', '@canal'));
 })->throws(RuntimeException::class, 'processamento em andamento');
 
 it('runs the reencode and stores the HQ output back in storage', function (): void {
@@ -46,7 +46,7 @@ it('runs the reencode and stores the HQ output back in storage', function (): vo
     Storage::disk('s3')->put($short->video_path, 'original');
     $job = ProcessingJob::factory()->create(['youtube_short_id' => $short->id, 'options' => ['mark_ready' => true]]);
 
-    new RunReencodeJob($job->id)->handle(resolve(ReencodeClient::class));
+    new RunReencodeJob($job->id)->handle(resolve(ReencodeShortService::class));
 
     $job->refresh();
     $short->refresh();
@@ -65,7 +65,7 @@ it('completes without output when the reencode is skipped', function (): void {
     Storage::disk('s3')->put($short->video_path, 'original');
     $job = ProcessingJob::factory()->create(['youtube_short_id' => $short->id]);
 
-    new RunReencodeJob($job->id)->handle(resolve(ReencodeClient::class));
+    new RunReencodeJob($job->id)->handle(resolve(ReencodeShortService::class));
 
     expect($job->refresh()->status)->toBe('completed')
         ->and($job->output_path)->toBeNull()
@@ -80,10 +80,10 @@ it('starts a template render and stores the remote id', function (): void {
     Storage::disk('s3')->put($short->video_path, 'original');
     $job = ProcessingJob::factory()->template()->create([
         'youtube_short_id' => $short->id,
-        'options' => new TemplateRenderOptions(TemplateStyle::Black, 'Canal', '@canal')->toArray(),
+        'options' => new TemplateRenderOptionsData(TemplateStyleEnum::Black, 'Canal', '@canal')->toArray(),
     ]);
 
-    new StartTemplateRenderJob($job->id)->handle(resolve(AutoCaptionClient::class));
+    new StartTemplateRenderJob($job->id)->handle(resolve(AutoCaptionService::class));
 
     expect($job->refresh()->remote_id)->toBe('remote-123')
         ->and($job->status)->toBe('processing');
@@ -129,10 +129,10 @@ it('fetches the rendered template into storage and marks the short', function ()
     $job = ProcessingJob::factory()->template()->processing()->create([
         'youtube_short_id' => $short->id,
         'remote_id' => 'remote-123',
-        'options' => new TemplateRenderOptions(TemplateStyle::White, 'Canal', '@canal')->toArray(),
+        'options' => new TemplateRenderOptionsData(TemplateStyleEnum::White, 'Canal', '@canal')->toArray(),
     ]);
 
-    new FetchTemplateOutputJob($job->id)->handle(resolve(AutoCaptionClient::class), resolve(DiscordNotifier::class));
+    new FetchTemplateOutputJob($job->id)->handle(resolve(AutoCaptionService::class), resolve(DiscordNotifierService::class));
 
     $short->refresh();
     expect($job->refresh()->status)->toBe('completed')

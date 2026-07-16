@@ -23,10 +23,10 @@ reencode, render de template) roda em microserviços dedicados em
 download-shorts (8770) → MinIO + youtube_shorts (estoque)
    → /meus-videos: revisão → pronto (ready_at)
         └─ opcional: reencode (8790) OU template via autocaption (8780)
-   → /agenda: schedule_slots (data+hora+vídeo) → cron → AutoPostDispatcher
+   → /agenda: schedule_slots (data+hora+vídeo) → cron → AutoPostDispatcherService
         → 1 job por plataforma habilitada (platform_settings)
-             ├─ YoutubePoster  (YouTube Data API v3)
-             ├─ TiktokPoster   (multipart síncrono → tiktok-uploader 8090)
+             ├─ YoutubePosterService  (YouTube Data API v3)
+             ├─ TiktokPosterService   (202 {job_id} → tiktok-uploader 8090 → webhook)
              └─ stubs: tiktok_official, instagram, facebook, kwai
 ```
 
@@ -47,7 +47,7 @@ Detalhes de tabelas, serviços e comandos em [`CLAUDE.md`](CLAUDE.md).
 | Serviço | Stack | Porta | Papel |
 | --- | --- | --- | --- |
 | **download-shorts** | Python / FastAPI | 8770 | baixa Shorts de canais p/ o MinIO + webhook por item |
-| **tiktok-uploader** | Node 22 + Playwright | 8090 | publica no TikTok via navegador (multipart síncrono) |
+| **tiktok-uploader** | Node 22 + Playwright | 8090 | publica no TikTok via navegador (assíncrono: 202 {job_id} + webhook) |
 | **reencode** | Node 22 + ffmpeg | 8790 | recodifica bitrate baixo (multipart síncrono, sem S3) |
 | **autocaption** | Python / WhisperX (CUDA) | 8780 | legenda karaokê + template de canal (assíncrono + webhook) |
 

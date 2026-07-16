@@ -16,6 +16,12 @@ export interface VideoMetadata {
 
 export type UploadResult = 'completed' | 'dry-run';
 
+export interface UploadOutcome {
+    status: UploadResult;
+    /** Cookies capturados pós-upload — renovam a sessão no banco do Laravel. */
+    refreshedCookies: Cookie[];
+}
+
 export interface BoundingBox {
     x: number;
     y: number;
