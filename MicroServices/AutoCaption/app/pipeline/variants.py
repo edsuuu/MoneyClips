@@ -30,14 +30,11 @@ FILENAMES = {
     "template_black": "template_black.mp4",
 }
 
-# No template com legenda EMBAIXO do vídeo, a fonte é bem maior (usa o canvas).
 BELOW_FONT_SCALE = 1.9
-BELOW_GAP = 120  # px entre o fim do vídeo e a legenda (um pouco mais embaixo)
+BELOW_GAP = 120
 
-# Vertical 9:16: fonte maior e legenda mais alta (dentro do vídeo, não na barra
-# desfocada de baixo).
 VERTICAL_FONT_SCALE = 1.5
-VERTICAL_INSET = 90  # px acima da base da faixa de vídeo
+VERTICAL_INSET = 90
 
 
 def _default_variants() -> list[str]:
@@ -59,8 +56,6 @@ def write_video_benchmark(
     variant_timings: dict[str, float],
     sizes: dict[str, float],
 ) -> Path:
-    """Escreve storage/<label>/output_benchmark.txt com os tempos desse vídeo."""
-
     def rtf(v: float) -> str:
         return f"RTF {v / duration:.2f}" if duration else "RTF —"
 
@@ -89,17 +84,20 @@ def write_video_benchmark(
 @dataclass
 class JobOptions:
     variants: list[str] = field(default_factory=_default_variants)
-    caption_position: str = "below"  # inside | below (só afeta templates)
+    caption_position: str = "below"
     channel_name: str = ""
     channel_handle: str = ""
     subtitle_offset: float | None = None
-    with_captions: bool = True  # False = não transcreve, só monta os modelos
+    with_captions: bool = True
+    watermark_text: str | None = None
 
     def __post_init__(self) -> None:
         if not self.channel_name:
             self.channel_name = settings.channel_name
         if not self.channel_handle:
             self.channel_handle = settings.channel_handle
+        if self.watermark_text is None:
+            self.watermark_text = settings.watermark_text
         self.variants = [v for v in self.variants if v in ALL_VARIANTS] or _default_variants()
 
 
@@ -110,9 +108,6 @@ def generate_all(
     store: VideoStore,
     options: JobOptions | None = None,
 ) -> dict[str, float]:
-    """Gera as variantes selecionadas e devolve o tempo (s) de cada uma.
-    Se opts.with_captions=False (ou aligned=None), monta os modelos SEM legenda
-    (útil para vídeos 9:16 que já vêm legendados)."""
     opts = options or JobOptions()
     captions = opts.with_captions and aligned is not None
     sw, sh = probe_resolution(source)
@@ -142,7 +137,7 @@ def generate_all(
                     aligned, d / f"subs_tpl_{bg}.srt", ass, region["w"], region["h"],
                     font_scale=TEMPLATE_FONT_SCALE, offset=opts.subtitle_offset,
                 )
-        compose_template(source, ass, png, region, d / name, opts.caption_position)
+        compose_template(source, ass, png, region, d / name, opts.caption_position, opts.watermark_text)
 
     def _run(name: str) -> None:
         start = time.perf_counter()
@@ -158,7 +153,6 @@ def generate_all(
             ass = None
             if captions:
                 ass = d / "subs_916.ass"
-                # legenda mais alta: dentro da faixa do vídeo (não na barra desfocada).
                 scale = min(1080 / sw, 1920 / sh)
                 vh = round(sh * scale)
                 band_bottom = (1920 + vh) // 2

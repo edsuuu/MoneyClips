@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from app.config.settings import settings
 
-# Args de vídeo para MÁXIMA qualidade (usuário aceita demorar mais).
-# NVENC p7 (preset mais lento/melhor) + tune hq + CQ 16 (quanto menor, melhor).
 _NVENC_HQ = [
     "-c:v", "h264_nvenc",
     "-preset", "p7",

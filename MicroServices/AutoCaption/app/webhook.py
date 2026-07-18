@@ -1,10 +1,3 @@
-"""Envio de webhook de conclusão pro Laravel (fire-and-forget com retry).
-
-Mesmo padrão do download-shorts: 3 re-tentativas com backoff; se o Laravel
-estiver fora do ar, loga e desiste — o webhook nunca derruba o pipeline
-(o status continua consultável em GET /videos/{uuid}).
-"""
-
 from __future__ import annotations
 
 import logging

@@ -9,12 +9,10 @@ from app.config.settings import settings
 
 logger = logging.getLogger("autocaption.pipeline.subtitles")
 
-WHITE = "&H00FFFFFF"  # AABBGGRR (formato de campo de Style, sem terminador)
+WHITE = "&H00FFFFFF"
 
 
 def _tag(color: str) -> str:
-    """Normaliza uma cor ASS para uso em override inline \\c: precisa terminar
-    em '&' (senão o libass mal-parseia o tag e injeta glifos espúrios)."""
     color = color.strip()
     if not color.endswith("&"):
         color += "&"
@@ -22,7 +20,6 @@ def _tag(color: str) -> str:
 
 
 def _style_color(color: str) -> str:
-    """Cor para campo de Style (sem o '&' terminador do override inline)."""
     return color.strip().rstrip("&")
 
 
@@ -51,8 +48,6 @@ class Line:
 
 
 def _collect_words(aligned: dict[str, Any]) -> list[Word]:
-    """Extrai palavras com timestamps, preenchendo buracos que o WhisperX
-    às vezes deixa (números/pontuação sem start/end)."""
     raw: list[dict[str, Any]] = []
     for seg in aligned.get("segments", []):
         seg_start = float(seg.get("start", 0.0))
@@ -64,18 +59,14 @@ def _collect_words(aligned: dict[str, Any]) -> list[Word]:
     result: list[Word] = []
     for i, item in enumerate(raw):
         w = item["word"]
-        # remove pontuação solta que o Whisper às vezes gruda no início do token
-        # (ex.: ",Ela" -> "Ela"). Tokens só-pontuação viram vazio e são pulados.
         text = str(w.get("word", "")).strip().lstrip(",.;:!?-–— ")
         if not text:
             continue
         start = w.get("start")
         end = w.get("end")
         if start is None:
-            # herda do fim da palavra anterior ou do início do segmento
             start = result[-1].end if result else item["seg_start"]
         if end is None:
-            # herda do início da próxima palavra com tempo, ou do fim do segmento
             end = None
             for nxt in raw[i + 1 :]:
                 nxt_start = nxt["word"].get("start")
@@ -91,12 +82,10 @@ def _collect_words(aligned: dict[str, Any]) -> list[Word]:
 
 
 def _build_lines(aligned: dict[str, Any]) -> list[Line]:
-    """Agrupa palavras em linhas curtas, respeitando os segmentos do Whisper."""
     max_words = settings.max_words_per_line
     max_dur = settings.max_line_duration
     lines: list[Line] = []
 
-    # Reagrupa por segmento para respeitar o fraseado natural.
     for seg in aligned.get("segments", []):
         seg_words = _collect_words({"segments": [seg]})
         current: list[Word] = []
@@ -139,7 +128,6 @@ def write_srt(lines: list[Line], out: Path) -> Path:
     return out
 
 
-# Resolução de referência (9:16) onde os tamanhos base foram calibrados.
 _REF_W = 1080
 _REF_H = 1920
 
@@ -151,12 +139,6 @@ def _ass_header(
     alignment: int = 2,
     margin_v_override: int | None = None,
 ) -> str:
-    """Header ASS com PlayRes = resolução real do vídeo (evita distorção da
-    fonte em proporções != 9:16) e métricas escaladas por altura/largura para
-    manter a mesma aparência visual em qualquer resolução. font_scale amplia a
-    fonte quando o vídeo é colocado pequeno (ex.: dentro de um template).
-    alignment: 2=base-centro (legenda dentro), 8=topo-centro (legenda embaixo do
-    vídeo, com margin_v_override medindo do topo)."""
     highlight = _style_color(settings.highlight_color)
     scale_v = height / _REF_H
     scale_h = width / _REF_W
@@ -182,9 +164,6 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
 
 def _line_text_with_highlight(line: Line, active_index: int) -> str:
-    """Renderiza a linha em MAIÚSCULO: palavra ativa em amarelo, já-faladas em
-    branco. Se hide_future_words, palavras ainda não faladas ficam invisíveis
-    (\\alpha) mas ocupam espaço — evita legenda adiantada sem "pular" o layout."""
     hl = _tag(settings.highlight_color)
     white = _tag(WHITE)
     parts: list[str] = []
@@ -209,14 +188,11 @@ def write_ass(
     margin_v_override: int | None = None,
     offset: float | None = None,
 ) -> Path:
-    """Gera ASS karaokê: um evento por palavra. Cada evento mostra a linha
-    toda e destaca só a palavra falada naquele instante (amarelo)."""
     offset = settings.subtitle_offset if offset is None else offset
     events: list[str] = []
     for line in lines:
         for idx, word in enumerate(line.words):
             start = max(0.0, word.start + offset)
-            # mantém a linha visível até o início da próxima palavra (sem flicker)
             raw_end = line.words[idx + 1].start if idx + 1 < len(line.words) else word.end
             end = max(0.0, raw_end + offset)
             end = max(end, start + 0.05)

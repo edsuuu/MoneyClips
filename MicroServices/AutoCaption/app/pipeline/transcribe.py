@@ -9,10 +9,6 @@ from app.config.settings import settings
 
 logger = logging.getLogger("autocaption.pipeline.transcribe")
 
-# Cache do modelo por processo (carregar large-v3 é caro; o worker roda 1 job
-# por vez). Usamos faster-whisper direto: o pipeline batched do WhisperX
-# comprimia os timestamps do início (legenda adiantada); os word_timestamps do
-# faster-whisper (DTW contra o áudio real) alinham corretamente ao vídeo.
 _model: Any = None
 
 
@@ -36,10 +32,6 @@ def _load_model() -> Any:
 
 
 def transcribe(audio_path: Path, transcript_out: Path) -> dict[str, Any]:
-    """Transcreve com faster-whisper (word_timestamps) → tempos por palavra
-    alinhados ao áudio real. Escreve transcript.json e devolve o dict no formato
-    {"segments":[{start,end,text,words:[{word,start,end,score}]}], "language"}.
-    """
     model = _load_model()
     logger.info("transcrevendo %s", audio_path.name)
     segments_gen, info = model.transcribe(

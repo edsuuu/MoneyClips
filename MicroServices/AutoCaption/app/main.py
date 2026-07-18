@@ -49,6 +49,15 @@ def health() -> dict[str, str]:
 @app.get("/", response_class=HTMLResponse)
 def index() -> HTMLResponse:
     html = (_TEMPLATES / "index.html").read_text(encoding="utf-8")
+    tokens = {
+        "{{CHANNEL_NAME}}": settings.channel_name,
+        "{{CHANNEL_HANDLE}}": settings.channel_handle,
+        "{{SUBTITLE_OFFSET}}": str(settings.subtitle_offset),
+        "{{DEFAULT_VARIANTS}}": settings.output_variants,
+        "{{WATERMARK_TEXT}}": settings.watermark_text,
+    }
+    for token, value in tokens.items():
+        html = html.replace(token, value)
     return HTMLResponse(content=html)
 
 
@@ -67,6 +76,7 @@ async def create_video(
     channel_handle: str = Form(""),
     subtitle_offset: float = Form(0.0),
     with_captions: bool = Form(True),
+    watermark_text: str | None = Form(None),
     webhook_url: str = Form(""),
 ) -> JSONResponse:
     suffix = Path(file.filename or "").suffix.lower()
@@ -86,6 +96,7 @@ async def create_video(
         channel_handle=channel_handle.strip(),
         subtitle_offset=subtitle_offset,
         with_captions=with_captions,
+        watermark_text=watermark_text.strip() if watermark_text is not None else None,
     )
 
     uuid = str(uuidlib.uuid4())
@@ -95,8 +106,6 @@ async def create_video(
             out.write(chunk)
     logger.info("[%s] vídeo recebido: %s (%s) variants=%s", uuid, file.filename, suffix, selected)
 
-    # webhook_url sobrevive às trocas de step (write_status faz merge) e é
-    # lido pelo worker no fim do pipeline para avisar o Laravel.
     if webhook_url.strip():
         store.write_status(uuid, {"uuid": uuid, "webhook_url": webhook_url.strip()})
 
@@ -126,7 +135,6 @@ def video_output(uuid: str, variant: str) -> FileResponse:
 
 
 def _open_browser(url: str) -> None:
-    """Abre o navegador (best-effort). No WSL abre o navegador do Windows."""
     import shutil
     import subprocess
 
@@ -137,7 +145,6 @@ def _open_browser(url: str) -> None:
                 return
             except Exception:  # noqa: BLE001, S112
                 continue
-    # WSL → navegador do Windows
     try:
         subprocess.Popen(  # noqa: S603
             ["cmd.exe", "/c", "start", "", url],  # noqa: S607
