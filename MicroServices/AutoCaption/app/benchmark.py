@@ -1,11 +1,3 @@
-"""Benchmark do pipeline completo: para cada vídeo mede áudio + transcrição +
-cada variante, e escreve BENCHMARKS.md.
-
-Uso:
-    python -m app.benchmark <video1.mp4> [<video2.mp4> ...]
-
-Sem argumentos, reprocessa os sources já presentes em storage/<label>/source.*.
-"""
 # ruff: noqa: T201
 
 from __future__ import annotations
@@ -64,7 +56,6 @@ def _gpu_name() -> str:
 
 
 def _resolve_inputs(args: list[str], store: VideoStore) -> dict[str, Path | None]:
-    """label -> source path (None = já está em storage)."""
     if args:
         return {_slug(a): Path(a) for a in args}
     labels = {}

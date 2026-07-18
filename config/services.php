@@ -123,6 +123,10 @@ return [
             'AUTOCAPTION_WEBHOOK_URL',
             mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/autocaption/webhook',
         ),
+        // Defaults do editor de template (/meus-videos): estilo + marca do canal.
+        'default_style' => env('AUTOCAPTION_DEFAULT_STYLE', 'white'),
+        'channel_name' => env('AUTOCAPTION_CHANNEL_NAME', ''),
+        'channel_handle' => env('AUTOCAPTION_CHANNEL_HANDLE', ''),
     ],
 
     'youtube_shorts' => [

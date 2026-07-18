@@ -7,8 +7,6 @@ _FORMAT = "%(asctime)s | %(levelname)-7s | %(name)s | %(message)s"
 
 
 class _HealthAccessFilter(logging.Filter):
-    """Silencia os logs de acesso do GET /health (ruído do healthcheck)."""
-
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
         return "/health" not in message

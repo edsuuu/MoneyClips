@@ -37,6 +37,15 @@ final class TemplateEditor extends Component
 
     public string $hashtags = '';
 
+    public function mount(): void
+    {
+        $style = TemplateStyleEnum::tryFrom((string) config('services.autocaption.default_style'));
+        $this->style = ($style ?? TemplateStyleEnum::White)->value;
+
+        $this->channelName = (string) config('services.autocaption.channel_name');
+        $this->channelHandle = (string) config('services.autocaption.channel_handle');
+    }
+
     #[On('template-editor-select')]
     public function selectSource(int $shortId): void
     {
