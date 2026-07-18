@@ -22,8 +22,6 @@ logger = logging.getLogger("autocaption.worker")
 
 _TZ = ZoneInfo("America/Sao_Paulo")
 
-# Serializa os jobs: WhisperX large-v3 + NVENC saturam a GPU, então processamos
-# 1 vídeo por vez. Estado de progresso vive em status.json (fonte da verdade).
 _gpu_lock = threading.Lock()
 
 store = VideoStore()
@@ -80,7 +78,6 @@ def _process(uuid: str, options: JobOptions) -> None:
             _set_status(uuid, "processing", "rendering_variants")
             timings = generate_all(uuid, aligned, source, store, options)
 
-            # benchmark por vídeo (output_benchmark.txt na pasta do vídeo)
             sw, sh = probe_resolution(source)
             d = store.video_dir(uuid)
             sizes = {
@@ -114,8 +111,6 @@ def _process(uuid: str, options: JobOptions) -> None:
 
 
 def _notify_webhook(uuid: str) -> None:
-    """Avisa o Laravel do desfecho (done|failed) quando webhook_url foi passado
-    no POST /videos. Fire-and-forget: falha de webhook não muda o status."""
     status = store.read_status(uuid) or {}
     url = str(status.get("webhook_url") or "")
     if not url:
@@ -129,7 +124,6 @@ def _notify_webhook(uuid: str) -> None:
 
 
 def start_processing(uuid: str, options: JobOptions | None = None) -> None:
-    """Dispara o pipeline num thread daemon e retorna na hora (202)."""
     opts = options or JobOptions()
     _set_status(uuid, "processing", "queued", options={
         "variants": opts.variants,

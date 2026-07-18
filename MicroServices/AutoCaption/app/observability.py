@@ -1,13 +1,3 @@
-"""Observabilidade remota (OBSERVABILITY.md): handler de logging que empilha
-as linhas num buffer e as envia em lote ao Laravel (POST
-/api/observability/logs, flush a cada 2s), além de um heartbeat a cada 30s
-(POST /api/observability/heartbeat).
-
-Regra de ouro: FIRE-AND-FORGET. Timeout curto, erro descartado — o envio de
-log nunca pode derrubar ou atrasar o serviço. O console (pm2) continua sendo
-a saída primária.
-"""
-
 from __future__ import annotations
 
 import contextlib
@@ -42,15 +32,11 @@ _LEVELS = {
 
 def _memory_mb() -> int:
     usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # macOS reporta bytes; Linux, kilobytes.
     divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
     return int(usage / divisor)
 
 
 class RemoteLogHandler(logging.Handler):
-    """Só bufferiza no emit(); quem envia é a thread de flush (nunca bloqueia
-    o caller do logging)."""
-
     def __init__(self, url: str, token: str, service: str) -> None:
         super().__init__()
         self._url = url
@@ -77,7 +63,6 @@ class RemoteLogHandler(logging.Handler):
         with self._lock:
             self._buffer.append(entry)
             if len(self._buffer) >= BUFFER_HARD_CAP:
-                # backpressure: descarta os antigos
                 self._buffer = self._buffer[-FLUSH_MAX_ENTRIES:]
 
     def _flush_loop(self) -> None:
@@ -91,7 +76,6 @@ class RemoteLogHandler(logging.Handler):
                 return
             entries, self._buffer = self._buffer, []
 
-        # Laravel fora do ar: descarta e segue.
         with contextlib.suppress(Exception):
             httpx.post(
                 f"{self._url}/logs",
@@ -120,8 +104,6 @@ def _heartbeat_loop(url: str, token: str, service: str) -> None:
 
 
 def start_observability(service_name: str, logger_name: str) -> None:
-    """Liga o push remoto no logger do serviço. Sem OBSERVABILITY_URL/TOKEN
-    configurados, não faz nada (log local continua normal)."""
     url = os.getenv("OBSERVABILITY_URL", "").rstrip("/")
     token = os.getenv("OBSERVABILITY_TOKEN", "")
     service = os.getenv("SERVICE_NAME", service_name)
