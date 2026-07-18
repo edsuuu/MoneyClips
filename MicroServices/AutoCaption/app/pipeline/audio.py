@@ -9,7 +9,6 @@ logger = logging.getLogger("autocaption.pipeline.audio")
 
 
 def probe_duration(source: Path) -> float:
-    """Duração do vídeo em segundos (ffprobe)."""
     cmd = [
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=nk=1:nw=1", str(source),
@@ -22,7 +21,6 @@ def probe_duration(source: Path) -> float:
 
 
 def probe_resolution(source: Path) -> tuple[int, int]:
-    """Retorna (width, height) do primeiro stream de vídeo via ffprobe."""
     cmd = [
         "ffprobe",
         "-v",
@@ -43,10 +41,6 @@ def probe_resolution(source: Path) -> tuple[int, int]:
 
 
 def extract_audio(source: Path, dest: Path) -> Path:
-    """Extrai o áudio do vídeo em WAV PCM 16kHz mono — formato ideal do Whisper.
-
-    Roda em CPU (é leve: só demux + resample do áudio).
-    """
     cmd = [
         "ffmpeg",
         "-y",

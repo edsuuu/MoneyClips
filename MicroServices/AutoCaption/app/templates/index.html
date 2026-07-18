@@ -18,12 +18,6 @@
       border-radius: 10px; padding: 24px; cursor: pointer; color: #9aa4b2; text-align: center; transition: border-color .15s, color .15s; }
     label.file:hover { border-color: #f5c518; color: #e6e9ef; }
     input[type=file] { display: none; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .opt { display: flex; align-items: flex-start; gap: 10px; padding: 12px; border: 1px solid #2a3242; border-radius: 10px; cursor: pointer; }
-    .opt:hover { border-color: #3a465c; }
-    .opt input { margin-top: 3px; }
-    .opt .t { font-weight: 600; font-size: 14px; }
-    .opt .d { font-size: 12px; color: #9aa4b2; }
     .row { display: flex; gap: 12px; flex-wrap: wrap; }
     .field { flex: 1; min-width: 180px; }
     .field label { display: block; font-size: 12px; color: #9aa4b2; margin-bottom: 4px; }
@@ -52,22 +46,12 @@
 <body>
   <div class="wrap">
     <h1>🎬 AutoCaption</h1>
-    <p class="sub">Suba um vídeo → transcrição WhisperX (GPU) → legenda karaokê. Escolha os modelos de saída abaixo.</p>
+    <p class="sub">Suba um vídeo → transcrição WhisperX (GPU) → legenda karaokê no template preto do canal.</p>
 
     <form id="form">
       <div class="card">
         <label class="file" for="file"><span id="file-label">Clique para selecionar um vídeo (.mp4, .mov, .mkv, .webm)</span></label>
         <input type="file" id="file" name="file" accept="video/*" />
-      </div>
-
-      <div class="card">
-        <h2>Modelos de saída</h2>
-        <div class="grid" id="variants">
-          <label class="opt"><input type="checkbox" value="original" checked><div><div class="t">Original</div><div class="d">Vídeo na proporção original + legenda</div></div></label>
-          <label class="opt"><input type="checkbox" value="vertical" checked><div><div class="t">Vertical 9:16</div><div class="d">Reenquadrado com fundo desfocado</div></div></label>
-          <label class="opt"><input type="checkbox" value="template_white" checked><div><div class="t">Template branco</div><div class="d">Cabeçalho + vídeo, fundo branco</div></div></label>
-          <label class="opt"><input type="checkbox" value="template_black" checked><div><div class="t">Template preto</div><div class="d">Cabeçalho + vídeo, fundo preto</div></div></label>
-        </div>
       </div>
 
       <div class="card">
@@ -88,12 +72,19 @@
 
       <div class="card">
         <h2>Marca do template</h2>
-        <div class="row">
-          <div class="field"><label>Nome do canal</label><input id="cname" value="meu_canal"></div>
-          <div class="field"><label>@handle</label><input id="chandle" value="@meu_canal"></div>
-          <div class="field" style="max-width:150px"><label>Offset legenda (s)</label><input id="coff" type="number" step="0.1" value="0"></div>
+        <div class="row" style="margin-bottom:12px">
+          <div class="field"><label>Nome do canal</label><input id="cname" value="{{CHANNEL_NAME}}"></div>
+          <div class="field"><label>@handle</label><input id="chandle" value="{{CHANNEL_HANDLE}}"></div>
+          <div class="field" style="max-width:150px"><label>Offset legenda (s)</label><input id="coff" type="number" step="0.1" value="{{SUBTITLE_OFFSET}}"></div>
         </div>
-        <div class="hint">Offset desloca a legenda no tempo (+ atrasa) caso ache que está adiantada.</div>
+        <div class="seg" style="margin-bottom:12px">
+          <label><input type="radio" name="wm" value="on"><span>Marca d'água ativada</span></label>
+          <label><input type="radio" name="wm" value="off"><span>Sem marca d'água</span></label>
+        </div>
+        <div class="row" id="wm-wrap">
+          <div class="field"><label>Texto da marca d'água</label><input id="cwm" value="{{WATERMARK_TEXT}}"></div>
+        </div>
+        <div class="hint">A marca aparece na parte de baixo do vídeo, semi-transparente. Offset da legenda: + atrasa.</div>
       </div>
 
       <button type="submit" id="submit" disabled>Enviar e gerar</button>
@@ -111,29 +102,37 @@
     const fileInput = document.getElementById('file'), fileLabel = document.getElementById('file-label');
     const submit = document.getElementById('submit'), form = document.getElementById('form'), list = document.getElementById('list');
 
+    const DEFAULT_VARIANTS = "{{DEFAULT_VARIANTS}}".split(',').map(s => s.trim()).filter(Boolean);
+    if (!DEFAULT_VARIANTS.length) DEFAULT_VARIANTS.push('template_black');
+
     fileInput.addEventListener('change', () => {
       if (fileInput.files.length) { fileLabel.textContent = fileInput.files[0].name; submit.disabled = false; }
     });
 
-    // esconde a posição da legenda quando "Sem legenda"
     document.querySelectorAll('input[name=cc]').forEach(r => r.addEventListener('change', () => {
       const on = document.querySelector('input[name=cc]:checked').value === 'true';
       document.getElementById('cap-wrap').style.display = on ? '' : 'none';
     }));
 
+    const wmInput = document.getElementById('cwm');
+    const wmEnabled = () => document.querySelector('input[name=wm]:checked').value === 'on';
+    document.querySelector(`input[name=wm][value=${wmInput.value.trim() ? 'on' : 'off'}]`).checked = true;
+    const syncWm = () => { document.getElementById('wm-wrap').style.display = wmEnabled() ? '' : 'none'; };
+    document.querySelectorAll('input[name=wm]').forEach(r => r.addEventListener('change', syncWm));
+    syncWm();
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!fileInput.files.length) return;
-      const variants = [...document.querySelectorAll('#variants input:checked')].map(c => c.value);
-      if (!variants.length) { alert('Selecione ao menos um modelo.'); return; }
       submit.disabled = true; submit.textContent = 'Enviando…';
       const data = new FormData();
       data.append('file', fileInput.files[0]);
-      data.append('variants', variants.join(','));
+      data.append('variants', DEFAULT_VARIANTS.join(','));
       data.append('with_captions', document.querySelector('input[name=cc]:checked').value);
       data.append('caption_position', document.querySelector('input[name=cap]:checked').value);
       data.append('channel_name', document.getElementById('cname').value);
       data.append('channel_handle', document.getElementById('chandle').value);
+      data.append('watermark_text', wmEnabled() ? wmInput.value : '');
       data.append('subtitle_offset', document.getElementById('coff').value || '0');
       try {
         const res = await fetch('/videos', { method: 'POST', body: data });

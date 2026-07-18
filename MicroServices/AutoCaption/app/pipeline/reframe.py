@@ -9,9 +9,6 @@ from app.pipeline.encode import libx264_args, video_args
 
 logger = logging.getLogger("autocaption.pipeline.reframe")
 
-# Filtro: fundo = mesmo vídeo escalado pra cobrir 9:16 + desfoque; primeiro
-# plano = vídeo original encaixado na largura, centralizado. Depois (opcional)
-# queima o ASS.
 _BASE = (
     "[0:v]split=2[bg][fg];"
     "[bg]scale={w}:{h}:force_original_aspect_ratio=increase,"
@@ -35,9 +32,6 @@ def reframe_and_burn(
     width: int = 1080,
     height: int = 1920,
 ) -> Path:
-    """Reenquadra o vídeo para width x height (default 9:16) com fundo desfocado
-    e (se ass != None) queima a legenda — num passe de ffmpeg. cwd = pasta do
-    output (nomes relativos evitam o escape do filtro `ass`)."""
     cwd = output.parent
     vf = _filter(width, height, ass)
     cmd = [
