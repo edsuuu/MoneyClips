@@ -135,7 +135,7 @@
                 </div>
 
                 <button type="button" x-on:click="save()" x-bind:disabled="saving || !dirty"
-                    class="flex cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-sky-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-sky-300 disabled:pointer-events-none disabled:opacity-50">
+                    class="flex cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-sky-400 px-5 py-3 text-sm font-bold text-gray-950 transition hover:bg-sky-300 disabled:pointer-events-none disabled:opacity-50">
                     <x-ui.icon name="check" class="size-3.5" />
                     <span x-text="saving ? 'Salvando…' : 'Salvar edição'"></span>
                 </button>
