@@ -61,3 +61,10 @@ Schedule::command('observability:check-heartbeats')
 Schedule::command('model:prune')
     ->name('model-prune')
     ->dailyAt('04:00');
+
+// Uploads multipart abandonados (aba fechada no meio) seguem ocupando espaço
+// no MinIO sem aparecer numa listagem comum do bucket.
+Schedule::command('uploads:prune-stale')
+    ->name('uploads-prune-stale')
+    ->dailyAt('04:30')
+    ->withoutOverlapping();

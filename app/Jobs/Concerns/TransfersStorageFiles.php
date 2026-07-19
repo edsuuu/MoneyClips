@@ -38,9 +38,7 @@ trait TransfersStorageFiles
         try {
             Storage::disk('s3')->put($key, $stream);
         } finally {
-            if (is_resource($stream)) {
-                fclose($stream);
-            }
+            fclose($stream);
         }
     }
 }
