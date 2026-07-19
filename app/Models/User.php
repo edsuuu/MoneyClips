@@ -17,7 +17,7 @@ use Override;
 use OwenIt\Auditing\Contracts\Auditable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'google_id', 'google_avatar', 'email_verified_at'])]
+#[Fillable(['name', 'email', 'password', 'has_password', 'google_id', 'google_avatar', 'email_verified_at'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 final class User extends Authenticatable implements Auditable, MustVerifyEmail
 {
@@ -52,6 +52,7 @@ final class User extends Authenticatable implements Auditable, MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'has_password' => 'boolean',
             'auto_post_schedule' => 'array',
         ];
     }
