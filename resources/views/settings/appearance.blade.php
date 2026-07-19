@@ -1,3 +1,3 @@
-<x-layout :title="__('Appearance settings')" layout="sidebar">
+<x-app-layout :title="__('Appearance settings')">
     <livewire:settings.appearance />
-</x-layout>
+</x-app-layout>

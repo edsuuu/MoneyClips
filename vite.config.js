@@ -14,6 +14,13 @@ export default defineConfig({
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
                 }),
+                // Landing pública (design docs/designs/Unkvoid.dc.html).
+                bunny('Inter', {
+                    weights: [400, 500, 600, 700, 800],
+                }),
+                bunny('JetBrains Mono', {
+                    weights: [400, 500],
+                }),
             ],
         }),
         tailwindcss(),

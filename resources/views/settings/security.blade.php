@@ -1,3 +1,3 @@
-<x-layout :title="__('Security settings')" layout="sidebar">
+<x-app-layout :title="__('Security settings')">
     <livewire:settings.security />
-</x-layout>
+</x-app-layout>

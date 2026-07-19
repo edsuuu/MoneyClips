@@ -17,6 +17,7 @@ final class NavbarItems extends Component
     private const array ITEMS = [
         ['label' => 'Meus vídeos', 'icon' => 'layout-grid', 'route' => 'videos.index', 'pattern' => 'videos.*'],
         ['label' => 'Agenda', 'icon' => 'calendar-days', 'route' => 'agenda.index', 'pattern' => 'agenda.*'],
+        ['label' => 'Estúdio', 'icon' => 'scissors', 'route' => 'reframe.index', 'pattern' => 'reframe.*'],
         ['label' => 'Contas', 'icon' => 'user-circle', 'route' => 'accounts.index', 'pattern' => 'accounts.*'],
         ['label' => 'Observabilidade', 'icon' => 'activity', 'route' => 'observability.index', 'pattern' => 'observability.*'],
     ];

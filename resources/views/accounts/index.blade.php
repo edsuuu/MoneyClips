@@ -1,3 +1,3 @@
-<x-layout :title="__('Contas')" layout="navbar">
+<x-app-layout :title="__('Contas')">
     <livewire:accounts.index />
-</x-layout>
+</x-app-layout>

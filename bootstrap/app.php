@@ -18,6 +18,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'password.confirm' => RequirePasswordUnlessGoogleAuthenticated::class,
         ]);
+
+        // Quem já está logado não vê tela de guest (ex.: /login) — vai pro estoque.
+        $middleware->redirectUsersTo('/meus-videos');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
