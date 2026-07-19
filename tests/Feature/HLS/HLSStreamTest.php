@@ -17,14 +17,14 @@ beforeEach(function (): void {
 it('keeps the stream behind authentication', function (): void {
     auth()->logout();
 
-    $this->get("/hls/{$this->video->uuid}/master.m3u8")->assertRedirect();
-    $this->get("/hls/{$this->video->uuid}/720p/seg_00000.m4s")->assertRedirect();
+    $this->get(sprintf('/hls/%s/master.m3u8', $this->video->uuid))->assertRedirect();
+    $this->get(sprintf('/hls/%s/720p/seg_00000.m4s', $this->video->uuid))->assertRedirect();
 });
 
 it('serves the master playlist to any signed in user', function (): void {
     Storage::disk('s3')->put($this->video->masterPlaylistPath(), '#EXTM3U');
 
-    $this->get("/hls/{$this->video->uuid}/master.m3u8")
+    $this->get(sprintf('/hls/%s/master.m3u8', $this->video->uuid))
         ->assertOk()
         ->assertHeader('Content-Type', 'application/vnd.apple.mpegurl');
 });
@@ -33,8 +33,8 @@ it('marks segments immutable and playlists uncacheable', function (): void {
     Storage::disk('s3')->put($this->video->hlsPrefix().'/720p/seg_00000.m4s', 'bytes');
     Storage::disk('s3')->put($this->video->hlsPrefix().'/720p/index.m3u8', '#EXTM3U');
 
-    $segment = $this->get("/hls/{$this->video->uuid}/720p/seg_00000.m4s")->assertOk();
-    $playlist = $this->get("/hls/{$this->video->uuid}/720p/index.m3u8")->assertOk();
+    $segment = $this->get(sprintf('/hls/%s/720p/seg_00000.m4s', $this->video->uuid))->assertOk();
+    $playlist = $this->get(sprintf('/hls/%s/720p/index.m3u8', $this->video->uuid))->assertOk();
 
     expect($segment->headers->get('Cache-Control'))->toContain('immutable')
         ->and($playlist->headers->get('Cache-Control'))->toContain('no-cache');
@@ -43,13 +43,13 @@ it('marks segments immutable and playlists uncacheable', function (): void {
 it('serves the init segment that ffmpeg names per rendition', function (): void {
     Storage::disk('s3')->put($this->video->hlsPrefix().'/720p/init_1.mp4', 'bytes');
 
-    $this->get("/hls/{$this->video->uuid}/720p/init_1.mp4")
+    $this->get(sprintf('/hls/%s/720p/init_1.mp4', $this->video->uuid))
         ->assertOk()
         ->assertHeader('Content-Type', 'video/mp4');
 });
 
 it('refuses anything outside the allowlist', function (string $path): void {
-    $this->get("/hls/{$this->video->uuid}/{$path}")->assertNotFound();
+    $this->get(sprintf('/hls/%s/%s', $this->video->uuid, $path))->assertNotFound();
 })->with([
     '../../.env',
     '720p/../../../etc/passwd',
@@ -62,5 +62,5 @@ it('does not stream a video that is not ready yet', function (): void {
     $packaging = Video::factory()->packaging()->create();
     Storage::disk('s3')->put($packaging->masterPlaylistPath(), '#EXTM3U');
 
-    $this->get("/hls/{$packaging->uuid}/master.m3u8")->assertNotFound();
+    $this->get(sprintf('/hls/%s/master.m3u8', $packaging->uuid))->assertNotFound();
 });

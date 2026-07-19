@@ -23,10 +23,10 @@ it('requires authentication on every upload endpoint', function (): void {
     $video = Video::factory()->create();
 
     $this->postJson('/uploads', ['file_size' => 1024, 'mime_type' => 'video/mp4'])->assertUnauthorized();
-    $this->getJson("/uploads/{$video->uuid}/parts")->assertUnauthorized();
-    $this->postJson("/uploads/{$video->uuid}/parts", ['part_numbers' => [1]])->assertUnauthorized();
-    $this->postJson("/uploads/{$video->uuid}/complete", ['parts' => []])->assertUnauthorized();
-    $this->deleteJson("/uploads/{$video->uuid}")->assertUnauthorized();
+    $this->getJson(sprintf('/uploads/%s/parts', $video->uuid))->assertUnauthorized();
+    $this->postJson(sprintf('/uploads/%s/parts', $video->uuid), ['part_numbers' => [1]])->assertUnauthorized();
+    $this->postJson(sprintf('/uploads/%s/complete', $video->uuid), ['parts' => []])->assertUnauthorized();
+    $this->deleteJson('/uploads/'.$video->uuid)->assertUnauthorized();
 });
 
 it('creates a multipart session and the awaiting video row', function (): void {
@@ -72,15 +72,15 @@ it('refuses a mime type that is not a supported video', function (): void {
 it('does not let one user sign parts for another users upload', function (): void {
     $foreign = Video::factory()->create();
 
-    $this->postJson("/uploads/{$foreign->uuid}/parts", ['part_numbers' => [1]])->assertForbidden();
-    $this->getJson("/uploads/{$foreign->uuid}/parts")->assertForbidden();
-    $this->deleteJson("/uploads/{$foreign->uuid}")->assertForbidden();
+    $this->postJson(sprintf('/uploads/%s/parts', $foreign->uuid), ['part_numbers' => [1]])->assertForbidden();
+    $this->getJson(sprintf('/uploads/%s/parts', $foreign->uuid))->assertForbidden();
+    $this->deleteJson('/uploads/'.$foreign->uuid)->assertForbidden();
 });
 
 it('caps how many parts can be signed at once', function (): void {
     $video = Video::factory()->for($this->user)->create();
 
-    $this->postJson("/uploads/{$video->uuid}/parts", [
+    $this->postJson(sprintf('/uploads/%s/parts', $video->uuid), [
         'part_numbers' => range(1, 21),
     ])->assertStatus(422)->assertJsonValidationErrors('part_numbers');
 });
@@ -96,7 +96,7 @@ it('trusts the bucket over the client when completing', function (): void {
         $mock->shouldReceive('size')->once()->andReturn(4096);
     });
 
-    $this->postJson("/uploads/{$video->uuid}/complete", [
+    $this->postJson(sprintf('/uploads/%s/complete', $video->uuid), [
         'parts' => [['part_number' => 1, 'etag' => '"abc"']],
     ])->assertOk()->assertJson(['status' => 'uploaded']);
 
@@ -121,7 +121,7 @@ it('rejects and deletes an upload that turned out to be oversized', function ():
         $mock->shouldReceive('size')->once()->andReturn(Video::MAX_BYTES + 1);
     });
 
-    $this->postJson("/uploads/{$video->uuid}/complete", [
+    $this->postJson(sprintf('/uploads/%s/complete', $video->uuid), [
         'parts' => [['part_number' => 1, 'etag' => '"abc"']],
     ])->assertStatus(422);
 
@@ -139,7 +139,7 @@ it('aborts an upload in progress and drops the row', function (): void {
         $mock->shouldReceive('abort')->once();
     });
 
-    $this->deleteJson("/uploads/{$video->uuid}")->assertOk();
+    $this->deleteJson('/uploads/'.$video->uuid)->assertOk();
 
     expect(Video::query()->count())->toBe(0);
 });
@@ -147,7 +147,7 @@ it('aborts an upload in progress and drops the row', function (): void {
 it('will not abort an upload that already finished', function (): void {
     $video = Video::factory()->for($this->user)->ready()->create();
 
-    $this->deleteJson("/uploads/{$video->uuid}")->assertStatus(409);
+    $this->deleteJson('/uploads/'.$video->uuid)->assertStatus(409);
 
     expect(Video::query()->count())->toBe(1);
 });
