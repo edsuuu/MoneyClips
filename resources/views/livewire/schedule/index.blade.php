@@ -1,5 +1,4 @@
 <section class="flex w-full flex-col gap-5">
-    {{-- Header --}}
     <div class="flex flex-wrap items-start justify-between gap-6">
         <div>
             <div class="flex flex-wrap items-center gap-3.5">
@@ -54,7 +53,6 @@
         </div>
     </div>
 
-    {{-- Toggles por plataforma --}}
     <div class="flex flex-wrap items-center gap-2">
         @foreach ($platforms as $platform)
             <button
@@ -81,7 +79,6 @@
             </button>
         @endforeach
 
-        {{-- Modo aleatório: slot vazio no horário recebe vídeo sorteado (reencode + post) --}}
         <button
             type="button"
             wire:click="toggleRandomMode"
@@ -107,7 +104,6 @@
         </button>
     </div>
 
-    {{-- Abas de semana + gerador --}}
     <div class="flex flex-wrap items-center gap-2.5">
         <div class="flex gap-1.5 rounded-xl border border-slate-800 bg-slate-900/70 p-1.5">
             @foreach ($weekTabs as $tab)
@@ -151,12 +147,10 @@
         </div>
     @endif
 
-    {{-- Kanban semanal --}}
     @if ($view === 'week')
         <div class="flex items-start gap-3 overflow-x-auto pb-2.5">
             @foreach ($boardDays as $day)
                 <div class="flex max-h-[640px] w-[222px] shrink-0 flex-col overflow-hidden rounded-[14px] border border-slate-800 bg-slate-900" wire:key="day-{{ $day['dateString'] }}">
-                    {{-- Cabeçalho da coluna --}}
                     <div @class([
                         'flex items-center justify-between border-b border-slate-800 px-4 py-3.5',
                         'bg-sky-950/30' => $day['isToday'],
@@ -176,7 +170,6 @@
                         </div>
                     </div>
 
-                    {{-- Slots --}}
                     <div class="flex flex-col gap-2 overflow-y-auto p-2.5">
                         @foreach ($day['slots'] as $slot)
                             @include('livewire.schedule.partials.slot', ['slot' => $slot, 'date' => $day['dateString']])
@@ -198,7 +191,6 @@
             @endforeach
         </div>
 
-        {{-- Legenda --}}
         <div class="flex flex-wrap gap-5 text-xs text-slate-500">
             <span class="flex items-center gap-1.5"><span class="size-2 rounded-full bg-emerald-400"></span> Publicado</span>
             <span class="flex items-center gap-1.5"><span class="size-2 rounded-full bg-sky-400"></span> Postando</span>
@@ -208,7 +200,6 @@
         </div>
     @endif
 
-    {{-- Visão mês --}}
     @if ($view === 'month' && $monthData)
         <div>
             <div class="mb-3.5">
@@ -216,6 +207,8 @@
                 <div class="mt-1 text-[13px] text-slate-500">Passe o mouse sobre um dia para ver os horários e vídeos agendados.</div>
             </div>
 
+            <div class="overflow-x-auto pb-2">
+            <div class="min-w-[640px]">
             <div class="mb-2 grid grid-cols-7 gap-2">
                 @foreach ($weekdayLabels as $label)
                     <div class="text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">{{ $label }}</div>
@@ -280,10 +273,11 @@
                     </div>
                 @endforeach
             </div>
+            </div>
+            </div>
         </div>
     @endif
 
-    {{-- Modal do picker --}}
     @if ($picker)
         <x-ui.server-modal close="closePicker" :title="'Agendar vídeo — '.$picker['dateLabel']" max-width="max-w-2xl">
             <div class="flex items-center gap-3.5 border-b border-slate-800 px-5 py-3.5">

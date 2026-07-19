@@ -1,4 +1,3 @@
-{{-- Campo de texto com label e erro de validação — substitui flux:input --}}
 @props([
     'label' => null,
     'description' => null,

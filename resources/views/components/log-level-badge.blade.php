@@ -1,5 +1,3 @@
-{{-- Badge de nível de log (debug/info/warn/error) — usado no stream e no
-     drawer da /observabilidade. --}}
 @props(['level'])
 
 <span {{ $attributes->class([

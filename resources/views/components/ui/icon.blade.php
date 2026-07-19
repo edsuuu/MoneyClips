@@ -1,4 +1,3 @@
-{{-- Ícones inline (Heroicons outline / Lucide) — substitui flux:icon.* --}}
 @props(['name'])
 
 @if($name === 'loading')

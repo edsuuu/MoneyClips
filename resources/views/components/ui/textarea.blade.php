@@ -1,4 +1,3 @@
-{{-- Textarea com label e erro de validação — substitui flux:textarea --}}
 @props([
     'label' => null,
     'description' => null,

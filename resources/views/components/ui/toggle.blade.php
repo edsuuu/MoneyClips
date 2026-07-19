@@ -1,5 +1,3 @@
-{{-- Switch on/off (trilho + bolinha) — usado nos slots da agenda e nos cards
-     de contas. Passe wire:click/title/etc. via attributes. --}}
 @props([
     'active' => false,
     'size' => 'base', // sm | base

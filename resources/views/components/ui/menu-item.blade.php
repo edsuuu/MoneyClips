@@ -1,4 +1,3 @@
-{{-- Item de menu de dropdown — substitui flux:menu.item --}}
 @props(['icon' => null, 'href' => null, 'type' => null])
 
 @php

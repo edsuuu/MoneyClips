@@ -1,9 +1,3 @@
-{{-- Casca de modal renderizada pelo SERVIDOR (aberta/fechada por estado do
-     Livewire via @if, ao contrário do x-ui.modal que é Alpine). Props:
-     - close: ação wire chamada no backdrop/botão fechar (ex.: "closePicker")
-     - title: cabeçalho opcional (com botão de fechar)
-     - maxWidth: classe de largura
-     Slots: default (conteúdo) e footer (opcional, rodapé com borda). --}}
 @props([
     'close',
     'title' => null,

@@ -1,8 +1,5 @@
-{{-- Editor de template (tab do /meus-videos, design docs/designs/Estoque.dc.html).
-     Todo o mapa de estilos vem pronto do componente (previewClass/swatchClass). --}}
 <div class="grid items-start gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
 
-    {{-- Prévia 9:16 --}}
     <div class="flex flex-col gap-3.5 lg:sticky lg:top-24">
         <div @class(['flex aspect-[9/16] w-full flex-col overflow-hidden rounded-[20px] border p-4', $previewClass => true])>
             @if ($showHeader)
@@ -36,7 +33,6 @@
         <div class="text-center text-[11.5px] text-slate-500">Prévia · formato 9:16 (Shorts / TikTok) · render real no AutoCaption</div>
     </div>
 
-    {{-- Controles --}}
     <div class="flex flex-col gap-5">
         <div>
             <div class="text-[13.5px] font-bold">Vídeo base</div>

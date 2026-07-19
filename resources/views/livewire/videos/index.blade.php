@@ -1,5 +1,4 @@
 <section class="flex w-full flex-col gap-6" @if ($renderingCount > 0) wire:poll.10s @endif>
-    {{-- Header --}}
     <div class="flex flex-wrap items-start justify-between gap-6">
         <div>
             <div class="mb-2 font-mono text-[11px] tracking-[0.1em] text-slate-500">MEUS VÍDEOS</div>
@@ -19,7 +18,6 @@
         </div>
     </div>
 
-    {{-- Tabs --}}
     <div class="flex flex-wrap gap-1.5 border-b border-slate-800">
         @foreach ($tabs as $meta)
             <button type="button" wire:click="setTab('{{ $meta['key'] }}')" wire:key="videos-tab-{{ $meta['key'] }}"
@@ -38,7 +36,6 @@
         @endforeach
     </div>
 
-    {{-- Disponíveis --}}
     @if ($tab === 'available')
         <div class="flex flex-col gap-8">
             <div>
@@ -75,12 +72,10 @@
         </div>
     @endif
 
-    {{-- Editor de template --}}
     @if ($tab === 'editor')
         <livewire:videos.template-editor />
     @endif
 
-    {{-- Com template --}}
     @if ($tab === 'templated')
         <div>
             <div class="mb-4 text-[13px] text-slate-500">vídeos já renderizados com template, prontos para agendar</div>
@@ -105,7 +100,6 @@
         </div>
     @endif
 
-    {{-- Postados --}}
     @if ($tab === 'posted')
         <div>
             @if ($posted === [])
@@ -120,7 +114,6 @@
         </div>
     @endif
 
-    {{-- Modal: revisão do vídeo --}}
     @if ($editingVideo)
         <x-ui.server-modal close="closeEdit">
             <div class="flex max-h-[46vh] w-full shrink-0 items-center justify-center bg-slate-950">
@@ -151,7 +144,6 @@
         </x-ui.server-modal>
     @endif
 
-    {{-- Modal: postagem instantânea --}}
     @if ($showInstant)
         <x-ui.server-modal close="closeInstant" title="Postagem instantânea" max-width="max-w-xl">
             <div class="flex flex-col gap-4 overflow-y-auto p-5">
@@ -206,7 +198,6 @@
         </x-ui.server-modal>
     @endif
 
-    {{-- Modal: novo download por canal --}}
     @if ($showUpload)
         <x-ui.server-modal close="closeUpload">
             <div class="flex flex-col gap-4 p-6">
@@ -228,7 +219,6 @@
         </x-ui.server-modal>
     @endif
 
-    {{-- Modal: agendar em slot vazio --}}
     @if ($schedulingId !== null)
         <x-ui.server-modal close="closeSchedule" title="Agendar vídeo" max-width="max-w-md">
             <div class="flex flex-col gap-2 overflow-y-auto p-5">
