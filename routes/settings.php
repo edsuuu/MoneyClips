@@ -6,15 +6,15 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
 Route::middleware(['auth'])->group(function (): void {
-    Route::redirect('settings', 'settings/profile');
+    Route::redirect('configuracoes', 'configuracoes/perfil');
 
-    Route::view('settings/profile', 'settings.profile')->name('profile.edit');
+    Route::view('configuracoes/perfil', 'settings.profile')->name('profile.edit');
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
-    Route::view('settings/appearance', 'settings.appearance')->name('appearance.edit');
+    Route::view('configuracoes/aparencia', 'settings.appearance')->name('appearance.edit');
 
-    Route::view('settings/security', 'settings.security')
+    Route::view('configuracoes/seguranca', 'settings.security')
         ->middleware(
             when(
                 Features::canManageTwoFactorAuthentication()
@@ -25,3 +25,8 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         )
         ->name('security.edit');
 });
+
+Route::redirect('settings', 'configuracoes');
+Route::redirect('settings/profile', 'configuracoes/perfil');
+Route::redirect('settings/appearance', 'configuracoes/aparencia');
+Route::redirect('settings/security', 'configuracoes/seguranca');
