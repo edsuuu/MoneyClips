@@ -8,9 +8,8 @@
         "lib": ["ESNext"],
         "types": ["node"],
 
-        "baseUrl": ".",
         "paths": {
-            "@/*": ["src/*"]
+            "@/*": ["./src/*"]
         },
 
         "noEmit": true,
