@@ -1,3 +1,3 @@
-<x-layout :title="__('Meus vídeos')" layout="navbar">
+<x-app-layout :title="__('Meus vídeos')">
     <livewire:videos.index />
-</x-layout>
+</x-app-layout>
