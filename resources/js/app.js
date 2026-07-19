@@ -1,3 +1,11 @@
+import { reframeEditor } from './reframe-editor';
+
+// Registrado antes do Alpine embutido do Livewire subir (app.js carrega no
+// <head>; @livewireScripts só no fim do <body>).
+document.addEventListener('alpine:init', () => {
+    window.Alpine.data('reframeEditor', reframeEditor);
+});
+
 let hlsModulePromise = null;
 
 async function loadHlsConstructor() {

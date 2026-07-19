@@ -3,11 +3,15 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\OAuthController;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
-// Raiz: logado vai pro estoque, deslogado pra tela de login (Fortify).
-Route::get('/', fn () => Auth::check() ? to_route('videos.index') : to_route('login'))->name('home');
+Route::view('/', 'home.welcome')->name('home');
+
+// Não existe tela de login: o formulário vive num modal do layout público.
+// A rota continua existindo com o nome `login` porque o middleware `auth`
+// manda os visitantes pra ela — e ela abre a home com o modal já aberto.
+Route::get('/login', fn () => to_route('home', ['login' => 1]))->middleware('guest')->name('login');
+
 Route::view('/terms-of-service', 'legal.terms')->name('legal.terms');
 Route::view('/privacy-policy', 'legal.privacy')->name('legal.privacy');
 
@@ -17,26 +21,20 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::middleware(['auth'])->group(function (): void {
-    // Estoque e postagens (design Estoque.dc.html). Path pt-BR (UX);
-    // namespace/view/classe em inglês (App\Livewire\Videos).
     Route::view('/meus-videos', 'videos.index')->name('videos.index');
     Route::redirect('/downloads', '/meus-videos');
 
-    // Visão semanal do schedule (horários sorteados + status por slot).
-    // Path em pt-BR (UX); namespace/view/classe em inglês (App\Livewire\Schedule).
     Route::view('/agenda', 'schedule.index')->name('agenda.index');
+
+    Route::view('/estudio-de-cortes', 'reframe.index')->name('reframe.index');
 
     Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
 
-    // Contas TikTok (login por email/senha; sem OAuth). Path pt-BR (UX),
-    // namespace/view/classe em inglês (App\Livewire\Accounts).
     Route::view('/contas', 'accounts.index')->name('accounts.index');
 
-    // Observabilidade dos microserviços (logs + heartbeats via banco).
     Route::view('/observabilidade', 'observability.index')->name('observability.index');
     Route::redirect('/microservices', '/observabilidade');
 
-    // OAuth das redes sociais (conectar contas com 1 clique).
     Route::get('/oauth/{platform}/connect', [OAuthController::class, 'connect'])->name('oauth.connect');
     Route::get('/oauth/{platform}/callback', [OAuthController::class, 'callback'])->name('oauth.callback');
 });
