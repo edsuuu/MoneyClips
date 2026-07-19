@@ -9,14 +9,6 @@ use App\Services\AutoPost\WeekGeneratorService;
 use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 
-/**
- * One-shot do deploy da agenda em banco: materializa os slots da semana
- * corrente (horários futuros) + semana seguinte a partir da agenda legada
- * users.auto_post_schedule. Sem vídeo atribuído — o operador atribui na
- * /agenda (ou usa "Gerar próxima semana" que auto-atribui).
- *
- * Idempotente: aborta se schedule_slots já tem linhas.
- */
 final class MigrateLegacyScheduleCommand extends Command
 {
     /** @var string */

@@ -6,10 +6,6 @@ namespace App\Services\AutoPost;
 
 use InvalidArgumentException;
 
-/**
- * Registro dos posters por plataforma. A lista é montada no
- * AppServiceProvider — adicionar plataforma nova = adicionar Poster lá.
- */
 final readonly class PosterRegistryService
 {
     /**

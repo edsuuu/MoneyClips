@@ -12,23 +12,10 @@ use Carbon\CarbonImmutable;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Sentinela da agenda: varre as últimas 6h e avisa no Discord (1× por slot,
- * dedupe via Cache::add) sobre:
- *  - slot com vídeo que passou do horário sem despacho ("Forçar agora" resolve);
- *  - slot ativo sem vídeo atribuído que passou em branco;
- *  - slot despachado cujas plataformas falharam todas;
- *  - slot despachado com post pendente (queued/processing) há tempo demais —
- *    cobre uploader reiniciado/webhook perdido no fluxo assíncrono do TikTok.
- *
- * Não posta nada — só avisa o operador.
- */
 final class CheckMissedAutoPostCommand extends Command
 {
-    /** Quanto pra trás olhamos. */
     private const int LOOKBACK_HOURS = 6;
 
-    /** Pendência além disso = desfecho provavelmente perdido (post real leva ~15 min). */
     private const int STALE_PENDING_HOURS = 2;
 
     /** @var string */
@@ -121,7 +108,6 @@ final class CheckMissedAutoPostCommand extends Command
         return self::SUCCESS;
     }
 
-    /** Cache::add é atômico — 1 alerta por chave, vence em 24h. */
     private function alertOnce(DiscordNotifierService $discord, string $key, string $title, string $message): int
     {
         if (! Cache::add('auto-post:missed-alert:'.$key, true, now()->addDay())) {

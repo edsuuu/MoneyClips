@@ -56,7 +56,6 @@ final class YoutubeShort extends Model
         return $this->hasMany(ScheduleSlot::class);
     }
 
-    /** O que os posters publicam: a saída processada quando existir, senão o original. */
     public function postableVideoPath(): string
     {
         return (string) ($this->processed_video_path ?? $this->video_path);

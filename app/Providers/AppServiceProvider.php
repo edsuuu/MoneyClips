@@ -23,9 +23,6 @@ use Override;
 
 final class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     #[Override]
     public function register(): void
     {
@@ -44,9 +41,6 @@ final class AppServiceProvider extends ServiceProvider
         ]));
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         $this->configureDefaults();
@@ -58,9 +52,6 @@ final class AppServiceProvider extends ServiceProvider
         Gate::define('viewLogViewer', fn (?User $user = null): bool => true);
     }
 
-    /**
-     * Configure default behaviors for production-ready applications.
-     */
     private function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);

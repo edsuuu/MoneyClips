@@ -22,32 +22,20 @@ use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;
 
-/**
- * /agenda — kanban semanal dos slots (schedule_slots). Edições (horário,
- * vídeo, toggle, adicionar/remover) ficam num rascunho em memória até
- * "Salvar agenda" (indicador de sujo). Slots já despachados são read-only;
- * semanas 100% passadas ficam bloqueadas. O picker atribui vídeos do
- * estoque pronto; drag & drop troca vídeos entre slots.
- */
 final class Index extends Component
 {
     use WithToasts;
 
-    /** Rótulos dos dias ISO (1=Seg..7=Dom). */
     public const array WEEKDAY_LABELS = [1 => 'Seg', 2 => 'Ter', 3 => 'Qua', 4 => 'Qui', 5 => 'Sex', 6 => 'Sáb', 7 => 'Dom'];
 
-    /** Rótulos dos meses (visão Mês) — evita depender do locale do servidor. */
     private const array MONTH_LABELS = [1 => 'JANEIRO', 2 => 'FEVEREIRO', 3 => 'MARÇO', 4 => 'ABRIL', 5 => 'MAIO', 6 => 'JUNHO', 7 => 'JULHO', 8 => 'AGOSTO', 9 => 'SETEMBRO', 10 => 'OUTUBRO', 11 => 'NOVEMBRO', 12 => 'DEZEMBRO'];
 
-    /** Abas de semana exibidas (offsets relativos à semana corrente). */
     private const array WEEK_OFFSETS = [-1, 0, 1, 2];
 
-    /** Plataformas com poster implementado (toggle liberado na UI). */
     private const array IMPLEMENTED_PLATFORMS = ['youtube', 'tiktok'];
 
     public int $weekOffset = 0;
 
-    /** 'week' | 'month' */
     public string $view = 'week';
 
     public int $videosPerDay = 3;
@@ -93,7 +81,6 @@ final class Index extends Component
         $this->view = in_array($view, ['week', 'month'], true) ? $view : 'week';
     }
 
-    /** Marca sujo em qualquer edição de rascunho via wire:model. */
     public function updated(string $property): void
     {
         if (str_starts_with($property, 'days.')) {
@@ -143,7 +130,6 @@ final class Index extends Component
         $this->dirty = true;
     }
 
-    /** Drag & drop: troca os vídeos de dois slots do rascunho. */
     public function swapVideos(string $fromDate, int $fromIndex, string $toDate, int $toIndex): void
     {
         if (! isset($this->days[$fromDate][$fromIndex], $this->days[$toDate][$toIndex])) {
@@ -239,7 +225,6 @@ final class Index extends Component
         $this->toast('Slot atualizado — salve a agenda para aplicar.');
     }
 
-    /** Persiste o rascunho: deleta removidos, atualiza existentes, cria novos. */
     public function save(): void
     {
         $monday = $this->monday();
@@ -308,7 +293,6 @@ final class Index extends Component
         $this->toast(sprintf('Agenda da semana de %s salva.', $monday->format('d/m')));
     }
 
-    /** "Gerar próxima semana": materializa slots + auto-atribui vídeos prontos. */
     public function generateWeek(): void
     {
         if ($this->isLockedWeek()) {
@@ -333,7 +317,6 @@ final class Index extends Component
         $this->videosPerDay = max(0, $this->videosPerDay - 1);
     }
 
-    /** "Forçar agora" num slot pulado: reivindica e posta imediatamente. */
     public function forceDispatch(int $slotId): void
     {
         try {
@@ -372,7 +355,6 @@ final class Index extends Component
         $this->toast(sprintf('%s %s.', $setting->display_name, $setting->enabled ? 'ativado' : 'pausado'));
     }
 
-    /** Modo aleatório: slot vazio devido recebe vídeo sorteado (reencode + post). */
     public function toggleRandomMode(): void
     {
         $enabled = ! $this->randomModeEnabled();
@@ -686,7 +668,6 @@ final class Index extends Component
             ])->values()->all();
     }
 
-    /** Dot da visão Mês/legenda — agrega os status no mesmo eixo de cor do kanban. */
     private function monthDotClass(string $status): string
     {
         return match (true) {
