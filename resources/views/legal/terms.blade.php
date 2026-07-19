@@ -1,4 +1,4 @@
-<x-layout :title="__('Termos de Serviço')" layout="landing">
+<x-guest-layout :title="__('Termos de Serviço')">
     <section class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-12">
         <div class="space-y-3">
             <div class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Legal</div>
@@ -30,4 +30,4 @@
             </section>
         </div>
     </section>
-</x-layout>
+</x-guest-layout>
