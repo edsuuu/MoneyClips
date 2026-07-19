@@ -1,4 +1,4 @@
-<div class="flex flex-col gap-4">
+<div class="flex flex-col">
     <!-- Session Status -->
     @if (session('status'))
         <div class="text-center font-medium text-sm text-green-600">

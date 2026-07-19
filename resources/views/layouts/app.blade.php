@@ -6,7 +6,11 @@
         <meta name="csrf-token" content="{{ csrf_token() }}" />
 
         <script>
-            document.documentElement.classList.toggle('dark', (localStorage.theme ?? 'dark') === 'dark');
+            window.applyStoredTheme = () => {
+                document.documentElement.classList.toggle('dark', (localStorage.theme ?? 'dark') === 'dark');
+            };
+
+            window.applyStoredTheme();
         </script>
 
         <title>

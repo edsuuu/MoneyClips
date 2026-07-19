@@ -12,6 +12,8 @@ use App\Services\Api\TikTok\TiktokOfficialPosterService;
 use App\Services\Api\Youtube\YoutubePosterService;
 use App\Services\AutoPost\PosterRegistryService;
 use App\Services\TikTokUploader\TiktokPosterService;
+use App\Services\Upload\MultipartUploadInterface;
+use App\Services\Upload\MultipartUploadService;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\Date;
@@ -39,6 +41,8 @@ final class AppServiceProvider extends ServiceProvider
             $app->make(FacebookReelsPosterService::class),
             $app->make(KwaiPosterService::class),
         ]));
+
+        $this->app->bind(MultipartUploadInterface::class, MultipartUploadService::class);
     }
 
     public function boot(): void
