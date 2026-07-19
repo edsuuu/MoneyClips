@@ -12,12 +12,6 @@ use App\Services\AutoPost\PostTaskData;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Posta um Short no YouTube de forma SÍNCRONA via YouTube Data API.
- *
- * O ShortsPosterService já marca posted_youtube_at / youtube_video_id no sucesso —
- * aqui só logamos, notificamos Discord e devolvemos PosterResultData.
- */
 final readonly class YoutubePosterService implements PosterInterface
 {
     public function __construct(

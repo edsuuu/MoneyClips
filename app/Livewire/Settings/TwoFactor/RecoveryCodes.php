@@ -19,17 +19,11 @@ final class RecoveryCodes extends Component
     #[Locked]
     public array $recoveryCodes = [];
 
-    /**
-     * Mount the component.
-     */
     public function mount(): void
     {
         $this->loadRecoveryCodes();
     }
 
-    /**
-     * Generate new recovery codes for the user.
-     */
     public function regenerateRecoveryCodes(GenerateNewRecoveryCodes $generateNewRecoveryCodes): void
     {
         /** @var User $user */
@@ -40,17 +34,6 @@ final class RecoveryCodes extends Component
         $this->loadRecoveryCodes();
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
-    public function render(): View
-    {
-        return view('livewire.settings.two-factor.recovery-codes');
-    }
-
-    /**
-     * Load the recovery codes for the user.
-     */
     private function loadRecoveryCodes(): void
     {
         /** @var User $user */
@@ -67,5 +50,10 @@ final class RecoveryCodes extends Component
                 $this->recoveryCodes = [];
             }
         }
+    }
+
+    public function render(): View
+    {
+        return view('livewire.settings.two-factor.recovery-codes');
     }
 }

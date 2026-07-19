@@ -18,11 +18,6 @@ use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 use Throwable;
 
-/**
- * Inicia um render de template no AutoCaption: baixa o vídeo do MinIO, sobe
- * por multipart e guarda o uuid remoto. A conclusão chega pelo webhook
- * (/api/autocaption/webhook), que despacha o FetchTemplateOutputJob.
- */
 final class StartTemplateRenderJob implements ShouldQueue
 {
     use Dispatchable;

@@ -9,10 +9,6 @@ use App\Models\ServiceHeartbeat;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Heartbeat de um microserviço (a cada ~30s): upsert por `service`.
- * Payload: { service, hostname?, version?, uptime_seconds?, memory_mb? }.
- */
 final class StoreHeartbeatController extends Controller
 {
     public function __invoke(Request $request): JsonResponse

@@ -16,19 +16,12 @@ use App\Services\Processing\VideoProcessingService;
 use App\Support\Hashtags;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Throwable;
 
-/**
- * /meus-videos — estoque e postagens (design docs/designs/Estoque.dc.html).
- * Tabs: Disponíveis (Baixados + Prontos), Editor de template, Com template,
- * Postados. Ações: revisar título/hashtags, marcar pronto, reencodar,
- * postagem instantânea, novo download por canal e agendar em slot vazio.
- */
 final class Index extends Component
 {
     use WithToasts;
@@ -46,8 +39,6 @@ final class Index extends Component
     // ponytail: sem paginação — grid com teto fixo. Estoque de projeto solo
     // fica nas dezenas; se passar de SECTION_LIMIT, o upgrade é WithPagination.
     private const int SECTION_LIMIT = 60;
-
-    private const int PRESIGNED_TTL_MINUTES = 30;
 
     private const int CARD_TAG_LIMIT = 4;
 
@@ -127,7 +118,6 @@ final class Index extends Component
         $this->toast('Vídeo atualizado.');
     }
 
-    /** "Adicionar à fila": marca como pronto para agendar. */
     public function markReady(int $shortId): void
     {
         $short = YoutubeShort::query()->find($shortId);
@@ -236,7 +226,7 @@ final class Index extends Component
 
     public function startDownload(): void
     {
-        $this->validate(['channelUrl' => ['required', 'url']]);
+        $this->validate();
 
         try {
             $count = resolve(DownloadShortsService::class)->createDownload($this->channelUrl);
@@ -417,18 +407,27 @@ final class Index extends Component
             ->values()->all();
     }
 
-    private function presignedUrl(YoutubeShort $short): ?string
+    /** @return array<string, list<string>> */
+    public function rules(): array
     {
-        $path = $short->postableVideoPath();
-        if ($path === '') {
-            return null;
-        }
+        return [
+            'channelUrl' => ['required', 'url'],
+        ];
+    }
 
-        try {
-            return Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(self::PRESIGNED_TTL_MINUTES));
-        } catch (Throwable) {
-            return null;
-        }
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'channelUrl.required' => 'Informe a URL do canal.',
+            'channelUrl.url' => 'Informe uma URL válida.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function validationAttributes(): array
+    {
+        return ['channelUrl' => 'URL do canal'];
     }
 
     public function render(): View
@@ -470,7 +469,7 @@ final class Index extends Component
             ],
             'renderingCount' => $renderingCount,
             'editingVideo' => $editing,
-            'editingUrl' => $editing instanceof YoutubeShort ? $this->presignedUrl($editing) : null,
+            'editingUrl' => $editing instanceof YoutubeShort ? $editing->presignedUrl() : null,
             'instantCandidates' => $this->instantCandidates(),
             'platforms' => PlatformSetting::query()->where('enabled', true)->get(['platform', 'display_name'])
                 ->map(fn (PlatformSetting $p): array => [

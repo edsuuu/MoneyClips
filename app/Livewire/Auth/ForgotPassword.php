@@ -14,14 +14,9 @@ final class ForgotPassword extends Component
 {
     public string $email = '';
 
-    /**
-     * Send a password reset link to the user.
-     */
     public function sendPasswordResetLink(): void
     {
-        $this->validate([
-            'email' => ['required', 'string', 'email'],
-        ]);
+        $this->validate();
 
         $status = Password::broker()->sendResetLink(
             ['email' => $this->email]
@@ -36,9 +31,29 @@ final class ForgotPassword extends Component
         session()->flash('status', __($status));
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
+    /** @return array<string, list<string>> */
+    public function rules(): array
+    {
+        return [
+            'email' => ['required', 'string', 'email'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'email.required' => 'Informe seu e-mail.',
+            'email.email' => 'Informe um e-mail válido.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function validationAttributes(): array
+    {
+        return ['email' => 'e-mail'];
+    }
+
     public function render(): View
     {
         return view('livewire.auth.forgot-password');

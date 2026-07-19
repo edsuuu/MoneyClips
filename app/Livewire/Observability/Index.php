@@ -10,12 +10,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
 use Livewire\Component;
 
-/**
- * /observabilidade — stream de logs + saúde dos microserviços (design
- * docs/designs/Observabilidade.dc.html). Fonte: service_logs e
- * service_heartbeats, alimentados por push HTTP dos serviços
- * (OBSERVABILITY.md). Substitui o antigo /microservices via Docker socket.
- */
 final class Index extends Component
 {
     private const int LOG_LIMIT = 200;

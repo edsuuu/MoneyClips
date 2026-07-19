@@ -14,7 +14,6 @@ use RuntimeException;
  */
 trait TransfersStorageFiles
 {
-    /** Baixa a chave do MinIO pra um arquivo temporário local. */
     private function pullToTemp(string $key, string $prefix): string
     {
         $tmp = (string) tempnam(sys_get_temp_dir(), $prefix);
@@ -31,7 +30,6 @@ trait TransfersStorageFiles
         return $tmp;
     }
 
-    /** Sobe um arquivo temporário local pra chave no MinIO (stream fechado sempre). */
     private function pushToStorage(string $tmpPath, string $key): void
     {
         $stream = fopen($tmpPath, 'rb');

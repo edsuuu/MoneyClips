@@ -62,9 +62,6 @@ final class Security extends Component
     #[Validate('required|string|size:6', onUpdate: false)]
     public string $code = '';
 
-    /**
-     * Mount the component.
-     */
     public function mount(DisableTwoFactorAuthentication $disableTwoFactorAuthentication): void
     {
         /** @var User $user */
@@ -84,9 +81,6 @@ final class Security extends Component
         }
     }
 
-    /**
-     * Update the password for the currently authenticated user.
-     */
     public function updatePassword(): void
     {
         $rules = ['password' => $this->passwordRules()];
@@ -192,9 +186,6 @@ final class Security extends Component
             ->all();
     }
 
-    /**
-     * Enable two-factor authentication for the user.
-     */
     public function enable(EnableTwoFactorAuthentication $enableTwoFactorAuthentication): void
     {
         /** @var User $user */
@@ -211,9 +202,6 @@ final class Security extends Component
         $this->showModal = true;
     }
 
-    /**
-     * Show the two-factor verification step if necessary.
-     */
     public function showVerificationIfNecessary(): void
     {
         if ($this->requiresConfirmation) {
@@ -227,9 +215,6 @@ final class Security extends Component
         $this->closeModal();
     }
 
-    /**
-     * Confirm two-factor authentication for the user.
-     */
     public function confirmTwoFactor(ConfirmTwoFactorAuthentication $confirmTwoFactorAuthentication): void
     {
         $this->validate();
@@ -244,9 +229,6 @@ final class Security extends Component
         $this->twoFactorEnabled = true;
     }
 
-    /**
-     * Reset two-factor verification state.
-     */
     public function resetVerification(): void
     {
         $this->reset('code', 'showVerificationStep');
@@ -254,9 +236,6 @@ final class Security extends Component
         $this->resetErrorBag();
     }
 
-    /**
-     * Disable two-factor authentication for the user.
-     */
     public function disable(DisableTwoFactorAuthentication $disableTwoFactorAuthentication): void
     {
         /** @var User $user */
@@ -267,9 +246,6 @@ final class Security extends Component
         $this->twoFactorEnabled = false;
     }
 
-    /**
-     * Close the two-factor authentication modal.
-     */
     public function closeModal(): void
     {
         $this->reset(
@@ -321,22 +297,11 @@ final class Security extends Component
         ];
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
-    public function render(): View
-    {
-        return view('livewire.settings.security');
-    }
-
     private function sessionsTable(): string
     {
         return (string) config('session.table', 'sessions');
     }
 
-    /**
-     * Load the two-factor authentication setup data for the user.
-     */
     private function loadSetupData(): void
     {
         /** @var User $user */
@@ -351,5 +316,10 @@ final class Security extends Component
 
             $this->reset('qrCodeSvg', 'manualSetupKey');
         }
+    }
+
+    public function render(): View
+    {
+        return view('livewire.settings.security');
     }
 }

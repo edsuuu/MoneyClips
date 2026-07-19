@@ -262,12 +262,12 @@
         </section>
 
         <footer class="relative mt-10 border-t border-[#141018] px-6 pb-10 pt-14">
-            <div class="mx-auto flex max-w-[1120px] flex-wrap items-center justify-between gap-5">
+            <div class="mx-auto flex max-w-[1120px] flex-col flex-wrap items-center justify-between gap-5 text-center sm:flex-row sm:text-left">
                 <div class="flex items-center gap-3">
                     <x-brand-mark class="size-[30px]" />
                     <span class="text-base font-extrabold tracking-[0.14em]">UNK<span class="text-[#a855f7]">VOID</span></span>
                 </div>
-                <div class="flex gap-[26px] text-[13.5px] text-[#71717a]">
+                <div class="flex flex-wrap justify-center gap-x-[26px] gap-y-3 text-[13.5px] text-[#71717a]">
                     <a href="#funcoes" class="transition hover:text-white">Funcionalidades</a>
                     <a href="#precos" class="transition hover:text-white">Preços</a>
                     <a href="{{ route('legal.terms') }}" class="transition hover:text-white">Termos de Serviço</a>

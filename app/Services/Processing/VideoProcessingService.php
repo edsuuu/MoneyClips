@@ -10,11 +10,6 @@ use App\Models\ProcessingJob;
 use App\Models\YoutubeShort;
 use RuntimeException;
 
-/**
- * API dos componentes Livewire pro pipeline de processamento (fluxo 1 do
- * estoque): o operador escolhe SÓ reencode ou template (AutoCaption).
- * Cada chamada cria um processing_job e despacha o job na fila `processing`.
- */
 final readonly class VideoProcessingService
 {
     public function startReencode(YoutubeShort $short, bool $markReady = false): ProcessingJob

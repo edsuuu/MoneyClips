@@ -7,6 +7,7 @@
 <div
     x-data="{ open: false }"
     x-on:keydown.escape.window="open = false"
+    x-on:dropdown-close.window="open = false"
     {{ $attributes->class('relative') }}
 >
     <div x-on:click="open = !open" class="cursor-pointer">

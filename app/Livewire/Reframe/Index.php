@@ -7,26 +7,16 @@ namespace App\Livewire\Reframe;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\ReframeEdit;
 use App\Models\YoutubeShort;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
-use Throwable;
 
-/**
- * /estudio-de-cortes — editor de reframe/crop com keyframes (estilo OpusClip).
- * A edição inteira roda no navegador (Alpine + canvas, resources/js/
- * reframe-editor.js); o Livewire só valida e persiste o estado em
- * reframe_edits. Coordenadas normalizadas 0–1 sobre o tamanho natural da
- * fonte — prontas pro render ffmpeg futuro.
- */
 final class Index extends Component
 {
     use WithToasts;
 
     public const string DEFAULT_MODE = 'vertical';
 
-    /** Modo → quantidade de regiões (slots empilhados na saída 9:16). */
     public const array REGION_COUNTS = [
         'vertical' => 1,
         'split' => 2,
@@ -37,12 +27,9 @@ final class Index extends Component
 
     private const int MAX_KEYFRAMES = 120;
 
-    /** Keyframes a menos de este intervalo (s) são considerados duplicados. */
     private const float TIME_EPSILON = 0.05;
 
     private const float MIN_REGION_SIZE = 0.01;
-
-    private const int PRESIGNED_TTL_MINUTES = 30;
 
     private const int PICKER_LIMIT = 24;
 
@@ -128,12 +115,11 @@ final class Index extends Component
         return $edit->id;
     }
 
-    /** URL presigned nova pro vídeo atual (sessões de edição > 30 min). */
     public function refreshUrl(): ?string
     {
         $short = $this->currentShort();
 
-        return $short instanceof YoutubeShort ? $this->presignedUrl($short) : null;
+        return $short instanceof YoutubeShort ? $short->presignedUrl() : null;
     }
 
     // ── Internos ─────────────────────────────────────────────────────────
@@ -150,20 +136,6 @@ final class Index extends Component
         $id = ReframeEdit::query()->where('youtube_short_id', $shortId)->latest('id')->value('id');
 
         return is_int($id) ? $id : null;
-    }
-
-    private function presignedUrl(YoutubeShort $short): ?string
-    {
-        $path = $short->postableVideoPath();
-        if ($path === '') {
-            return null;
-        }
-
-        try {
-            return Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(self::PRESIGNED_TTL_MINUTES));
-        } catch (Throwable) {
-            return null;
-        }
     }
 
     /**
@@ -183,7 +155,7 @@ final class Index extends Component
 
         return [
             'editId' => $edit?->id,
-            'videoUrl' => $this->presignedUrl($short),
+            'videoUrl' => $short->presignedUrl(),
             'mode' => $edit->mode ?? self::DEFAULT_MODE,
             'keyframes' => $edit->keyframes ?? [],
             'settings' => [

@@ -35,7 +35,6 @@ final class ScheduleSlot extends Model
     /** @use HasFactory<ScheduleSlotFactory> */
     use HasFactory;
 
-    /** Máximo de horários por dia (validado na camada de serviço/UI). */
     public const int MAX_PER_DAY = 5;
 
     protected $fillable = ['slot_date', 'slot_time', 'youtube_short_id', 'is_active', 'dispatched_at'];
@@ -52,16 +51,11 @@ final class ScheduleSlot extends Model
         return $this->hasMany(SocialPost::class);
     }
 
-    /**
-     * Momento exato do disparo — único ponto que combina slot_date +
-     * slot_time. Fuso: o da aplicação (config/app.php, America/Sao_Paulo).
-     */
     public function scheduledAt(): CarbonImmutable
     {
         return CarbonImmutable::parse($this->slot_date->format('Y-m-d').' '.$this->slot_time);
     }
 
-    /** Horário "HH:MM" pra UI. */
     public function timeLabel(): string
     {
         return mb_substr((string) $this->slot_time, 0, 5);

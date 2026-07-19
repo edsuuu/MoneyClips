@@ -12,13 +12,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Livewire\Component;
 
-/**
- * Tela única de contas usadas para publicar. TikTok entra por email/senha
- * (CRUD em modal); YouTube é vinculado manualmente via OAuth do Google.
- *
- * ponytail: a senha do TikTok é gravada em texto puro (login_password sem cast).
- * Upgrade path: castar como 'encrypted' no SocialAccount e re-salvar as rows.
- */
 final class Index extends Component
 {
     use WithToasts;
@@ -130,7 +123,6 @@ final class Index extends Component
         $this->showYoutubeModal = true;
     }
 
-    /** Liga/desliga a conta para publicação (toggle do card). */
     public function toggleActive(int $id): void
     {
         $account = $this->accountQuery()->whereKey($id)->first();

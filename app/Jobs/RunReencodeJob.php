@@ -14,11 +14,6 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Reencode síncrono via microserviço (fila `processing`): delega ao
- * ReencodeShortService (MinIO → multipart → MinIO → processed_video_path)
- * e cuida do ciclo de vida do processing_job.
- */
 final class RunReencodeJob implements ShouldQueue
 {
     use Dispatchable;

@@ -11,26 +11,12 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 
-/**
- * Posta (faz upload de) um Short baixado no canal do YouTube conectado,
- * via upload resumível da YouTube Data API v3.
- *
- * Usa a mesma SocialAccount (platform=youtube) do fluxo de publicação de
- * cortes — conectada em /social-accounts ou via `php artisan youtube:link` —
- * renovando o access token pelo YoutubeTokenRefresherService quando necessário.
- *
- * Baixa o vídeo do storage para um arquivo temporário, sobe para o YouTube e
- * marca o Short como postado (guardando o ID do vídeo gerado).
- */
 final readonly class ShortsPosterService
 {
     private const string UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status';
 
     public function __construct(private YoutubeTokenRefresherService $tokenRefresher) {}
 
-    /**
-     * Posta o Short e retorna o ID do vídeo criado no YouTube.
-     */
     public function post(YoutubeShort $short, ?SocialAccount $account = null): string
     {
         $account ??= SocialAccount::query()
@@ -111,9 +97,6 @@ final readonly class ShortsPosterService
         }
     }
 
-    /**
-     * Baixa o vídeo do storage para um arquivo temporário local.
-     */
     private function pullToTemp(string $path): string
     {
         $disk = Storage::disk();

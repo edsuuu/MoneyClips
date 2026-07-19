@@ -13,16 +13,13 @@ use Livewire\Component;
 #[Title('Verify email')]
 final class VerifyEmail extends Component
 {
-    /**
-     * Send an email verification notification to the user.
-     */
     public function sendVerification(): void
     {
         /** @var User $user */
         $user = Auth::user();
 
         if ($user->hasVerifiedEmail()) {
-            $this->redirectIntended(default: route('videos.index', absolute: false), navigate: true);
+            $this->redirectIntended(default: route('dashboard.index', absolute: false), navigate: true);
 
             return;
         }
@@ -32,9 +29,6 @@ final class VerifyEmail extends Component
         session()->flash('status', 'verification-link-sent');
     }
 
-    /**
-     * Log the current user out of the application.
-     */
     public function logout(): void
     {
         Auth::guard('web')->logout();
@@ -45,9 +39,6 @@ final class VerifyEmail extends Component
         $this->redirect(route('login'), navigate: true);
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
     public function render(): View
     {
         return view('livewire.auth.verify-email');
