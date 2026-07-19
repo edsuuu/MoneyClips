@@ -82,7 +82,7 @@
 
         @auth
             <div x-on:mousemove="expand()">
-                <x-user-menu placement="top" />
+                <x-user-menu placement="top" collapsible />
             </div>
         @endauth
     </aside>
