@@ -8,14 +8,6 @@ use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
 use Carbon\CarbonImmutable;
 
-/**
- * Status de exibição de um slot da agenda — sempre COMPUTADO na leitura a
- * partir do slot + suas social_posts (nunca persistido, então nunca fica
- * dessincronizado).
- *
- * Antes do despacho: empty | paused | future | due | skipped.
- * Depois do despacho (agregado por plataforma): posting | posted | partial | failed.
- */
 final class SlotStatusService
 {
     private const array SUCCESS_STATUSES = ['completed', 'dry-run'];

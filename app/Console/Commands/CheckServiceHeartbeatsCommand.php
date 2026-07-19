@@ -9,11 +9,6 @@ use App\Services\Api\Discord\DiscordNotifierService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Sentinela dos microserviços (roda a cada minuto): heartbeat mais velho que
- * 90s → Discord error, 1× por queda (Cache::add sem TTL); quando o serviço
- * volta, avisa a recuperação e limpa o dedupe.
- */
 final class CheckServiceHeartbeatsCommand extends Command
 {
     /** @var string */

@@ -9,10 +9,6 @@ use Illuminate\Support\Facades\Http;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Throwable;
 
-/**
- * Persiste/atualiza contas sociais a partir do retorno do OAuth (Socialite).
- * Hoje só trata YouTube (Google).
- */
 final class YoutubeAccountConnectorService
 {
     /**

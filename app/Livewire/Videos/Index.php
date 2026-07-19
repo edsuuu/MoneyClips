@@ -23,12 +23,6 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Throwable;
 
-/**
- * /meus-videos — estoque e postagens (design docs/designs/Estoque.dc.html).
- * Tabs: Disponíveis (Baixados + Prontos), Editor de template, Com template,
- * Postados. Ações: revisar título/hashtags, marcar pronto, reencodar,
- * postagem instantânea, novo download por canal e agendar em slot vazio.
- */
 final class Index extends Component
 {
     use WithToasts;
@@ -127,7 +121,6 @@ final class Index extends Component
         $this->toast('Vídeo atualizado.');
     }
 
-    /** "Adicionar à fila": marca como pronto para agendar. */
     public function markReady(int $shortId): void
     {
         $short = YoutubeShort::query()->find($shortId);
@@ -236,7 +229,7 @@ final class Index extends Component
 
     public function startDownload(): void
     {
-        $this->validate(['channelUrl' => ['required', 'url']]);
+        $this->validate();
 
         try {
             $count = resolve(DownloadShortsService::class)->createDownload($this->channelUrl);
@@ -429,6 +422,29 @@ final class Index extends Component
         } catch (Throwable) {
             return null;
         }
+    }
+
+    /** @return array<string, list<string>> */
+    public function rules(): array
+    {
+        return [
+            'channelUrl' => ['required', 'url'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'channelUrl.required' => 'Informe a URL do canal.',
+            'channelUrl.url' => 'Informe uma URL válida.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function validationAttributes(): array
+    {
+        return ['channelUrl' => 'URL do canal'];
     }
 
     public function render(): View

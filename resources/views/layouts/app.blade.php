@@ -37,7 +37,7 @@
             @endauth
         </div>
 
-        <main class="px-4 py-6 lg:pl-72 lg:pr-8">
+        <main class="px-4 py-6 lg:pl-24 lg:pr-8">
             {{ $slot }}
         </main>
 

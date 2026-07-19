@@ -6,8 +6,6 @@ namespace App\Models;
 
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -17,8 +15,6 @@ use Override;
 use OwenIt\Auditing\Contracts\Auditable;
 use Spatie\Permission\Traits\HasRoles;
 
-#[Fillable(['name', 'email', 'password', 'google_id', 'google_avatar', 'email_verified_at'])]
-#[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 final class User extends Authenticatable implements Auditable, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
@@ -29,9 +25,12 @@ final class User extends Authenticatable implements Auditable, MustVerifyEmail
     use \OwenIt\Auditing\Auditable;
     use TwoFactorAuthenticatable;
 
-    /**
-     * Get the user's initials
-     */
+    /** @var list<string> */
+    protected $fillable = ['name', 'email', 'password', 'google_id', 'google_avatar', 'email_verified_at'];
+
+    /** @var list<string> */
+    protected $hidden = ['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'];
+
     public function initials(): string
     {
         return Str::of($this->name)

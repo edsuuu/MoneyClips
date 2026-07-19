@@ -10,10 +10,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
-/**
- * Conta de uma rede social conectada (token OAuth armazenado e criptografado).
- * Uma conta pertence a um usuário e é usada pelos publishers para postar de verdade.
- */
 final class SocialAccount extends Model
 {
     /** @use HasFactory<Factory> */

@@ -41,7 +41,6 @@ final class SocialPost extends Model
     /** @use HasFactory<SocialPostFactory> */
     use HasFactory;
 
-    /** Status que bloqueiam novo post automático do mesmo Short. */
     public const array ACTIVE_STATUSES = ['queued', 'processing', 'completed', 'dry-run', 'restricted'];
 
     protected $fillable = [

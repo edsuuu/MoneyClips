@@ -13,10 +13,6 @@ use Illuminate\View\View;
 use Livewire\Component;
 use Throwable;
 
-/**
- * Conecta contas das plataformas guardando tokens criptografados.
- * Hoje só YouTube (Google OAuth).
- */
 final class Accounts extends Component
 {
     use WithToasts;
@@ -37,7 +33,6 @@ final class Accounts extends Component
 
     public string $token_expires_at = '';
 
-    /** JSON livre com extras por plataforma (ig_user_id, page_id, privacy_level...). */
     public string $meta = '';
 
     /** @return array<string, list<string>> */
@@ -186,6 +181,40 @@ final class Accounts extends Component
         $this->toast('Conta desvinculada.');
     }
 
+    private function currentUserId(): int
+    {
+        $userId = Auth::id();
+        abort_unless(is_int($userId), 403);
+
+        return $userId;
+    }
+
+    private function parseTokenExpiresAt(): ?CarbonInterface
+    {
+        if ($this->token_expires_at === '') {
+            return null;
+        }
+
+        try {
+            return Date::parse($this->token_expires_at);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function platformDescription(string $platform): string
+    {
+        return match ($platform) {
+            'youtube' => 'Google OAuth para conectar o canal e publicar no YouTube.',
+            default => 'Conecte a conta para liberar a publicacao automatica.',
+        };
+    }
+
+    private function resetForm(): void
+    {
+        $this->reset(['name', 'external_account_id', 'access_token', 'refresh_token', 'token_expires_at', 'meta']);
+    }
+
     public function render(): View
     {
         $accounts = SocialAccount::query()
@@ -227,39 +256,5 @@ final class Accounts extends Component
             'providers' => $providers,
             'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
         ]);
-    }
-
-    private function currentUserId(): int
-    {
-        $userId = Auth::id();
-        abort_unless(is_int($userId), 403);
-
-        return $userId;
-    }
-
-    private function parseTokenExpiresAt(): ?CarbonInterface
-    {
-        if ($this->token_expires_at === '') {
-            return null;
-        }
-
-        try {
-            return Date::parse($this->token_expires_at);
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
-    private function platformDescription(string $platform): string
-    {
-        return match ($platform) {
-            'youtube' => 'Google OAuth para conectar o canal e publicar no YouTube.',
-            default => 'Conecte a conta para liberar a publicacao automatica.',
-        };
-    }
-
-    private function resetForm(): void
-    {
-        $this->reset(['name', 'external_account_id', 'access_token', 'refresh_token', 'token_expires_at', 'meta']);
     }
 }

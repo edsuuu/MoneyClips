@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Processing;
 
-/**
- * Opções de um render de template (editor da tela Meus vídeos). Persistidas
- * em processing_jobs.options para o pipeline assíncrono.
- */
 final readonly class TemplateRenderOptionsData
 {
     public function __construct(

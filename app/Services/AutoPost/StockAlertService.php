@@ -10,11 +10,6 @@ use App\Services\Api\Discord\DiscordNotifierService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 
-/**
- * Alerta de estoque baixo (substitui o warnIfLowStock do StockReservation):
- * compara o estoque pronto para agendar com os slots vazios dos próximos
- * 7 dias. Dedupe 1×/dia via Cache::add.
- */
 final readonly class StockAlertService
 {
     public function __construct(private DiscordNotifierService $discord) {}

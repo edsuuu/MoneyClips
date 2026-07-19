@@ -9,11 +9,6 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Throwable;
 
-/**
- * Envia mensagens para um webhook do Discord (postagens com sucesso, avisos de
- * estoque baixo e falhas de postagem). Se o webhook não estiver configurado,
- * simplesmente não faz nada.
- */
 final class DiscordNotifierService
 {
     private const int COLOR_SUCCESS = 0x2E_CC_71;
@@ -22,25 +17,16 @@ final class DiscordNotifierService
 
     private const int COLOR_ERROR = 0xE7_4C_3C;
 
-    /**
-     * Notifica sucesso (embed verde). `url` torna o título clicável.
-     */
     public function success(string $title, string $message, ?string $url = null): void
     {
         $this->send($title, $message, self::COLOR_SUCCESS, $url);
     }
 
-    /**
-     * Notifica um aviso (embed amarelo).
-     */
     public function warning(string $title, string $message): void
     {
         $this->send($title, $message, self::COLOR_WARNING);
     }
 
-    /**
-     * Notifica um erro (embed vermelho).
-     */
     public function error(string $title, string $message): void
     {
         $this->send($title, $message, self::COLOR_ERROR);

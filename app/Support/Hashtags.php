@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace App\Support;
 
-/**
- * Conversão hashtag ⇄ string de input, usada por todas as telas que editam
- * título/hashtags (agenda, estoque, editor de template).
- */
 final class Hashtags
 {
     /**

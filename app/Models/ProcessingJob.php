@@ -38,7 +38,6 @@ final class ProcessingJob extends Model
 
     public const string TYPE_TEMPLATE = 'template';
 
-    /** Render pronto no AutoCaption; download do output em andamento. */
     public const string STATUS_FETCHING = 'fetching';
 
     public const array PENDING_STATUSES = ['queued', 'processing', self::STATUS_FETCHING];
