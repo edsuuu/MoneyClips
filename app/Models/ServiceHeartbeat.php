@@ -20,7 +20,6 @@ use Illuminate\Support\Carbon;
  */
 final class ServiceHeartbeat extends Model
 {
-    /** last_seen_at mais velho que isso = serviço fora do ar. */
     public const int OFFLINE_AFTER_SECONDS = 90;
 
     protected $fillable = ['service', 'hostname', 'version', 'uptime_seconds', 'memory_mb', 'last_seen_at'];

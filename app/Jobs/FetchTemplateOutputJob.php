@@ -16,12 +16,6 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Fecha o ciclo do template: o webhook do AutoCaption avisou "done", então
- * baixamos o variant renderizado e gravamos no MinIO (só o Laravel toca o
- * S3). O vídeo passa a apontar processed_video_path pro template e aparece
- * na tab "Com template".
- */
 final class FetchTemplateOutputJob implements ShouldQueue
 {
     use Dispatchable;

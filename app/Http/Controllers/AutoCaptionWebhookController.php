@@ -10,12 +10,6 @@ use App\Services\Api\Discord\DiscordNotifierService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * Webhook do microserviço AutoCaption (POST /api/autocaption/webhook):
- * payload {uuid, status: done|failed, error?}. Correlaciona pelo remote_id
- * do processing_job; "done" dispara o FetchTemplateOutputJob (baixa o
- * variant e grava no MinIO), "failed" marca e alerta no Discord.
- */
 final class AutoCaptionWebhookController extends Controller
 {
     public function __invoke(Request $request, DiscordNotifierService $discord): JsonResponse

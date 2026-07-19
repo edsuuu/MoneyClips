@@ -14,7 +14,6 @@ enum TemplateStyleEnum: string
     case Black = 'black';
     case Vertical = 'vertical';
 
-    /** Variant correspondente no AutoCaption. */
     public function variant(): string
     {
         return match ($this) {
@@ -24,7 +23,6 @@ enum TemplateStyleEnum: string
         };
     }
 
-    /** Posição da legenda karaokê no vídeo renderizado. */
     public function captionPosition(): string
     {
         return match ($this) {
@@ -33,7 +31,6 @@ enum TemplateStyleEnum: string
         };
     }
 
-    /** Rótulo da UI (pt-BR). */
     public function label(): string
     {
         return match ($this) {

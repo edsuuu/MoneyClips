@@ -17,18 +17,12 @@ use Override;
 
 final class FortifyServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     #[Override]
     public function register(): void
     {
         //
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         $this->configureActions();
@@ -36,17 +30,11 @@ final class FortifyServiceProvider extends ServiceProvider
         $this->configureRateLimiting();
     }
 
-    /**
-     * Configure Fortify actions.
-     */
     private function configureActions(): void
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
     }
 
-    /**
-     * Configure Fortify views.
-     */
     private function configureViews(): void
     {
         Fortify::loginView(fn (): Factory|View => view('auth.login'));
@@ -57,9 +45,6 @@ final class FortifyServiceProvider extends ServiceProvider
         Fortify::requestPasswordResetLinkView(fn (): Factory|View => view('auth.forgot-password'));
     }
 
-    /**
-     * Configure rate limiting.
-     */
     private function configureRateLimiting(): void
     {
         RateLimiter::for('two-factor', function (Request $request) {

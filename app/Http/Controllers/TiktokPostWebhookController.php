@@ -12,22 +12,8 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Webhook do microserviço tiktok-uploader (POST /api/tiktok-posts/webhook):
- * fecha o desfecho de um post enfileirado pelo TiktokPosterService. Payload
- * {job_id, status: completed|dry-run|restricted|failed, detail?, error?,
- * session_status?, refreshed_cookies?}. Correlaciona pelo uuid do ledger
- * (= job_id devolvido no 202) e atualiza a conta TikTok (cookies renovados
- * pós-upload + session_status — invalid curto-circuita os próximos posts).
- */
 final class TiktokPostWebhookController extends Controller
 {
-    /**
-     * Desfechos que fecham o ledger de vez. `failed` NÃO está aqui de
-     * propósito: se o worker morrer entre o 202 e o webhook, o failed() do
-     * job marca o ledger `failed` — o desfecho real (que pode ser "postado!")
-     * ainda precisa conseguir sobrescrever, senão repost manual = duplicado.
-     */
     private const array FINISHED_STATUSES = ['completed', 'dry-run', 'restricted'];
 
     public function __invoke(Request $request, DiscordNotifierService $discord): JsonResponse

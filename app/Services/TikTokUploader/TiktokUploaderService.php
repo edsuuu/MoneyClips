@@ -11,20 +11,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use RuntimeException;
 
-/**
- * Client do microserviço tiktok-uploader (porta 8090), ASSÍNCRONO: o Laravel
- * baixa o vídeo do MinIO, envia o binário por multipart com a webhook_url e
- * recebe 202 {job_id} na hora — o Playwright publica em background e o
- * desfecho real chega no TiktokPostWebhookController (o microserviço não
- * toca no S3, regra da casa).
- *
- * Contrato (MicroServices/TikTokUploader):
- *   POST /posts multipart {video, cookies (JSON string), title, hashtags, webhook_url}
- *     → 202 {job_id, status: "queued"}
- *     → 422 {errors} payload inválido
- *   Webhook → POST webhook_url {job_id, status: completed|dry-run|restricted|failed,
- *     detail?, error?, session_status, refreshed_cookies?}
- */
 final readonly class TiktokUploaderService
 {
     /**

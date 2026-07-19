@@ -9,21 +9,6 @@ use App\Models\User;
 use App\Models\YoutubeShort;
 use Carbon\CarbonImmutable;
 
-/**
- * "Gerar próxima semana": materializa os slots de uma semana e auto-atribui
- * vídeos prontos (FIFO por ready_at). Os horários vêm SEMPRE do banco, na
- * ordem:
- *
- *   1. a semana mais recente que já tem slots (copia o padrão em uso);
- *   2. a agenda legada users.auto_post_schedule (mapa dia ISO → horários).
- *
- * Sem nada no banco, nenhum slot é criado — o operador monta a primeira
- * semana manualmente na /agenda (não existe horário fixo em código).
- *
- * Idempotente por slot: horários que já existem no dia não são recriados nem
- * sobrescritos; horários já passados são pulados (relevante ao materializar
- * a semana corrente).
- */
 final readonly class WeekGeneratorService
 {
     /**

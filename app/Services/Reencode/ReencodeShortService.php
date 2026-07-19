@@ -9,12 +9,6 @@ use App\Models\YoutubeShort;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
-/**
- * Reencoda o vídeo de um Short via microserviço e grava o resultado no MinIO
- * (só o Laravel toca o S3): baixa `video_path`, envia por multipart e aponta
- * `processed_video_path` pro `_HQ`. Compartilhado pelo pipeline de
- * processamento (RunReencodeJob) e pelo modo aleatório (ReencodeAndPostSlotJob).
- */
 final readonly class ReencodeShortService
 {
     use TransfersStorageFiles;
@@ -52,7 +46,6 @@ final readonly class ReencodeShortService
         }
     }
 
-    /** "shorts/x/short_x.mp4" → "shorts/x/short_x_HQ.mp4". */
     private function outputKeyFor(string $sourceKey): string
     {
         $replaced = preg_replace('/\.(\w+)$/', '_HQ.$1', $sourceKey);

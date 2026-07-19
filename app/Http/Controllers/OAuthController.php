@@ -19,14 +19,8 @@ use Laravel\Socialite\Two\GoogleProvider;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Throwable;
 
-/**
- * Centraliza todos os fluxos OAuth da aplicação:
- * - loginRedirect / loginCallback  → autenticação do usuário com Google (guest)
- * - connect / callback             → conexão de contas sociais para publicação (auth)
- */
 final class OAuthController extends Controller
 {
-    /** Plataforma -> [driver Socialite, escopos, params extras]. */
     private const array PROVIDERS = [
         'youtube' => [
             'driver' => 'google',
@@ -90,7 +84,7 @@ final class OAuthController extends Controller
             request()->session()->regenerate();
             request()->session()->put('auth.authenticated_via_google', true);
 
-            return redirect()->intended(route('videos.index'));
+            return redirect()->intended(route('dashboard.index'));
         } catch (Throwable $throwable) {
             Log::channel('daily')->error('[OAuthController] Falha no login com Google.', ['exception' => $throwable]);
 

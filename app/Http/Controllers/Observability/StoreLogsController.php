@@ -10,11 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 
-/**
- * Recebe um LOTE de linhas de log de um microserviço (OBSERVABILITY.md):
- * { service, hostname, entries: [{level, message, context?, logged_at}] }.
- * Um único insert em lote — nunca um por linha.
- */
 final class StoreLogsController extends Controller
 {
     private const int MAX_ENTRIES = 500;
