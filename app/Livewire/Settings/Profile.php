@@ -39,15 +39,12 @@ final class Profile extends Component
         $user = Auth::user();
 
         /** @var array<string, mixed> $validated */
-        $validated = $this->validate($this->profileRules($user->id));
+        $validated = $this->validate(['name' => $this->nameRules()]);
 
         $user->fill($validated);
-
-        if ($user->isDirty('email')) {
-            $user->email_verified_at = null;
-        }
-
         $user->save();
+
+        $this->email = $user->email;
 
         $this->toast(__('Profile updated.'));
     }

@@ -15,19 +15,25 @@
         <x-ui.separator class="md:hidden" />
 
         <div class="flex-1 self-stretch max-md:pt-6">
-            <x-ui.heading>{{ __('Update password') }}</x-ui.heading>
-            <x-ui.subheading>{{ __('Ensure your account is using a long, random password to stay secure') }}</x-ui.subheading>
+            <x-ui.heading>{{ $hasPassword ? __('Update password') : __('Criar senha') }}</x-ui.heading>
+            <x-ui.subheading>
+                {{ $hasPassword
+                    ? __('Ensure your account is using a long, random password to stay secure')
+                    : __('Você entrou com o Google e ainda não tem senha. Crie uma para acessar também por e-mail e senha.') }}
+            </x-ui.subheading>
 
             <div class="mt-5 w-full max-w-lg">
                 <form method="POST" wire:submit="updatePassword" class="mt-6 space-y-6">
-                    <x-ui.input
-                        wire:model="current_password"
-                        :label="__('Current password')"
-                        type="password"
-                        required
-                        autocomplete="current-password"
-                        viewable
-                    />
+                    @if ($hasPassword)
+                        <x-ui.input
+                            wire:model="current_password"
+                            :label="__('Current password')"
+                            type="password"
+                            required
+                            autocomplete="current-password"
+                            viewable
+                        />
+                    @endif
                     <x-ui.input
                         wire:model="password"
                         :label="__('New password')"
@@ -238,6 +244,46 @@
                         </div>
                     </x-ui.modal>
                 @endif
+
+                <section class="mt-12">
+                    <x-ui.heading>{{ __('Sessões ativas') }}</x-ui.heading>
+                    <x-ui.subheading>{{ __('Dispositivos conectados na sua conta. Encerre os que você não reconhece.') }}</x-ui.subheading>
+
+                    <div class="mt-6 space-y-3">
+                        @forelse ($this->sessions as $session)
+                            <div class="flex items-center justify-between gap-4 rounded-lg border border-slate-700 px-4 py-3">
+                                <div class="min-w-0">
+                                    <x-ui.text>{{ $session['device'] }}</x-ui.text>
+                                    <x-ui.text variant="subtle" class="text-xs">
+                                        {{ $session['ip'] }} · {{ $session['last_active'] }}
+                                    </x-ui.text>
+                                </div>
+
+                                @if ($session['is_current'])
+                                    <x-ui.text variant="subtle" class="shrink-0 text-xs">{{ __('Este dispositivo') }}</x-ui.text>
+                                @else
+                                    <x-ui.button
+                                        variant="danger"
+                                        class="shrink-0"
+                                        wire:click="logoutSession('{{ $session['id'] }}')"
+                                    >
+                                        {{ __('Encerrar') }}
+                                    </x-ui.button>
+                                @endif
+                            </div>
+                        @empty
+                            <x-ui.text variant="subtle">{{ __('Nenhuma sessão ativa encontrada.') }}</x-ui.text>
+                        @endforelse
+                    </div>
+
+                    @if (count($this->sessions) > 1)
+                        <div class="mt-4">
+                            <x-ui.button variant="outline" wire:click="logoutOtherSessions">
+                                {{ __('Encerrar todas as outras sessões') }}
+                            </x-ui.button>
+                        </div>
+                    @endif
+                </section>
             </div>
         </div>
     </div>
