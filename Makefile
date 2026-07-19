@@ -2,14 +2,14 @@
 # (GenerateClips fica de fora de propósito — não faz parte do fluxo atual.)
 #   make setup   → configura o ambiente de dev uma vez (envs + deps + venv)
 #   make up      → sobe tudo junto num terminal só (ctrl-C derruba tudo)
-.PHONY: up setup check setup-laravel setup-download setup-tiktok setup-reencode setup-autocaption
+.PHONY: up setup check setup-laravel setup-download setup-tiktok setup-reencode setup-autocaption setup-hls
 
 MS := MicroServices
 
 up:  ## Sobe Laravel + microserviços nativos, todos juntos
 	npx concurrently -k \
-		-c "#93c5fd,#c4b5fd,#fb7185,#fdba74,#34d399,#f472b6,#facc15,#a3e635" \
-		-n serve,queue,pail,vite,download,tiktok,reencode,autocaption \
+		-c "#93c5fd,#c4b5fd,#fb7185,#fdba74,#34d399,#f472b6,#facc15,#a3e635,#22d3ee" \
+		-n serve,queue,pail,vite,download,tiktok,reencode,autocaption,hls \
 		"php artisan serve" \
 		"php artisan queue:listen --queue=posting,processing,default --tries=1 --timeout=1800" \
 		"php artisan pail --timeout=0" \
@@ -17,9 +17,10 @@ up:  ## Sobe Laravel + microserviços nativos, todos juntos
 		"cd $(MS)/DownloadShorts && .venv/bin/python -m app.main" \
 		"cd $(MS)/TikTokUploader && pnpm dev" \
 		"cd $(MS)/Reencode && pnpm dev" \
-		"cd $(MS)/AutoCaption && .venv/bin/python -m app.main"
+		"cd $(MS)/AutoCaption && .venv/bin/python -m app.main" \
+		"cd $(MS)/HLS && pnpm dev"
 
-setup: setup-laravel setup-download setup-tiktok setup-reencode setup-autocaption  ## Instala deps + copia .env de tudo
+setup: setup-laravel setup-download setup-tiktok setup-reencode setup-autocaption setup-hls  ## Instala deps + copia .env de tudo
 
 setup-laravel:           ## Laravel: composer + .env + key + pnpm
 	composer install
@@ -42,6 +43,10 @@ setup-reencode:          ## Reencode: .env + pnpm (precisa de ffmpeg no host)
 setup-autocaption:       ## AutoCaption: .env + venv + pip (GPU/CUDA pro pipeline completo)
 	@test -f $(MS)/AutoCaption/.env || cp $(MS)/AutoCaption/.env.example $(MS)/AutoCaption/.env
 	cd $(MS)/AutoCaption && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+
+setup-hls:               ## HLS: .env + pnpm (precisa de ffmpeg no host)
+	@test -f $(MS)/HLS/.env || cp $(MS)/HLS/.env.example $(MS)/HLS/.env
+	cd $(MS)/HLS && pnpm install
 
 check:                   ## phpstan + pint + rector + pest (o que o CI roda)
 	composer check

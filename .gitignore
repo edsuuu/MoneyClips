@@ -49,3 +49,7 @@ yarn-error.log
 
 # Worktrees do Claude Code (nunca commitar)
 /.claude/worktrees/
+
+# env de teste local (credenciais de dev) e build dos microserviços
+.env.testing
+/MicroServices/*/dist

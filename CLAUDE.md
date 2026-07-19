@@ -23,8 +23,17 @@ Playwright, reencode, render de template). **Tudo roda nativo — sem Docker**
 
 Os microserviços de processamento/postagem **não têm credencial de storage**:
 o Laravel baixa o vídeo do MinIO, envia o binário por HTTP (multipart) e grava
-o resultado de volta. Exceção: `download-shorts` (produtor de vídeo) sobe
-direto pro MinIO.
+o resultado de volta. **Duas exceções**, ambas por inviabilidade de trafegar o
+volume por HTTP:
+
+1. `download-shorts` (produtor de vídeo) sobe direto pro MinIO.
+2. `hls` — um vídeo longo vira **milhares** de segmentos; o serviço lê a fonte
+   em `uploads/*` e escreve a saída em `hls/*` com credencial dedicada (a policy
+   do usuário MinIO deve limitar exatamente a esses dois prefixos).
+
+O **upload** também não passa pelo Laravel: o browser envia direto pro MinIO por
+multipart presigned (o Laravel só assina as partes e confere o resultado), o que
+contorna `upload_max_filesize`/`post_max_size` e dá retomada em arquivos de GBs.
 
 ## Domínio: agenda em banco + estoque
 
@@ -185,6 +194,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | `platform_settings` | toggle global por plataforma (youtube, tiktok, tiktok_official, instagram, facebook, kwai) |
 | `schedule_slots` | agenda em banco: data+hora+vídeo, claim do dispatcher |
 | `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
+| `videos` | vídeos longos enviados em /upload: ciclo `awaiting_upload → uploaded → packaging → ready` + metadados do HLS |
 | `youtube_shorts` | estoque; ciclo `ready_at` → `processed_video_path` → `posted_*_at` |
 | `social_posts` | ledger por (slot, plataforma) — status por plataforma na /agenda |
 | `processing_jobs` | estado do pipeline reencode/template |
@@ -196,6 +206,8 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | --- | --- | --- |
 | `/meus-videos` | `App\Livewire\Videos\Index` (+ `TemplateEditor`) | estoque com tabs Disponíveis (Baixados/Prontos), Editor de template, Com template, Postados; postagem instantânea; novo download |
 | `/agenda` | `App\Livewire\Schedule\Index` | kanban semanal de slots (rascunho + "Salvar agenda"), picker de vídeo, drag&drop, "Gerar semana", "Forçar agora", visão Mês, toggles por plataforma |
+| `/upload` | `App\Livewire\Upload\Index` | envio de vídeo longo (multipart direto pro MinIO, com retomada) |
+| `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo |
 | `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok email/senha + status de sessão; YouTube OAuth) com toggle por conta |
 | `/observabilidade` | `App\Livewire\Observability\Index` | logs + heartbeats dos microserviços |
 
@@ -209,6 +221,7 @@ Redirects legados: `/downloads` → `/meus-videos`; `/microservices` → `/obser
 | `schedule:migrate-legacy` | one-shot do deploy: materializa `schedule_slots` da agenda legada |
 | `auto-post:check-missed` | alerta slots pulados/sem vídeo/falha total (10 min) |
 | `observability:check-heartbeats` | alerta serviço sem heartbeat > 90s (1 min) |
+| `uploads:prune-stale` | aborta uploads multipart abandonados > 24h (diário) |
 | `tiktok:import-cookies-from-file` | fallback de emergência: importa cookies do filesystem |
 | `posts:migrate-tiktok` | one-shot histórico (tiktok_posts → social_posts) |
 
@@ -295,6 +308,7 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 | download-shorts | 8770 | FastAPI + yt-dlp | `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item; sobe direto pro MinIO (exceção da regra S3) |
 | tiktok-uploader | 8090 | Node 22 + Playwright | `POST /posts` multipart {video, cookies, title, hashtags, webhook_url} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status, session_status, refreshed_cookies?}`; `POST /session`, `POST /login`, `GET /health` |
 | reencode | 8790 | Node 22 + ffmpeg | `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped`; 1 ffmpeg por vez; `API_TOKEN` opcional |
+| hls | 8795 | Node 22 + ffmpeg | `POST /package` JSON {video_key, output_prefix, webhook_url} → 202 {uuid}; empacota em HLS/ABR (360p/720p/1080p, fMP4, segmentos de 6s); lê/escreve MinIO direto (exceção da regra S3); webhook `{uuid, status: done\|failed\|rejected\|progress, ...}` |
 | autocaption | 8780 | FastAPI + WhisperX (CUDA) | `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; webhook `{uuid, status: done|failed}`; output em `GET /videos/{uuid}/output/{variant}` |
 | GenerateClips | 8765 | — | fora do fluxo atual (não entra no `make up`) |
 
