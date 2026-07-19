@@ -19,9 +19,6 @@ use RuntimeException;
  */
 final readonly class AutoCaptionService
 {
-    /**
-     * Sobe o vídeo e inicia o render. Retorna o uuid remoto do job.
-     */
     public function createRender(
         string $sourcePath,
         TemplateStyleEnum $style,
@@ -61,7 +58,6 @@ final readonly class AutoCaptionService
         return $uuid;
     }
 
-    /** Baixa o variant renderizado para um arquivo local (sink). */
     public function downloadOutputTo(string $remoteId, TemplateStyleEnum $style, string $sinkPath): void
     {
         $response = $this->client()

@@ -7,13 +7,8 @@ namespace App\Services\Api\Youtube;
 use App\Models\SocialAccount;
 use Illuminate\Support\Facades\Http;
 
-/**
- * Renova o access_token de uma conta usando o refresh_token quando ele expira.
- * Hoje só YouTube (Google).
- */
 final class YoutubeTokenRefresherService
 {
-    /** Renova se necessário. Devolve true se a conta está utilizável depois. */
     public function ensureFresh(SocialAccount $account): bool
     {
         if (! $account->tokenExpired()) {

@@ -22,9 +22,6 @@ final class Register extends Component
 
     public string $password_confirmation = '';
 
-    /**
-     * Handle an incoming registration request.
-     */
     public function register(CreatesNewUsers $creator): void
     {
         $user = $creator->create([
@@ -39,12 +36,9 @@ final class Register extends Component
         Auth::login($user);
         session()->forget('auth.authenticated_via_google');
 
-        $this->redirect(route('videos.index', absolute: false), navigate: true);
+        $this->redirect(route('dashboard.index', absolute: false), navigate: true);
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
     public function render(): View
     {
         return view('livewire.auth.register');

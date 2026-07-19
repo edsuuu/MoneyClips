@@ -7,11 +7,6 @@ namespace App\Services\AutoPost;
 use App\Models\ScheduleSlot;
 use App\Models\YoutubeShort;
 
-/**
- * Entrada uniforme de um Poster: o vídeo a publicar com título/hashtags já
- * resolvidos e o caminho do arquivo no MinIO (o processado, quando existir).
- * $slot é null em posts manuais (postagem instantânea).
- */
 final readonly class PostTaskData
 {
     /**

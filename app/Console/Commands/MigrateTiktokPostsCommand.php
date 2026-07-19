@@ -8,12 +8,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-/**
- * Copia tiktok_posts → social_posts setando platform='tiktok'. Idempotente:
- * detecta o que já foi copiado via uuid (unique) e só insere o que falta.
- * NÃO dropa a tabela legada — quem decide é uma migration separada,
- * executada após confirmar zero diff.
- */
 final class MigrateTiktokPostsCommand extends Command
 {
     /** @var string */

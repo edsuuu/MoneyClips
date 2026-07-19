@@ -16,10 +16,8 @@ namespace App\Services\AutoPost;
  */
 interface PosterInterface
 {
-    /** Identificador da plataforma — casa com platform_settings.platform. */
     public function platform(): string;
 
-    /** Toggle global da plataforma (PlatformSetting::isEnabled). */
     public function isEnabled(): bool;
 
     public function post(PostTaskData $task): PosterResultData;

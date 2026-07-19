@@ -18,6 +18,10 @@ Route::middleware('guest')->group(function (): void {
 });
 
 Route::middleware(['auth'])->group(function (): void {
+    Route::view('/dashboard', 'dashboard.index')->name('dashboard.index');
+
+    Route::view('/upload', 'upload.index')->name('upload.index');
+
     Route::view('/meus-videos', 'videos.index')->name('videos.index');
     Route::redirect('/downloads', '/meus-videos');
 

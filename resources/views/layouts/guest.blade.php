@@ -35,7 +35,7 @@
 
                 <div class="flex items-center gap-3">
                     @auth
-                        <a href="{{ route('videos.index') }}" wire:navigate class="rounded-full bg-[linear-gradient(120deg,#7c3aed,#a855f7)] px-[18px] py-[9px] text-sm font-semibold text-white shadow-[0_6px_20px_rgba(124,58,237,0.4)] transition hover:brightness-110">Ir para o app</a>
+                        <a href="{{ route('dashboard.index') }}" wire:navigate class="rounded-full bg-[linear-gradient(120deg,#7c3aed,#a855f7)] px-[18px] py-[9px] text-sm font-semibold text-white shadow-[0_6px_20px_rgba(124,58,237,0.4)] transition hover:brightness-110">Ir para o app</a>
                     @endauth
 
                     @guest
@@ -52,6 +52,7 @@
         @guest
             <x-ui.modal
                 name="login"
+                max-width="max-w-lg"
                 class="border-[#2a1840]! bg-[#0b0710]!"
                 x-on:modal-show.window="setTimeout(() => $el.querySelector('input[type=email]')?.focus(), 60)"
             >
@@ -87,6 +88,7 @@
 
             <x-ui.modal
                 name="forgot-password"
+                max-width="max-w-lg"
                 class="border-[#2a1840]! bg-[#0b0710]!"
                 x-on:modal-show.window="setTimeout(() => $el.querySelector('input[type=email]')?.focus(), 60)"
             >

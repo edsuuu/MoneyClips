@@ -18,15 +18,6 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
-/**
- * Posta o vídeo de UM slot em UMA plataforma (1 job por par slot×plataforma,
- * enfileirado pelo AutoPostDispatcherService na fila `posting`). Também cobre a
- * "postagem instantânea" da tela Meus vídeos: $slotId null + $shortId.
- *
- * tries=1 de propósito: re-tentar post de rede social às cegas arrisca post
- * duplicado (um timeout pode ter publicado). Falha fica registrada no ledger
- * e o operador decide na /agenda.
- */
 final class PostSlotToPlatformJob implements ShouldQueue
 {
     use Dispatchable;
@@ -34,11 +25,6 @@ final class PostSlotToPlatformJob implements ShouldQueue
 
     public int $tries = 1;
 
-    /**
-     * YouTube sobe o binário na Data API dentro do job (minutos). TikTok só
-     * enfileira no uploader (202) — o Playwright roda no microserviço e o
-     * desfecho volta por webhook.
-     */
     public int $timeout = 1800;
 
     public function __construct(
@@ -130,10 +116,6 @@ final class PostSlotToPlatformJob implements ShouldQueue
         );
     }
 
-    /**
-     * Linha do ledger deste post: por slot o dedupe é o índice único
-     * (slot, plataforma); post instantâneo (sem slot) cria linha nova.
-     */
     private function ledger(?ScheduleSlot $slot, PostTaskData $task): SocialPost
     {
         $ledger = $slot instanceof ScheduleSlot

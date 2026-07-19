@@ -9,12 +9,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
-/**
- * Auth dos endpoints de observabilidade: token compartilhado no header
- * X-Observability-Token, comparado com services.observability.token (env
- * OBSERVABILITY_TOKEN). Sem token configurado, rejeita tudo (fail-closed) e
- * loga o motivo — evita rodar aberto por engano.
- */
 final class VerifyObservabilityToken
 {
     /**
