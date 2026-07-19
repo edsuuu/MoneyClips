@@ -24,17 +24,12 @@ final class ConfirmPassword extends Component
 
         session()->put('auth.password_confirmed_at', time());
 
-        $this->redirectIntended(default: route('videos.index', absolute: false), navigate: true);
+        $this->redirectIntended(default: route('dashboard.index', absolute: false), navigate: true);
     }
 
-    /**
-     * Confirm the user's password.
-     */
     public function confirmPassword(): void
     {
-        $this->validate([
-            'password' => ['required', 'string'],
-        ]);
+        $this->validate();
 
         /** @var User $user */
         $user = Auth::user();
@@ -50,12 +45,31 @@ final class ConfirmPassword extends Component
 
         session()->put('auth.password_confirmed_at', time());
 
-        $this->redirectIntended(default: route('videos.index', absolute: false), navigate: true);
+        $this->redirectIntended(default: route('dashboard.index', absolute: false), navigate: true);
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
+    /** @return array<string, list<string>> */
+    public function rules(): array
+    {
+        return [
+            'password' => ['required', 'string'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'password.required' => 'Informe sua senha.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function validationAttributes(): array
+    {
+        return ['password' => 'senha'];
+    }
+
     public function render(): View
     {
         return view('livewire.auth.confirm-password');

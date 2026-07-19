@@ -8,21 +8,8 @@ use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
-/**
- * Cliente HTTP do microserviço Python download-shorts (porta 8770).
- *
- * Fire-and-forget: o Laravel envia channel_url + webhook_url e o microserviço
- * baixa os Shorts em pool de threads, postando cada item concluído no webhook.
- * Não há banco no microserviço — o registro dos Shorts vive em youtube_shorts
- * aqui no Laravel.
- */
 final class DownloadShortsService
 {
-    /**
-     * Dispara o download dos Shorts do canal. Retorna a quantidade de Shorts
-     * listados (resposta síncrona; o download em si roda em background no
-     * microserviço, com webhook por item).
-     */
     public function createDownload(string $channelUrl): int
     {
         /** @var array<string, mixed> $response */

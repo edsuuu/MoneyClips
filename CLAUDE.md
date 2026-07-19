@@ -226,6 +226,12 @@ Cron: `* * * * * php artisan schedule:run` + worker de fila
 ## Convenções
 
 - `declare(strict_types=1)` em todo PHP, classes `final`.
+- **PROIBIDO comentário em cima de variável/propriedade/método** — vale pra
+  PHP e Blade. O nome já explica; se precisa de comentário, o nome está
+  errado. Exceção: algo **muito específico** que o nome não carrega (regra de
+  negócio não óbvia, pegadinha de concorrência, `ponytail:` com o teto da
+  simplificação). Docblock só quando tem anotação que o PHPStan usa
+  (`@var`, `@return`, `@param`, `@property`) — nunca só pra repetir o nome.
 - Pint impõe `mb_*` (`mb_trim`, `mb_rtrim`); `ext-mbstring` no `composer.json`.
   O `ordered_class_elements` do pint.json NÃO ordena métodos de propósito —
   a ordem é manual (regra abaixo).
@@ -264,6 +270,11 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 
 ## Git / commits
 
+- **SEMPRE trabalhar em branch** — nunca commitar direto na `main`. Padrão de
+  nome: `feat/`, `fix/`, `refactor/`, `chore/`, `docs/` + descrição curta em
+  kebab-case (ex.: `feat/upload-de-video`). Fluxo: branch → commits →
+  `gh pr create` → o automerge cuida do merge → voltar pra `main` e
+  `git pull`.
 - **PROIBIDO co-autor em commit.** Nada de `Co-Authored-By:` (nem Claude, nem
   qualquer assistente) e nada de "Generated with" no corpo. A mensagem do
   commit é só o texto da mensagem.

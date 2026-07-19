@@ -15,14 +15,6 @@ use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Fluxo à parte do MODO ALEATÓRIO (flag na /agenda): o dispatcher sorteou um
- * vídeo pronto pro slot vazio devido e JÁ o reivindicou (dispatched_at na
- * mesma UPDATE da atribuição — o tick seguinte não pode roubar o slot e
- * postar o original antes do reencode). Este job repete o fluxo antigo —
- * pega o vídeo, reencoda e faz o fan-out normal (1 PostSlotToPlatformJob
- * por plataforma), então o modo aleatório não duplica regra de postagem.
- */
 final class ReencodeAndPostSlotJob implements ShouldQueue
 {
     use Dispatchable;
@@ -30,7 +22,6 @@ final class ReencodeAndPostSlotJob implements ShouldQueue
 
     public int $tries = 1;
 
-    /** Reencode síncrono (até 900s no pipeline) + margem. */
     public int $timeout = 1200;
 
     public function __construct(public int $slotId)

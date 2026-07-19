@@ -17,14 +17,9 @@ final class DeleteUserForm extends Component
 
     public string $password = '';
 
-    /**
-     * Delete the currently authenticated user.
-     */
     public function deleteUser(Logout $logout): void
     {
-        $this->validate([
-            'password' => $this->currentPasswordRules(),
-        ]);
+        $this->validate();
 
         /** @var User $user */
         $user = Auth::user();
@@ -34,9 +29,28 @@ final class DeleteUserForm extends Component
         $this->redirect('/', navigate: true);
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
+    /** @return array<string, mixed> */
+    public function rules(): array
+    {
+        return [
+            'password' => $this->currentPasswordRules(),
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'password.required' => 'Informe sua senha para confirmar a exclusão.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function validationAttributes(): array
+    {
+        return ['password' => 'senha'];
+    }
+
     public function render(): View
     {
         return view('livewire.settings.delete-user-form');

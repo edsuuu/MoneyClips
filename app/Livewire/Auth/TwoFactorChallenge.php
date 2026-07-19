@@ -15,25 +15,13 @@ use Livewire\Component;
 #[Title('Two-factor challenge')]
 final class TwoFactorChallenge extends Component
 {
-    /**
-     * The recovery code.
-     */
     public string $recovery_code = '';
 
-    /**
-     * The two-factor authentication code.
-     */
     public string $code = '';
 
-    /**
-     * Log in using the two-factor authentication code.
-     */
     public function login(): void
     {
-        $this->validate([
-            'code' => ['nullable', 'string'],
-            'recovery_code' => ['nullable', 'string'],
-        ]);
+        $this->validate();
 
         if ($this->recovery_code !== '' && $this->recovery_code !== '0') {
             $this->loginWithRecoveryCode();
@@ -42,17 +30,6 @@ final class TwoFactorChallenge extends Component
         }
     }
 
-    /**
-     * Get the view / contents that represent the component.
-     */
-    public function render(): View
-    {
-        return view('livewire.auth.two-factor-challenge');
-    }
-
-    /**
-     * Log in using the two-factor authentication code.
-     */
     private function loginWithTwoFactorCode(): void
     {
         $request = resolve(TwoFactorLoginRequest::class);
@@ -67,7 +44,7 @@ final class TwoFactorChallenge extends Component
 
             $request->session()->forget(['login.id', 'auth.authenticated_via_google']);
 
-            $this->redirectIntended(default: route('videos.index', absolute: false), navigate: true);
+            $this->redirectIntended(default: route('dashboard.index', absolute: false), navigate: true);
         } else {
             event(new TwoFactorAuthenticationFailed($user));
 
@@ -75,9 +52,6 @@ final class TwoFactorChallenge extends Component
         }
     }
 
-    /**
-     * Log in using the recovery code.
-     */
     private function loginWithRecoveryCode(): void
     {
         $request = resolve(TwoFactorLoginRequest::class);
@@ -94,11 +68,43 @@ final class TwoFactorChallenge extends Component
 
             $request->session()->forget(['login.id', 'auth.authenticated_via_google']);
 
-            $this->redirectIntended(default: route('videos.index', absolute: false), navigate: true);
+            $this->redirectIntended(default: route('dashboard.index', absolute: false), navigate: true);
         } else {
             event(new TwoFactorAuthenticationFailed($user));
 
             $this->addError('recovery_code', __('The provided recovery code was invalid.'));
         }
+    }
+
+    /** @return array<string, list<string>> */
+    public function rules(): array
+    {
+        return [
+            'code' => ['nullable', 'string'],
+            'recovery_code' => ['nullable', 'string'],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'code.string' => 'Informe um código válido.',
+            'recovery_code.string' => 'Informe um código de recuperação válido.',
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function validationAttributes(): array
+    {
+        return [
+            'code' => 'código',
+            'recovery_code' => 'código de recuperação',
+        ];
+    }
+
+    public function render(): View
+    {
+        return view('livewire.auth.two-factor-challenge');
     }
 }

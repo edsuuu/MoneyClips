@@ -13,13 +13,6 @@ use App\Services\AutoPost\PostTaskData;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-/**
- * Posta no TikTok via microserviço uploader (Playwright), de forma
- * ASSÍNCRONA: envia o binário + cookies do banco, recebe 202 {job_id} e
- * devolve `queued` — o desfecho real (completed | dry-run | restricted |
- * failed + session_status) chega no TiktokPostWebhookController, que fecha
- * o ledger e atualiza a conta.
- */
 final readonly class TiktokPosterService implements PosterInterface
 {
     public function __construct(

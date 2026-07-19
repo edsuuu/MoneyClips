@@ -13,20 +13,12 @@ use Livewire\Attributes\Url;
 use Livewire\Component;
 use Throwable;
 
-/**
- * /estudio-de-cortes — editor de reframe/crop com keyframes (estilo OpusClip).
- * A edição inteira roda no navegador (Alpine + canvas, resources/js/
- * reframe-editor.js); o Livewire só valida e persiste o estado em
- * reframe_edits. Coordenadas normalizadas 0–1 sobre o tamanho natural da
- * fonte — prontas pro render ffmpeg futuro.
- */
 final class Index extends Component
 {
     use WithToasts;
 
     public const string DEFAULT_MODE = 'vertical';
 
-    /** Modo → quantidade de regiões (slots empilhados na saída 9:16). */
     public const array REGION_COUNTS = [
         'vertical' => 1,
         'split' => 2,
@@ -37,7 +29,6 @@ final class Index extends Component
 
     private const int MAX_KEYFRAMES = 120;
 
-    /** Keyframes a menos de este intervalo (s) são considerados duplicados. */
     private const float TIME_EPSILON = 0.05;
 
     private const float MIN_REGION_SIZE = 0.01;
@@ -128,7 +119,6 @@ final class Index extends Component
         return $edit->id;
     }
 
-    /** URL presigned nova pro vídeo atual (sessões de edição > 30 min). */
     public function refreshUrl(): ?string
     {
         $short = $this->currentShort();

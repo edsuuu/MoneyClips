@@ -9,14 +9,6 @@ use App\Models\User;
 use Illuminate\Console\Command;
 use JsonException;
 
-/**
- * Migração one-shot do cookie do TikTok que vivia em
- * MicroServices/TikTokUploader/cookies/{name}.json pro banco
- * (social_accounts.cookies).
- *
- * Executar 1x após o deploy desta refatoração. Idempotente — se a row
- * já tem cookies salvos, só atualiza com o conteúdo do arquivo.
- */
 final class ImportTiktokCookiesFromFileCommand extends Command
 {
     /** @var string */

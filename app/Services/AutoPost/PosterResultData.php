@@ -4,15 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost;
 
-/**
- * Resultado de uma tentativa de postagem em uma plataforma.
- *
- * `ok` publicou; `dry-run` o serviço está em modo teste; `queued` a
- * plataforma aceitou o job e o desfecho real chega por webhook (caso do
- * TikTok não-oficial — $externalId é o job_id que casa com o callback);
- * `restricted` a plataforma recusou por moderação (não repostar);
- * `failed` erro (detalhe em $error).
- */
 final readonly class PosterResultData
 {
     /**
@@ -61,7 +52,6 @@ final readonly class PosterResultData
         return $this->outcome === 'queued';
     }
 
-    /** Status correspondente no ledger social_posts. */
     public function ledgerStatus(): string
     {
         return $this->outcome === 'ok' ? 'completed' : $this->outcome;
