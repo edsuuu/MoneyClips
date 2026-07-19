@@ -4,6 +4,24 @@ import { reframeEditor } from './reframe-editor';
 // <head>; @livewireScripts só no fim do <body>).
 document.addEventListener('alpine:init', () => {
     window.Alpine.data('reframeEditor', reframeEditor);
+
+    // O <head> já aplicou a classe pré-paint; aqui só espelhamos o estado.
+    window.Alpine.store('theme', {
+        dark: document.documentElement.classList.contains('dark'),
+        toggle() {
+            const root = document.documentElement;
+
+            root.classList.add('theme-switching');
+            this.dark = !this.dark;
+            localStorage.theme = this.dark ? 'dark' : 'light';
+            root.classList.toggle('dark', this.dark);
+
+            // Reflow síncrono: aplica as cores novas ainda com transition:none.
+            // (rAF não serve — não dispara em aba de fundo e a classe ficaria presa.)
+            void root.offsetHeight;
+            root.classList.remove('theme-switching');
+        },
+    });
 });
 
 let hlsModulePromise = null;
