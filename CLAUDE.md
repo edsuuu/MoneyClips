@@ -236,8 +236,14 @@ Cron: `* * * * * php artisan schedule:run` + worker de fila
   O `ordered_class_elements` do pint.json NÃO ordena métodos de propósito —
   a ordem é manual (regra abaixo).
 - PHPStan nível max (`larastan` + bleeding-edge).
-- Migrations consolidadas — em dev, prefira editar a migration de criação
-  em vez de empilhar pequenas. Em prod, faça migration nova de drop/alter.
+- **PROIBIDO escrever arquivo de migration na mão.** Toda migration nova sai
+  de `php artisan make:migration <nome_snake_case>` — o timestamp do nome
+  define a ordem de execução e inventá-lo à mão quebra a sequência. Depois
+  edite o esqueleto gerado (e acrescente `declare(strict_types=1);`, que o
+  stub do Laravel não traz).
+- Editar a migration de criação só vale enquanto ela ainda não rodou em
+  nenhum banco. Se a coluna já existe em dev/prod, é `make:migration` de
+  alter/drop — senão a mudança nunca chega ao banco sem `migrate:fresh`.
 
 ### Livewire / Blade (front)
 

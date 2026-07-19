@@ -23,7 +23,8 @@
                     <x-ui.input wire:model="name" :label="__('Name')" type="text" required autofocus autocomplete="name" />
 
                     <div>
-                        <x-ui.input wire:model="email" :label="__('Email')" type="email" required autocomplete="email" />
+                        <x-ui.input :value="$email" :label="__('Email')" type="email" disabled readonly />
+                        <x-ui.text variant="subtle" class="mt-1 text-xs">{{ __('O e-mail da conta não pode ser alterado.') }}</x-ui.text>
 
                         @if ($this->hasUnverifiedEmail)
                             <div>
@@ -43,10 +44,6 @@
                         <x-ui.button variant="primary" type="submit">{{ __('Save') }}</x-ui.button>
                     </div>
                 </form>
-
-                @if ($this->showDeleteUser)
-                    <livewire:settings.delete-user-form />
-                @endif
             </div>
         </div>
     </div>

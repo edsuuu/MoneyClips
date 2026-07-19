@@ -26,7 +26,7 @@ final class User extends Authenticatable implements Auditable, MustVerifyEmail
     use TwoFactorAuthenticatable;
 
     /** @var list<string> */
-    protected $fillable = ['name', 'email', 'password', 'google_id', 'google_avatar', 'email_verified_at'];
+    protected $fillable = ['name', 'email', 'password', 'has_password', 'google_id', 'google_avatar', 'email_verified_at'];
 
     /** @var list<string> */
     protected $hidden = ['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'];
@@ -51,6 +51,7 @@ final class User extends Authenticatable implements Auditable, MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'has_password' => 'boolean',
             'auto_post_schedule' => 'array',
         ];
     }
