@@ -1,3 +1,3 @@
-<x-layout :title="__('Observabilidade')" layout="navbar">
+<x-app-layout :title="__('Observabilidade')">
     <livewire:observability.index />
-</x-layout>
+</x-app-layout>
