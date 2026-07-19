@@ -11,6 +11,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
+use Throwable;
 
 /**
  * Um Short do YouTube baixado de um canal e armazenado no MinIO.
@@ -43,6 +45,8 @@ final class YoutubeShort extends Model
     /** @use HasFactory<YoutubeShortFactory> */
     use HasFactory;
 
+    private const int PRESIGNED_TTL_MINUTES = 30;
+
     protected $fillable = [
         'youtube_id', 'channel_url', 'title', 'hashtags',
         'video_path', 'processed_video_path', 'youtube_video_id',
@@ -59,6 +63,20 @@ final class YoutubeShort extends Model
     public function postableVideoPath(): string
     {
         return (string) ($this->processed_video_path ?? $this->video_path);
+    }
+
+    public function presignedUrl(): ?string
+    {
+        $path = $this->postableVideoPath();
+        if ($path === '') {
+            return null;
+        }
+
+        try {
+            return Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(self::PRESIGNED_TTL_MINUTES));
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
