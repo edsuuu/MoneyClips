@@ -8,12 +8,16 @@
         closeTimer: null,
         clearTimers() { clearTimeout(this.openTimer); clearTimeout(this.closeTimer); this.openTimer = null; this.closeTimer = null },
         expand() {
+            if (window.sidebarExpandLocked) return;
             clearTimeout(this.closeTimer); this.closeTimer = null;
             if (this.expanded || this.openTimer) return;
             this.openTimer = setTimeout(() => { this.expanded = true; this.openTimer = null }, 150);
         },
         scheduleCollapse() { this.clearTimers(); this.closeTimer = setTimeout(() => { this.expanded = false }, 300) },
-        collapseNow() { this.clearTimers(); this.expanded = false },
+        // O lock vive no window porque o wire:navigate recria este x-data com o
+        // cursor ainda sobre a sidebar — sem ele o mousemove reabriria na hora.
+        collapseNow() { this.clearTimers(); this.expanded = false; window.sidebarExpandLocked = true },
+        unlock() { window.sidebarExpandLocked = false },
     }"
     x-on:sidebar-toggle.window="open = !open"
     x-on:keydown.escape.window="open = false"
@@ -26,7 +30,7 @@
             'lg:hidden' => $layout === 'navbar',
         ])
         :class="[open ? 'translate-x-0' : '', expanded ? 'lg:w-64' : 'lg:w-16']"
-        x-on:mouseleave="scheduleCollapse(); $dispatch('dropdown-close')"
+        x-on:mouseleave="unlock(); scheduleCollapse(); $dispatch('dropdown-close')"
     >
         <button type="button" class="mb-1 cursor-pointer self-end px-2 text-slate-400 hover:text-slate-100 lg:hidden" x-on:click="open = false">
             <x-ui.icon name="x-mark" class="size-5" />
@@ -52,6 +56,7 @@
                     ['label' => 'Dashboard', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*'],
                     ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*'],
                     ['label' => 'Enviar vídeo', 'icon' => 'arrow-up-tray', 'route' => 'upload.index', 'pattern' => 'upload.*'],
+                    ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*'],
                 ] as $item)
                     <li class="group/item relative min-w-0">
                         <x-nav-item

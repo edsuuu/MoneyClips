@@ -109,6 +109,20 @@ return [
         'api_token' => env('REENCODE_API_TOKEN', ''),
     ],
 
+    'hls' => [
+        'base_url' => env('HLS_URL', 'http://127.0.0.1:8795'),
+        'timeout' => (int) env('HLS_TIMEOUT', 60),
+        'api_token' => env('HLS_API_TOKEN', ''),
+        'webhook_url' => env(
+            'HLS_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/hls/webhook',
+        ),
+        // `accel` delega o streaming dos segmentos ao nginx (X-Accel-Redirect);
+        // `stream` devolve os bytes pelo PHP, para `artisan serve`, que não
+        // entende o header.
+        'delivery' => env('HLS_DELIVERY', 'accel'),
+    ],
+
     'observability' => [
         // Token compartilhado dos endpoints /api/observability/* (header
         // X-Observability-Token). Precisa bater com o OBSERVABILITY_TOKEN
