@@ -1,4 +1,3 @@
-{{-- Aviso em destaque — substitui flux:callout --}}
 @props([
     'variant' => 'info', // info | warning | danger | success
     'icon' => null,

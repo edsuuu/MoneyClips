@@ -1,4 +1,3 @@
-{{-- Radio com label — substitui flux:radio --}}
 @props(['label' => null, 'description' => null])
 
 <label class="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-sm transition hover:border-slate-600 has-checked:border-slate-400 has-checked:bg-slate-800/80">

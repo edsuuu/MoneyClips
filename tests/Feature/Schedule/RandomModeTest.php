@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Jobs\PostSlotToPlatformJob;
 use App\Jobs\ReencodeAndPostSlotJob;
 use App\Livewire\Schedule\Index;
-use App\Models\AppSetting;
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\User;
@@ -13,6 +12,7 @@ use App\Models\YoutubeShort;
 use App\Services\AutoPost\AutoPostDispatcherService;
 use App\Services\Reencode\ReencodeShortService;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
@@ -35,7 +35,7 @@ function dueEmptySlot(array $attributes = []): ScheduleSlot
 }
 
 it('assigns and claims the slot in the same tick, so the next tick cannot steal it', function (): void {
-    AppSetting::set(AppSetting::RANDOM_MODE, true);
+    Cache::forever(AutoPostDispatcherService::RANDOM_MODE, true);
     $slot = dueEmptySlot();
     $short = YoutubeShort::factory()->ready()->create();
 
@@ -64,7 +64,7 @@ it('leaves empty slots alone when the flag is off', function (): void {
 });
 
 it('skips gracefully when the ready stock is empty', function (): void {
-    AppSetting::set(AppSetting::RANDOM_MODE, true);
+    Cache::forever(AutoPostDispatcherService::RANDOM_MODE, true);
     $slot = dueEmptySlot();
 
     resolve(AutoPostDispatcherService::class)->dispatchDueSlots();
@@ -74,7 +74,7 @@ it('skips gracefully when the ready stock is empty', function (): void {
 });
 
 it('never picks a video that already has an active social post', function (): void {
-    AppSetting::set(AppSetting::RANDOM_MODE, true);
+    Cache::forever(AutoPostDispatcherService::RANDOM_MODE, true);
     $slot = dueEmptySlot();
 
     // Restrito pela moderação do TikTok: não volta pro sorteio.
@@ -92,7 +92,7 @@ it('never picks a video that already has an active social post', function (): vo
 });
 
 it('does not hand the same video to two empty slots in one tick', function (): void {
-    AppSetting::set(AppSetting::RANDOM_MODE, true);
+    Cache::forever(AutoPostDispatcherService::RANDOM_MODE, true);
     dueEmptySlot(['slot_time' => '11:57:00']);
     dueEmptySlot(['slot_time' => '11:58:00']);
     YoutubeShort::factory()->ready()->create();
@@ -110,10 +110,10 @@ it('toggles the flag from the schedule screen', function (): void {
     $component = Livewire::test(Index::class);
 
     $component->call('toggleRandomMode')->assertSet('view', 'week');
-    expect((bool) AppSetting::query()->where('key', AppSetting::RANDOM_MODE)->value('enabled'))->toBeTrue();
+    expect((bool) Cache::get(AutoPostDispatcherService::RANDOM_MODE, false))->toBeTrue();
 
     $component->call('toggleRandomMode');
-    expect((bool) AppSetting::query()->where('key', AppSetting::RANDOM_MODE)->value('enabled'))->toBeFalse();
+    expect((bool) Cache::get(AutoPostDispatcherService::RANDOM_MODE, false))->toBeFalse();
 });
 
 it('reencodes the video and then fans out the normal posting jobs', function (): void {

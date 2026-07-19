@@ -1,4 +1,3 @@
-{{-- Badge de status — substitui flux:badge --}}
 @props([
     'color' => 'zinc', // zinc | green | red | amber | blue | cyan | sky | pink | purple | lime
     'size' => 'base',  // sm | base

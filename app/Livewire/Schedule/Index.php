@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Livewire\Schedule;
 
 use App\Livewire\Concerns\WithToasts;
-use App\Models\AppSetting;
 use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
 use App\Models\YoutubeShort;
@@ -16,6 +15,7 @@ use App\Support\Hashtags;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -376,7 +376,7 @@ final class Index extends Component
     public function toggleRandomMode(): void
     {
         $enabled = ! $this->randomModeEnabled();
-        AppSetting::set(AppSetting::RANDOM_MODE, $enabled);
+        Cache::forever(AutoPostDispatcherService::RANDOM_MODE, $enabled);
 
         $this->toast($enabled
             ? 'Modo aleatório ativado — slots vazios no horário recebem um vídeo pronto sorteado (reencode + post).'
@@ -385,13 +385,9 @@ final class Index extends Component
 
     // ── Internos ─────────────────────────────────────────────────────────
 
-    /**
-     * Lê direto do banco (sem o once() do AppSetting::isEnabled) — o toggle
-     * e o render acontecem na MESMA request Livewire e o memo ficaria stale.
-     */
     private function randomModeEnabled(): bool
     {
-        return (bool) AppSetting::query()->where('key', AppSetting::RANDOM_MODE)->value('enabled');
+        return (bool) Cache::get(AutoPostDispatcherService::RANDOM_MODE, false);
     }
 
     private function monday(): CarbonImmutable

@@ -6,12 +6,12 @@ namespace App\Services\AutoPost;
 
 use App\Jobs\PostSlotToPlatformJob;
 use App\Jobs\ReencodeAndPostSlotJob;
-use App\Models\AppSetting;
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -30,6 +30,8 @@ final readonly class AutoPostDispatcherService
     /** Tolerância: slot ainda dispara até N minutos depois do horário. */
     public const int GRACE_MINUTES = 5;
 
+    public const string RANDOM_MODE = 'random_mode';
+
     public function __construct(private PosterRegistryService $posters) {}
 
     public function dispatchDueSlots(): void
@@ -45,7 +47,7 @@ final readonly class AutoPostDispatcherService
             $this->dispatchSlot($slot);
         }
 
-        if (AppSetting::isEnabled(AppSetting::RANDOM_MODE)) {
+        if (Cache::get(self::RANDOM_MODE, false)) {
             $this->fillDueEmptySlots($now);
         }
     }
