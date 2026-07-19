@@ -73,18 +73,6 @@ final class Profile extends Component
         return $user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail();
     }
 
-    #[Computed]
-    public function showDeleteUser(): bool
-    {
-        $user = Auth::user();
-
-        if (! $user instanceof MustVerifyEmail) {
-            return true;
-        }
-
-        return $user->hasVerifiedEmail();
-    }
-
     public function render(): View
     {
         return view('livewire.settings.profile');
