@@ -42,9 +42,57 @@
     }
 }
 
+/* Tema claro: a aplicação inteira pinta com a escala `slate` (bg-slate-950,
+   text-slate-100, border-slate-800...), então inverter a escala inverte todas
+   as telas de uma vez.
+   O escuro é ancorado em #0a0a0f (mesma superfície do site/landing), por isso a
+   rampa também é redefinida no `.dark` — sai do azulado do slate original.
+   ponytail: inversão da rampa em vez de variantes `dark:` em ~36 blades. Teto:
+   acentos fora da rampa (emerald/purple/red) não mudam de tom — se algum ficar
+   ilegível no claro, ajuste aquele caso com `dark:` pontual. */
+@layer theme {
+    .dark {
+        --color-slate-50: #fafafa;
+        --color-slate-100: #ededed;
+        --color-slate-200: #d9d9e0;
+        --color-slate-300: #c4c4cc;
+        --color-slate-400: #a1a1aa;
+        --color-slate-500: #71717a;
+        --color-slate-600: #3f3a4a;
+        --color-slate-700: #2e2937;
+        --color-slate-800: #1f1b26;
+        --color-slate-900: #141018;
+        --color-slate-950: #0a0a0f;
+    }
+
+    html:not(.dark) {
+        --color-slate-50: #0a0a0f;
+        --color-slate-100: #141018;
+        --color-slate-200: #1f1b26;
+        --color-slate-300: #2e2937;
+        --color-slate-400: #52525b;
+        --color-slate-500: #71717a;
+        --color-slate-600: #a1a1aa;
+        --color-slate-700: #d4d4d8;
+        --color-slate-800: #e4e4e7;
+        --color-slate-900: #f4f4f5;
+        --color-slate-950: #fafafa;
+    }
+}
+
+/* A troca de tema repinta a página inteira; sem isto cada elemento com
+   `transition` interpola no seu próprio tempo e o flip vira um piscar
+   escalonado. Suprimimos as transições por um frame. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+    transition: none !important;
+}
+
 @layer base {
     html {
-        background-color: #020617;
+        background-color: var(--color-slate-950);
     }
 
     *,

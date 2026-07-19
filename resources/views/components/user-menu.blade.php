@@ -1,6 +1,6 @@
-@props(['placement' => 'bottom'])
+@props(['placement' => 'bottom', 'align' => 'start'])
 
-<x-ui.dropdown align="start" :placement="$placement" {{ $attributes }}>
+<x-ui.dropdown :align="$align" :placement="$placement" {{ $attributes }}>
     <x-slot:trigger>
         <div class="flex w-full items-center gap-2 rounded-lg p-2 text-start transition hover:bg-slate-900" data-test="sidebar-menu-button">
             <x-ui.avatar :initials="auth()->user()->initials()" :name="auth()->user()->name" />
@@ -28,6 +28,24 @@
 
     <x-ui.menu-item :href="route('profile.edit')" icon="cog" wire:navigate>
         {{ __('Settings') }}
+    </x-ui.menu-item>
+
+    <x-ui.menu-item
+        x-data
+        x-on:click="$store.theme.toggle()"
+        role="switch"
+        x-bind:aria-checked="$store.theme.dark"
+        data-test="theme-toggle"
+    >
+        <x-ui.icon name="sun" class="dark:hidden" />
+        <x-ui.icon name="moon" class="hidden dark:block" />
+        <span class="flex-1 text-start">
+            <span class="dark:hidden">{{ __('Light theme') }}</span>
+            <span class="hidden dark:inline">{{ __('Dark theme') }}</span>
+        </span>
+        <span class="relative h-4 w-7 shrink-0 rounded-full bg-slate-700 transition dark:bg-emerald-500">
+            <span class="absolute top-0.5 left-0.5 size-3 rounded-full bg-white transition-all dark:left-[15px]"></span>
+        </span>
     </x-ui.menu-item>
 
     <form method="POST" action="{{ route('logout') }}" class="w-full">
