@@ -16,7 +16,6 @@ use App\Services\Processing\VideoProcessingService;
 use App\Support\Hashtags;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
@@ -40,8 +39,6 @@ final class Index extends Component
     // ponytail: sem paginação — grid com teto fixo. Estoque de projeto solo
     // fica nas dezenas; se passar de SECTION_LIMIT, o upgrade é WithPagination.
     private const int SECTION_LIMIT = 60;
-
-    private const int PRESIGNED_TTL_MINUTES = 30;
 
     private const int CARD_TAG_LIMIT = 4;
 
@@ -410,20 +407,6 @@ final class Index extends Component
             ->values()->all();
     }
 
-    private function presignedUrl(YoutubeShort $short): ?string
-    {
-        $path = $short->postableVideoPath();
-        if ($path === '') {
-            return null;
-        }
-
-        try {
-            return Storage::disk('s3')->temporaryUrl($path, now()->addMinutes(self::PRESIGNED_TTL_MINUTES));
-        } catch (Throwable) {
-            return null;
-        }
-    }
-
     /** @return array<string, list<string>> */
     public function rules(): array
     {
@@ -486,7 +469,7 @@ final class Index extends Component
             ],
             'renderingCount' => $renderingCount,
             'editingVideo' => $editing,
-            'editingUrl' => $editing instanceof YoutubeShort ? $this->presignedUrl($editing) : null,
+            'editingUrl' => $editing instanceof YoutubeShort ? $editing->presignedUrl() : null,
             'instantCandidates' => $this->instantCandidates(),
             'platforms' => PlatformSetting::query()->where('enabled', true)->get(['platform', 'display_name'])
                 ->map(fn (PlatformSetting $p): array => [
