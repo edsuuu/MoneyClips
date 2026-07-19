@@ -57,7 +57,7 @@
         <div class="flex gap-2">
             @if ($section === 'downloaded')
                 <button type="button" wire:click="markReady({{ $video['id'] }})"
-                    class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-slate-950 transition hover:bg-sky-300">
+                    class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-gray-950 transition hover:bg-sky-300">
                     <x-ui.icon name="plus" class="size-3" />
                     Adicionar à fila
                 </button>
@@ -69,7 +69,7 @@
                 </button>
             @else
                 <button type="button" wire:click="openSchedule({{ $video['id'] }})"
-                    class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-slate-950 transition hover:bg-sky-300">
+                    class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-gray-950 transition hover:bg-sky-300">
                     <x-ui.icon name="calendar-days" class="size-3" />
                     Agendar
                 </button>
