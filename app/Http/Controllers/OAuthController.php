@@ -63,6 +63,7 @@ final class OAuthController extends Controller
                     'name' => $socialUser->getName() ?: ($socialUser->getNickname() ?: 'Usuario Google'),
                     'email' => $email,
                     'password' => Hash::make(Str::random(40)),
+                    'has_password' => false,
                     'google_id' => $socialUser->getId(),
                     'google_avatar' => $socialUser->getAvatar(),
                     'email_verified_at' => Date::now(),
