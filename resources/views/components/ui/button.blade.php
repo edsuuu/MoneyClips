@@ -1,4 +1,3 @@
-{{-- Botão padrão do app — substitui flux:button --}}
 @props([
     'variant' => 'outline', // primary | filled | ghost | subtle | danger | outline
     'size' => 'base',       // xs | sm | base

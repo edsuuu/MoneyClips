@@ -1,5 +1,4 @@
-{{-- Dropdown com Alpine — substitui flux:dropdown + flux:menu --}}
-@props(['align' => 'start', 'placement' => 'bottom']) {{-- align: start | end, placement: top | bottom --}}
+@props(['align' => 'start', 'placement' => 'bottom'])
 
 @php
     $panelPosition = $placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2';

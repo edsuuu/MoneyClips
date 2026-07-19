@@ -1,6 +1,3 @@
-{{-- Modal com Alpine — substitui flux:modal.
-     Uso por eventos: $dispatch('modal-show', { name }) / $dispatch('modal-close', { name })
-     Ou controlado pelo Livewire via wire:model="propriedadeBooleana". --}}
 @props([
     'name' => null,
     'maxWidth' => 'max-w-md',
@@ -22,6 +19,7 @@
         x-on:modal-close.window="if ($event.detail.name === '{{ $name }}') open = false"
     @endif
     x-on:keydown.escape.window="open = false"
+    x-effect="document.body.style.overflow = open ? 'hidden' : ''"
     x-show="open"
     x-cloak
     class="fixed inset-0 z-50 flex items-center justify-center p-4"

@@ -91,7 +91,7 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
   vídeos prontos (FIFO `ready_at`). Sem nada no banco, não cria slot — o
   operador monta a primeira semana na /agenda.
 - `StockAlertService` — 1×/dia compara estoque pronto × slots vazios de 7 dias.
-- **Modo aleatório** (`app_settings.random_mode`, toggle na /agenda): com a
+- **Modo aleatório** (flag `random_mode` no cache — `AutoPostDispatcherService::RANDOM_MODE`, toggle na /agenda): com a
   flag ligada, slot VAZIO que chega no horário recebe um vídeo pronto
   sorteado (fora do sorteio: vídeo com social_post ativa ou preso em slot
   despachado sem ledger) e roda o fluxo antigo à parte —
@@ -183,7 +183,6 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | --- | --- |
 | `users` | login Google OAuth (`auto_post_schedule` legado — fonte do `schedule:migrate-legacy`) |
 | `platform_settings` | toggle global por plataforma (youtube, tiktok, tiktok_official, instagram, facebook, kwai) |
-| `app_settings` | flags globais key/value editáveis no front (`random_mode`) |
 | `schedule_slots` | agenda em banco: data+hora+vídeo, claim do dispatcher |
 | `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
 | `youtube_shorts` | estoque; ciclo `ready_at` → `processed_video_path` → `posted_*_at` |
@@ -243,6 +242,9 @@ Cron: `* * * * * php artisan schedule:run` + worker de fila
   `render()` (view-models). Classes condicionais SEMPRE via `@class([...])` —
   nunca ternário dentro de `class=""`. Mapas de cor por status viram strings
   de classe no componente, aplicadas com `@class([$x => true])`.
+- **PROIBIDO comentário em blade** (`{{-- --}}`) e comentário em cima de
+  variável. O nome (do componente, prop, seção) já explica; se precisa de
+  comentário, o nome está errado.
 - Ordem de métodos no componente: `mount()` primeiro → ações públicas →
   helpers privados → **`render()` por último**.
 - Propriedade pública = fronteira de confiança: valide/saneie nas ações.
@@ -250,8 +252,8 @@ Cron: `* * * * * php artisan schedule:run` + worker de fila
   `App\Jobs\Concerns\TransfersStorageFiles` (MinIO ⇄ tmp), componentes
   `x-ui.toggle`, `x-ui.server-modal` (modal @if server-driven),
   `x-ui.modal` (Alpine), `x-log-level-badge`, e
-  `App\View\Components\NavbarItems` (fonte ÚNICA de navegação —
-  navbar + drawer mobile).
+  `components/sidebar.blade.php` (fonte ÚNICA de navegação —
+  desktop + drawer mobile).
 
 ## Qualidade / CI
 
@@ -259,6 +261,15 @@ Cron: `* * * * * php artisan schedule:run` + worker de fila
 composer check      # phpstan + lint + pest — é o que o CI roda (tests.yml)
 composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado)
 ```
+
+## Git / commits
+
+- **PROIBIDO co-autor em commit.** Nada de `Co-Authored-By:` (nem Claude, nem
+  qualquer assistente) e nada de "Generated with" no corpo. A mensagem do
+  commit é só o texto da mensagem.
+- Nunca commitar credencial: cookies do TikTok
+  (`MicroServices/TikTokUploader/cookies/`), `.env`, tokens. O `.gitignore`
+  cobre — se algo aparecer como untracked ali, é bug do ignore, não commite.
 
 ## Microserviços (MicroServices/ — todos nativos, sem docker)
 

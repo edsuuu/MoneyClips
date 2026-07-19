@@ -1,4 +1,3 @@
-{{-- Menu do usuário autenticado (avatar + dropdown) — usado na sidebar e no navbar --}}
 @props(['placement' => 'bottom'])
 
 <x-ui.dropdown align="start" :placement="$placement" {{ $attributes }}>

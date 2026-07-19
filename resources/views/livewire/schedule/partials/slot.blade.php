@@ -1,5 +1,3 @@
-{{-- Um slot do kanban da /agenda. Recebe: $slot (view model pronto do Index,
-     com containerClass/timeClass/dotClass/hasFailures) e $date ("Y-m-d"). --}}
 <div
     wire:key="slot-{{ $date }}-{{ $slot['editable'] ? 'd'.$slot['index'] : 'p'.$slot['id'] }}"
     @if ($slot['editable'])
@@ -14,7 +12,6 @@
         'cursor-grab active:cursor-grabbing' => $slot['editable'],
     ])
 >
-    {{-- Linha do horário + ações --}}
     <div class="flex items-center justify-between gap-1.5">
         <div class="flex items-center gap-1.5">
             @if ($slot['editable'])
@@ -46,7 +43,6 @@
         @endif
     </div>
 
-    {{-- Título do vídeo --}}
     @if ($slot['title'])
         <div class="line-clamp-2 text-[11.5px] leading-snug text-slate-300">{{ $slot['title'] }}</div>
     @elseif ($slot['editable'] && $slot['status'] === 'empty' && $slot['active'])
@@ -63,7 +59,6 @@
         </div>
     @endif
 
-    {{-- Badges de estado --}}
     @if ($slot['status'] === 'next')
         <span class="w-fit rounded-md bg-emerald-400 px-2 py-0.5 text-[10px] font-bold tracking-wider text-emerald-950">PRÓXIMO</span>
     @elseif ($slot['status'] === 'posting')
@@ -88,7 +83,6 @@
         </div>
     @endif
 
-    {{-- Resultado por plataforma (parcial/falha/postado) --}}
     @if ($slot['platforms'] !== [] && in_array($slot['status'], ['failed', 'partial', 'posted'], true))
         <div x-data="{ showReason: false }" class="flex flex-col gap-1.5">
             @if ($slot['status'] !== 'posted')

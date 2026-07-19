@@ -7,9 +7,6 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home.welcome')->name('home');
 
-// Não existe tela de login: o formulário vive num modal do layout público.
-// A rota continua existindo com o nome `login` porque o middleware `auth`
-// manda os visitantes pra ela — e ela abre a home com o modal já aberto.
 Route::get('/login', fn () => to_route('home', ['login' => 1]))->middleware('guest')->name('login');
 
 Route::view('/terms-of-service', 'legal.terms')->name('legal.terms');

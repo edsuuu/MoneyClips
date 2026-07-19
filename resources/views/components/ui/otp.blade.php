@@ -1,4 +1,3 @@
-{{-- Campo de código OTP (TOTP/2FA) — substitui flux:otp --}}
 @props(['length' => 6, 'label' => null])
 
 <div class="grid justify-items-center gap-2">

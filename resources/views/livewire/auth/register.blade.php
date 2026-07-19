@@ -1,9 +1,4 @@
 <div class="flex flex-col gap-6">
-    <div class="flex w-full flex-col text-center">
-        <x-ui.heading size="xl">{{ __('Create an account') }}</x-ui.heading>
-        <x-ui.subheading>{{ __('Enter your details below to create your account') }}</x-ui.subheading>
-    </div>
-
     <!-- Session Status -->
     @if (session('status'))
         <div class="text-center font-medium text-sm text-green-600">
@@ -74,8 +69,4 @@
         </div>
     </form>
 
-    <div class="space-x-1 text-sm text-center rtl:space-x-reverse text-zinc-600 dark:text-zinc-400">
-        <span>{{ __('Already have an account?') }}</span>
-        <x-ui.link :href="route('login')" wire:navigate>{{ __('Log in') }}</x-ui.link>
-    </div>
 </div>

@@ -1,13 +1,25 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark uv-surface">
     <head>
-        @include('layouts.head')
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="csrf-token" content="{{ csrf_token() }}" />
+
+        <title>
+            {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
+        </title>
+
+        <link rel="icon" href="/favicon.ico" sizes="any">
+        <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+        @fonts
+
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+
+        @livewireStyles
     </head>
-    {{-- Fundo e tipografia do design (Inter): valem só nas telas públicas —
-         o app autenticado continua slate-950 + Instrument Sans. --}}
     <body class="min-h-screen bg-[#0a0a0f] font-inter text-[#ededed] antialiased">
-        {{-- Navbar da landing: só marca + âncoras + CTA. Nada do menu do app
-             aqui (isso vive na sidebar do layout autenticado). --}}
         <header class="sticky top-0 z-20 border-b border-[#191022] bg-[#0a0a0f]/92 backdrop-blur">
             <div class="mx-auto flex h-[68px] w-full max-w-[1120px] items-center justify-between gap-6 px-6">
                 <a href="{{ route('home') }}" wire:navigate class="flex items-center gap-2.5">
@@ -15,8 +27,6 @@
                     <span class="text-[19px] font-extrabold tracking-[0.14em] text-slate-50">UNK<span class="text-[#a855f7]">VOID</span></span>
                 </a>
 
-                {{-- Âncoras com a rota completa: funcionam também a partir das
-                     telas legal/auth, que usam este mesmo layout. --}}
                 <nav class="hidden items-center gap-8 text-sm text-[#a1a1aa] lg:flex">
                     <a href="{{ route('home') }}#funcoes" class="transition hover:text-white">Funcionalidades</a>
                     <a href="{{ route('home') }}#como-funciona" class="transition hover:text-white">Como funciona</a>
@@ -39,17 +49,48 @@
             {{ $slot }}
         </main>
 
-        {{-- Login em modal central: substitui a tela /login (que só redireciona
-             pra cá com ?login=1). Cores da landing + foco no e-mail ao abrir. --}}
         @guest
             <x-ui.modal
                 name="login"
                 class="border-[#2a1840]! bg-[#0b0710]!"
-                {{-- setTimeout (e não $nextTick): o foco só funciona depois do
-                     x-show tirar o display:none, inclusive na abertura automática. --}}
                 x-on:modal-show.window="setTimeout(() => $el.querySelector('input[type=email]')?.focus(), 60)"
             >
-                <livewire:auth.login />
+                <div x-data="{ tab: 'login' }" class="flex flex-col gap-6">
+                    <div class="grid grid-cols-2 gap-1 rounded-xl border border-[#241830] bg-[#141018] p-1">
+                        <button
+                            type="button"
+                            x-on:click="tab = 'login'"
+                            class="cursor-pointer rounded-lg py-2 text-sm font-semibold transition"
+                            :class="{ 'bg-[linear-gradient(120deg,#7c3aed,#a855f7)] text-white shadow-[0_6px_18px_rgba(124,58,237,0.35)]': tab === 'login', 'text-[#a1a1aa] hover:text-white': tab !== 'login' }"
+                        >
+                            {{ __('Log in') }}
+                        </button>
+                        <button
+                            type="button"
+                            x-on:click="tab = 'register'"
+                            class="cursor-pointer rounded-lg py-2 text-sm font-semibold transition"
+                            :class="{ 'bg-[linear-gradient(120deg,#7c3aed,#a855f7)] text-white shadow-[0_6px_18px_rgba(124,58,237,0.35)]': tab === 'register', 'text-[#a1a1aa] hover:text-white': tab !== 'register' }"
+                        >
+                            {{ __('Register') }}
+                        </button>
+                    </div>
+
+                    <div x-show="tab === 'login'">
+                        <livewire:auth.login />
+                    </div>
+
+                    <div x-show="tab === 'register'" x-cloak>
+                        <livewire:auth.register />
+                    </div>
+                </div>
+            </x-ui.modal>
+
+            <x-ui.modal
+                name="forgot-password"
+                class="border-[#2a1840]! bg-[#0b0710]!"
+                x-on:modal-show.window="setTimeout(() => $el.querySelector('input[type=email]')?.focus(), 60)"
+            >
+                <livewire:auth.forgot-password />
             </x-ui.modal>
 
             @if ($openLogin)
