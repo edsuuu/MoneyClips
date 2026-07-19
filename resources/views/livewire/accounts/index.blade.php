@@ -1,5 +1,4 @@
 <div class="w-full">
-    {{-- Header (design docs/designs/Contas.dc.html) --}}
     <div class="mb-6 flex flex-wrap items-start justify-between gap-6 border-b border-slate-800 pb-6">
         <div>
             <h1 class="text-3xl font-extrabold tracking-tight text-slate-50">Contas</h1>
@@ -26,9 +25,7 @@
         <x-ui.callout class="mb-4" variant="danger" icon="exclamation-triangle">{{ session('error') }}</x-ui.callout>
     @endif
 
-    {{-- Grid de contas --}}
     <div class="grid gap-3.5 md:grid-cols-2 xl:grid-cols-3">
-        {{-- YouTube (OAuth) --}}
         @if($youtubeAccount)
             <div class="flex flex-col gap-4 rounded-[14px] border border-slate-800 bg-slate-900 p-5">
                 <div class="flex items-center gap-3">
@@ -68,7 +65,6 @@
             </div>
         @endif
 
-        {{-- TikTok (email/senha) --}}
         @foreach($tiktokAccounts as $account)
             <div class="flex flex-col gap-4 rounded-[14px] border border-slate-800 bg-slate-900 p-5" wire:key="account-{{ $account['id'] }}">
                 <div class="flex items-center gap-3">
@@ -117,7 +113,6 @@
         @endif
     </div>
 
-    {{-- Modal TikTok: email + senha --}}
     <x-ui.modal wire:model="showTiktokModal" max-width="max-w-lg">
         <form wire:submit="saveTiktok" class="space-y-5">
             <div>
@@ -142,7 +137,6 @@
         </form>
     </x-ui.modal>
 
-    {{-- Modal YouTube: vinculação manual via OAuth do Google --}}
     <x-ui.modal wire:model="showYoutubeModal" max-width="max-w-lg">
         <div class="space-y-5">
             <div>

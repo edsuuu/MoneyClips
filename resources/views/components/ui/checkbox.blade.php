@@ -1,4 +1,3 @@
-{{-- Checkbox com label — substitui flux:checkbox --}}
 @props(['label' => null])
 
 <label class="inline-flex cursor-pointer items-center gap-2 text-sm text-slate-200">

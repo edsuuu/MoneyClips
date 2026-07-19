@@ -1,4 +1,3 @@
-{{-- Item de navegação (sidebar/navbar) — substitui flux:navlist.item / flux:navbar.item --}}
 @props(['icon' => null, 'href', 'current' => false, 'size' => 'base'])
 
 @php

@@ -1,7 +1,3 @@
-{{-- /estudio-de-cortes — editor de reframe/crop com keyframes. A edição roda
-     inteira no client (Alpine + canvas, resources/js/reframe-editor.js); a
-     ilha fica sob wire:ignore e o wire:key troca o vídeo substituindo o DOM
-     inteiro (destroy + boot com payload novo), nunca por morphing. --}}
 <div>
     <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -42,7 +38,6 @@
             x-data="reframeEditor(@js($editorPayload))"
             class="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
 
-            {{-- Fonte + overlay de crop + timeline --}}
             <div class="flex min-w-0 flex-col gap-4">
                 <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
                     <div x-ref="stage" class="relative mx-auto w-full max-w-[760px] overflow-hidden rounded-xl bg-black" style="aspect-ratio: 16 / 9">
@@ -75,7 +70,6 @@
                         </div>
                     </div>
 
-                    {{-- Tabs de região (só nos modos com >1 slot) --}}
                     <div class="mt-3 flex items-center gap-2" x-show="modeSlots().length > 1" x-cloak>
                         <span class="text-[12px] font-semibold text-slate-500">Região:</span>
                         <template x-for="tab in regionTabs()" :key="tab.i">
@@ -86,7 +80,6 @@
                     </div>
                 </div>
 
-                {{-- Timeline + transporte --}}
                 <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
                     <div class="flex flex-wrap items-center gap-3">
                         <button type="button" x-on:click="togglePlay()"
@@ -119,7 +112,6 @@
                 </div>
             </div>
 
-            {{-- Saída 9:16 + modos + salvar --}}
             <div class="flex flex-col gap-4 lg:sticky lg:top-24">
                 <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
                     <div class="text-[13.5px] font-bold text-slate-200">Saída 9:16</div>

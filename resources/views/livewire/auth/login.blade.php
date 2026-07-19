@@ -1,9 +1,4 @@
 <div class="flex flex-col gap-6">
-    <div class="flex w-full flex-col text-center">
-        <x-ui.heading size="xl">{{ __('Log in to your account') }}</x-ui.heading>
-        <x-ui.subheading>{{ __('Enter your email and password below to log in') }}</x-ui.subheading>
-    </div>
-
     <!-- Session Status -->
     @if (session('status'))
         <div class="text-center font-medium text-sm text-green-600">
@@ -36,9 +31,14 @@
             />
 
             @if (Route::has('password.request'))
-                <x-ui.link class="absolute top-0 text-sm end-0" :href="route('password.request')" wire:navigate>
+                <button
+                    type="button"
+                    x-data
+                    x-on:click="$dispatch('modal-close', { name: 'login' }); $dispatch('modal-show', { name: 'forgot-password' })"
+                    class="absolute end-0 top-0 cursor-pointer text-sm font-medium text-slate-200 underline decoration-slate-600 underline-offset-4 transition hover:text-white hover:decoration-slate-300"
+                >
                     {{ __('Forgot your password?') }}
-                </x-ui.link>
+                </button>
             @endif
         </div>
 

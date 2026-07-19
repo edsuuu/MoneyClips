@@ -32,6 +32,11 @@
 
     <div class="space-x-1 text-sm text-center rtl:space-x-reverse text-zinc-600 dark:text-zinc-400">
         <span>{{ __('Remember your password?') }}</span>
-        <x-ui.link :href="route('login')" wire:navigate>{{ __('Log in') }}</x-ui.link>
+        <button
+            type="button"
+            x-data
+            x-on:click="$dispatch('modal-close', { name: 'forgot-password' }); $dispatch('modal-show', { name: 'login' })"
+            class="cursor-pointer font-medium text-slate-200 underline decoration-slate-600 underline-offset-4 transition hover:text-white hover:decoration-slate-300"
+        >{{ __('Log in') }}</button>
     </div>
 </div>

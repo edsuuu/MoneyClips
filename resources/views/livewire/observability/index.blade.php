@@ -1,7 +1,5 @@
 <section class="grid w-full items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
-    {{-- Stream de logs --}}
     <div class="flex max-h-[calc(100vh-130px)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
-        {{-- Barra de filtros --}}
         <div class="flex flex-col gap-3 border-b border-slate-800 px-4 py-3.5">
             <div class="flex items-center gap-2.5">
                 <span class="text-sm font-bold">Stream de logs</span>
@@ -44,7 +42,6 @@
             </div>
         </div>
 
-        {{-- Linhas --}}
         <div class="min-h-0 flex-1 overflow-y-auto" wire:poll.3s>
             @forelse ($logs as $log)
                 <button type="button" wire:click="openDetail({{ $log['id'] }})" wire:key="log-{{ $log['id'] }}"
@@ -70,7 +67,6 @@
         </div>
     </div>
 
-    {{-- Cards de serviço --}}
     <div class="flex flex-col gap-3" wire:poll.10s>
         @forelse ($services as $svc)
             <button type="button" wire:click="setServiceFilter('{{ $svc['service'] }}')" wire:key="svc-{{ $svc['service'] }}"
@@ -136,7 +132,6 @@
         @endforelse
     </div>
 
-    {{-- Drawer de detalhe --}}
     @if ($detail)
         <div class="fixed inset-0 z-50 flex justify-end bg-slate-950/70" wire:click="closeDetail">
             <div class="flex h-full w-[560px] max-w-[94vw] flex-col border-l border-slate-800 bg-slate-900 shadow-2xl shadow-black/60" wire:click.stop>

@@ -1,5 +1,4 @@
-{{-- Título — substitui flux:heading --}}
-@props(['size' => 'base']) {{-- xl | lg | base --}}
+@props(['size' => 'base'])
 
 <h2 {{ $attributes->class(match ($size) {
     'xl' => 'text-2xl font-semibold text-slate-50',

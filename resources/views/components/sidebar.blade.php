@@ -1,13 +1,10 @@
 @props(['layout' => 'sidebar'])
 
-{{-- Sidebar fixa no desktop; no mobile vira um drawer controlado por Alpine
-     (evento global `sidebar-toggle`, disparado pelo botão do header). --}}
 <div
     x-data="{ open: false }"
     x-on:sidebar-toggle.window="open = !open"
     x-on:keydown.escape.window="open = false"
 >
-    {{-- Overlay mobile --}}
     <div x-show="open" x-cloak class="fixed inset-0 z-30 bg-slate-950/70 lg:hidden" x-on:click="open = false"></div>
 
     <aside
@@ -27,13 +24,17 @@
             </a>
         </div>
 
-        {{-- Mesma fonte de itens da navbar (App\View\Components\NavbarItems) —
-             rota/ícone/active nunca divergem entre desktop e drawer mobile. --}}
         <nav class="mt-8 px-2">
             <ul class="grid gap-1.5">
-                @foreach (\App\View\Components\NavbarItems::items() as $item)
+                @foreach ([
+                    ['label' => 'Meus vídeos', 'icon' => 'layout-grid', 'route' => 'videos.index', 'pattern' => 'videos.*'],
+                    ['label' => 'Agenda', 'icon' => 'calendar-days', 'route' => 'agenda.index', 'pattern' => 'agenda.*'],
+                    ['label' => 'Estúdio', 'icon' => 'scissors', 'route' => 'reframe.index', 'pattern' => 'reframe.*'],
+                    ['label' => 'Contas', 'icon' => 'user-circle', 'route' => 'accounts.index', 'pattern' => 'accounts.*'],
+                    ['label' => 'Observabilidade', 'icon' => 'activity', 'route' => 'observability.index', 'pattern' => 'observability.*'],
+                ] as $item)
                     <li>
-                        <x-nav-item :icon="$item['icon']" size="lg" :href="route($item['route'])" :current="$item['current']">
+                        <x-nav-item :icon="$item['icon']" size="lg" :href="route($item['route'])" :current="request()->routeIs($item['pattern'])">
                             {{ $item['label'] }}
                         </x-nav-item>
                     </li>

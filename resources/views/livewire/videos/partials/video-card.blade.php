@@ -1,6 +1,3 @@
-{{-- Card de vídeo do estoque (design docs/designs/VideoCard.dc.html).
-     Recebe: $video (view model do Index, com statusBadge/displayTags prontos)
-     e $section (downloaded|ready|templated|posted). --}}
 <div class="flex h-full flex-col gap-3 rounded-[14px] border border-slate-800 bg-slate-900 p-3.5 transition hover:border-slate-700" wire:key="video-{{ $section }}-{{ $video['id'] }}">
     <div class="flex gap-3">
         <div class="flex h-[74px] w-14 shrink-0 items-center justify-center rounded-lg bg-slate-800">

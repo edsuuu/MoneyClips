@@ -1,5 +1,3 @@
-{{-- Container global de toasts.
-     Consome eventos Livewire: $this->dispatch('toast', message: ..., variant: ...) --}}
 <div
     x-data="{
         toasts: [],
