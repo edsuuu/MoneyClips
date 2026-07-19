@@ -6,7 +6,7 @@
         </div>
         <div class="flex flex-wrap justify-end gap-2.5">
             <button type="button" wire:click="openInstant"
-                class="flex cursor-pointer items-center gap-2 rounded-[10px] bg-sky-400 px-4 py-2.5 text-[13.5px] font-bold text-slate-950 transition hover:bg-sky-300">
+                class="flex cursor-pointer items-center gap-2 rounded-[10px] bg-sky-400 px-4 py-2.5 text-[13.5px] font-bold text-gray-950 transition hover:bg-sky-300">
                 <x-ui.icon name="bolt" class="size-3.5" />
                 Postagem instantânea
             </button>

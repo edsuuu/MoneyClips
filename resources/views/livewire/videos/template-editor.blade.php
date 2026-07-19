@@ -4,7 +4,7 @@
         <div @class(['flex aspect-[9/16] w-full flex-col overflow-hidden rounded-[20px] border p-4', $previewClass => true])>
             @if ($showHeader)
                 <div class="flex items-center gap-2.5 pb-3.5">
-                    <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-400 text-sm font-extrabold text-slate-950">
+                    <div class="flex size-9 shrink-0 items-center justify-center rounded-full bg-sky-400 text-sm font-extrabold text-gray-950">
                         {{ $channelInitial }}
                     </div>
                     <div class="min-w-0">
@@ -116,7 +116,7 @@
 
         <div class="flex items-center gap-3 border-t border-slate-800 pt-4">
             <button type="button" wire:click="save" wire:loading.attr="disabled"
-                class="flex cursor-pointer items-center gap-2 rounded-[10px] bg-sky-400 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-sky-300 disabled:opacity-60">
+                class="flex cursor-pointer items-center gap-2 rounded-[10px] bg-sky-400 px-5 py-3 text-sm font-bold text-gray-950 transition hover:bg-sky-300 disabled:opacity-60">
                 <x-ui.icon name="check" class="size-3.5" />
                 Salvar como pronto para postar
             </button>
