@@ -66,7 +66,8 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
 - **Clients de microserviço** espelham `MicroServices/` na raiz de Services:
   `app/Services/{TikTokUploader,DownloadShorts,Reencode,AutoCaption,HLS}/` —
   `Reencode`, `AutoCaption` e `HLS` apontam todos pro serviço `Video` (:8790),
-  em endpoints diferentes.
+  em endpoints diferentes. (Os nomes `Reencode`/`AutoCaption` são herdados dos
+  serviços que existiam antes da fusão; o alvo hoje é sempre o `Video`.)
 - **Orquestração**: `app/Services/AutoPost/` (agenda/postagem) e
   `app/Services/Processing/` (pipeline reencode/template).
 - **Fuso horário**: `config/app.php` já define `America/Sao_Paulo` — NUNCA
@@ -136,7 +137,7 @@ Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
   webhook `POST /api/autocaption/webhook` → `FetchTemplateOutputJob` baixa o
   variant e grava no MinIO. Estilos: `TemplateStyleEnum` (Claro/Escuro/Vertical
   → variants `template_white|template_black|vertical`). O `Video` monta o .ass
-  e roda o ffmpeg; a transcrição ele terceiriza pro `autocaption` (:8780).
+  e roda o ffmpeg; a transcrição ele terceiriza pro `transcriber` (:8780).
 - 1 job pendente por vídeo (guard em `processing_jobs`).
 
 ### YouTube
@@ -311,7 +312,7 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 | download-shorts | 8770 | FastAPI + yt-dlp | `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item; sobe direto pro MinIO (exceção da regra S3) |
 | tiktok-uploader | 8090 | Node 22 + Playwright | `POST /posts` multipart {video, cookies, title, hashtags, webhook_url} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status, session_status, refreshed_cookies?}`; `POST /session`, `POST /login`, `GET /health` |
 | video | 8790 | Node 22 + ffmpeg + sharp | **todo o ffmpeg da aplicação**: três endpoints, três filas independentes. `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped` (síncrono, sem S3). `POST /package` JSON {video_key, output_prefix, webhook_url} → 202 {uuid}; HLS/ABR (360p/720p/1080p, fMP4, segmentos de 6s); lê/escreve MinIO direto (exceção da regra S3); webhook `{uuid, status: done\|failed\|rejected\|progress, ...}`. `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; render de legenda karaokê + template; webhook `{uuid, status: done\|failed, files}`; output em `GET /videos/{uuid}/output/{variant}`. `API_TOKEN` opcional |
-| autocaption | 8780 | FastAPI + faster-whisper (CUDA) | **só transcreve**: `POST /transcribe` multipart {audio: wav mono 16kHz} → `{segments: [{start, end, text, words: [{word, start, end, score}]}], language}`. Chamado pelo `video`, não pelo Laravel |
+| transcriber | 8780 | FastAPI + faster-whisper (CUDA) | **só transcreve**: `POST /transcribe` multipart {audio: wav mono 16kHz} → `{segments: [{start, end, text, words: [{word, start, end, score}]}], language}`. Chamado pelo `video`, não pelo Laravel |
 | GenerateClips | 8765 | — | fora do fluxo atual (não entra no `make up`) |
 
 Todos com observabilidade (logs + heartbeat → Laravel) quando
@@ -322,14 +323,14 @@ Todos com observabilidade (logs + heartbeat → Laravel) quando
 ```bash
 make setup   # 1ª vez: deps + .env de tudo (Laravel + 4 serviços)
 make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
-             # tiktok-uploader + video + autocaption — sem docker
+             # tiktok-uploader + video + transcriber — sem docker
 ```
 
 - Laravel → microserviço: `127.0.0.1:<porta>`; microserviço → Laravel:
   `127.0.0.1:8000` em dev, domínio real (nginx/HTTPS) em prod.
-- AutoCaption (transcrição) precisa de GPU/CUDA. Em macOS o render do template
-  roda normal no `Video` (ffmpeg/libx264), mas jobs COM legenda falham gracioso
-  na transcrição → `processing_jobs.failed` + Discord.
+- Transcriber precisa de GPU/CUDA. Em macOS o render do template roda normal
+  no `Video` (ffmpeg/libx264), mas jobs COM legenda falham gracioso na
+  transcrição → `processing_jobs.failed` + Discord.
 - Prod: pm2/systemd por serviço (só o TikTokUploader tem
   `ecosystem.config.cjs` por enquanto).
 
