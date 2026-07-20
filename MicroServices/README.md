@@ -20,7 +20,7 @@ Exceção: `download-shorts` (produtor de vídeo) sobe direto pro MinIO.
 | --- | --- | --- | --- |
 | `DownloadShorts` | Python / FastAPI + yt-dlp | 8770 | `POST /shorts/download {channel_url, webhook_url}` → 202; baixa em pool e dispara 1 webhook por item; sobe direto pro MinIO |
 | `TikTokUploader` | Node 22 + Playwright + Express | 8090 | `GET /health` → `{status, dry_run, queue}`; `POST /posts` **multipart assíncrono** `{video, cookies, title, hashtags, webhook_url}` → `202 {job_id}`; fila serial em memória; webhook de conclusão `{job_id, status: completed\|dry-run\|restricted\|failed, session_status, refreshed_cookies?}`. Também `POST /session` e `POST /login` (login por credenciais) |
-| `Reencode` | Node 22 + Express + ffmpeg | 8790 | `POST /reencode` **multipart síncrono** `{video, video_id?}` → binário `_HQ` (header `X-Reencode: completed`) ou JSON `{status: "skipped"}`; 1 ffmpeg por vez; `API_TOKEN` opcional |
+| `Video` | Node 22 + Express + ffmpeg | 8790 | `POST /reencode` **multipart síncrono** `{video, video_id?}` → binário `_HQ` (header `X-Reencode: completed`) ou JSON `{status: "skipped"}`, sem S3. `POST /package` **assíncrono** `{video_key, output_prefix, webhook_url}` → `202 {uuid}`; empacota em HLS/ABR e lê/escreve MinIO direto; webhook `{uuid, status: done\|failed\|rejected\|progress}`. Filas separadas por endpoint; `API_TOKEN` opcional |
 | `AutoCaption` | Python / FastAPI + WhisperX (CUDA) | 8780 | `POST /videos` multipart `{file, variants, caption_position, channel_name, channel_handle, webhook_url}` → 202 `{uuid}`; webhook `{uuid, status: done\|failed}`; output em `GET /videos/{uuid}/output/{variant}` |
 | `GenerateClips` | Python / FastAPI | 8765 | fora do fluxo atual — não entra no `make up` |
 
@@ -48,7 +48,7 @@ SERVICE_NAME=<nome do serviço>
 ```bash
 cd MicroServices/DownloadShorts && .venv/bin/python -m app.main
 cd MicroServices/TikTokUploader && pnpm dev
-cd MicroServices/Reencode && pnpm dev
+cd MicroServices/Video && pnpm dev
 cd MicroServices/AutoCaption && .venv/bin/python -m app.main
 ```
 

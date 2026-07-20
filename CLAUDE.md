@@ -307,8 +307,7 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 | --- | --- | --- | --- |
 | download-shorts | 8770 | FastAPI + yt-dlp | `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item; sobe direto pro MinIO (exceção da regra S3) |
 | tiktok-uploader | 8090 | Node 22 + Playwright | `POST /posts` multipart {video, cookies, title, hashtags, webhook_url} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status, session_status, refreshed_cookies?}`; `POST /session`, `POST /login`, `GET /health` |
-| reencode | 8790 | Node 22 + ffmpeg | `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped`; 1 ffmpeg por vez; `API_TOKEN` opcional |
-| hls | 8795 | Node 22 + ffmpeg | `POST /package` JSON {video_key, output_prefix, webhook_url} → 202 {uuid}; empacota em HLS/ABR (360p/720p/1080p, fMP4, segmentos de 6s); lê/escreve MinIO direto (exceção da regra S3); webhook `{uuid, status: done\|failed\|rejected\|progress, ...}` |
+| video | 8790 | Node 22 + ffmpeg | dois endpoints, filas independentes. `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped` (síncrono, sem S3). `POST /package` JSON {video_key, output_prefix, webhook_url} → 202 {uuid}; empacota em HLS/ABR (360p/720p/1080p, fMP4, segmentos de 6s); lê/escreve MinIO direto (exceção da regra S3); webhook `{uuid, status: done\|failed\|rejected\|progress, ...}`. `API_TOKEN` opcional |
 | autocaption | 8780 | FastAPI + WhisperX (CUDA) | `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; webhook `{uuid, status: done|failed}`; output em `GET /videos/{uuid}/output/{variant}` |
 | GenerateClips | 8765 | — | fora do fluxo atual (não entra no `make up`) |
 
