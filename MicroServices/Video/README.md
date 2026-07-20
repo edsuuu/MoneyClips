@@ -38,7 +38,9 @@ GET  /videos/{uuid}               → status.json do job
 GET  /videos/{uuid}/output/{variant}  → mp4 renderizado
 ```
 
-O desfecho chega no webhook do Laravel (`POST /api/hls/webhook`):
+O desfecho do `/package` chega no webhook do Laravel (`POST /api/hls/webhook`);
+o do `/videos`, em `POST /api/autocaption/webhook` com
+`{uuid, status: done|failed, error, files}`.
 
 ```jsonc
 // durante o encode, a cada ~10s
@@ -103,7 +105,7 @@ hls/{uuid}/
   `h264_nvenc` no Linux/Windows com GPU NVIDIA. A detecção é um encode de teste
   real (não só a lista do ffmpeg), e cai para `libx264` se o hardware recusar —
   inclusive em runtime, no meio de um job. `HLS_ENCODER=cpu` força libx264, útil
-  para liberar a GPU ao AutoCaption (WhisperX/CUDA), que disputa o mesmo
+  para liberar a GPU ao `transcriber` (faster-whisper/CUDA), que disputa o mesmo
   hardware em máquinas NVIDIA.
 
 ## Decisões do reencode
@@ -117,7 +119,7 @@ hls/{uuid}/
 
 ## Decisões da legenda/template
 
-- **A transcrição é o único passo que continua em Python** (`autocaption`,
+- **A transcrição é o único passo que continua em Python** (`transcriber`,
   :8780, faster-whisper/CUDA). Este serviço extrai o wav, faz `POST /transcribe`
   e monta tudo o que vem depois.
 - **Um evento ASS por palavra**, redesenhando a linha inteira — não usa tag

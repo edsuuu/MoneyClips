@@ -25,7 +25,7 @@ from app.logging_config import configure_logging
 from app.observability import start_observability
 from app.pipeline.transcribe import transcribe
 
-logger = logging.getLogger("autocaption.api")
+logger = logging.getLogger("transcriber.api")
 
 _CHUNK = 1024 * 1024
 _gpu_lock = threading.Lock()
@@ -34,13 +34,13 @@ _gpu_lock = threading.Lock()
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging(settings.log_level)
-    start_observability("autocaption", "autocaption")
-    logger.info("starting autocaption on %s:%s", settings.api_host, settings.api_port)
+    start_observability("transcriber", "transcriber")
+    logger.info("starting transcriber on %s:%s", settings.api_host, settings.api_port)
     yield
 
 
 app = FastAPI(
-    title="autocaption",
+    title="transcriber",
     version="0.2.0",
     description="Transcreve áudio com faster-whisper e devolve os timestamps por palavra.",
     lifespan=lifespan,
