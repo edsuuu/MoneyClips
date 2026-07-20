@@ -219,3 +219,59 @@ a 1ª entrega; onde divergir, vale o CLAUDE.md e o que segue:
    ganhou `tiktok` (client_key/secret), `meta` (app_id/secret) e `kwai`
    (app_id/secret) com envs vazios no `.env.example` — preencher quando cada
    poster sair de stub.
+
+## Adendo (3ª passada, pós-PR #61/#62): um serviço de vídeo só
+
+Existiam **três** pipelines de ffmpeg. `HLS` e `Reencode` eram Node/Express com
+`Env`, `Logger`, `RemoteObservability` e `Sleep` duplicados linha a linha; o
+`AutoCaption` era um terceiro, em Python, repetindo a mesma queima de legenda,
+o mesmo fallback NVENC→libx264 e o mesmo controle de fila. Só a inferência
+precisava de Python.
+
+1. **`MicroServices/Video` (:8790)** absorve os três: `POST /reencode`
+   (síncrono), `POST /package` (HLS/ABR) e `POST /videos` (legenda + template),
+   com **três filas independentes** — o `/reencode` segura a conexão do Laravel
+   e não pode ficar atrás de um empacotamento de horas. `AutoCaption` virou
+   `Transcriber` e ficou só com `POST /transcribe`.
+2. **Contrato preservado byte a byte**: nenhum arquivo PHP mudou, só as URLs
+   nos envs. As chaves `AUTOCAPTION_*`/`HLS_*` e a rota
+   `/api/autocaption/webhook` continuam com o nome antigo apontando pro
+   `Video` — renomear isso é uma passada coordenada, ainda pendente.
+3. **Golden test da legenda** (`MicroServices/Video/tests/`): o `.ass`/`.srt`
+   do porte é comparado byte a byte com a saída do `subtitles.py` original.
+   Legenda dessincronizada não estoura erro nenhum — sem esse diff, a
+   regressão só apareceria assistindo o vídeo. Os 6 arquivos batem, incluindo
+   os casos de `start`/`end` nulo que o faster-whisper emite.
+4. **`Logger` virou classe abstrata** no `Video`: quem loga estende e chama
+   `this.info()`. Os sinks são **estáticos** — a observabilidade registra um só
+   e ele precisa valer pra todas as subclasses. De quebra sumiu o monkey-patch
+   por spread do logger, que não copia método de prototype e teria quebrado
+   calado ao virar classe. No Python isso não se aplica: `logging.Handler` já
+   é essa abstração.
+5. **PIL → sharp/SVG** nos PNGs estáticos do template. A fonte do cabeçalho
+   passou a ser resolvida por *nome de família* (fontconfig) em vez de caminho
+   de TTF — o librsvg não carrega arquivo solto.
+
+### O que a fusão revelou
+
+- **`app/storage/local.py` do AutoCaption nunca foi commitado.** A linha 67
+  acima diz "AutoCaption consertado (faltava `VideoStore`)" — ele foi mesmo
+  escrito, mas o `storage/` do `.gitignore` casa em **qualquer profundidade** e
+  comeu o arquivo. Funcionava na máquina de quem escreveu e o serviço não subia
+  em mais lugar nenhum. Reescrito como `VideoStore.ts`.
+- **O webhook do template nunca disparava.** O `_set_status` reescrevia o
+  `status.json` inteiro a cada passo, apagando o `webhook_url` gravado no POST;
+  o `_notify_webhook` lia de volta um arquivo já sem a URL. O `writeStatus`
+  agora faz merge.
+- **`requirements.txt` pedia `whisperx`, o código importava `faster_whisper`.**
+  Docs idem.
+- **`phpunit.xml` vence o `.env.testing`** (o PHPUnit seta as vars antes do
+  bootstrap e o `safeLoad()` do Dotenv não sobrescreve). Ou seja: a suíte roda
+  em **sqlite `:memory:`** enquanto prod é MySQL, e o `.env.testing` não muda
+  isso apesar de sugerir o contrário. Migration com tipo de coluna específico
+  ou cast de JSON pode passar aqui e quebrar lá — mudar exige mexer no
+  `phpunit.xml` e subir um MySQL de serviço no `tests.yml`.
+- **Renomear serviço deixa heartbeat órfão.** `service_heartbeats` é upsert por
+  nome e o `check-heartbeats` varre a tabela inteira: cada nome morto alerta
+  "fora do ar" pra sempre. Resolvido pela migration
+  `delete_renamed_service_heartbeats`.

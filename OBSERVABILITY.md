@@ -4,8 +4,8 @@
 > (middleware `VerifyObservabilityToken`), tabelas `service_logs` /
 > `service_heartbeats`, comando `observability:check-heartbeats`, tela
 > `/observabilidade` e observers nos 4 microserviços
-> (`RemoteObservability.ts` no tiktok-uploader/reencode, `observability.py`
-> no download-shorts/autocaption). O antigo `MicroserviceMonitor` (Docker
+> (`RemoteObservability.ts` no tiktok-uploader/video, `observability.py`
+> no download-shorts/transcriber). O antigo `MicroserviceMonitor` (Docker
 > socket) foi removido. Este documento segue como referência da arquitetura.
 
 ## Decisão
@@ -13,19 +13,26 @@
 **Push HTTP dos microserviços para o próprio Laravel.** Sem serviço de
 observabilidade separado, sem WebSocket, sem Loki/Grafana — overkill para 3
 microserviços de projeto solo. O Laravel é o receptor central (mesmo padrão
-dos webhooks que já existem), MySQL guarda tudo, e a tela `/microservices`
+dos webhooks que já existem), MySQL guarda tudo, e a tela `/observabilidade`
 lê do banco com polling do Livewire.
 
 ```
 tiktok-uploader (pm2, VPS B) ──┐
 download-shorts (pm2, VPS C) ──┼─→ POST /api/observability/logs      (lote, ~2s)
-reencode        (pm2, VPS D) ──┘   POST /api/observability/heartbeat (30s)
+video           (pm2, VPS D) ──┤   POST /api/observability/heartbeat (30s)
+transcriber     (pm2, VPS E) ──┘
                                           │
                                    Laravel (VPS A)
                                    ├─ service_logs        (MySQL, prune 14 dias)
                                    ├─ service_heartbeats  (upsert, 1 row/serviço)
-                                   ├─ /microservices      (query no banco + wire:poll.3s)
+                                   ├─ /observabilidade    (query no banco + wire:poll.3s)
                                    └─ scheduler: heartbeat > 90s → Discord
+
+⚠️ `service_heartbeats` é upsert por NOME de serviço e o
+`observability:check-heartbeats` varre a tabela inteira. Renomear um serviço
+deixa a linha antiga órfã, que passa a alertar "fora do ar" pra sempre — apague
+a linha junto com o rename (foi o que a migration
+`delete_renamed_service_heartbeats` fez com `hls`/`reencode`/`autocaption`).
 ```
 
 Racional:
@@ -98,7 +105,7 @@ depois.
 - Prune diário de `service_logs` com mais de 14 dias
   (`Model::prune` ou delete no scheduler).
 
-### Tela `/microservices` (`App\Livewire\Microservices\Index`)
+### Tela `/observabilidade` (`App\Livewire\Observability\Index`)
 
 - Fonte dos logs passa a ser query em `service_logs` (substitui
   `MicroserviceMonitor::logs()` / Docker Engine API — todo o código de
@@ -116,22 +123,29 @@ flush a cada 2s ou 20 linhas (o que vier primeiro), timeout curto, e se o
 Laravel estiver fora do ar, descarta e segue — o envio de log **nunca** pode
 derrubar ou atrasar o serviço.
 
-### Node (tiktok-uploader e reencode)
+### Node (tiktok-uploader e video)
 
-- `app/Services/Observability/RemoteLogger.ts` (~50 linhas): envelopa o
-  logger atual — continua escrevendo no console (pm2) e empilha no buffer.
+- `app/Services/RemoteObservability.ts`: registra um sink no logger — o
+  console (pm2) continua sendo a saída primária e as linhas também vão pro
+  buffer.
+- No `video`, `Logger` é uma classe abstrata que as demais estendem, e os
+  sinks são **estáticos**: a observabilidade registra um só e ele vale pra
+  todas as subclasses. Sink de instância capturaria só o log de quem
+  registrou.
 - Heartbeat: `setInterval` de 30s com `process.uptime()` e
   `process.memoryUsage().rss`.
 - Env: `OBSERVABILITY_URL` (ex.: `https://dominio.com/api/observability`),
   `OBSERVABILITY_TOKEN`, `SERVICE_NAME`.
-- Implementar primeiro no **tiktok-uploader** como referência; copiar para o
-  reencode.
 
-### Python (download-shorts)
+### Python (download-shorts e transcriber)
 
-- `logging.Handler` custom com a mesma lógica de buffer/flush.
-- Heartbeat em background task do FastAPI (`asyncio` loop de 30s).
-- Mesmas envs.
+- `app/observability.py`: `RemoteLogHandler(logging.Handler)` com a mesma
+  lógica de buffer/flush, plugado no logger por `start_observability()`. Aqui
+  a junção com o log local sai de graça — `logging.Handler` já é a abstração
+  que no TypeScript teve que ser escrita à mão.
+- Heartbeat: thread daemon com loop de 30s.
+- Mesmas envs. Os dois arquivos são cópias quase idênticas entre os dois
+  serviços Python — ao mexer num, replique no outro.
 
 ## Rede
 
@@ -148,7 +162,7 @@ derrubar ou atrasar o serviço.
    + Discord. (Maior valor, menor esforço.)
 2. **Pipeline de logs** — migration `service_logs`, endpoint de lote,
    `RemoteLogger` no uploader → replicar nos outros, prune.
-3. **Tela** — `/microservices` lendo do banco, badges de heartbeat, filtros;
+3. **Tela** — `/observabilidade` lendo do banco, badges de heartbeat, filtros;
    remover o código de Docker socket do `MicroserviceMonitor`.
 
 ## Evolução futura (se crescer)
