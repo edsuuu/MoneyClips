@@ -49,12 +49,11 @@ jobs:
       - name: Install Dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      # Sem .env.example no repositorio: a suite so precisa de uma APP_KEY
-      # (o phpunit.xml cobre o resto — banco, cache, fila, sessao, mailer).
+      # Sem arquivo .env: o Laravel le variavel de ambiente do processo, e a
+      # suite so precisa da APP_KEY (o phpunit.xml cobre o resto — banco,
+      # cache, fila, sessao, mailer). Chave efemera por run, nada versionado.
       - name: Generate Application Key
-        run: |
-          echo "APP_KEY=" > .env
-          php artisan key:generate
+        run: echo "APP_KEY=base64:$(openssl rand -base64 32)" >> "$GITHUB_ENV"
 
       - name: Build Assets
         run: npm run build
