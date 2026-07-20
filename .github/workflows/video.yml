@@ -1,0 +1,53 @@
+name: video (CI)
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'MicroServices/Video/**'
+      - '.github/workflows/video.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: lint + typecheck + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: MicroServices/Video
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+          cache-dependency-path: MicroServices/Video/pnpm-lock.yaml
+
+      # O sharp traz binário pré-compilado por plataforma: os scripts de
+      # postinstall precisam rodar, ao contrário do tiktok-uploader (que só
+      # pula o download do Chromium).
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (eslint + prettier)
+        run: pnpm lint
+
+      - name: Typecheck (tsc --noEmit)
+        run: pnpm typecheck
+
+      # Golden test da legenda: compara o .ass/.srt com a saída do pipeline
+      # Python original. Legenda dessincronizada não estoura erro nenhum —
+      # sem este diff, a regressão só apareceria assistindo o vídeo.
+      - name: Test (golden da legenda)
+        run: pnpm test
+
+      - name: Build (tsup)
+        run: pnpm build
