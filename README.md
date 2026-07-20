@@ -38,7 +38,7 @@ download-shorts (8770) → MinIO + youtube_shorts (estoque)
   `social_accounts.cookies`. O Laravel envia o binário do vídeo + cookies por
   multipart e recebe o desfecho na resposta (`completed|dry-run|restricted`).
 - **Observabilidade**: logs + heartbeat dos serviços em `/observabilidade`
-  (push HTTP → banco; ver [`OBSERVABILITY.md`](OBSERVABILITY.md)).
+  (push HTTP → banco; detalhes no `CLAUDE.md`).
 
 Detalhes de tabelas, serviços e comandos em [`CLAUDE.md`](CLAUDE.md).
 

@@ -107,6 +107,12 @@ hls/{uuid}/
   inclusive em runtime, no meio de um job. `HLS_ENCODER=cpu` força libx264, útil
   para liberar a GPU ao `transcriber` (faster-whisper/CUDA), que disputa o mesmo
   hardware em máquinas NVIDIA.
+- **VideoToolbox precisa de `-g` explícito**: ele ignora o `-force_key_frames`
+  e emite keyframe a cada ~0,4s (medido num Mac: 75 num clipe de 30s, contra 5
+  do libx264). As renditions ficam alinhadas mesmo assim, mas o encode
+  desperdiça bits em I-frame. O ganho de velocidade dele no macOS **não foi
+  medido em conteúdo real** — num teste sintético ficou mais lento que o
+  libx264.
 
 ## Decisões do reencode
 

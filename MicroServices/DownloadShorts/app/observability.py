@@ -1,4 +1,4 @@
-"""Observabilidade remota (OBSERVABILITY.md): handler de logging que empilha
+"""Observabilidade remota: handler de logging que empilha
 as linhas num buffer e as envia em lote ao Laravel (POST
 /api/observability/logs, flush a cada 2s), além de um heartbeat a cada 30s
 (POST /api/observability/heartbeat).

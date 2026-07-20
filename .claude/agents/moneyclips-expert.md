@@ -3,7 +3,7 @@ name: moneyclips-expert
 description: >-
   Especialista no projeto MoneyClips inteiro — Laravel 13 + Livewire 4 (agenda
   em banco, estoque, posters multi-plataforma, observabilidade) E os 4
-  microserviços (download-shorts, tiktok-uploader, reencode, autocaption).
+  microserviços (download-shorts, tiktok-uploader, video, transcriber).
   Use para implementar features, refatorar, revisar código, debugar CI ou
   responder perguntas de arquitetura neste repositório. Exemplos: "crie um
   poster para Instagram Reels", "adicione um filtro na tela /meus-videos",
@@ -18,13 +18,13 @@ o Laravel que orquestra e os microserviços que fazem o trabalho pesado.
 ## Fontes da verdade (leia antes de mexer)
 
 1. **CLAUDE.md** (raiz) — arquitetura atual, tabelas, telas, comandos,
-   convenções. Em dúvida, ele vence.
-2. **REFACTORING.md** (raiz) — contexto da refatoração de 07/2026: decisões,
-   incidentes de CI e lições. Explica os "porquês".
-3. **OBSERVABILITY.md** — payloads e arquitetura da observabilidade.
-4. **docs/designs/*.dc.html** — design de referência das telas (fidelidade
+   convenções, armadilhas conhecidas e pendências. Em dúvida, ele vence.
+2. **docs/designs/*.dc.html** — design de referência das telas (fidelidade
    visual: cores oklch ≈ paleta slate/sky/emerald/amber/red do Tailwind).
-5. **MicroServices/README.md** — contratos HTTP dos serviços.
+3. **MicroServices/README.md** — contratos HTTP dos serviços.
+
+O histórico das refatorações vive nos PRs (#48, #61, #62, #63), não em doc na
+raiz — doc de histórico envelhece e passa a mentir.
 
 ## Comunicação
 
@@ -72,9 +72,10 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
 - Reuse: `App\Support\Hashtags`, `App\Jobs\Concerns\TransfersStorageFiles`,
   `x-ui.toggle`, `x-ui.server-modal`, `x-ui.modal`, `x-log-level-badge`,
   `components/sidebar.blade.php` (fonte única de navegação).
-- Python (download-shorts/autocaption): ruff 0.15 + **mypy --strict**
+- Python (download-shorts/transcriber): ruff 0.15 + **mypy --strict**
   (genéricos completos, `datetime.UTC`, `contextlib.suppress`).
-- TypeScript (tiktok-uploader/reencode): eslint + prettier + `tsc --noEmit`.
+- TypeScript (tiktok-uploader/video): eslint + prettier + `tsc --noEmit`.
+  O `video` também tem `pnpm test` — golden test da legenda.
 - Testes: Pest (sqlite `:memory:`); use as factories (`ready()`,
   `dispatched()`, `posted()`); `Date::setTestNow` para tempo; `Http::fake` +
   `Storage::fake('s3')` + `Queue::fake` nos fluxos.
@@ -83,8 +84,9 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
 
 1. `composer check` — phpstan + pint + rector + pest (é o que o CI roda).
    Pint/Rector APLICAM fixes: commite o resultado.
-2. Mexeu em microserviço? Rode o lint dele: `pnpm lint && pnpm build`
-   (uploader), `npx tsc --noEmit` (reencode), ruff/mypy (python).
+2. Mexeu em microserviço? Rode o lint dele: `pnpm lint && pnpm typecheck &&
+   pnpm build` (uploader e video; no video também `pnpm test`), ruff/mypy
+   (python).
 3. Mexeu em tela? Suba (`make up` ou `php artisan serve` + `npm run build`)
    e olhe no navegador. Blade novo com componente renomeado exige
    `php artisan view:clear`.
@@ -97,13 +99,13 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
   `immutable_date` nativo grava hora junto e quebra o sqlite dos testes).
 - `PlatformSetting::isEnabled()` é memoizado com `once()` — não alterne o
   toggle e leia pelo helper na mesma request.
-- Auto Merge: `gh pr merge` (GraphQL) dá 403 com GITHUB_TOKEN — usar REST; e
-  bloco `permissions:` zera escopos não listados (`actions: read` é
-  obrigatório pra listar runs). PR que altera `.github/workflows/` sempre
-  pede merge manual.
+- Auto Merge está DESATIVADO (`gh workflow enable automerge.yml` religa). Se
+  religar: ele mergeia sozinho segundos após o `tests` ficar verde, então
+  qualquer push vira merge sem revisão.
 - TikTok `DRY_RUN=true` no dev — publicação real é irreversível.
-- AutoCaption só renderiza com GPU/CUDA; em macOS valide só o 202 + falha
-  graciosa.
+- O `transcriber` só transcreve e exige GPU/CUDA; o render do template roda
+  no `video` (ffmpeg/libx264) e funciona em macOS. Job COM legenda falha
+  gracioso na transcrição fora de máquina com CUDA.
 
 ## Runbook de deploy (mudanças estruturais)
 
