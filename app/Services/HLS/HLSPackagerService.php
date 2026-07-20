@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * Client do microserviço de HLS (porta 8795): empacota o vídeo em ABR
+ * Client do endpoint /package do microserviço de vídeo (porta 8790): empacota o vídeo em ABR
  * (360p/720p/1080p, fMP4/CMAF) e devolve o desfecho por webhook.
  *
  * Diferente dos outros clients, aqui trafegam CHAVES e não bytes: um vídeo de

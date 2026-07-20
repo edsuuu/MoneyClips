@@ -1,0 +1,16 @@
+{"segments":[
+ {"start":0.0,"end":2.6,"words":[
+   {"word":" Olá","start":0.0,"end":0.31},
+   {"word":", pessoal","start":0.31,"end":0.9},
+   {"word":"tudo","start":null,"end":1.4},
+   {"word":"bem","start":1.4,"end":null},
+   {"word":"?","start":2.0,"end":2.2},
+   {"word":"vamos","start":2.2,"end":2.6}]},
+ {"start":3.0,"end":9.5,"words":[
+   {"word":"comecar","start":3.0,"end":3.4},
+   {"word":"esse","start":3.4,"end":3.6},
+   {"word":"video","start":3.6,"end":9.4},
+   {"word":"agora","start":9.4,"end":9.5},
+   {"word":"   ","start":9.5,"end":9.5},
+   {"word":"final","start":null,"end":null}]}
+]}

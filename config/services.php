@@ -109,8 +109,11 @@ return [
         'api_token' => env('REENCODE_API_TOKEN', ''),
     ],
 
+    // `reencode` e `hls` são endpoints do MESMO serviço (MicroServices/Video,
+    // :8790) — as chaves seguem separadas porque os timeouts são de ordens
+    // diferentes (900s síncrono × 60s pra receber o 202).
     'hls' => [
-        'base_url' => env('HLS_URL', 'http://127.0.0.1:8795'),
+        'base_url' => env('HLS_URL', 'http://127.0.0.1:8790'),
         'timeout' => (int) env('HLS_TIMEOUT', 60),
         'api_token' => env('HLS_API_TOKEN', ''),
         'webhook_url' => env(
@@ -131,7 +134,7 @@ return [
     ],
 
     'autocaption' => [
-        'base_url' => env('AUTOCAPTION_URL', 'http://127.0.0.1:8780'),
+        'base_url' => env('AUTOCAPTION_URL', 'http://127.0.0.1:8790'),
         'timeout' => (int) env('AUTOCAPTION_TIMEOUT', 300),
         'webhook_url' => env(
             'AUTOCAPTION_WEBHOOK_URL',
