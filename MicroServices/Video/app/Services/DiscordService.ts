@@ -4,9 +4,9 @@
  */
 
 import { settings } from '@/Config/Env';
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 
-export class DiscordService {
+export class DiscordService extends Logger {
     public async sendMessage(content: string): Promise<void> {
         if (settings.discordWebhookUrl === '') {
             return;
@@ -20,10 +20,10 @@ export class DiscordService {
             });
 
             if (!response.ok) {
-                logger.warn(`Discord respondeu ${String(response.status)}.`);
+                this.warn(`Discord respondeu ${String(response.status)}.`);
             }
         } catch (error) {
-            logger.warn(`Falha ao enviar ao Discord: ${this.toMessage(error)}`);
+            this.warn(`Falha ao enviar ao Discord: ${this.toMessage(error)}`);
         }
     }
 

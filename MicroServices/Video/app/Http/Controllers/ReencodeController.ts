@@ -1,11 +1,13 @@
 import type { Request, Response } from 'express';
 import { unlink } from 'node:fs/promises';
 
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 import { ReencodeQueueService } from '@/Services/ReencodeQueueService';
 
-export class ReencodeController {
-    public constructor(private readonly queue: ReencodeQueueService) {}
+export class ReencodeController extends Logger {
+    public constructor(private readonly queue: ReencodeQueueService) {
+        super();
+    }
 
     /**
      * SÍNCRONO (ao contrário do /package): o Laravel envia o binário por
@@ -36,7 +38,7 @@ export class ReencodeController {
             res.setHeader('X-Reencode', 'completed');
             res.sendFile(result.outputPath, (error) => {
                 if (error) {
-                    logger.error(`Falha ao enviar o vídeo recodificado: ${error.message}`);
+                    this.error(`Falha ao enviar o vídeo recodificado: ${error.message}`);
                 }
 
                 void this.removeQuietly(result.outputPath);

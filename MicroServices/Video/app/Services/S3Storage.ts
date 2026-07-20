@@ -6,7 +6,7 @@ import type { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
 import { settings } from '@/Config/Env';
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 
 /**
  * Acesso ao storage S3-compatível (endpoint/credencial vêm do ambiente — AWS
@@ -15,7 +15,7 @@ import { logger } from '@/Config/Logger';
  * o Laravel para subir um a um seria inviável. A policy da credencial usada
  * aqui deve ser restrita a leitura em `uploads/*` e escrita em `hls/*`.
  */
-export class S3Storage {
+export class S3Storage extends Logger {
     private static readonly CONTENT_TYPES: Record<string, string> = {
         '.m3u8': 'application/vnd.apple.mpegurl',
         '.m4s': 'video/iso.segment',
@@ -28,6 +28,7 @@ export class S3Storage {
     private readonly client: S3Client;
 
     public constructor() {
+        super();
         this.client = new S3Client({
             endpoint: settings.storageEndpoint,
             region: settings.storageRegion,
@@ -84,7 +85,7 @@ export class S3Storage {
         );
 
         await Promise.all(workers);
-        logger.info(`Subiu ${String(files.length)} arquivos para ${keyPrefix}/`);
+        this.info(`Subiu ${String(files.length)} arquivos para ${keyPrefix}/`);
 
         return files.length;
     }

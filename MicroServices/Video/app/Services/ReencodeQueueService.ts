@@ -4,7 +4,7 @@
  * longo (PackageQueueService) não pode fazer o Laravel esperar aqui.
  */
 
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 import { VideoReencoder } from '@/Services/Video/VideoReencoder';
 
 export interface ReencodeResult {
@@ -12,13 +12,15 @@ export interface ReencodeResult {
     outputPath: string;
 }
 
-export class ReencodeQueueService {
+export class ReencodeQueueService extends Logger {
     // ponytail: lock global via promise-chain — 1 ffmpeg por vez. Se um dia
     // precisar de paralelismo, o upgrade é uma fila com concorrência N.
     private chain: Promise<unknown> = Promise.resolve();
     private running = 0;
 
-    public constructor(private readonly reencoder: VideoReencoder = new VideoReencoder()) {}
+    public constructor(private readonly reencoder: VideoReencoder = new VideoReencoder()) {
+        super();
+    }
 
     public size(): number {
         return this.running;
@@ -29,7 +31,7 @@ export class ReencodeQueueService {
         this.running += 1;
 
         const task = async (): Promise<ReencodeResult> => {
-            logger.info(`Reencode solicitado: videoId=${videoId || 'sem-id'} arquivo=${videoPath}`);
+            this.info(`Reencode solicitado: videoId=${videoId || 'sem-id'} arquivo=${videoPath}`);
             const outputPath = await this.reencoder.reencodeIfNeeded(
                 videoPath,
                 videoId || 'sem-id',

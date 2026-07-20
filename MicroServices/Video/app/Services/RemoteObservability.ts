@@ -11,7 +11,7 @@
 
 import { hostname } from 'node:os';
 
-import { logger, type LogLevel } from '@/Config/Logger';
+import { Logger, type LogLevel } from '@/Config/Logger';
 
 interface LogEntry {
     level: string;
@@ -20,7 +20,7 @@ interface LogEntry {
     logged_at: string;
 }
 
-export class RemoteObservability {
+export class RemoteObservability extends Logger {
     private static readonly FLUSH_INTERVAL_MS = 2_000;
     private static readonly FLUSH_MAX_ENTRIES = 20;
     private static readonly HEARTBEAT_INTERVAL_MS = 30_000;
@@ -42,14 +42,14 @@ export class RemoteObservability {
         this.service = process.env['SERVICE_NAME'] ?? serviceName;
 
         if (this.baseUrl === '' || this.token === '') {
-            logger.warn(
+            this.warn(
                 '[Observability] OBSERVABILITY_URL/OBSERVABILITY_TOKEN não configurados — push remoto desativado.',
             );
 
             return;
         }
 
-        logger.addSink((level, message) => {
+        Logger.addSink((level: LogLevel, message: string) => {
             this.collect(level, message);
         });
 
@@ -62,7 +62,7 @@ export class RemoteObservability {
             this.heartbeat();
         }, RemoteObservability.HEARTBEAT_INTERVAL_MS).unref();
 
-        logger.info(`[Observability] Push remoto ligado (${this.service} → ${this.baseUrl}).`);
+        this.info(`[Observability] Push remoto ligado (${this.service} → ${this.baseUrl}).`);
     }
 
     private collect(level: LogLevel, message: string): void {

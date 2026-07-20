@@ -1,19 +1,21 @@
 import type { NextFunction, Request, Response } from 'express';
 import multer from 'multer';
 
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 import { ValidationError } from '@/Exceptions/ValidationError';
 import { discord, DiscordService } from '@/Services/DiscordService';
 
-export class ErrorHandler {
-    public constructor(private readonly notifier: DiscordService = discord) {}
+export class ErrorHandler extends Logger {
+    public constructor(private readonly notifier: DiscordService = discord) {
+        super();
+    }
 
     // O 4º parâmetro (next) é obrigatório para o Express reconhecer isto como
     // handler de erro, mesmo sem uso.
     public handle = (error: unknown, req: Request, res: Response, _next: NextFunction): void => {
         const message = error instanceof Error ? error.message : String(error);
         const details = error instanceof ValidationError ? ` ${JSON.stringify(error.details)}` : '';
-        logger.error(`Erro na rota ${req.method} ${req.url}: ${message}${details}`);
+        this.error(`Erro na rota ${req.method} ${req.url}: ${message}${details}`);
 
         if (error instanceof ValidationError) {
             res.status(422).json({ detail: error.message, errors: error.details });

@@ -13,7 +13,7 @@ import { basename, dirname, extname, join } from 'node:path';
 import { promisify } from 'node:util';
 
 import { settings } from '@/Config/Env';
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 
 const execFileAsync = promisify(execFile);
 
@@ -50,7 +50,7 @@ interface VideoMeta {
     fileSize: number; // bytes
 }
 
-export class VideoReencoder {
+export class VideoReencoder extends Logger {
     // Cache da detecção de NVENC — evita rodar probes de runtime a cada vídeo.
     private nvencAvailable: boolean | null = null;
 
@@ -62,9 +62,7 @@ export class VideoReencoder {
      */
     public async reencodeIfNeeded(videoPath: string, videoId: string): Promise<string> {
         if (!settings.reencodeEnabled) {
-            logger.info(
-                '[Reencode] Desabilitado (REENCODE_ENABLED=false); usando arquivo original.',
-            );
+            this.info('[Reencode] Desabilitado (REENCODE_ENABLED=false); usando arquivo original.');
 
             return videoPath;
         }
@@ -74,26 +72,26 @@ export class VideoReencoder {
             before = await this.probe(videoPath);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            logger.warn(`[Reencode] ffprobe falhou (${message}); usando arquivo original.`);
+            this.warn(`[Reencode] ffprobe falhou (${message}); usando arquivo original.`);
 
             return videoPath;
         }
 
         const useNvenc = await this.detectNvenc();
-        logger.info(
+        this.info(
             `[Reencode] Encoder: ${useNvenc ? 'h264_nvenc (GPU)' : 'libx264 (CPU fallback)'}`,
         );
-        logger.info('[Reencode] Metadados originais:');
-        logger.info(`    youtube_id  : ${videoId}`);
-        logger.info(`    resolução   : ${before.width ?? '?'}x${before.height ?? '?'}`);
-        logger.info(`    duração     : ${this.formatDuration(before.duration)}`);
-        logger.info(`    bitrate vid : ${this.formatMbps(before.videoBitrate)}`);
-        logger.info(`    codec       : ${before.codec} (${before.profile})`);
-        logger.info(`    tamanho     : ${this.formatMb(before.fileSize)}`);
+        this.info('[Reencode] Metadados originais:');
+        this.info(`    youtube_id  : ${videoId}`);
+        this.info(`    resolução   : ${before.width ?? '?'}x${before.height ?? '?'}`);
+        this.info(`    duração     : ${this.formatDuration(before.duration)}`);
+        this.info(`    bitrate vid : ${this.formatMbps(before.videoBitrate)}`);
+        this.info(`    codec       : ${before.codec} (${before.profile})`);
+        this.info(`    tamanho     : ${this.formatMb(before.fileSize)}`);
 
         const thresholdBps = settings.reencodeBitrateThresholdKbps * 1000;
         if (before.videoBitrate > 0 && before.videoBitrate >= thresholdBps) {
-            logger.info(
+            this.info(
                 `[Reencode] Bitrate acima do limiar (${String(settings.reencodeBitrateThresholdKbps)} kbps); ` +
                     'reencode não necessário.',
             );
@@ -106,7 +104,7 @@ export class VideoReencoder {
             `${basename(videoPath, extname(videoPath))}_HQ.mp4`,
         );
 
-        logger.info('[Reencode] Recodificando (CQ/CRF 18)...');
+        this.info('[Reencode] Recodificando (CQ/CRF 18)...');
         const startedAt = Date.now();
 
         if (!(await this.encode(videoPath, outputPath, useNvenc))) {
@@ -119,17 +117,17 @@ export class VideoReencoder {
         } catch {
             // Reencode gerou o arquivo mas ffprobe do resultado falhou — publica
             // o recodificado mesmo assim (o objetivo já foi cumprido).
-            logger.info(`[Reencode] Concluído em ${String(Date.now() - startedAt)}ms.`);
+            this.info(`[Reencode] Concluído em ${String(Date.now() - startedAt)}ms.`);
 
             return outputPath;
         }
 
-        logger.info(`[Reencode] Concluído em ${String(Date.now() - startedAt)}ms.`);
-        logger.info('[Reencode] Metadados finais:');
-        logger.info(
+        this.info(`[Reencode] Concluído em ${String(Date.now() - startedAt)}ms.`);
+        this.info('[Reencode] Metadados finais:');
+        this.info(
             `    bitrate vid : ${this.formatMbps(after.videoBitrate)}   (${this.percentDelta(before.videoBitrate, after.videoBitrate)})`,
         );
-        logger.info(
+        this.info(
             `    tamanho     : ${this.formatMb(after.fileSize)}     (${this.percentDelta(before.fileSize, after.fileSize)})`,
         );
 
@@ -146,14 +144,14 @@ export class VideoReencoder {
             const message = error instanceof Error ? error.message : String(error);
 
             if (!useNvenc) {
-                logger.warn(`[Reencode] libx264 falhou (${message}); usando arquivo original.`);
+                this.warn(`[Reencode] libx264 falhou (${message}); usando arquivo original.`);
 
                 return false;
             }
 
             // NVENC pode falhar em runtime (driver ausente no host) mesmo
             // detectado no `-encoders`; cai para libx264 e não redetecta NVENC.
-            logger.warn(`[Reencode] NVENC falhou (${message}); tentando libx264 (CPU)...`);
+            this.warn(`[Reencode] NVENC falhou (${message}); tentando libx264 (CPU)...`);
             this.nvencAvailable = false;
 
             try {
@@ -162,7 +160,7 @@ export class VideoReencoder {
                 return true;
             } catch (cpuError) {
                 const cpuMessage = cpuError instanceof Error ? cpuError.message : String(cpuError);
-                logger.warn(
+                this.warn(
                     `[Reencode] libx264 também falhou (${cpuMessage}); usando arquivo original.`,
                 );
 
@@ -212,7 +210,7 @@ export class VideoReencoder {
             );
             this.nvencAvailable = true;
         } catch (error) {
-            logger.warn(
+            this.warn(
                 `[Reencode] h264_nvenc indisponível em runtime (${this.processErrorMessage(error)}); usando libx264.`,
             );
             this.nvencAvailable = false;

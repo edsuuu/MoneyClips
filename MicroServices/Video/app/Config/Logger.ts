@@ -11,43 +11,44 @@ const COLORS: Record<LogLevel, string> = {
 
 const RESET = '\x1b[0m';
 
-export class Logger {
-    private readonly sinks: LogSink[] = [];
+/**
+ * Base de log: quem precisa logar estende e chama `this.info(...)`.
+ *
+ * Os sinks são ESTÁTICOS de propósito — a observabilidade remota registra um
+ * só e ele tem que valer para todas as subclasses. Se fossem de instância,
+ * cada objeto teria seu próprio destino e só o log de quem registrou subiria
+ * pro Laravel.
+ */
+export abstract class Logger {
+    private static readonly sinks: LogSink[] = [];
 
-    /**
-     * Registra um destino extra (a observabilidade remota usa isto). O console
-     * segue como saída primária — um sink NUNCA substitui a escrita local, e por
-     * isso não existe monkey-patch dos métodos aqui.
-     */
-    public addSink(sink: LogSink): void {
-        this.sinks.push(sink);
+    public static addSink(sink: LogSink): void {
+        Logger.sinks.push(sink);
     }
 
-    public debug(message: string): void {
-        this.write('debug', message);
-    }
-
-    public info(message: string): void {
-        this.write('info', message);
-    }
-
-    public warn(message: string): void {
-        this.write('warn', message);
-    }
-
-    public error(message: string): void {
-        this.write('error', message);
-    }
-
-    private write(level: LogLevel, message: string): void {
+    private static write(level: LogLevel, message: string): void {
         const ts = new Date().toTimeString().slice(0, 8);
         const stream = level === 'error' ? console.error : console.log;
         stream(`${COLORS[level]}[${ts}] ${level.toUpperCase().padEnd(5)}${RESET} ${message}`);
 
-        for (const sink of this.sinks) {
+        for (const sink of Logger.sinks) {
             sink(level, message);
         }
     }
-}
 
-export const logger = new Logger();
+    protected debug(message: string): void {
+        Logger.write('debug', message);
+    }
+
+    protected info(message: string): void {
+        Logger.write('info', message);
+    }
+
+    protected warn(message: string): void {
+        Logger.write('warn', message);
+    }
+
+    protected error(message: string): void {
+        Logger.write('error', message);
+    }
+}

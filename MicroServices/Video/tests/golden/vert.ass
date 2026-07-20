@@ -1,0 +1,23 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 0
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Default,Realist Clostan,72,&H00FFFFFF,&H0000FFFF,&H00000000,&H64000000,-1,-1,0,0,100,100,0,0,1,6,2,2,40,40,300,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:00.31,Default,,0,0,0,,{\c&H0000FFFF&}OLÁ{\c&H00FFFFFF&} {\alpha&HFF&}PESSOAL{\alpha&H00&} {\alpha&HFF&}TUDO{\alpha&H00&}
+Dialogue: 0,0:00:00.31,0:00:00.90,Default,,0,0,0,,OLÁ {\c&H0000FFFF&}PESSOAL{\c&H00FFFFFF&} {\alpha&HFF&}TUDO{\alpha&H00&}
+Dialogue: 0,0:00:00.90,0:00:01.40,Default,,0,0,0,,OLÁ PESSOAL {\c&H0000FFFF&}TUDO{\c&H00FFFFFF&}
+Dialogue: 0,0:00:01.40,0:00:02.20,Default,,0,0,0,,{\c&H0000FFFF&}BEM{\c&H00FFFFFF&} {\alpha&HFF&}VAMOS{\alpha&H00&}
+Dialogue: 0,0:00:02.20,0:00:02.60,Default,,0,0,0,,BEM {\c&H0000FFFF&}VAMOS{\c&H00FFFFFF&}
+Dialogue: 0,0:00:03.00,0:00:03.40,Default,,0,0,0,,{\c&H0000FFFF&}COMECAR{\c&H00FFFFFF&} {\alpha&HFF&}ESSE{\alpha&H00&}
+Dialogue: 0,0:00:03.40,0:00:03.60,Default,,0,0,0,,COMECAR {\c&H0000FFFF&}ESSE{\c&H00FFFFFF&}
+Dialogue: 0,0:00:03.60,0:00:09.40,Default,,0,0,0,,{\c&H0000FFFF&}VIDEO{\c&H00FFFFFF&}
+Dialogue: 0,0:00:09.40,0:00:09.50,Default,,0,0,0,,{\c&H0000FFFF&}AGORA{\c&H00FFFFFF&} {\alpha&HFF&}FINAL{\alpha&H00&}
+Dialogue: 0,0:00:09.50,0:00:09.55,Default,,0,0,0,,AGORA {\c&H0000FFFF&}FINAL{\c&H00FFFFFF&}

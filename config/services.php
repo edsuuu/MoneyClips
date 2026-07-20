@@ -134,7 +134,7 @@ return [
     ],
 
     'autocaption' => [
-        'base_url' => env('AUTOCAPTION_URL', 'http://127.0.0.1:8780'),
+        'base_url' => env('AUTOCAPTION_URL', 'http://127.0.0.1:8790'),
         'timeout' => (int) env('AUTOCAPTION_TIMEOUT', 300),
         'webhook_url' => env(
             'AUTOCAPTION_WEBHOOK_URL',

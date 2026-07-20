@@ -21,6 +21,27 @@ export class Env {
     public readonly reencodeBitrateThresholdKbps: number;
     public readonly discordWebhookUrl: string;
 
+    /** Diretório local do /videos (source, transcript, variantes renderizadas). */
+    public readonly captionStorageDir: string;
+    /** Serviço Python que só transcreve (faster-whisper). */
+    public readonly transcriberUrl: string;
+    public readonly transcriberTimeoutMs: number;
+    public readonly maxWordsPerLine: number;
+    public readonly maxLineDuration: number;
+    /** Resolvida pelo fontconfig (libass), não é caminho de arquivo. */
+    public readonly fontName: string;
+    public readonly fontSize: number;
+    public readonly highlightColor: string;
+    public readonly hideFutureWords: boolean;
+    public readonly subtitleOffset: number;
+    public readonly channelName: string;
+    public readonly channelHandle: string;
+    public readonly channelLogo: string;
+    /** Família de fonte do cabeçalho do template (SVG/fontconfig). */
+    public readonly templateFontFamily: string;
+    public readonly watermarkText: string;
+    public readonly outputVariants: string;
+
     public constructor(env: NodeJS.ProcessEnv = process.env) {
         this.encoder = env['HLS_ENCODER'] === 'cpu' ? 'cpu' : 'gpu';
         this.segmentSeconds = Env.asInt(env['HLS_SEGMENT_SECONDS'], 6);
@@ -37,6 +58,26 @@ export class Env {
         this.reencodeEnabled = Env.asBool(env['REENCODE_ENABLED'], true);
         this.reencodeBitrateThresholdKbps = Env.asInt(env['REENCODE_BITRATE_THRESHOLD_KBPS'], 4000);
         this.discordWebhookUrl = Env.asStr(env['DISCORD_WEBHOOK_URL']);
+
+        this.captionStorageDir = Env.asStr(env['CAPTION_STORAGE_DIR'], './storage');
+        this.transcriberUrl = Env.asStr(env['TRANSCRIBER_URL'], 'http://127.0.0.1:8780');
+        this.transcriberTimeoutMs = Env.asInt(env['TRANSCRIBER_TIMEOUT_MS'], 1_800_000);
+        this.maxWordsPerLine = Env.asInt(env['MAX_WORDS_PER_LINE'], 3);
+        this.maxLineDuration = Env.asFloat(env['MAX_LINE_DURATION'], 2.5);
+        this.fontName = Env.asStr(env['FONT_NAME'], 'Realist Clostan');
+        this.fontSize = Env.asInt(env['FONT_SIZE'], 12);
+        this.highlightColor = Env.asStr(env['HIGHLIGHT_COLOR'], '&H0000FFFF&');
+        this.hideFutureWords = Env.asBool(env['HIDE_FUTURE_WORDS'], true);
+        this.subtitleOffset = Env.asFloat(env['SUBTITLE_OFFSET'], 0);
+        this.channelName = Env.asStr(env['CHANNEL_NAME'], 'meu_canal');
+        this.channelHandle = Env.asStr(env['CHANNEL_HANDLE'], '@meu_canal');
+        this.channelLogo = Env.asStr(env['CHANNEL_LOGO'], './assets/logo.png');
+        this.templateFontFamily = Env.asStr(env['TEMPLATE_FONT_FAMILY'], 'DejaVu Sans');
+        this.watermarkText = Env.asStr(env['WATERMARK_TEXT']);
+        this.outputVariants = Env.asStr(
+            env['OUTPUT_VARIANTS'],
+            'original,vertical,template_white,template_black',
+        );
     }
 
     private static asBool(value: string | undefined, fallback: boolean): boolean {
@@ -55,6 +96,12 @@ export class Env {
         const parsed = value !== undefined && value.trim() !== '' ? Number(value) : Number.NaN;
 
         return Number.isInteger(parsed) ? parsed : fallback;
+    }
+
+    private static asFloat(value: string | undefined, fallback: number): number {
+        const parsed = value !== undefined && value.trim() !== '' ? Number(value) : Number.NaN;
+
+        return Number.isFinite(parsed) ? parsed : fallback;
     }
 }
 

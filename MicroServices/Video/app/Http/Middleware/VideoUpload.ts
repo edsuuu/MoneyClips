@@ -11,7 +11,7 @@ export class VideoUpload {
 
     public readonly handle: RequestHandler;
 
-    public constructor() {
+    public constructor(field: string) {
         mkdirSync(VideoUpload.UPLOAD_DIR, { recursive: true });
 
         this.handle = multer({
@@ -21,8 +21,10 @@ export class VideoUpload {
                     cb(null, `${randomUUID()}${extname(file.originalname) || '.mp4'}`),
             }),
             limits: { fileSize: VideoUpload.MAX_UPLOAD_BYTES },
-        }).single('video');
+        }).single(field);
     }
 }
 
-export const videoUpload = new VideoUpload();
+/** POST /reencode manda o binário no campo `video`; POST /videos, em `file`. */
+export const videoUpload = new VideoUpload('video');
+export const captionUpload = new VideoUpload('file');

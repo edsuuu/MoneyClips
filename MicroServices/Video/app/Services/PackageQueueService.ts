@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { settings } from '@/Config/Env';
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 import { NotAVideoError } from '@/Exceptions/NotAVideoError';
 import { S3Storage } from '@/Services/S3Storage';
 import { HLSPackager } from '@/Services/Video/HLSPackager';
@@ -25,7 +25,7 @@ interface PackageJob {
  * ffmpeg é pesado e um empacotamento longo monopoliza CPU/GPU: a fila serializa
  * as execuções numa promise-chain (1 por vez), como no reencode.
  */
-export class PackageQueueService {
+export class PackageQueueService extends Logger {
     private static readonly PROGRESS_THROTTLE_MS = 10_000;
 
     private chain: Promise<unknown> = Promise.resolve();
@@ -37,7 +37,9 @@ export class PackageQueueService {
         private readonly ladderBuilder: LadderBuilder = new LadderBuilder(),
         private readonly packager: HLSPackager = new HLSPackager(),
         private readonly webhooks: WebhookService = new WebhookService(),
-    ) {}
+    ) {
+        super();
+    }
 
     public size(): number {
         return this.pending;
@@ -69,22 +71,22 @@ export class PackageQueueService {
         const sourcePath = join(jobDir, 'source');
         const outputDir = join(jobDir, 'out');
 
-        logger.info('='.repeat(50));
-        logger.info(`Empacotamento solicitado: ${job.uuid} (${job.videoKey})`);
+        this.info('='.repeat(50));
+        this.info(`Empacotamento solicitado: ${job.uuid} (${job.videoKey})`);
 
         try {
             await mkdir(outputDir, { recursive: true });
             await this.storage.download(job.videoKey, sourcePath);
 
             const meta = await this.probe.read(sourcePath);
-            logger.info(
+            this.info(
                 `Fonte: ${String(meta.width)}x${String(meta.height)} ${String(meta.durationSeconds)}s ` +
                     `${meta.videoCodec}/${meta.audioCodec || 'sem áudio'} ${String(meta.videoBitrateKbps)}kbps`,
             );
 
             const ladder = this.ladderBuilder.build(meta);
             const remux = this.ladderBuilder.canRemux(meta, ladder);
-            logger.info(
+            this.info(
                 `Ladder: ${ladder.map((rendition) => rendition.name).join(', ')}${remux ? ' (remux, sem reencode)' : ''}`,
             );
 
@@ -103,7 +105,7 @@ export class PackageQueueService {
                     }
                 },
             );
-            logger.info(`Encode: ${codec}`);
+            this.info(`Encode: ${codec}`);
 
             const poster = await this.extractPoster(sourcePath, outputDir, meta.durationSeconds);
             const hash = await this.hashFile(sourcePath);
@@ -120,10 +122,10 @@ export class PackageQueueService {
                 poster,
             });
 
-            logger.info(`Empacotamento concluído: ${job.uuid}`);
+            this.info(`Empacotamento concluído: ${job.uuid}`);
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            logger.error(`Empacotamento falhou (${job.uuid}): ${message}`);
+            this.error(`Empacotamento falhou (${job.uuid}): ${message}`);
 
             await this.webhooks.send(job.webhookUrl, {
                 uuid: job.uuid,
@@ -149,7 +151,7 @@ export class PackageQueueService {
             return true;
         } catch (error) {
             // Poster é enfeite: a ausência dele não invalida o empacotamento.
-            logger.warn(`Poster não extraído: ${(error as Error).message}`);
+            this.warn(`Poster não extraído: ${(error as Error).message}`);
             return false;
         }
     }

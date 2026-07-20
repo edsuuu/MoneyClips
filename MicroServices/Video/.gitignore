@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+
+# Jobs de legenda: source, wav, transcript e variantes renderizadas.
+storage/
+# Logo do canal (gerada em runtime quando não existe).
+assets/

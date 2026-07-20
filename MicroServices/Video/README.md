@@ -1,7 +1,7 @@
 # video
 
-Serviço de vídeo do MoneyClips — tudo que é ffmpeg mora aqui. Duas
-responsabilidades, dois endpoints, **duas filas independentes** (um
+Serviço de vídeo do MoneyClips — **todo ffmpeg da aplicação mora aqui**. Três
+responsabilidades, três endpoints, **três filas independentes** (um
 empacotamento de 3h não pode fazer o Laravel esperar num reencode síncrono):
 
 - **`/package`** — empacota vídeos longos em **HLS/ABR** para reprodução rápida
@@ -10,14 +10,17 @@ empacotamento de 3h não pode fazer o Laravel esperar num reencode síncrono):
   conforme a banda.
 - **`/reencode`** — recodifica shorts de bitrate baixo antes da publicação (o
   TikTok recusa alguns vídeos por "baixa qualidade").
+- **`/videos`** — legenda karaokê + moldura do canal (as variantes `original`,
+  `vertical`, `template_white`, `template_black`).
 
-Node 22 + Express + ffmpeg, nativo (sem Docker). Porta **8790**.
+Node 22 + Express + ffmpeg + sharp, nativo (sem Docker). Porta **8790**.
 
 ## Contrato
 
 ```
 GET  /health    → {status, encoder, segment_seconds, queued,          (aberto)
-                   reencode_enabled, threshold_kbps, reencodes_running}
+                   reencode_enabled, threshold_kbps, reencodes_running,
+                   captions_queued, transcriber_url}
 
 POST /package   → 202 {uuid}                                     (X-Api-Token)
      JSON {video_key, output_prefix, webhook_url}   — assíncrono, via webhook
@@ -25,6 +28,14 @@ POST /package   → 202 {uuid}                                     (X-Api-Token)
 POST /reencode  → 200 binário do vídeo (header X-Reencode: completed)
                   ou 200 {status: "skipped"} quando o bitrate já está ok
      multipart {video: <arquivo>, video_id?: "abc"}  — SÍNCRONO, sem S3
+
+POST /videos    → 202 {uuid}                                     — assíncrono
+     multipart {file, variants, caption_position, channel_name,
+                channel_handle, with_captions?, watermark_text?,
+                subtitle_offset?, webhook_url}
+GET  /videos                      → {videos: [status...]}
+GET  /videos/{uuid}               → status.json do job
+GET  /videos/{uuid}/output/{variant}  → mp4 renderizado
 ```
 
 O desfecho chega no webhook do Laravel (`POST /api/hls/webhook`):
@@ -103,6 +114,38 @@ hls/{uuid}/
   fallback para `libx264`, inclusive quando o NVENC falha em runtime.
 - **Nunca derruba a postagem**: ffprobe/ffmpeg falhando = devolve `skipped` e o
   Laravel publica o original.
+
+## Decisões da legenda/template
+
+- **A transcrição é o único passo que continua em Python** (`autocaption`,
+  :8780, faster-whisper/CUDA). Este serviço extrai o wav, faz `POST /transcribe`
+  e monta tudo o que vem depois.
+- **Um evento ASS por palavra**, redesenhando a linha inteira — não usa tag
+  `\k`. O fim de um evento é o início do próximo, então o destaque não pisca; as
+  palavras futuras ficam com `\alpha&HFF&`, invisíveis mas ainda ocupando
+  largura (é o que impede a linha de pular a cada palavra).
+- **Timestamp nulo é regra, não exceção**: o faster-whisper emite `start`/`end`
+  nulos. O preenchimento (herda o fim da anterior, procura o início da próxima,
+  piso de 50ms) está coberto por golden test — veja abaixo.
+- **Linha nunca atravessa segmento**: o agrupamento roda por segmento, com teto
+  de 3 palavras ou 2,5s.
+- **ffmpeg roda com `cwd` no diretório do job e nomes de arquivo relativos**: o
+  filtro `ass=` do libass trata `:` e `\` como metacaractere, então caminho
+  absoluto quebra o filtergraph.
+- **PNGs estáticos (moldura, marca d'água, máscara, logo) saem do sharp/SVG**,
+  substituindo o PIL. A fonte do cabeçalho passou a ser resolvida por *nome de
+  família* (fontconfig), não por caminho de TTF.
+
+## Testes
+
+```bash
+pnpm test     # golden test da legenda
+```
+
+Compara o `.ass`/`.srt` gerados com a saída do `subtitles.py` original do
+AutoCaption (`tests/golden/`, gerados pelo Python antes da migração). Legenda
+dessincronizada não estoura erro nenhum — sem esse diff, uma regressão só
+apareceria assistindo o vídeo.
 
 ## Rodar
 

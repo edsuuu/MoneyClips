@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { settings } from '@/Config/Env';
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 import type { Rendition } from '@/Services/Video/LadderBuilder';
 import type { VideoMeta } from '@/Services/Video/Probe';
 
@@ -14,7 +14,7 @@ import type { VideoMeta } from '@/Services/Video/Probe';
  * (`-force_key_frames` + `-sc_threshold 0`): sem isso o player trava ao trocar
  * de qualidade, porque os segmentos não são intercambiáveis.
  */
-export class HLSPackager {
+export class HLSPackager extends Logger {
     private encoderCache: string | null = null;
 
     public async package(
@@ -45,9 +45,7 @@ export class HLSPackager {
             }
             // O hardware pode recusar em runtime (driver, sessão esgotada, Mac
             // headless): CPU é melhor que perder um empacotamento de horas.
-            logger.warn(
-                `${codec} falhou em runtime, refazendo em CPU: ${(error as Error).message}`,
-            );
+            this.warn(`${codec} falhou em runtime, refazendo em CPU: ${(error as Error).message}`);
             await this.runFfmpeg(input, outputDir, ladder, meta, 'libx264', onProgress);
             return 'libx264';
         }
@@ -91,7 +89,7 @@ export class HLSPackager {
         }
 
         this.encoderCache = await this.pickEncoder();
-        logger.info(`Encoder: ${this.encoderCache} (SO ${process.platform})`);
+        this.info(`Encoder: ${this.encoderCache} (SO ${process.platform})`);
 
         return this.encoderCache;
     }
@@ -106,7 +104,7 @@ export class HLSPackager {
             if (await this.encoderWorks('h264_videotoolbox')) {
                 return 'h264_videotoolbox';
             }
-            logger.warn('VideoToolbox indisponível — empacotando em CPU (libx264).');
+            this.warn('VideoToolbox indisponível — empacotando em CPU (libx264).');
 
             return 'libx264';
         }
@@ -115,7 +113,7 @@ export class HLSPackager {
         if (await this.encoderWorks('h264_nvenc')) {
             return 'h264_nvenc';
         }
-        logger.warn('GPU NVIDIA/NVENC indisponível — empacotando em CPU (libx264).');
+        this.warn('GPU NVIDIA/NVENC indisponível — empacotando em CPU (libx264).');
 
         return 'libx264';
     }
@@ -280,7 +278,7 @@ export class HLSPackager {
         onProgress: (percent: number) => void,
     ): Promise<void> {
         const args = this.buildArgs(input, outputDir, ladder, meta, codec);
-        logger.info(`ffmpeg ${args.join(' ')}`);
+        this.info(`ffmpeg ${args.join(' ')}`);
 
         return new Promise((resolve, reject) => {
             const child = spawn('ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });

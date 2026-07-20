@@ -1,5 +1,5 @@
 import { settings } from '@/Config/Env';
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 import { Sleep } from '@/Utils/Sleep';
 
 export interface WebhookPayload {
@@ -13,6 +13,8 @@ export interface WebhookPayload {
     hash?: string;
     renditions?: string[];
     poster?: boolean;
+    /** Jobs de legenda: quais arquivos o job produziu. */
+    files?: Record<string, boolean>;
 }
 
 /**
@@ -20,7 +22,7 @@ export interface WebhookPayload {
  * job de horas termina, e perder o webhook deixaria o vídeo preso em
  * "packaging" — daí o backoff (0s/1s/5s/15s), igual ao download-shorts.
  */
-export class WebhookService {
+export class WebhookService extends Logger {
     private static readonly RETRY_DELAYS_MS = [0, 1_000, 5_000, 15_000];
     private static readonly TIMEOUT_MS = 30_000;
 
@@ -46,14 +48,14 @@ export class WebhookService {
 
                 return true;
             } catch (error) {
-                logger.warn(
+                this.warn(
                     `Webhook falhou (tentativa ${String(attempt)}/${String(WebhookService.RETRY_DELAYS_MS.length)}): ` +
                         `${error instanceof Error ? error.message : String(error)}`,
                 );
             }
         }
 
-        logger.error(
+        this.error(
             `Webhook desistiu após ${String(WebhookService.RETRY_DELAYS_MS.length)} tentativas: ${url}`,
         );
 

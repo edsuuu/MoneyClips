@@ -2,7 +2,7 @@ import express, { type Express } from 'express';
 import morgan from 'morgan';
 
 import { settings } from '@/Config/Env';
-import { logger } from '@/Config/Logger';
+import { Logger } from '@/Config/Logger';
 import { packageQueue } from '@/Services/PackageQueueService';
 import { observability } from '@/Services/RemoteObservability';
 
@@ -22,10 +22,11 @@ morgan.token('datetime', () => {
     );
 });
 
-export class App {
+export class App extends Logger {
     public readonly app: Express;
 
     public constructor(private readonly routers: Routers = new Routers()) {
+        super();
         this.app = express();
         this.middlewares();
     }
@@ -34,11 +35,11 @@ export class App {
         observability.start('video');
 
         const httpServer = this.app.listen(port, () => {
-            logger.info(`API do video ouvindo em http://0.0.0.0:${String(port)}`);
-            logger.info(
+            this.info(`API do video ouvindo em http://0.0.0.0:${String(port)}`);
+            this.info(
                 `encoder=${settings.encoder} | segmento=${String(settings.segmentSeconds)}s | bucket=${settings.storageBucket}`,
             );
-            logger.info(
+            this.info(
                 `reencode=${String(settings.reencodeEnabled)} | limiar=${String(settings.reencodeBitrateThresholdKbps)} kbps`,
             );
         });
@@ -49,20 +50,20 @@ export class App {
         httpServer.requestTimeout = 900_000;
 
         const shutdown = (): void => {
-            logger.info(`Encerrando API (${String(packageQueue.size())} job(s) na fila)...`);
+            this.info(`Encerrando API (${String(packageQueue.size())} job(s) na fila)...`);
             httpServer.close(() => process.exit(0));
         };
         process.on('SIGINT', shutdown);
         process.on('SIGTERM', shutdown);
 
         process.on('unhandledRejection', (reason: unknown) => {
-            logger.error(
+            this.error(
                 `unhandledRejection: ${reason instanceof Error ? reason.message : String(reason)}`,
             );
         });
 
         process.on('uncaughtException', (error: Error) => {
-            logger.error(`uncaughtException: ${error.message}`);
+            this.error(`uncaughtException: ${error.message}`);
         });
     }
 
