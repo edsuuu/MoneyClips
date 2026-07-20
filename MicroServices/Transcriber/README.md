@@ -1,4 +1,4 @@
-# AutoCaption
+# Transcriber
 
 Microserviço de **transcrição**. Recebe um wav e devolve o texto com
 **timestamps por palavra**, usando **faster-whisper (large-v3, pt-BR)** na

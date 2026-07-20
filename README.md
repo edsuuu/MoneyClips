@@ -49,7 +49,7 @@ Detalhes de tabelas, serviços e comandos em [`CLAUDE.md`](CLAUDE.md).
 | **download-shorts** | Python / FastAPI | 8770 | baixa Shorts de canais p/ o MinIO + webhook por item |
 | **tiktok-uploader** | Node 22 + Playwright | 8090 | publica no TikTok via navegador (assíncrono: 202 {job_id} + webhook) |
 | **video** | Node 22 + ffmpeg + sharp | 8790 | todo o ffmpeg: reencode (síncrono), HLS/ABR e render de legenda karaokê + template (assíncronos + webhook) |
-| **autocaption** | Python / faster-whisper (CUDA) | 8780 | só a transcrição (timestamps por palavra), chamada pelo `video` |
+| **transcriber** | Python / faster-whisper (CUDA) | 8780 | só a transcrição (timestamps por palavra), chamada pelo `video` |
 
 ## Rodando localmente
 
