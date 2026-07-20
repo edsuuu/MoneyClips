@@ -23,7 +23,7 @@ setup: setup-laravel setup-download setup-tiktok setup-video setup-transcriber  
 
 setup-laravel:           ## Laravel: composer + .env + key + pnpm
 	composer install
-	@test -f .env || cp .env.example .env
+	@test -f .env || echo "APP_KEY=" > .env
 	php artisan key:generate
 	pnpm install
 
