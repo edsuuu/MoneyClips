@@ -21,7 +21,7 @@ Exceção: `download-shorts` (produtor de vídeo) sobe direto pro MinIO.
 | `DownloadShorts` | Python / FastAPI + yt-dlp | 8770 | `POST /shorts/download {channel_url, webhook_url}` → 202; baixa em pool e dispara 1 webhook por item; sobe direto pro MinIO |
 | `TikTokUploader` | Node 22 + Playwright + Express | 8090 | `GET /health` → `{status, dry_run, queue}`; `POST /posts` **multipart assíncrono** `{video, cookies, title, hashtags, webhook_url}` → `202 {job_id}`; fila serial em memória; webhook de conclusão `{job_id, status: completed\|dry-run\|restricted\|failed, session_status, refreshed_cookies?}`. Também `POST /session` e `POST /login` (login por credenciais) |
 | `Video` | Node 22 + Express + ffmpeg + sharp | 8790 | Todo o ffmpeg da aplicação, 3 endpoints e 3 filas independentes. `POST /reencode` **multipart síncrono** `{video, video_id?}` → binário `_HQ` (header `X-Reencode: completed`) ou JSON `{status: "skipped"}`, sem S3. `POST /package` **assíncrono** `{video_key, output_prefix, webhook_url}` → `202 {uuid}`; HLS/ABR lendo/escrevendo MinIO direto; webhook `{uuid, status: done\|failed\|rejected\|progress}`. `POST /videos` **assíncrono** multipart `{file, variants, caption_position, channel_name, channel_handle, webhook_url}` → `202 {uuid}`; legenda karaokê + template; webhook `{uuid, status: done\|failed, files}`; output em `GET /videos/{uuid}/output/{variant}`. `API_TOKEN` opcional |
-| `AutoCaption` | Python / FastAPI + faster-whisper (CUDA) | 8780 | **Só transcrição.** `POST /transcribe` multipart `{audio}` (wav mono 16kHz) → `{segments: [{start, end, text, words: [{word, start, end, score}]}], language}`. Quem chama é o `Video`, não o Laravel |
+| `Transcriber` | Python / FastAPI + faster-whisper (CUDA) | 8780 | **Só transcrição.** `POST /transcribe` multipart `{audio}` (wav mono 16kHz) → `{segments: [{start, end, text, words: [{word, start, end, score}]}], language}`. Quem chama é o `Video`, não o Laravel |
 | `GenerateClips` | Python / FastAPI | 8765 | fora do fluxo atual — não entra no `make up` |
 
 ### Observabilidade (OBSERVABILITY.md na raiz)
@@ -49,10 +49,10 @@ SERVICE_NAME=<nome do serviço>
 cd MicroServices/DownloadShorts && .venv/bin/python -m app.main
 cd MicroServices/TikTokUploader && pnpm dev
 cd MicroServices/Video && pnpm dev
-cd MicroServices/AutoCaption && .venv/bin/python -m app.main
+cd MicroServices/Transcriber && .venv/bin/python -m app.main
 ```
 
-> **AutoCaption e GPU:** a transcrição (faster-whisper) exige CUDA/Linux. Em
+> **Transcriber e GPU:** a transcrição (faster-whisper) exige CUDA/Linux. Em
 > macOS o serviço sobe e o render do template roda normal no `Video`
 > (ffmpeg/libx264), mas um job COM legenda falha gracioso na transcrição — o
 > Laravel registra `processing_jobs.failed` e avisa no Discord.

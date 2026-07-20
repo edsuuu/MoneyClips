@@ -7,7 +7,7 @@ from typing import Any
 
 from app.config.settings import settings
 
-logger = logging.getLogger("autocaption.pipeline.transcribe")
+logger = logging.getLogger("transcriber.pipeline.transcribe")
 
 _model: Any = None
 

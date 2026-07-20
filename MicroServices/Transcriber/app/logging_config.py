@@ -16,7 +16,7 @@ def configure_logging(level: str) -> None:
     handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(logging.Formatter(_FORMAT))
 
-    root = logging.getLogger("autocaption")
+    root = logging.getLogger("transcriber")
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(level.upper())
