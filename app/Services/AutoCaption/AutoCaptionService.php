@@ -11,11 +11,14 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * Client do microserviço AutoCaption (porta 8780): renderiza o template
- * (legenda karaokê + moldura com canal/@handle). O Laravel envia o binário
- * por multipart, o serviço processa assíncrono e avisa via webhook
+ * Client do endpoint /videos do microserviço de vídeo (porta 8790): renderiza o
+ * template (legenda karaokê + moldura com canal/@handle). O Laravel envia o
+ * binário por multipart, o serviço processa assíncrono e avisa via webhook
  * (/api/autocaption/webhook); o output é baixado daqui e gravado no MinIO
  * pelo Laravel — o serviço não toca no S3.
+ *
+ * O contrato é o mesmo do antigo AutoCaption (FastAPI :8780), que hoje só
+ * transcreve — quem chama a transcrição é o próprio serviço de vídeo.
  */
 final readonly class AutoCaptionService
 {
