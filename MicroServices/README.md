@@ -24,7 +24,7 @@ Exceção: `download-shorts` (produtor de vídeo) sobe direto pro MinIO.
 | `Transcriber` | Python / FastAPI + faster-whisper (CUDA) | 8780 | **Só transcrição.** `POST /transcribe` multipart `{audio}` (wav mono 16kHz) → `{segments: [{start, end, text, words: [{word, start, end, score}]}], language}`. Quem chama é o `Video`, não o Laravel |
 | `GenerateClips` | Python / FastAPI | 8765 | fora do fluxo atual — não entra no `make up` |
 
-### Observabilidade (OBSERVABILITY.md na raiz)
+### Observabilidade
 
 Todos os 4 serviços do fluxo têm push de logs + heartbeat pro Laravel
 (`RemoteObservability.ts` nos Node, `observability.py` nos Python) —
