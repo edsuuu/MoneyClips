@@ -1,3 +1,4 @@
+import { ClientLogger } from '../Support/ClientLogger';
 import { ReframeGeometry } from './ReframeGeometry';
 import { ReframeModes } from './ReframeModes';
 import { ReframeRenderer } from './ReframeRenderer';
@@ -110,7 +111,7 @@ export class ReframeEditor {
         if (!this.duration) return;
 
         if (this._video.paused) {
-            void this._video.play();
+            this._video.play().catch((error: unknown) => ClientLogger.send('warning', `play() recusado: ${String(error)}`));
 
             return;
         }
@@ -294,6 +295,9 @@ export class ReframeEditor {
                 this.editId = id;
                 this.dirty = false;
             }
+        } catch (error) {
+            ClientLogger.send('error', `Falha ao salvar o reframe: ${String(error)}`, { editId: this.editId });
+            this.$dispatch('toast', { message: 'Não foi possível salvar. Tente de novo.', variant: 'error' });
         } finally {
             this.saving = false;
         }
@@ -310,7 +314,7 @@ export class ReframeEditor {
             this._video.src = url;
             this._video.addEventListener('loadedmetadata', () => {
                 this._video.currentTime = t;
-                if (wasPlaying) void this._video.play();
+                if (wasPlaying) this._video.play().catch(() => undefined);
             }, { once: true });
         } catch {
             return;

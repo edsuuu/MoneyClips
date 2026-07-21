@@ -25,7 +25,11 @@ window.MultipartUploader = MultipartUploader;
 window.ReframeEditor = ReframeEditor;
 window.VideoUploader = VideoUploader;
 
-window.initAdaptiveVideoPlayer = (element: HTMLVideoElement): void => void HlsPlayer.attach(element);
+window.initAdaptiveVideoPlayer = (element: HTMLVideoElement): void => {
+    HlsPlayer.attach(element).catch((error: unknown) => {
+        ClientLogger.send('error', `Player HLS falhou ao montar: ${String(error)}`);
+    });
+};
 
 ClientLogger.install();
 

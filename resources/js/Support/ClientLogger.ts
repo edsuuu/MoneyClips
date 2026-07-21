@@ -59,9 +59,17 @@ export class ClientLogger {
 
     private static describe(reason: unknown): string {
         if (reason instanceof Error) {
-            return reason.message;
+            return `${reason.name}: ${reason.message}`;
         }
 
-        return typeof reason === 'string' ? reason : JSON.stringify(reason);
+        if (typeof reason === 'string') {
+            return reason;
+        }
+
+        try {
+            return `${Object.prototype.toString.call(reason)} ${JSON.stringify(reason)}`;
+        } catch {
+            return String(reason);
+        }
     }
 }
