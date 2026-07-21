@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Livewire\Upload;
+namespace App\Livewire\Uploads;
 
 use App\Models\Video;
 use Illuminate\View\View;
@@ -13,11 +13,11 @@ use Livewire\Component;
  * MinIO (resources/js/multipart-uploader.js), então o componente não recebe
  * arquivo — só oferece os limites e o destino para o JS.
  */
-final class Index extends Component
+final class Create extends Component
 {
     public function render(): View
     {
-        return view('livewire.upload.index', [
+        return view('livewire.uploads.create', [
             'maxLabel' => Video::MAX_GIGABYTES.'GB',
             'maxBytes' => Video::MAX_BYTES,
             'acceptedLabel' => 'MP4, MOV, WEBM',

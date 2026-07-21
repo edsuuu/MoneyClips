@@ -1,3 +1,3 @@
 <x-app-layout :title="__('Enviar vídeo')">
-    <livewire:upload.index />
+    <livewire:uploads.create />
 </x-app-layout>
