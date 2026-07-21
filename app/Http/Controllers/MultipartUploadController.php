@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\TooManyOpenUploadsException;
+use App\Exceptions\UploadAlreadyCompletedException;
+use App\Exceptions\UploadRejectedException;
+use App\Exceptions\UploadSessionClosedException;
 use App\Http\Requests\Upload\CompleteUploadRequest;
 use App\Http\Requests\Upload\SignUploadPartsRequest;
 use App\Http\Requests\Upload\StoreUploadRequest;
@@ -15,10 +19,6 @@ use App\Jobs\StartHLSPackagingJob;
 use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
 use App\Services\Upload\MultipartUploadInterface;
-use App\Services\Upload\TooManyOpenUploadsException;
-use App\Services\Upload\UploadAlreadyCompletedException;
-use App\Services\Upload\UploadRejectedException;
-use App\Services\Upload\UploadSessionClosedException;
 use App\Services\Upload\VideoSignatureService;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
