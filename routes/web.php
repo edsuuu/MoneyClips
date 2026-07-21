@@ -3,12 +3,8 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\HLSStreamController;
+use App\Http\Controllers\MultipartUploadController;
 use App\Http\Controllers\OAuthController;
-use App\Http\Controllers\Upload\AbortMultipartUploadController;
-use App\Http\Controllers\Upload\CompleteMultipartUploadController;
-use App\Http\Controllers\Upload\CreateMultipartUploadController;
-use App\Http\Controllers\Upload\ListUploadPartsController;
-use App\Http\Controllers\Upload\SignUploadPartsController;
 use App\Livewire\Uploads\Show as ShowUpload;
 use Illuminate\Support\Facades\Route;
 
@@ -41,11 +37,11 @@ Route::middleware(['auth'])->group(function (): void {
 
     // Upload multipart: o Laravel só assina e confere — os bytes vão do browser
     // direto para o MinIO, fora dos limites do PHP.
-    Route::post('/uploads', CreateMultipartUploadController::class)->name('uploads.create');
-    Route::get('/uploads/{video:uuid}/parts', ListUploadPartsController::class)->name('uploads.parts.index');
-    Route::post('/uploads/{video:uuid}/parts', SignUploadPartsController::class)->name('uploads.parts.sign');
-    Route::post('/uploads/{video:uuid}/complete', CompleteMultipartUploadController::class)->name('uploads.complete');
-    Route::delete('/uploads/{video:uuid}', AbortMultipartUploadController::class)->name('uploads.abort');
+    Route::post('/uploads', [MultipartUploadController::class, 'store'])->name('uploads.create');
+    Route::get('/uploads/{video:uuid}/parts', [MultipartUploadController::class, 'parts'])->name('uploads.parts.index');
+    Route::post('/uploads/{video:uuid}/parts', [MultipartUploadController::class, 'sign'])->name('uploads.parts.sign');
+    Route::post('/uploads/{video:uuid}/complete', [MultipartUploadController::class, 'complete'])->name('uploads.complete');
+    Route::delete('/uploads/{video:uuid}', [MultipartUploadController::class, 'destroy'])->name('uploads.abort');
 
     Route::view('/meus-videos', 'videos.index')->name('videos.index');
     Route::redirect('/downloads', '/meus-videos');
