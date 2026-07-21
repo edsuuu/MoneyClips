@@ -58,18 +58,14 @@ Route::middleware(['auth'])->group(function (): void {
         });
 
     Route::view('/meus-videos', 'videos.index')->name('videos.index');
-    Route::redirect('/downloads', '/meus-videos');
 
     Route::view('/agenda', 'schedule.index')->name('agenda.index');
 
     Route::view('/estudio-de-cortes', 'reframe.index')->name('reframe.index');
 
-    Route::view('/social-accounts', 'settings.accounts')->name('social-accounts');
-
     Route::view('/contas', 'accounts.index')->name('accounts.index');
 
     Route::view('/observabilidade', 'observability.index')->name('observability.index');
-    Route::redirect('/microservices', '/observabilidade');
 
     Route::prefix('oauth/{platform}')
         ->name('oauth.')
