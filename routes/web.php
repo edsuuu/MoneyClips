@@ -12,8 +12,8 @@ Route::view('/', 'home.welcome')->name('home');
 
 Route::get('/login', fn () => to_route('home', ['login' => 1]))->middleware('guest')->name('login');
 
-Route::view('/terms-of-service', 'legal.terms')->name('legal.terms');
-Route::view('/privacy-policy', 'legal.privacy')->name('legal.privacy');
+Route::view('/termos-de-servico', 'legal.terms')->name('legal.terms');
+Route::view('/politica-de-privacidade', 'legal.privacy')->name('legal.privacy');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/oauth2/google/redirect', [OAuthController::class, 'loginRedirect'])->name('auth.google.redirect');
