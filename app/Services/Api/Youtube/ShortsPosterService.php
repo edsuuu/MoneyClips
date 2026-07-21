@@ -25,7 +25,7 @@ final readonly class ShortsPosterService
             ->latest('id')
             ->first();
 
-        throw_if($account === null, RuntimeException::class, 'Nenhuma conta do YouTube conectada. Conecte em /social-accounts ou rode: php artisan youtube:link');
+        throw_if($account === null, RuntimeException::class, 'Nenhuma conta do YouTube conectada. Conecte em /contas ou rode: php artisan youtube:link');
 
         $videoPath = $short->postableVideoPath();
         if ($videoPath === '') {

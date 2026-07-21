@@ -210,12 +210,13 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | --- | --- | --- |
 | `/meus-videos` | `App\Livewire\Videos\Index` (+ `TemplateEditor`) | estoque com tabs Disponíveis (Baixados/Prontos), Editor de template, Com template, Postados; postagem instantânea; novo download |
 | `/agenda` | `App\Livewire\Schedule\Index` | kanban semanal de slots (rascunho + "Salvar agenda"), picker de vídeo, drag&drop, "Gerar semana", "Forçar agora", visão Mês, toggles por plataforma |
-| `/upload` | `App\Livewire\Upload\Index` | envio de vídeo longo (multipart direto pro MinIO, com retomada) |
+| `/upload` | `App\Livewire\Uploads\Create` | envio de vídeo longo (multipart direto pro MinIO, com retomada) |
 | `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo |
 | `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok email/senha + status de sessão; YouTube OAuth) com toggle por conta |
 | `/observabilidade` | `App\Livewire\Observability\Index` | logs + heartbeats dos microserviços |
 
-Redirects legados: `/downloads` → `/meus-videos`; `/microservices` → `/observabilidade`.
+Não existe redirect legado: cada tela tem UMA rota. Link novo aponta pra rota
+final — nada de `Route::redirect` pra não mexer na navbar.
 
 ## Comandos artisan
 
@@ -401,3 +402,5 @@ make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
 - Telas `App\Livewire\Downloads\*` (viraram `/meus-videos`).
 - Colunas `users.auto_post_{youtube,tiktok}_enabled` → `platform_settings`.
 - Reencode por chave S3 + fila em memória + webhook → multipart síncrono.
+- `App\Livewire\Settings\Accounts` + rota `/social-accounts` (duplicata de
+  `/contas`) e os redirects `/downloads` e `/microservices`.
