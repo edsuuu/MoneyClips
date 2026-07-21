@@ -6,8 +6,6 @@ use Illuminate\Support\Facades\Route;
 use Laravel\Fortify\Features;
 
 Route::middleware(['auth'])->group(function (): void {
-    Route::redirect('configuracoes', 'configuracoes/perfil');
-
     Route::view('configuracoes/perfil', 'settings.profile')->name('profile.edit');
 });
 
