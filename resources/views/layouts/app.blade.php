@@ -5,14 +5,6 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <meta name="csrf-token" content="{{ csrf_token() }}" />
 
-        <script>
-            window.applyStoredTheme = () => {
-                document.documentElement.classList.toggle('dark', (localStorage.theme ?? 'dark') === 'dark');
-            };
-
-            window.applyStoredTheme();
-        </script>
-
         <title>
             {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
         </title>

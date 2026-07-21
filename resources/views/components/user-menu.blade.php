@@ -30,24 +30,6 @@
         {{ __('Settings') }}
     </x-ui.menu-item>
 
-    <x-ui.menu-item
-        x-data
-        x-on:click="$store.theme.toggle()"
-        role="switch"
-        x-bind:aria-checked="$store.theme.dark"
-        data-test="theme-toggle"
-    >
-        <x-ui.icon name="sun" class="dark:hidden" />
-        <x-ui.icon name="moon" class="hidden dark:block" />
-        <span class="flex-1 text-start">
-            <span class="dark:hidden">{{ __('Light theme') }}</span>
-            <span class="hidden dark:inline">{{ __('Dark theme') }}</span>
-        </span>
-        <span class="relative h-4 w-7 shrink-0 rounded-full bg-slate-700 transition dark:bg-emerald-500">
-            <span class="absolute top-0.5 left-0.5 size-3 rounded-full bg-white transition-all dark:left-[15px]"></span>
-        </span>
-    </x-ui.menu-item>
-
     <form method="POST" action="{{ route('logout') }}" class="w-full">
         @csrf
         <x-ui.menu-item type="submit" icon="arrow-right-start-on-rectangle" data-test="logout-button">
