@@ -9,7 +9,7 @@
     },
     "scripts": {
         "build": "tsup",
-        "start": "node dist/App.js",
+        "start": "node --enable-source-maps dist/App.js",
         "dev": "nodemon",
         "typecheck": "tsc --noEmit",
         "lint": "eslint app tests",

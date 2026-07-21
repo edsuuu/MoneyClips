@@ -10,6 +10,7 @@ export interface VideoMeta {
     audioCodec: string;
     videoBitrateKbps: number;
     hasAudio: boolean;
+    fps: number;
 }
 
 interface FfprobeStream {
@@ -18,6 +19,8 @@ interface FfprobeStream {
     width?: number;
     height?: number;
     bit_rate?: string;
+    avg_frame_rate?: string;
+    r_frame_rate?: string;
 }
 
 interface FfprobeOutput {
@@ -62,7 +65,27 @@ export class Probe {
             audioCodec: audio?.codec_name ?? '',
             videoBitrateKbps: Math.round(bitrate / 1000),
             hasAudio: audio !== undefined,
+            fps: this.parseFps(video),
         };
+    }
+
+    /** ffprobe devolve fração ("30000/1001"). Default 30 quando vier 0/0 ou lixo. */
+    private parseFps(video: FfprobeStream): number {
+        const raw = video.avg_frame_rate ?? video.r_frame_rate ?? '';
+        const [numerator, denominator] = raw.split('/').map(Number);
+
+        if (
+            numerator === undefined ||
+            denominator === undefined ||
+            !Number.isFinite(numerator) ||
+            !Number.isFinite(denominator) ||
+            denominator === 0 ||
+            numerator <= 0
+        ) {
+            return 30;
+        }
+
+        return numerator / denominator;
     }
 
     private ffprobe(path: string): Promise<string> {
