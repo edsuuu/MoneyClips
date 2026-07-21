@@ -39,9 +39,6 @@ final class TiktokPostWebhookController extends Controller
             return response()->json(['status' => 'unknown-job'], 404);
         }
 
-        // Claim atômico: entregas concorrentes/replay não duplicam Discord
-        // nem sobrescrevem um desfecho final; replay tardio também não passa
-        // pro syncAccount (não regrava cookies já renovados em /contas).
         $claimed = SocialPost::query()
             ->whereKey($post->id)
             ->whereNotIn('status', self::FINISHED_STATUSES)

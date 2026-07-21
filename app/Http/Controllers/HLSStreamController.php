@@ -10,16 +10,6 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/**
- * Entrega autenticada do HLS.
- *
- * Manifests e segmentos são servidos sob o mesmo prefixo, então as URIs
- * relativas que o ffmpeg escreve (`720p/index.m3u8`, `seg_00001.m4s`) resolvem
- * sozinhas — nada é reescrito. O Laravel só autoriza; em produção quem entrega
- * os bytes é o nginx via X-Accel-Redirect, com uma presigned de curta duração
- * como alvo interno (o MinIO segue privado). Assinar por request, e não por
- * playlist, é o que evita o link expirar no meio de um vídeo de horas.
- */
 final class HLSStreamController extends Controller
 {
     private const string SEGMENT_PATTERN = '#^(poster\.jpg|[A-Za-z0-9_-]+/(init(_\d+)?\.mp4|seg_\d{1,6}\.m4s|index\.m3u8))$#';

@@ -113,9 +113,6 @@ final class Security extends Component
         $this->hasPassword = true;
     }
 
-    /**
-     * Encerra uma sessão do usuário em outro dispositivo.
-     */
     public function logoutSession(string $id): void
     {
         if ($id === session()->getId()) {
@@ -130,9 +127,6 @@ final class Security extends Component
         $this->toast(__('Sessão encerrada.'));
     }
 
-    /**
-     * Encerra todas as sessões do usuário exceto a atual.
-     */
     public function logoutOtherSessions(): void
     {
         DB::table($this->sessionsTable())

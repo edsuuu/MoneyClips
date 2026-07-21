@@ -9,13 +9,6 @@ use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
 
-/**
- * Assinatura de uploads multipart direto do browser para o MinIO.
- *
- * O Laravel nunca toca os bytes: emite os vouchers presigned (um por parte),
- * fecha o upload e confere o resultado. É o que permite receber 3GB sem passar
- * pelos limites do PHP (`upload_max_filesize`/`post_max_size`).
- */
 final class MultipartUploadService implements MultipartUploadInterface
 {
     public const int PART_SIZE = 32 * 1024 * 1024;
@@ -90,10 +83,6 @@ final class MultipartUploadService implements MultipartUploadInterface
         ]);
     }
 
-    /**
-     * Tamanho real gravado no bucket — a única fonte confiável, já que o
-     * tamanho declarado no pré-flight vem do cliente.
-     */
     public function size(string $key): int
     {
         $result = $this->client()->headObject([

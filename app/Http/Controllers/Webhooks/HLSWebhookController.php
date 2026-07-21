@@ -12,10 +12,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
-/**
- * Desfecho do empacotamento. Um job de horas termina fora da sessão do
- * operador, então este é o único ponto que fecha o ciclo do vídeo.
- */
 final class HLSWebhookController extends Controller
 {
     public function __invoke(Request $request, DiscordNotifierService $discord): JsonResponse
@@ -41,14 +37,12 @@ final class HLSWebhookController extends Controller
             return response()->json(['status' => 'unknown-job'], 404);
         }
 
-        // Idempotência: retry do webhook depois do desfecho não refaz nada.
         if ($video->status->isTerminal()) {
             return response()->json(['status' => 'already-finished']);
         }
 
         if ($data['status'] === 'progress') {
-            // O progresso só avança: webhooks fora de ordem não podem fazer a
-            // barra regredir.
+
             Video::query()
                 ->whereKey($video->id)
                 ->where('progress', '<', $data['progress'] ?? 0)
@@ -89,7 +83,6 @@ final class HLSWebhookController extends Controller
             'error' => $error ?? 'O empacotamento falhou sem detalhe.',
         ])->save();
 
-        // Arquivo recusado não vira vídeo nunca: o binário só ocuparia espaço.
         if ($rejected) {
             Storage::disk('s3')->delete($video->path());
         }

@@ -122,8 +122,6 @@ final class Index extends Component
         return $short instanceof YoutubeShort ? $short->presignedUrl() : null;
     }
 
-    // ── Internos ─────────────────────────────────────────────────────────
-
     private function currentShort(): ?YoutubeShort
     {
         return $this->videoId !== null

@@ -17,21 +17,10 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
-/**
- * Upload multipart do vídeo longo: os bytes vão do browser direto pro MinIO e o
- * Laravel só assina e confere — nada de arquivo passando pelo PHP.
- *
- * store → sign (em janelas) → complete, com parts para retomar e destroy para
- * desistir.
- */
 final class MultipartUploadController extends Controller
 {
     private const int MAX_WINDOW = 20;
 
-    /**
-     * Pré-flight: valida o que o cliente declara e só então emite o voucher
-     * multipart. Reprovando aqui não existe upload para rejeitar depois.
-     */
     public function store(Request $request, MultipartUploadInterface $uploads): JsonResponse
     {
         /** @var array{file_size: int, mime_type: string} $data */
@@ -75,10 +64,6 @@ final class MultipartUploadController extends Controller
         ]);
     }
 
-    /**
-     * Assina em janelas (não o upload inteiro de uma vez): num envio de uma hora
-     * as URLs do fim expirariam antes da vez, e um retry precisa de assinatura nova.
-     */
     public function sign(Request $request, Video $video, MultipartUploadInterface $uploads): JsonResponse
     {
         $uploadId = $this->activeUploadId($video);
@@ -94,10 +79,6 @@ final class MultipartUploadController extends Controller
         ]);
     }
 
-    /**
-     * Fecha o multipart e confere o resultado contra o bucket. O tamanho declarado
-     * no pré-flight veio do cliente; o do `headObject` é o que de fato foi gravado.
-     */
     public function complete(Request $request, Video $video, MultipartUploadInterface $uploads): JsonResponse
     {
         $uploadId = $this->activeUploadId($video);
@@ -150,7 +131,7 @@ final class MultipartUploadController extends Controller
             try {
                 $uploads->abort($video->path(), $video->upload_id);
             } catch (Throwable) {
-                // Upload já abortado/expirado no MinIO — a linha ainda precisa sair.
+
             }
         }
 

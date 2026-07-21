@@ -10,10 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 
-/**
- * Push dos microserviços (OBSERVABILITY.md): logs em lote e heartbeat, ambos
- * autenticados pelo token compartilhado no middleware da rota.
- */
 final class ObservabilityController extends Controller
 {
     private const int MAX_ENTRIES = 500;

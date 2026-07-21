@@ -12,10 +12,6 @@ use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-/**
- * Biblioteca dos vídeos longos enviados. Enquanto houver item em preparo a tela
- * faz poll — o empacotamento de um vídeo de horas termina fora da sessão.
- */
 final class Index extends Component
 {
     use WithPagination;
@@ -38,8 +34,6 @@ final class Index extends Component
             return;
         }
 
-        // A saída HLS são milhares de objetos sob o prefixo — apagar só a linha
-        // deixaria o bucket crescendo para sempre.
         Storage::disk('s3')->delete($video->path());
         Storage::disk('s3')->deleteDirectory($video->hlsPrefix());
 

@@ -10,10 +10,6 @@ use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-/**
- * Player da biblioteca. Componente full-page porque `Route::view()` não passa
- * parâmetro de rota.
- */
 #[Layout('layouts.app')]
 final class Show extends Component
 {

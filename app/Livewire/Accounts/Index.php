@@ -228,7 +228,6 @@ final class Index extends Component
         return view('livewire.accounts.index', [
             'tiktokAccounts' => $this->decorateTiktokAccounts($accounts->where('platform', 'tiktok')),
             'youtubeAccount' => $youtubeAccount,
-            // Status pronto pro @class da view (mesmo padrão do card TikTok).
             'youtubeStatus' => $youtubeAccount instanceof SocialAccount
                 ? [
                     'expired' => $youtubeAccount->tokenExpired(),
