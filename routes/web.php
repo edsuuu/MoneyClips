@@ -31,11 +31,17 @@ Route::middleware(['auth'])->group(function (): void {
         ->where('path', '.*')
         ->name('hls.segment');
 
-    Route::post('/uploads', [MultipartUploadController::class, 'store'])->name('uploads.create');
-    Route::get('/uploads/{video:uuid}/parts', [MultipartUploadController::class, 'parts'])->name('uploads.parts.index');
-    Route::post('/uploads/{video:uuid}/parts', [MultipartUploadController::class, 'sign'])->name('uploads.parts.sign');
-    Route::post('/uploads/{video:uuid}/complete', [MultipartUploadController::class, 'complete'])->name('uploads.complete');
-    Route::delete('/uploads/{video:uuid}', [MultipartUploadController::class, 'destroy'])->name('uploads.abort');
+    Route::prefix('uploads')
+        ->name('uploads.')
+        ->middleware('throttle:uploads')
+        ->controller(MultipartUploadController::class)
+        ->group(function (): void {
+            Route::post('/', 'store')->name('create');
+            Route::get('/{video:uuid}/parts', 'parts')->name('parts.index');
+            Route::post('/{video:uuid}/parts', 'sign')->name('parts.sign');
+            Route::post('/{video:uuid}/complete', 'complete')->name('complete');
+            Route::delete('/{video:uuid}', 'destroy')->name('abort');
+        });
 
     Route::view('/meus-videos', 'videos.index')->name('videos.index');
     Route::redirect('/downloads', '/meus-videos');

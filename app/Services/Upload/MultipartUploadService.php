@@ -94,6 +94,20 @@ final class MultipartUploadService implements MultipartUploadInterface
     }
 
     /**
+     * Range GET: o objeto pode ter gigabytes e só o cabeçalho interessa.
+     */
+    public function firstBytes(string $key, int $length): string
+    {
+        $result = $this->client()->getObject([
+            'Bucket' => $this->bucket(),
+            'Key' => $key,
+            'Range' => sprintf('bytes=0-%d', $length - 1),
+        ]);
+
+        return (string) $result['Body'];
+    }
+
+    /**
      * Partes já gravadas — permite retomar um upload interrompido sem reenviar
      * o que já subiu.
      *

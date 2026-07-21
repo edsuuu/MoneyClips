@@ -10,6 +10,7 @@ use App\Services\HLS\VideoStatusEnum;
 use App\Services\Upload\MultipartUploadInterface;
 use App\Services\Upload\MultipartUploadService;
 use App\Services\Upload\UploadPartData;
+use App\Services\Upload\VideoSignatureService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,8 +22,25 @@ final class MultipartUploadController extends Controller
 {
     private const int MAX_WINDOW = 20;
 
+    /**
+     * Cada sessao aberta e um multipart vivo no MinIO segurando espaco — o
+     * prune so passa depois de 24h.
+     */
+    private const int MAX_OPEN_SESSIONS = 5;
+
     public function store(Request $request, MultipartUploadInterface $uploads): JsonResponse
     {
+        $open = Video::query()
+            ->where('user_id', Auth::id())
+            ->where('status', VideoStatusEnum::AwaitingUpload)
+            ->count();
+
+        if ($open >= self::MAX_OPEN_SESSIONS) {
+            return response()->json([
+                'message' => 'Você tem uploads demais em aberto. Conclua ou cancele antes de começar outro.',
+            ], 429);
+        }
+
         /** @var array{file_size: int, mime_type: string} $data */
         $data = $request->validate([
             'file_size' => ['required', 'integer', 'min:1', 'max:'.Video::MAX_BYTES],
@@ -79,8 +97,12 @@ final class MultipartUploadController extends Controller
         ]);
     }
 
-    public function complete(Request $request, Video $video, MultipartUploadInterface $uploads): JsonResponse
-    {
+    public function complete(
+        Request $request,
+        Video $video,
+        MultipartUploadInterface $uploads,
+        VideoSignatureService $signatures,
+    ): JsonResponse {
         $uploadId = $this->activeUploadId($video);
 
         /** @var array{parts: list<array{part_number: int, etag: string}>} $data */
@@ -100,14 +122,17 @@ final class MultipartUploadController extends Controller
         $actualSize = $uploads->size($video->path());
 
         if ($actualSize > Video::MAX_BYTES) {
-            Storage::disk('s3')->delete($video->path());
-            $video->fill([
-                'status' => VideoStatusEnum::Rejected,
-                'upload_id' => null,
-                'error' => 'O arquivo enviado passa do limite de 3GB.',
-            ])->save();
+            return $this->reject($video, 'O arquivo enviado passa do limite de 3GB.', 'O vídeo passa do limite de 3GB.');
+        }
 
-            return response()->json(['message' => 'O vídeo passa do limite de 3GB.'], 422);
+        $header = $uploads->firstBytes($video->path(), VideoSignatureService::HEADER_BYTES);
+
+        if (! $signatures->looksLikeVideo($header)) {
+            return $this->reject(
+                $video,
+                'O conteúdo enviado não é um vídeo MP4, MOV ou WEBM.',
+                'Formato não suportado — envie MP4, MOV ou WEBM.',
+            );
         }
 
         $video->fill([
@@ -138,6 +163,19 @@ final class MultipartUploadController extends Controller
         $video->delete();
 
         return response()->json(['status' => 'aborted']);
+    }
+
+    private function reject(Video $video, string $error, string $message): JsonResponse
+    {
+        Storage::disk('s3')->delete($video->path());
+
+        $video->fill([
+            'status' => VideoStatusEnum::Rejected,
+            'upload_id' => null,
+            'error' => $error,
+        ])->save();
+
+        return response()->json(['message' => $message], 422);
     }
 
     private function activeUploadId(Video $video): string

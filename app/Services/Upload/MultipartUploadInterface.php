@@ -23,6 +23,8 @@ interface MultipartUploadInterface
 
     public function size(string $key): int;
 
+    public function firstBytes(string $key, int $length): string;
+
     /**
      * @return list<UploadPartData>
      */
