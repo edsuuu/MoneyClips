@@ -15,22 +15,31 @@ Route::get('/login', fn () => to_route('home', ['login' => 1]))->middleware('gue
 Route::view('/termos-de-servico', 'legal.terms')->name('legal.terms');
 Route::view('/politica-de-privacidade', 'legal.privacy')->name('legal.privacy');
 
-Route::middleware('guest')->group(function (): void {
-    Route::get('/oauth2/google/redirect', [OAuthController::class, 'loginRedirect'])->name('auth.google.redirect');
-    Route::get('/oauth2/google/callback', [OAuthController::class, 'loginCallback'])->name('auth.google.callback');
-});
+Route::middleware('guest')
+    ->prefix('oauth2/google')
+    ->name('auth.google.')
+    ->controller(OAuthController::class)
+    ->group(function (): void {
+        Route::get('/redirect', 'loginRedirect')->name('redirect');
+        Route::get('/callback', 'loginCallback')->name('callback');
+    });
 
 Route::middleware(['auth'])->group(function (): void {
     Route::view('/dashboard', 'dashboard.index')->name('dashboard.index');
 
     Route::view('/upload', 'upload.index')->name('upload.index');
-    Route::view('/meus-uploads', 'uploads.index')->name('uploads.index');
-    Route::view('/meus-uploads/{video:uuid}', 'uploads.show')->name('uploads.show');
+    Route::prefix('meus-uploads')->name('uploads.')->group(function (): void {
+        Route::view('/', 'uploads.index')->name('index');
+        Route::view('/{video:uuid}', 'uploads.show')->name('show');
+    });
 
-    Route::get('/hls/{video:uuid}/master.m3u8', [HLSStreamController::class, 'master'])->name('hls.master');
-    Route::get('/hls/{video:uuid}/{path}', [HLSStreamController::class, 'segment'])
-        ->where('path', '.*')
-        ->name('hls.segment');
+    Route::prefix('hls/{video:uuid}')
+        ->name('hls.')
+        ->controller(HLSStreamController::class)
+        ->group(function (): void {
+            Route::get('/master.m3u8', 'master')->name('master');
+            Route::get('/{path}', 'segment')->where('path', '.*')->name('segment');
+        });
 
     Route::post('/client-logs', ClientLogController::class)
         ->middleware('throttle:client-logs')
@@ -62,8 +71,13 @@ Route::middleware(['auth'])->group(function (): void {
     Route::view('/observabilidade', 'observability.index')->name('observability.index');
     Route::redirect('/microservices', '/observabilidade');
 
-    Route::get('/oauth/{platform}/connect', [OAuthController::class, 'connect'])->name('oauth.connect');
-    Route::get('/oauth/{platform}/callback', [OAuthController::class, 'callback'])->name('oauth.callback');
+    Route::prefix('oauth/{platform}')
+        ->name('oauth.')
+        ->controller(OAuthController::class)
+        ->group(function (): void {
+            Route::get('/connect', 'connect')->name('connect');
+            Route::get('/callback', 'callback')->name('callback');
+        });
 });
 
 require __DIR__.'/settings.php';
