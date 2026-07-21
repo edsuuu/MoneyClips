@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
-use App\Casts\DateOnlyCast;
+use App\Helpers\DateOnlyCast;
 use Carbon\CarbonImmutable;
 use Database\Factories\ScheduleSlotFactory;
 use Illuminate\Database\Eloquent\Builder;

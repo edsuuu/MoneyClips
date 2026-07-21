@@ -59,6 +59,12 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
   `app/Services/AutoPost/`; `TemplateStyleEnum` e `TemplateRenderOptionsData`
   em `app/Services/Processing/`). NÃO existem pastas gerais tipo
   `app/Contracts` ou `app/DataTransferObjects`.
+- **Exceptions são a exceção da regra acima**: `*Exception` vive em
+  `app/Exceptions/`, não na pasta do serviço dono. É a convenção histórica do
+  Laravel e o primeiro lugar onde se procura uma falha. Cada exception que
+  fecha uma request HTTP implementa o próprio `render(): JsonResponse` — o
+  código de status mora nela, não espalhado em `response()->json([...], 4xx)`
+  pelos controllers.
 - **`app/Services/Api/`** — cada integração externa por API (não-microserviço)
   em sua pasta: `Api/Youtube/` (Data API v3 + OAuth), `Api/TikTok/` (Content
   Posting API oficial, stub), `Api/Meta/{Instagram,Facebook}/`, `Api/Kwai/`,

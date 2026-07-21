@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Auth\OAuthController;
-use App\Http\Controllers\ClientLogController;
 use App\Http\Controllers\HLSStreamController;
 use App\Http\Controllers\MultipartUploadController;
+use App\Http\Controllers\ObservabilityController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home.welcome')->name('home');
@@ -41,7 +41,7 @@ Route::middleware(['auth'])->group(function (): void {
             Route::get('/{path}', 'segment')->where('path', '.*')->name('segment');
         });
 
-    Route::post('/client-logs', ClientLogController::class)
+    Route::post('/client-logs', [ObservabilityController::class, 'browserLog'])
         ->middleware('throttle:client-logs')
         ->name('client-logs.store');
 
@@ -58,13 +58,9 @@ Route::middleware(['auth'])->group(function (): void {
         });
 
     Route::view('/meus-videos', 'videos.index')->name('videos.index');
-
     Route::view('/agenda', 'schedule.index')->name('agenda.index');
-
     Route::view('/estudio-de-cortes', 'reframe.index')->name('reframe.index');
-
     Route::view('/contas', 'accounts.index')->name('accounts.index');
-
     Route::view('/observabilidade', 'observability.index')->name('observability.index');
 
     Route::prefix('oauth/{platform}')

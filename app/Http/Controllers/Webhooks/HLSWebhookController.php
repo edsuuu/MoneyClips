@@ -6,24 +6,24 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Webhooks\HLSWebhookRequest;
+use App\Http\Resources\StatusResource;
 use App\Models\Video;
 use App\Services\Api\Discord\DiscordNotifierService;
 use App\Services\HLS\VideoStatusEnum;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 
 final class HLSWebhookController extends Controller
 {
-    public function __invoke(HLSWebhookRequest $request, DiscordNotifierService $discord): JsonResponse
+    public function __invoke(HLSWebhookRequest $request, DiscordNotifierService $discord): StatusResource
     {
         $video = Video::query()->where('hls_remote_id', $request->uuid())->first();
 
         if (! $video instanceof Video) {
-            return response()->json(['status' => 'unknown-job'], 404);
+            return new StatusResource('unknown-job', 404);
         }
 
         if ($video->status->isTerminal()) {
-            return response()->json(['status' => 'already-finished']);
+            return new StatusResource('already-finished');
         }
 
         if ($request->status() === 'progress') {
@@ -32,13 +32,13 @@ final class HLSWebhookController extends Controller
                 ->where('progress', '<', $request->progress())
                 ->update(['progress' => $request->progress()]);
 
-            return response()->json(['status' => 'progress-recorded']);
+            return new StatusResource('progress-recorded');
         }
 
         if ($request->status() !== 'done') {
             $this->finishWithFailure($video, $request->status(), $request->error(), $discord);
 
-            return response()->json(['status' => 'failure-recorded']);
+            return new StatusResource('failure-recorded');
         }
 
         $video->fill([
@@ -55,7 +55,7 @@ final class HLSWebhookController extends Controller
             'ready_at' => now(),
         ])->save();
 
-        return response()->json(['status' => 'ready']);
+        return new StatusResource('ready');
     }
 
     private function finishWithFailure(Video $video, string $status, ?string $error, DiscordNotifierService $discord): void

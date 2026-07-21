@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Upload;
+namespace App\Exceptions;
 
 use Exception;
 use Illuminate\Http\JsonResponse;
