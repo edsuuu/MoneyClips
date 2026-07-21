@@ -7,6 +7,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Upload\CompleteUploadRequest;
 use App\Http\Requests\Upload\SignUploadPartsRequest;
 use App\Http\Requests\Upload\StoreUploadRequest;
+use App\Http\Resources\SignedPartUrlsResource;
+use App\Http\Resources\StatusResource;
 use App\Http\Resources\UploadPartResource;
 use App\Http\Resources\UploadSessionResource;
 use App\Jobs\StartHLSPackagingJob;
@@ -14,10 +16,10 @@ use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
 use App\Services\Upload\MultipartUploadInterface;
 use App\Services\Upload\TooManyOpenUploadsException;
+use App\Services\Upload\UploadAlreadyCompletedException;
 use App\Services\Upload\UploadRejectedException;
 use App\Services\Upload\UploadSessionClosedException;
 use App\Services\Upload\VideoSignatureService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -64,11 +66,11 @@ final class MultipartUploadController extends Controller
         );
     }
 
-    public function sign(SignUploadPartsRequest $request, Video $video, MultipartUploadInterface $uploads): JsonResponse
+    public function sign(SignUploadPartsRequest $request, Video $video, MultipartUploadInterface $uploads): SignedPartUrlsResource
     {
-        return response()->json([
-            'urls' => $uploads->signParts($video->path(), $this->activeUploadId($video), $request->partNumbers()),
-        ]);
+        return new SignedPartUrlsResource(
+            $uploads->signParts($video->path(), $this->activeUploadId($video), $request->partNumbers()),
+        );
     }
 
     public function complete(
@@ -76,7 +78,7 @@ final class MultipartUploadController extends Controller
         Video $video,
         MultipartUploadInterface $uploads,
         VideoSignatureService $signatures,
-    ): JsonResponse {
+    ): StatusResource {
         $uploadId = $this->activeUploadId($video);
 
         $uploads->complete($video->path(), $uploadId, $request->parts());
@@ -105,14 +107,12 @@ final class MultipartUploadController extends Controller
 
         dispatch(new StartHLSPackagingJob($video->id));
 
-        return response()->json(['status' => 'uploaded', 'video_uuid' => $video->uuid]);
+        return new StatusResource('uploaded', extra: ['video_uuid' => $video->uuid]);
     }
 
-    public function destroy(Video $video, MultipartUploadInterface $uploads): JsonResponse
+    public function destroy(Video $video, MultipartUploadInterface $uploads): StatusResource
     {
-        if ($video->status !== VideoStatusEnum::AwaitingUpload) {
-            return response()->json(['message' => 'Este upload já foi concluído.'], 409);
-        }
+        throw_if($video->status !== VideoStatusEnum::AwaitingUpload, UploadAlreadyCompletedException::class);
 
         if ($video->upload_id !== null) {
             try {
@@ -124,7 +124,7 @@ final class MultipartUploadController extends Controller
 
         $video->delete();
 
-        return response()->json(['status' => 'aborted']);
+        return new StatusResource('aborted');
     }
 
     private function reject(Video $video, string $reason, string $userMessage): never

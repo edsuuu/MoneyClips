@@ -26,7 +26,7 @@ it('answers 404 for an unknown job', function (): void {
     $this->postJson('/api/hls/webhook', [
         'uuid' => 'nao-existe',
         'status' => 'done',
-    ], $this->headers)->assertNotFound()->assertJson(['status' => 'unknown-job']);
+    ], $this->headers)->assertNotFound()->assertExactJson(['status' => 'unknown-job']);
 });
 
 it('promotes the video to ready with the reported metadata', function (): void {
@@ -41,7 +41,7 @@ it('promotes the video to ready with the reported metadata', function (): void {
         'hash' => md5('x'),
         'renditions' => ['360p', '720p'],
         'poster' => true,
-    ], $this->headers)->assertOk()->assertJson(['status' => 'ready']);
+    ], $this->headers)->assertOk()->assertExactJson(['status' => 'ready']);
 
     $video->refresh();
 
