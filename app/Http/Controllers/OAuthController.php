@@ -93,8 +93,6 @@ final class OAuthController extends Controller
         }
     }
 
-    // ── Conexão de contas sociais ─────────────────────────────────────────────
-
     public function connect(string $platform): RedirectResponse
     {
         $config = self::PROVIDERS[$platform] ?? null;

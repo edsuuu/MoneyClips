@@ -79,7 +79,6 @@ final class TemplateEditor extends Component
             return;
         }
 
-        // Título/hashtags editados valem pro post final.
         $title = mb_trim($this->title);
         $short->title = $title === '' ? $short->title : $title;
         $short->hashtags = Hashtags::parse($this->hashtags);
@@ -101,8 +100,6 @@ final class TemplateEditor extends Component
         $this->toast('Render enfileirado — o vídeo aparece em "Com template" quando terminar.');
         $this->dispatch('template-queued');
     }
-
-    // ── Internos ─────────────────────────────────────────────────────────
 
     private function currentStyle(): TemplateStyleEnum
     {

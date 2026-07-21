@@ -5,7 +5,6 @@
     </div>
 
     <form wire:submit="resetPassword" class="flex flex-col gap-6">
-        <!-- Email Address -->
         <x-ui.input
             wire:model="email"
             :label="__('Email address')"
@@ -15,7 +14,6 @@
             autocomplete="email"
         />
 
-        <!-- Password -->
         <x-ui.input
             wire:model="password"
             :label="__('Password')"
@@ -27,7 +25,6 @@
             viewable
         />
 
-        <!-- Confirm Password -->
         <x-ui.input
             wire:model="password_confirmation"
             :label="__('Confirm password')"

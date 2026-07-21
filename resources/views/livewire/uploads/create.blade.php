@@ -4,17 +4,18 @@
 
     <div
         class="mt-8"
-        x-data="videoUploader({ maxBytes: {{ $maxBytes }}, accepted: @js($accept), libraryUrl: @js($libraryUrl) })"
+        x-data="videoUploader({ maxBytes: @js($maxBytes), accepted: @js($accept) })"
     >
         <template x-if="state === 'done'">
-            <div class="flex flex-col items-center gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-8 py-12 text-center">
-                <x-ui.icon name="check-circle" class="size-10 text-emerald-400" />
+            <div
+                class="flex flex-col items-center gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-8 py-12 text-center">
+                <x-ui.icon name="check-circle" class="size-10 text-emerald-400"/>
                 <div class="text-lg font-semibold text-emerald-300">Upload concluído</div>
                 <div class="text-xs text-emerald-400/80">Estamos preparando a reprodução adaptativa.</div>
 
                 <div class="flex items-center gap-3">
                     <x-ui.button variant="subtle" x-on:click="reset()">Enviar outro</x-ui.button>
-                    <x-ui.button variant="primary" x-bind:href="libraryUrl" tag="a">Ver biblioteca</x-ui.button>
+                    <x-ui.button variant="primary" :href="$libraryUrl" wire:navigate>Ver biblioteca</x-ui.button>
                 </div>
             </div>
         </template>
@@ -38,7 +39,7 @@
                         class="hidden"
                     />
 
-                    <x-ui.icon name="arrow-up-tray" class="size-9 text-slate-400" />
+                    <x-ui.icon name="arrow-up-tray" class="size-9 text-slate-400"/>
 
                     <div class="text-sm font-semibold text-slate-200">Arraste e solte seu vídeo aqui</div>
                     <div class="text-xs text-slate-500">ou clique para escolher</div>
@@ -52,14 +53,16 @@
                     </div>
 
                     <div class="h-2 w-full overflow-hidden rounded-full bg-slate-800">
-                        <div class="h-full rounded-full bg-sky-500 transition-all duration-150" x-bind:style="'width: ' + progress + '%'"></div>
+                        <div class="h-full rounded-full bg-sky-500 transition-all duration-150"
+                             x-bind:style="'width: ' + progress + '%'"></div>
                     </div>
 
                     <div class="mt-2 text-xs text-slate-600">O envio continua de onde parou se a conexão cair.</div>
                 </div>
 
                 <template x-if="error">
-                    <div class="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300" x-text="error"></div>
+                    <div class="mt-4 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300"
+                         x-text="error"></div>
                 </template>
             </div>
         </template>

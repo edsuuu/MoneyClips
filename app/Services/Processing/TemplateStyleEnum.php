@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Processing;
 
-/**
- * Estilos de template disponíveis no editor — cada um mapeia para um variant
- * do microserviço AutoCaption (MicroServices/AutoCaption).
- */
 enum TemplateStyleEnum: string
 {
     case White = 'white';

@@ -52,7 +52,6 @@ final readonly class ShortsPosterService
 
             $size = (int) filesize($localFile);
 
-            // 1) Inicia a sessão resumível e pega a URL de upload no header Location.
             $init = Http::withToken((string) ($account->access_token))
                 ->withHeaders([
                     'X-Upload-Content-Length' => (string) $size,
@@ -68,7 +67,6 @@ final readonly class ShortsPosterService
             $uploadUrl = $init->header('Location');
             throw_if($uploadUrl === '', RuntimeException::class, 'O YouTube não retornou a URL de upload.');
 
-            // 2) Envia os bytes do vídeo.
             $upload = Http::withToken((string) ($account->access_token))
                 ->withBody((string) file_get_contents($localFile), 'video/mp4')
                 ->timeout(900)
@@ -85,8 +83,7 @@ final readonly class ShortsPosterService
 
             $short->forceFill([
                 'youtube_video_id' => $videoId,
-                // posted_at fica como marcador legado; posted_youtube_at é a
-                // confirmação explícita usada pela UI.
+
                 'posted_at' => $postedAt,
                 'posted_youtube_at' => $postedAt,
             ])->save();

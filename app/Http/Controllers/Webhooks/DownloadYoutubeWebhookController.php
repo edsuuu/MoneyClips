@@ -2,8 +2,9 @@
 
 declare(strict_types=1);
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Webhooks;
 
+use App\Http\Controllers\Controller;
 use App\Services\DownloadShorts\DownloadYoutubeImportService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

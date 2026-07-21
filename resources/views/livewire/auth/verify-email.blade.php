@@ -4,7 +4,7 @@
     </x-ui.text>
 
     @if (session('status') == 'verification-link-sent')
-        <x-ui.text class="text-center font-medium !dark:text-green-400 !text-green-600">
+        <x-ui.text class="text-center font-medium !text-green-600">
             {{ __('A new verification link has been sent to the email address you provided during registration.') }}
         </x-ui.text>
     @endif
