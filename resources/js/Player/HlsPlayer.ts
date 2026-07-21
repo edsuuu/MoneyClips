@@ -1,18 +1,10 @@
-interface HlsConstructor {
-    new (config: Record<string, unknown>): {
-        loadSource: (url: string) => void;
-        attachMedia: (element: HTMLMediaElement) => void;
-    };
-    isSupported: () => boolean;
-}
+type HlsConstructor = typeof import('hls.js').default;
 
 export class HlsPlayer {
     private static modulePromise: Promise<HlsConstructor> | null = null;
 
     public static async library(): Promise<HlsConstructor> {
-        HlsPlayer.modulePromise ??= import('hls.js').then(
-            (module) => module.default as unknown as HlsConstructor,
-        );
+        HlsPlayer.modulePromise ??= import('hls.js').then((module) => module.default);
 
         return HlsPlayer.modulePromise;
     }
