@@ -25,6 +25,12 @@ export default defineConfig({
         }),
         tailwindcss(),
     ],
+    build: {
+        // O hls.js sozinho passa de 500kB e ja sai em chunk proprio, carregado
+        // sob demanda pelo HlsPlayer — a entrada fica em ~19kB. O aviso padrao
+        // so apontaria pra ele, que e uma lib unica e nao tem como dividir.
+        chunkSizeWarningLimit: 600,
+    },
     server: {
         cors: true,
         watch: {
