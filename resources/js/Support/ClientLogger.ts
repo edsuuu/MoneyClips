@@ -3,9 +3,9 @@ export type ClientLogLevel = 'warning' | 'error';
 export type ClientLogContext = Record<string, unknown>;
 
 export class ClientLogger {
-    static readonly ENDPOINT = '/client-logs';
+    public static readonly ENDPOINT = '/client-logs';
 
-    static install(): void {
+    public static install(): void {
         window.addEventListener('error', (event: ErrorEvent) => {
             ClientLogger.send('error', event.message, {
                 file: event.filename,
@@ -24,15 +24,15 @@ export class ClientLogger {
         });
     }
 
-    static requestId(): string {
+    public static requestId(): string {
         return crypto.randomUUID();
     }
 
-    static csrfToken(): string {
+    public static csrfToken(): string {
         return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') ?? '';
     }
 
-    static send(
+    public static send(
         level: ClientLogLevel,
         message: string,
         context: ClientLogContext = {},

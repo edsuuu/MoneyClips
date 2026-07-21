@@ -5,7 +5,10 @@
     "scripts": {
         "build": "vite build",
         "dev": "vite",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "lint": "eslint resources/js",
+        "lint:fix": "eslint resources/js --fix",
+        "format": "prettier --write \"resources/js/**/*.ts\""
     },
     "dependencies": {
         "@tailwindcss/vite": "^4.1.11",
@@ -23,6 +26,15 @@
     },
     "packageManager": "pnpm@11.0.9+sha512.34ce82e6780233cf9cad8685029a8f81d2e06196c5a9bad98879f7424940c6817c4e4524fb7d38b8553ceed48b9758b8ebaf1abd3600c232c4c8cf7366086f38",
     "devDependencies": {
-        "typescript": "^7.0.2"
+        "@eslint/js": "^9.39.5",
+        "eslint": "^9.39.5",
+        "eslint-config-prettier": "^9.1.2",
+        "eslint-import-resolver-typescript": "^4.4.5",
+        "eslint-plugin-import": "^2.31.0",
+        "eslint-plugin-prettier": "^5.2.1",
+        "globals": "^15.15.0",
+        "prettier": "^3.4.2",
+        "typescript": "^5.9.3",
+        "typescript-eslint": "^8.20.0"
     }
 }

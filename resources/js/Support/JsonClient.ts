@@ -1,11 +1,11 @@
 import { ClientLogger } from './ClientLogger';
 
 export class JsonClient {
-    static async get<T>(url: string): Promise<T> {
+    public static async get<T>(url: string): Promise<T> {
         return JsonClient.send<T>(url, null);
     }
 
-    static async post<T>(url: string, body: unknown): Promise<T> {
+    public static async post<T>(url: string, body: unknown): Promise<T> {
         return JsonClient.send<T>(url, body);
     }
 
@@ -19,7 +19,12 @@ export class JsonClient {
             headers: {
                 Accept: 'application/json',
                 'X-Request-Id': requestId,
-                ...(isRead ? {} : { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': ClientLogger.csrfToken() }),
+                ...(isRead
+                    ? {}
+                    : {
+                          'Content-Type': 'application/json',
+                          'X-CSRF-TOKEN': ClientLogger.csrfToken(),
+                      }),
             },
             ...(isRead ? {} : { body: JSON.stringify(body) }),
         });
@@ -29,9 +34,14 @@ export class JsonClient {
         if (!response.ok) {
             const message = payload.message ?? `Falha na requisição (${response.status}).`;
 
-            ClientLogger.send('error', `${url} respondeu ${response.status}: ${message}`, {
-                status: response.status,
-            }, requestId);
+            ClientLogger.send(
+                'error',
+                `${url} respondeu ${response.status}: ${message}`,
+                {
+                    status: response.status,
+                },
+                requestId,
+            );
 
             throw new Error(message);
         }

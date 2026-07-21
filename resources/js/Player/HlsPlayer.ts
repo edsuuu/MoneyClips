@@ -9,13 +9,15 @@ interface HlsConstructor {
 export class HlsPlayer {
     private static modulePromise: Promise<HlsConstructor> | null = null;
 
-    static async library(): Promise<HlsConstructor> {
-        HlsPlayer.modulePromise ??= import('hls.js').then((module) => module.default as unknown as HlsConstructor);
+    public static async library(): Promise<HlsConstructor> {
+        HlsPlayer.modulePromise ??= import('hls.js').then(
+            (module) => module.default as unknown as HlsConstructor,
+        );
 
         return HlsPlayer.modulePromise;
     }
 
-    static async attach(element: HTMLVideoElement): Promise<void> {
+    public static async attach(element: HTMLVideoElement): Promise<void> {
         const hlsSrc = element.dataset.hlsSrc;
         const fallbackSrc = element.dataset.fallbackSrc;
 
