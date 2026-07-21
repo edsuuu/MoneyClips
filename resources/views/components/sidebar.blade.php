@@ -65,7 +65,7 @@
                             :current="request()->routeIs($item['pattern'])"
                             x-on:mousemove="expand()"
                             x-on:click="collapseNow()"
-                            ::class="expanded ? '' : 'lg:mx-auto lg:size-10 lg:justify-center lg:px-0'"
+                            ::class="expanded ? '' : 'lg:mx-auto lg:size-10 lg:justify-center lg:gap-0 lg:px-0'"
                         >
                             <span
                                 class="whitespace-nowrap transition-opacity duration-200"
