@@ -49,7 +49,7 @@ return [
         'client_secret' => env('GOOGLE_AUTH_CLIENT_SECRET'),
         'redirects' => [
             'auth' => env('GOOGLE_AUTH_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth2/google/callback'),
-            'youtube' => mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback',
+            'youtube' => env('GOOGLE_YOUTUBE_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback'),
         ],
     ],
 

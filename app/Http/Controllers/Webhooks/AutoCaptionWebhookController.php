@@ -5,25 +5,18 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Webhooks\TemplateRenderWebhookRequest;
 use App\Jobs\FetchTemplateOutputJob;
 use App\Models\ProcessingJob;
 use App\Services\Api\Discord\DiscordNotifierService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 
 final class AutoCaptionWebhookController extends Controller
 {
-    public function __invoke(Request $request, DiscordNotifierService $discord): JsonResponse
+    public function __invoke(TemplateRenderWebhookRequest $request, DiscordNotifierService $discord): JsonResponse
     {
-        /** @var array{uuid: string, status: string, error?: string|null} $data */
-        $data = $request->validate([
-            'uuid' => ['required', 'string'],
-            'status' => ['required', 'in:done,failed'],
-            'error' => ['nullable', 'string'],
-        ]);
-
         $job = ProcessingJob::query()
-            ->where('remote_id', $data['uuid'])
+            ->where('remote_id', $request->uuid())
             ->where('type', ProcessingJob::TYPE_TEMPLATE)
             ->latest('id')
             ->first();
@@ -36,16 +29,16 @@ final class AutoCaptionWebhookController extends Controller
             return response()->json(['status' => 'already-finished']);
         }
 
-        if ($data['status'] === 'failed') {
+        if ($request->failed()) {
             $job->fill([
                 'status' => 'failed',
-                'error' => $data['error'] ?? 'AutoCaption reportou falha sem detalhe.',
+                'error' => $request->error() ?? 'AutoCaption reportou falha sem detalhe.',
                 'finished_at' => now(),
             ])->save();
 
             $discord->error(
                 '❌ AutoCaption falhou no render',
-                sprintf('Job #%d (remoto %s)%s%s', $job->id, $data['uuid'], PHP_EOL, $job->error ?? ''),
+                sprintf('Job #%d (remoto %s)%s%s', $job->id, $request->uuid(), PHP_EOL, $job->error ?? ''),
             );
 
             return response()->json(['status' => 'failed-recorded']);

@@ -1,43 +1,54 @@
-import { ClientLogger } from '../Support/ClientLogger';
 import { ReframeGeometry } from './ReframeGeometry';
 import { ReframeModes } from './ReframeModes';
 import { ReframeRenderer } from './ReframeRenderer';
-import type { DragHandle, DragState, Keyframe, Region, ReframePayload, ReframeSettings, Slot } from './ReframeTypes';
+import type {
+    DragHandle,
+    DragState,
+    Keyframe,
+    Region,
+    ReframePayload,
+    ReframeSettings,
+    Slot,
+} from './ReframeTypes';
+import { ClientLogger } from '../Support/ClientLogger';
 
 export class ReframeEditor {
-    static readonly MAX_KEYFRAMES = 120;
+    public static readonly MAX_KEYFRAMES = 120;
 
-    static readonly T_EPSILON = 0.05;
+    public static readonly T_EPSILON = 0.05;
 
-    editId: number | null;
+    public editId: number | null;
 
-    videoUrl: string | null;
+    public videoUrl: string | null;
 
-    mode: string;
+    public mode: string;
 
-    keyframes: Keyframe[];
+    public keyframes: Keyframe[];
 
-    settings: ReframeSettings;
+    public settings: ReframeSettings;
 
-    duration = 0;
+    public duration = 0;
 
-    currentTime = 0;
+    public currentTime = 0;
 
-    playing = false;
+    public playing = false;
 
-    dirty = false;
+    public dirty = false;
 
-    saving = false;
+    public saving = false;
 
-    selectedKf: number | null = null;
+    public selectedKf: number | null = null;
 
-    activeRegion = 0;
+    public activeRegion = 0;
 
-    $refs!: Record<string, HTMLElement | undefined>;
+    public $refs!: Record<string, HTMLElement | undefined>;
 
-    $wire!: { saveEdit: (payload: unknown) => Promise<number | null>; refreshUrl: () => Promise<string | null> };
+    public $wire!: {
+        saveEdit: (payload: unknown) => Promise<number | null>;
+        refreshUrl: () => Promise<string | null>;
+    };
 
-    $dispatch!: (event: string, detail: unknown) => void;
+    public $dispatch!: (event: string, detail: unknown) => void;
 
     private _video!: HTMLVideoElement;
 
@@ -61,7 +72,7 @@ export class ReframeEditor {
 
     private _onBeforeUnload!: (event: BeforeUnloadEvent) => void;
 
-    constructor(initial: ReframePayload) {
+    public constructor(initial: ReframePayload) {
         this.editId = initial.editId;
         this.videoUrl = initial.videoUrl;
         this.mode = initial.mode;
@@ -69,18 +80,29 @@ export class ReframeEditor {
         this.settings = initial.settings;
     }
 
-    init(): void {
+    public init(): void {
         this._video = this.$refs.video as HTMLVideoElement;
         const canvas = this.$refs.canvas as HTMLCanvasElement;
-        this._renderer = new ReframeRenderer(canvas.getContext('2d') as CanvasRenderingContext2D, this._video);
+        this._renderer = new ReframeRenderer(
+            canvas.getContext('2d') as CanvasRenderingContext2D,
+            this._video,
+        );
 
         this._video.addEventListener('loadedmetadata', () => this.handleMetadata());
-        this._video.addEventListener('timeupdate', () => { this.currentTime = this._video.currentTime; });
-        this._video.addEventListener('play', () => { this.playing = true; });
-        this._video.addEventListener('pause', () => { this.playing = false; });
+        this._video.addEventListener('timeupdate', () => {
+            this.currentTime = this._video.currentTime;
+        });
+        this._video.addEventListener('play', () => {
+            this.playing = true;
+        });
+        this._video.addEventListener('pause', () => {
+            this.playing = false;
+        });
         this._video.addEventListener('error', () => void this.recoverVideoUrl());
 
-        this._onVisibility = () => { this._needsDraw = true; };
+        this._onVisibility = () => {
+            this._needsDraw = true;
+        };
         document.addEventListener('visibilitychange', this._onVisibility);
 
         this._onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -99,7 +121,7 @@ export class ReframeEditor {
         this.tick();
     }
 
-    destroy(): void {
+    public destroy(): void {
         cancelAnimationFrame(this._raf);
         clearInterval(this._urlTimer);
         document.removeEventListener('visibilitychange', this._onVisibility);
@@ -107,11 +129,15 @@ export class ReframeEditor {
         this._video.pause();
     }
 
-    togglePlay(): void {
+    public togglePlay(): void {
         if (!this.duration) return;
 
         if (this._video.paused) {
-            this._video.play().catch((error: unknown) => ClientLogger.send('warning', `play() recusado: ${String(error)}`));
+            this._video
+                .play()
+                .catch((error: unknown) =>
+                    ClientLogger.send('warning', `play() recusado: ${String(error)}`),
+                );
 
             return;
         }
@@ -119,7 +145,7 @@ export class ReframeEditor {
         this._video.pause();
     }
 
-    seek(seconds: number): void {
+    public seek(seconds: number): void {
         if (!this.duration) return;
         const t = ReframeGeometry.clamp(seconds, 0, this.duration);
         this._video.currentTime = t;
@@ -127,20 +153,21 @@ export class ReframeEditor {
         this._needsDraw = true;
     }
 
-    seekFromRuler(event: PointerEvent): void {
+    public seekFromRuler(event: PointerEvent): void {
         const ruler = this.$refs.ruler;
         if (!ruler) return;
         const rect = ruler.getBoundingClientRect();
         this.seek(((event.clientX - rect.left) / rect.width) * this.duration);
     }
 
-    timeLabel(): string {
-        const fmt = (s: number): string => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    public timeLabel(): string {
+        const fmt = (s: number): string =>
+            `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
         return `${fmt(this.currentTime)} / ${fmt(this.duration)}`;
     }
 
-    addKeyframeAtCurrentTime(): void {
+    public addKeyframeAtCurrentTime(): void {
         const index = this.ensureKeyframeAtCurrentTime();
         if (index === null) return;
         this.selectedKf = index;
@@ -148,13 +175,13 @@ export class ReframeEditor {
         this._needsDraw = true;
     }
 
-    selectKeyframe(index: number): void {
+    public selectKeyframe(index: number): void {
         this.selectedKf = index;
         const keyframe = this.keyframes[index];
         if (keyframe) this.seek(keyframe.t);
     }
 
-    deleteSelectedKeyframe(): void {
+    public deleteSelectedKeyframe(): void {
         if (this.selectedKf === null || this.keyframes.length <= 1) return;
         this.keyframes.splice(this.selectedKf, 1);
         this.selectedKf = null;
@@ -162,7 +189,7 @@ export class ReframeEditor {
         this._needsDraw = true;
     }
 
-    setMode(mode: string): void {
+    public setMode(mode: string): void {
         if (mode === this.mode || !ReframeModes.exists(mode)) return;
         const discards = this.dirty || this.keyframes.length > 1;
         if (discards && !confirm('Trocar o modo descarta os keyframes atuais. Continuar?')) return;
@@ -176,34 +203,34 @@ export class ReframeEditor {
         this._needsDraw = true;
     }
 
-    setActiveRegion(index: number): void {
+    public setActiveRegion(index: number): void {
         this.activeRegion = index;
     }
 
-    modeOptions(): { value: string; label: string }[] {
+    public modeOptions(): { value: string; label: string }[] {
         return ReframeModes.options();
     }
 
-    modeSlots(): Slot[] {
+    public modeSlots(): Slot[] {
         return ReframeModes.get(this.mode).slots;
     }
 
-    regionTabs(): { i: number; label: string }[] {
+    public regionTabs(): { i: number; label: string }[] {
         const labels = ReframeModes.REGION_LABELS[ReframeModes.get(this.mode).slots.length] ?? [];
 
         return labels.map((label, i) => ({ i, label }));
     }
 
-    isContain(): boolean {
+    public isContain(): boolean {
         return ReframeModes.get(this.mode).fit === 'contain';
     }
 
-    markDirty(): void {
+    public markDirty(): void {
         this.dirty = true;
         this._needsDraw = true;
     }
 
-    onPointerDown(event: PointerEvent, type: DragHandle): void {
+    public onPointerDown(event: PointerEvent, type: DragHandle): void {
         if (!this.duration || this._drag) return;
         event.preventDefault();
         (event.target as Element).setPointerCapture(event.pointerId);
@@ -226,7 +253,7 @@ export class ReframeEditor {
         this._dragLive = { ...region };
     }
 
-    onPointerMove(event: PointerEvent): void {
+    public onPointerMove(event: PointerEvent): void {
         if (!this._drag || event.pointerId !== this._drag.pointerId) return;
         const overlay = this.$refs.overlay;
         if (!overlay) return;
@@ -236,25 +263,31 @@ export class ReframeEditor {
         const dy = (event.clientY - this._drag.startY) / rect.height;
         const start = this._drag.start;
 
-        this._dragLive = this._drag.type === 'move'
-            ? {
-                ...start,
-                x: ReframeGeometry.clamp(start.x + dx, 0, 1 - start.w),
-                y: ReframeGeometry.clamp(start.y + dy, 0, 1 - start.h),
-            }
-            : ReframeGeometry.resize(
-                start,
-                this._drag.type,
-                dx,
-                dy,
-                ReframeGeometry.lockAspect(this.mode, this.activeRegion, this._video.videoWidth, this._video.videoHeight),
-                this._video.videoWidth,
-                this._video.videoHeight,
-            );
+        this._dragLive =
+            this._drag.type === 'move'
+                ? {
+                      ...start,
+                      x: ReframeGeometry.clamp(start.x + dx, 0, 1 - start.w),
+                      y: ReframeGeometry.clamp(start.y + dy, 0, 1 - start.h),
+                  }
+                : ReframeGeometry.resize(
+                      start,
+                      this._drag.type,
+                      dx,
+                      dy,
+                      ReframeGeometry.lockAspect(
+                          this.mode,
+                          this.activeRegion,
+                          this._video.videoWidth,
+                          this._video.videoHeight,
+                      ),
+                      this._video.videoWidth,
+                      this._video.videoHeight,
+                  );
         this._needsDraw = true;
     }
 
-    onPointerUp(event: PointerEvent): void {
+    public onPointerUp(event: PointerEvent): void {
         if (!this._drag || event.pointerId !== this._drag.pointerId) return;
         const { kfIndex } = this._drag;
         const committed = this._dragLive;
@@ -274,7 +307,7 @@ export class ReframeEditor {
         this._needsDraw = true;
     }
 
-    async save(): Promise<void> {
+    public async save(): Promise<void> {
         if (this.saving || !this.duration) return;
         this.saving = true;
 
@@ -296,14 +329,19 @@ export class ReframeEditor {
                 this.dirty = false;
             }
         } catch (error) {
-            ClientLogger.send('error', `Falha ao salvar o reframe: ${String(error)}`, { editId: this.editId });
-            this.$dispatch('toast', { message: 'Não foi possível salvar. Tente de novo.', variant: 'error' });
+            ClientLogger.send('error', `Falha ao salvar o reframe: ${String(error)}`, {
+                editId: this.editId,
+            });
+            this.$dispatch('toast', {
+                message: 'Não foi possível salvar. Tente de novo.',
+                variant: 'error',
+            });
         } finally {
             this.saving = false;
         }
     }
 
-    async recoverVideoUrl(): Promise<void> {
+    public async recoverVideoUrl(): Promise<void> {
         try {
             const url = await this.$wire.refreshUrl();
             if (!url) return;
@@ -312,16 +350,20 @@ export class ReframeEditor {
             const wasPlaying = !this._video.paused;
             this.videoUrl = url;
             this._video.src = url;
-            this._video.addEventListener('loadedmetadata', () => {
-                this._video.currentTime = t;
-                if (wasPlaying) this._video.play().catch(() => undefined);
-            }, { once: true });
+            this._video.addEventListener(
+                'loadedmetadata',
+                () => {
+                    this._video.currentTime = t;
+                    if (wasPlaying) this._video.play().catch(() => undefined);
+                },
+                { once: true },
+            );
         } catch {
             return;
         }
     }
 
-    regionsAt(t: number): Region[] | null {
+    public regionsAt(t: number): Region[] | null {
         return ReframeGeometry.regionsAt(this.keyframes, t);
     }
 
@@ -390,11 +432,16 @@ export class ReframeEditor {
 
     private ensureKeyframeAtCurrentTime(): number | null {
         const t = ReframeGeometry.round3(this._video.currentTime);
-        const existing = this.keyframes.findIndex((kf) => Math.abs(kf.t - t) < ReframeEditor.T_EPSILON);
+        const existing = this.keyframes.findIndex(
+            (kf) => Math.abs(kf.t - t) < ReframeEditor.T_EPSILON,
+        );
         if (existing !== -1) return existing;
 
         if (this.keyframes.length >= ReframeEditor.MAX_KEYFRAMES) {
-            this.$dispatch('toast', { message: `Limite de ${ReframeEditor.MAX_KEYFRAMES} keyframes atingido.`, variant: 'warning' });
+            this.$dispatch('toast', {
+                message: `Limite de ${ReframeEditor.MAX_KEYFRAMES} keyframes atingido.`,
+                variant: 'warning',
+            });
 
             return null;
         }
@@ -419,8 +466,13 @@ export class ReframeEditor {
     private defaultKeyframe(): Keyframe {
         return {
             t: 0,
-            regions: ReframeModes.get(this.mode).slots.map(
-                (slot) => ReframeGeometry.defaultRegion(this.mode, slot, this._video.videoWidth, this._video.videoHeight),
+            regions: ReframeModes.get(this.mode).slots.map((slot) =>
+                ReframeGeometry.defaultRegion(
+                    this.mode,
+                    slot,
+                    this._video.videoWidth,
+                    this._video.videoHeight,
+                ),
             ),
         };
     }

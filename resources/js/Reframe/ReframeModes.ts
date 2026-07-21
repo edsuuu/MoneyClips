@@ -1,11 +1,11 @@
 import type { ModeDefinition } from './ReframeTypes';
 
 export class ReframeModes {
-    static readonly OUT_W = 1080;
+    public static readonly OUT_W = 1080;
 
-    static readonly OUT_H = 1920;
+    public static readonly OUT_H = 1920;
 
-    static readonly ALL: Record<string, ModeDefinition> = {
+    public static readonly ALL: Record<string, ModeDefinition> = {
         vertical: {
             label: 'Vertical',
             fit: 'cover',
@@ -18,7 +18,12 @@ export class ReframeModes {
             lock: 'slot',
             slots: [
                 { x: 0, y: 0, w: ReframeModes.OUT_W, h: ReframeModes.OUT_H / 2 },
-                { x: 0, y: ReframeModes.OUT_H / 2, w: ReframeModes.OUT_W, h: ReframeModes.OUT_H / 2 },
+                {
+                    x: 0,
+                    y: ReframeModes.OUT_H / 2,
+                    w: ReframeModes.OUT_W,
+                    h: ReframeModes.OUT_H / 2,
+                },
             ],
         },
         trio: {
@@ -46,13 +51,13 @@ export class ReframeModes {
         },
     };
 
-    static readonly REGION_LABELS: Record<number, string[]> = {
+    public static readonly REGION_LABELS: Record<number, string[]> = {
         1: ['Região'],
         2: ['Topo', 'Base'],
         3: ['Topo', 'Meio', 'Base'],
     };
 
-    static get(mode: string): ModeDefinition {
+    public static get(mode: string): ModeDefinition {
         const definition = ReframeModes.ALL[mode];
 
         if (definition === undefined) {
@@ -62,11 +67,14 @@ export class ReframeModes {
         return definition;
     }
 
-    static exists(mode: string): boolean {
+    public static exists(mode: string): boolean {
         return ReframeModes.ALL[mode] !== undefined;
     }
 
-    static options(): { value: string; label: string }[] {
-        return Object.entries(ReframeModes.ALL).map(([value, def]) => ({ value, label: def.label }));
+    public static options(): { value: string; label: string }[] {
+        return Object.entries(ReframeModes.ALL).map(([value, def]) => ({
+            value,
+            label: def.label,
+        }));
     }
 }

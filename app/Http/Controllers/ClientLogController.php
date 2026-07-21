@@ -4,30 +4,21 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ClientLogRequest;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 
 final class ClientLogController extends Controller
 {
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(ClientLogRequest $request): JsonResponse
     {
-        /** @var array{level: string, message: string, request_id?: string|null, url?: string|null, context?: array<string, mixed>|null} $data */
-        $data = $request->validate([
-            'level' => ['required', 'in:warning,error'],
-            'message' => ['required', 'string', 'max:2000'],
-            'request_id' => ['nullable', 'string', 'max:64'],
-            'url' => ['nullable', 'string', 'max:2000'],
-            'context' => ['nullable', 'array'],
-        ]);
-
-        Log::log($data['level'], '[browser] '.$data['message'], [
-            'request_id' => $data['request_id'] ?? null,
+        Log::log($request->level(), '[browser] '.$request->message(), [
+            'request_id' => $request->requestId(),
             'user_id' => Auth::id(),
-            'url' => $data['url'] ?? null,
+            'url' => $request->pageUrl(),
             'user_agent' => $request->userAgent(),
-            'context' => $data['context'] ?? [],
+            'context' => $request->context(),
         ]);
 
         return response()->json(['status' => 'logged']);
