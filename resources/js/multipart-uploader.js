@@ -145,11 +145,17 @@ export function createMultipartUploader({ onProgress, onStatus }) {
             }
         }
 
-        const uploadedBytes = new Map();
-        const baselineBytes = Object.keys(completed).length * partSize;
+        const partBytes = (partNumber) =>
+            Math.min(partNumber * partSize, file.size) - (partNumber - 1) * partSize;
+
+        // Uma entrada por parte, viva do primeiro byte até o ETag: parte concluída
+        // vira o tamanho final em vez de sair do mapa, senão a barra anda e volta.
+        const uploadedBytes = new Map(
+            Object.keys(completed).map((partNumber) => [Number(partNumber), partBytes(Number(partNumber))]),
+        );
 
         const reportProgress = () => {
-            let total = baselineBytes;
+            let total = 0;
             for (const bytes of uploadedBytes.values()) {
                 total += bytes;
             }
@@ -183,7 +189,7 @@ export function createMultipartUploader({ onProgress, onStatus }) {
                             });
 
                             completed[partNumber] = etag;
-                            uploadedBytes.delete(partNumber);
+                            uploadedBytes.set(partNumber, blob.size);
                             session.completed = completed;
                             writeResume(file, session);
                             lastError = null;
