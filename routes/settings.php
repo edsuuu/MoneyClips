@@ -25,8 +25,3 @@ Route::middleware(['auth', 'verified'])->group(function (): void {
         )
         ->name('security.edit');
 });
-
-Route::redirect('settings', 'configuracoes');
-Route::redirect('settings/profile', 'configuracoes/perfil');
-Route::redirect('settings/appearance', 'configuracoes/aparencia');
-Route::redirect('settings/security', 'configuracoes/seguranca');
