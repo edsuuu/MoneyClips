@@ -42,8 +42,6 @@ final readonly class TiktokPosterService implements PosterInterface
             return PosterResultData::failed($this->platform(), 'Nenhuma conta TikTok ativa cadastrada em /contas.');
         }
 
-        // Curto-circuito: sessão marcada como inválida — postar de novo só
-        // acumula falha e flag de spam. O operador renova em /contas.
         if ($account->session_status === SocialAccount::SESSION_INVALID) {
             Log::warning('[AutoPost][TikTok] Sessão inválida — pulando disparo.', ['short_id' => $task->short->id]);
 

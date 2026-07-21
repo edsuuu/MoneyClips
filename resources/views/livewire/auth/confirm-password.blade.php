@@ -11,7 +11,6 @@
     @endif
 
     <form wire:submit="confirmPassword" class="flex flex-col gap-6">
-        <!-- Password -->
         <x-ui.input
             wire:model="password"
             :label="__('Password')"

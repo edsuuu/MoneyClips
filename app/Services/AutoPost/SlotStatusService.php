@@ -54,7 +54,6 @@ final class SlotStatusService
     {
         $posts = $slot->socialPosts;
 
-        // Despachado mas os jobs ainda não criaram o ledger — está postando.
         if ($posts->isEmpty()) {
             return ['status' => 'posting', 'platforms' => []];
         }

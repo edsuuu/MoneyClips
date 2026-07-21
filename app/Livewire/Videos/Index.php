@@ -36,8 +36,6 @@ final class Index extends Component
 
     private const array TABS = [self::TAB_AVAILABLE, self::TAB_EDITOR, self::TAB_TEMPLATED, self::TAB_POSTED];
 
-    // ponytail: sem paginação — grid com teto fixo. Estoque de projeto solo
-    // fica nas dezenas; se passar de SECTION_LIMIT, o upgrade é WithPagination.
     private const int SECTION_LIMIT = 60;
 
     private const int CARD_TAG_LIMIT = 4;
@@ -45,14 +43,12 @@ final class Index extends Component
     #[Url(as: 'tab', except: self::TAB_AVAILABLE)]
     public string $tab = self::TAB_AVAILABLE;
 
-    // Modal de revisão (título/hashtags + preview).
     public ?int $editingId = null;
 
     public string $editTitle = '';
 
     public string $editHashtags = '';
 
-    // Modal de postagem instantânea.
     public bool $showInstant = false;
 
     public ?int $instantShortId = null;
@@ -60,12 +56,10 @@ final class Index extends Component
     /** @var list<string> */
     public array $instantPlatforms = [];
 
-    // Modal de novo download por canal.
     public bool $showUpload = false;
 
     public string $channelUrl = '';
 
-    // Modal "Agendar" (vídeo com template → slot vazio).
     public ?int $schedulingId = null;
 
     public function setTab(string $tab): void
@@ -200,7 +194,7 @@ final class Index extends Component
                 ->exists();
 
             if ($active) {
-                continue; // já em fila/postado nessa plataforma
+                continue;
             }
 
             dispatch(new PostSlotToPlatformJob(null, $platform, $short->id));
@@ -269,8 +263,6 @@ final class Index extends Component
         $this->schedulingId = null;
         $this->toast(sprintf('Agendado para %s às %s.', $slot->slot_date->format('d/m'), $slot->timeLabel()));
     }
-
-    // ── Internos ─────────────────────────────────────────────────────────
 
     /** @return Builder<YoutubeShort> */
     private function downloadedQuery(): Builder

@@ -35,11 +35,7 @@ final readonly class ReencodeService
             ));
         }
 
-        if (str_contains((string) $response->header('Content-Type'), 'application/json')) {
-            return false; // skipped — bitrate já ok ou reencode desligado
-        }
-
-        return true;
+        return ! str_contains((string) $response->header('Content-Type'), 'application/json');
     }
 
     private function client(): PendingRequest
