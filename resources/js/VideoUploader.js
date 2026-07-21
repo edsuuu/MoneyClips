@@ -1,4 +1,4 @@
-import { createMultipartUploader } from './multipart-uploader';
+import { MultipartUploader } from './MultipartUploader';
 
 export function videoUploader({ maxBytes, accepted, libraryUrl }) {
     return {
@@ -21,25 +21,25 @@ export function videoUploader({ maxBytes, accepted, libraryUrl }) {
 
             if (!accepted.split(',').includes(file.type)) {
                 this.error = 'Formato não suportado — envie MP4, MOV ou WEBM.';
+
                 return;
             }
 
             if (file.size > maxBytes) {
                 this.error = 'O vídeo passa do limite de 3GB.';
+
                 return;
             }
 
-            const upload = createMultipartUploader({
-                onProgress: (value) => {
-                    this.progress = value;
-                },
-                onStatus: (value) => {
-                    this.state = value;
-                },
-            });
-
             try {
-                await upload(file);
+                await new MultipartUploader({
+                    onProgress: (value) => {
+                        this.progress = value;
+                    },
+                    onStatus: (value) => {
+                        this.state = value;
+                    },
+                }).upload(file);
             } catch (error) {
                 this.state = 'idle';
                 this.progress = 0;
@@ -51,7 +51,10 @@ export function videoUploader({ maxBytes, accepted, libraryUrl }) {
             this.state = 'idle';
             this.progress = 0;
             this.error = '';
-            this.$refs.input.value = '';
+
+            if (this.$refs.input) {
+                this.$refs.input.value = '';
+            }
         },
     };
 }

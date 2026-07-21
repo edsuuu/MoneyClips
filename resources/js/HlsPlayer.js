@@ -5,7 +5,6 @@ async function loadHlsConstructor() {
         return window.Hls;
     }
 
-    // Chunk separado: os ~400KB do hls.js só entram nas telas que têm player.
     if (!hlsModulePromise) {
         hlsModulePromise = import('hls.js').then((module) => module.default);
     }
@@ -25,7 +24,6 @@ export async function initAdaptiveVideoPlayer(element) {
         return;
     }
 
-    // Safari toca HLS nativo — carregar o hls.js ali só desperdiça banda.
     if (element.canPlayType('application/vnd.apple.mpegurl')) {
         element.src = hlsSrc;
         return;

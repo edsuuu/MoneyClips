@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\ClientLogController;
 use App\Http\Controllers\HLSStreamController;
 use App\Http\Controllers\MultipartUploadController;
 use App\Http\Controllers\OAuthController;
@@ -30,6 +31,10 @@ Route::middleware(['auth'])->group(function (): void {
     Route::get('/hls/{video:uuid}/{path}', [HLSStreamController::class, 'segment'])
         ->where('path', '.*')
         ->name('hls.segment');
+
+    Route::post('/client-logs', ClientLogController::class)
+        ->middleware('throttle:client-logs')
+        ->name('client-logs.store');
 
     Route::prefix('uploads')
         ->name('uploads.')

@@ -57,6 +57,8 @@ final class AppServiceProvider extends ServiceProvider
         // o laço de quem chama /uploads em looping.
         RateLimiter::for('uploads', fn (Request $request): Limit => Limit::perMinute(120)->by((string) $request->user()?->id));
 
+        RateLimiter::for('client-logs', fn (Request $request): Limit => Limit::perMinute(30)->by((string) $request->user()?->id));
+
         //        Gate::define('viewLogViewer', fn (User $user) => $user->hasRole('Administrador')
         //            ? Response::allow()
         //            : Response::deny(__('This action is unauthorized.')));

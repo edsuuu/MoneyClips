@@ -1,22 +1,10 @@
-// Editor de reframe/crop com keyframes (/estudio-de-cortes). Tudo roda no
-// client: o <video> fonte alimenta um <canvas> 9:16 via drawImage a cada
-// frame (rAF), com crop interpolado entre keyframes. O Livewire só recebe
-// o estado no Salvar (saveEdit) — nunca re-renderiza durante a edição
-// (a ilha inteira fica sob wire:ignore).
-//
-// Regra de performance: tudo que é tocado a 60fps vive em propriedades
-// `_underscore` atribuídas dentro do init() — fora do proxy reativo do
-// Alpine. Estado reativo é só o de frequência humana (cliques, keyframes).
 
 const OUT_W = 1080;
 const OUT_H = 1920;
 const MAX_KEYFRAMES = 120;
-const MIN_SIZE = 0.05; // tamanho mínimo da região no arrasto (UX)
-const T_EPSILON = 0.05; // keyframes mais próximos que isto são o mesmo
+const MIN_SIZE = 0.05;
+const T_EPSILON = 0.05;
 
-// slots em px do canvas de saída; fit 'cover' preenche o slot, 'contain'
-// centraliza com barras da cor de fundo; lock trava o aspect do crop na
-// fonte ('slot' = aspect do slot, 'source' = aspect da fonte, 'free' = livre).
 const MODES = {
     vertical: { label: 'Vertical', fit: 'cover', lock: 'slot', slots: [{ x: 0, y: 0, w: OUT_W, h: OUT_H }] },
     split: {
@@ -39,14 +27,12 @@ const round3 = (value) => Math.round(value * 1000) / 1000;
 
 export function reframeEditor(initial) {
     return {
-        // ── Persistente (espelha reframe_edits) ──
         editId: initial.editId,
         videoUrl: initial.videoUrl,
         mode: initial.mode,
         keyframes: initial.keyframes,
         settings: initial.settings,
 
-        // ── Sessão/UI (reativo, frequência humana) ──
         duration: 0,
         currentTime: 0,
         playing: false,
@@ -85,7 +71,6 @@ export function reframeEditor(initial) {
             };
             window.addEventListener('beforeunload', this._onBeforeUnload);
 
-            // Renova a URL presigned antes do TTL de 30 min expirar.
             this._urlTimer = setInterval(() => this.recoverVideoUrl(), 25 * 60 * 1000);
 
             if (this.videoUrl) this._video.src = this.videoUrl;
@@ -100,7 +85,6 @@ export function reframeEditor(initial) {
             this._video.pause();
         },
 
-        // ── Transporte ──
         togglePlay() {
             if (!this.duration) return;
             this._video.paused ? this._video.play() : this._video.pause();
@@ -124,7 +108,6 @@ export function reframeEditor(initial) {
             return `${fmt(this.currentTime)} / ${fmt(this.duration)}`;
         },
 
-        // ── Keyframes ──
         addKeyframeAtCurrentTime() {
             const index = this._ensureKeyframeAtCurrentTime();
             if (index === null) return;
@@ -146,7 +129,6 @@ export function reframeEditor(initial) {
             this._needsDraw = true;
         },
 
-        // ── Modos / regiões ──
         setMode(mode) {
             if (mode === this.mode || !MODES[mode]) return;
             const discards = this.dirty || this.keyframes.length > 1;
@@ -187,7 +169,6 @@ export function reframeEditor(initial) {
             this._needsDraw = true;
         },
 
-        // ── Máquina de drag/resize da caixa de crop ──
         onPointerDown(event, type) {
             if (!this.duration || this._drag) return;
             event.preventDefault();
@@ -243,7 +224,6 @@ export function reframeEditor(initial) {
             this._needsDraw = true;
         },
 
-        // ── Persistência (única ponte com o Livewire) ──
         async save() {
             if (this.saving || !this.duration) return;
             this.saving = true;
@@ -261,7 +241,7 @@ export function reframeEditor(initial) {
                 });
                 if (id !== null) {
                     this.editId = id;
-                    this.dirty = false; // toast de sucesso vem do servidor
+                    this.dirty = false;
                 }
             } finally {
                 this.saving = false;
@@ -281,15 +261,11 @@ export function reframeEditor(initial) {
                     if (wasPlaying) this._video.play();
                 }, { once: true });
             } catch {
-                // presigned indisponível — o listener de error tenta de novo
             }
         },
 
-        // ── Internos ──
         _handleMetadata() {
             this.duration = this._video.duration;
-            // Wrapper com o aspect da fonte: o box do overlay coincide com o
-            // vídeo exibido (sem letterbox do object-contain na conta).
             this.$refs.stage.style.aspectRatio = `${this._video.videoWidth} / ${this._video.videoHeight}`;
             if (!this.keyframes.length) {
                 this.keyframes = [this._defaultKeyframe()];
@@ -347,7 +323,7 @@ export function reframeEditor(initial) {
             if (!this._boxes || this._boxes.length !== regions.length) {
                 this._boxes = [...overlay.querySelectorAll('[data-region-box]')];
             }
-            if (this._boxes.length !== regions.length) return; // x-for ainda montando
+            if (this._boxes.length !== regions.length) return;
 
             this._boxes.forEach((el, i) => {
                 const r = regions[i];
@@ -362,7 +338,6 @@ export function reframeEditor(initial) {
             }
         },
 
-        /** Regiões no tempo t, com a região ativa substituída pelo drag ao vivo. */
         _liveRegions(t) {
             const regions = this.regionsAt(t);
             if (!regions) return null;
@@ -372,7 +347,6 @@ export function reframeEditor(initial) {
             return live;
         },
 
-        /** Interpolação linear entre os dois keyframes vizinhos de t. */
         regionsAt(t) {
             const kfs = this.keyframes;
             if (!kfs.length) return null;
@@ -397,7 +371,6 @@ export function reframeEditor(initial) {
             });
         },
 
-        /** Keyframe em currentTime (±epsilon), criando por interpolação se preciso. */
         _ensureKeyframeAtCurrentTime() {
             const t = round3(this._video.currentTime);
             const existing = this.keyframes.findIndex((kf) => Math.abs(kf.t - t) < T_EPSILON);
@@ -426,7 +399,6 @@ export function reframeEditor(initial) {
             };
         },
 
-        /** Região default: crop máximo centrado honrando o lock do modo. */
         _defaultRegion(slot) {
             const vw = this._video.videoWidth;
             const vh = this._video.videoHeight;
@@ -440,11 +412,9 @@ export function reframeEditor(initial) {
                     h = vw / (aspect * vh);
                 }
             }
-            // 'free' e 'source': frame cheio (a fonte inteira já é o crop).
             return { x: round4((1 - w) / 2), y: round4((1 - h) / 2), w: round4(w), h: round4(h) };
         },
 
-        /** Aspect (em px da fonte) que o crop da região ativa deve manter. */
         _lockAspect() {
             const mode = MODES[this.mode];
             if (mode.lock === 'free') return null;
@@ -453,7 +423,6 @@ export function reframeEditor(initial) {
             return slot.w / slot.h;
         },
 
-        /** Resize por canto: âncora no canto oposto + aspect lock + clamps. */
         _resize(start, handle, dx, dy) {
             const vw = this._video.videoWidth;
             const vh = this._video.videoHeight;
@@ -472,8 +441,6 @@ export function reframeEditor(initial) {
             const aspect = this._lockAspect();
 
             if (aspect !== null) {
-                // Dirige pela largura; h decorre do aspect (espaço normalizado
-                // é anisotrópico: h_norm = w_norm * vw / (aspect * vh)).
                 const wFromMaxH = (maxH * aspect * vh) / vw;
                 w = clamp(Math.max(w, MIN_SIZE), MIN_SIZE, Math.min(maxW, wFromMaxH));
                 h = (w * vw) / (aspect * vh);
