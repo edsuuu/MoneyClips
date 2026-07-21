@@ -347,11 +347,48 @@ make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
 6. ⚠️ Rotacionar a chave Roboflow e o webhook Discord que estavam commitados
    no `.env.example` antigo do TikTokUploader (continuam no histórico git)
 
+## Armadilhas conhecidas (custaram tempo, não são óbvias)
+
+- **`.gitignore` casa em qualquer profundidade.** `storage/` já engoliu um
+  módulo de código (`AutoCaption/app/storage/local.py`): funcionava na máquina
+  de quem escreveu e o serviço não subia em nenhuma outra. Ao criar pasta com
+  nome genérico dentro de um serviço, confira com `git check-ignore -v`.
+- **Rename só de case exige `git mv`.** macOS é case-insensitive; o git guarda
+  o case antigo e o PSR-4 quebra no Linux do CI.
+- **`phpunit.xml` vence o `.env.testing`.** O PHPUnit seta as vars antes do
+  bootstrap e o `safeLoad()` do Dotenv não sobrescreve. Consequência: a suíte
+  roda em **sqlite `:memory:`** enquanto prod é MySQL — migration com tipo de
+  coluna específico ou cast de JSON pode passar no CI e quebrar em prod.
+- **`php artisan key:generate` precisa da linha `APP_KEY=`.** Em `.env` vazio
+  ele não acha o que substituir, sai sem escrever e **sem erro**.
+- **`service_heartbeats` é upsert por NOME** e o `check-heartbeats` varre a
+  tabela inteira: renomear serviço deixa linha órfã alertando "fora do ar" pra
+  sempre. Apague a linha junto com o rename.
+- **`DateOnlyCast` existe por causa do sqlite dos testes**: o `immutable_date`
+  nativo grava `Y-m-d H:i:s` e quebra comparação por data (MySQL trunca,
+  sqlite não).
+- **`php artisan view:clear` faz parte do deploy**: trocar componente anônimo
+  por componente de classe com o mesmo nome quebra com o cache antigo.
+- **Automerge está DESATIVADO** (`gh workflow enable automerge.yml` religa).
+  Se religar: ele mergeia sozinho segundos após o `tests` ficar verde, então
+  qualquer push vira merge sem revisão.
+
+## Pendências
+
+- ⚠️ **Rotacionar a chave Roboflow e o webhook Discord** que estavam
+  commitados no `.env.example` antigo do TikTokUploader — seguem no histórico
+  do git.
+- Renomear as chaves `AUTOCAPTION_*`/`HLS_*` e a rota
+  `/api/autocaption/webhook`: apontam pro serviço `Video`, não mais pros
+  serviços que dão nome a elas.
+
 ## Agentes e contexto
 
 - Agente especializado no projeto: `.claude/agents/moneyclips-expert.md`
   (arquitetura, convenções e workflow de verificação — use para qualquer
   feature/refactor/review neste repo).
+- Histórico das refatorações vive no git (PRs #48, #61, #62, #63) — este
+  arquivo descreve o estado ATUAL.
 
 ## Histórico (apagados nesta refatoração)
 

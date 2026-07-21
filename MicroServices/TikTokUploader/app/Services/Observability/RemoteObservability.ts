@@ -1,5 +1,5 @@
 /**
- * Observabilidade remota (OBSERVABILITY.md): decora o logger do console para
+ * Observabilidade remota: decora o logger do console para
  * também empilhar as linhas num buffer e enviá-las em lote ao Laravel
  * (POST /api/observability/logs, flush a cada 2s ou 20 linhas), além de um
  * heartbeat a cada 30s (POST /api/observability/heartbeat).
