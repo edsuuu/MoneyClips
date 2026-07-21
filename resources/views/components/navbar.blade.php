@@ -10,11 +10,14 @@
         </a>
 
         @auth
-            <x-user-menu align="end" class="order-2 ml-auto w-44 lg:order-3" />
+            <div class="order-2 ml-auto flex items-center gap-1 lg:order-3">
+                <x-theme-toggle />
+                <x-user-menu align="end" class="w-44" />
+            </div>
         @endauth
 
-        <nav class="order-3 w-full lg:order-2 lg:w-auto">
-            <ul class="flex items-center gap-1 overflow-x-auto">
+        <nav class="order-3 w-full lg:order-2 lg:flex-1">
+            <ul class="flex items-center gap-1 overflow-x-auto lg:justify-center">
                 @foreach ([
                     ['label' => 'Dashboard', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*'],
                     ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*'],

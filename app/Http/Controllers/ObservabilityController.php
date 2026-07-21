@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Observability\StoreBrowserLogRequest;
 use App\Http\Requests\Observability\StoreHeartbeatRequest;
 use App\Http\Requests\Observability\StoreServiceLogsRequest;
+use App\Http\Resources\StatusResource;
 use App\Models\ServiceHeartbeat;
 use App\Models\ServiceLog;
-use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Log;
 
 final class ObservabilityController extends Controller
 {
-    public function logs(StoreServiceLogsRequest $request): JsonResponse
+    public function logs(StoreServiceLogsRequest $request): StatusResource
     {
         $now = now();
         $service = $request->service();
@@ -31,10 +34,10 @@ final class ObservabilityController extends Controller
 
         ServiceLog::query()->insert($rows);
 
-        return response()->json(['stored' => count($rows)]);
+        return new StatusResource('ok', extra: ['stored' => count($rows)]);
     }
 
-    public function heartbeat(StoreHeartbeatRequest $request): JsonResponse
+    public function heartbeat(StoreHeartbeatRequest $request): StatusResource
     {
         ServiceHeartbeat::query()->updateOrCreate(
             ['service' => $request->service()],
@@ -47,6 +50,25 @@ final class ObservabilityController extends Controller
             ],
         );
 
-        return response()->json(['status' => 'ok']);
+        return new StatusResource('ok');
+    }
+
+    /**
+     * Unico endpoint da classe que NAO vem de microservico: chega do browser
+     * pela /client-logs (sessao web + throttle por usuario), nao pelo
+     * VerifyObservabilityToken. Por isso grava no log da aplicacao e nao em
+     * service_logs, que e a tabela dos servicos.
+     */
+    public function browserLog(StoreBrowserLogRequest $request): StatusResource
+    {
+        Log::log($request->level(), '[browser] '.$request->message(), [
+            'request_id' => $request->requestId(),
+            'user_id' => Auth::id(),
+            'url' => $request->pageUrl(),
+            'user_agent' => $request->userAgent(),
+            'context' => $request->context(),
+        ]);
+
+        return new StatusResource('logged');
     }
 }

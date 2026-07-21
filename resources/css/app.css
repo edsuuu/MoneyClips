@@ -3,6 +3,10 @@
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 
+/* Sem isto o `dark:` do Tailwind 4 responde a prefers-color-scheme, e não à
+   classe .dark que o toggle controla. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Sem isto o x-cloak não esconde nada e todo modal/dropdown pisca até o Alpine subir. */
 [x-cloak] {
     display: none !important;
@@ -31,8 +35,11 @@
     --color-accent-content: var(--color-white);
     --color-accent-foreground: var(--color-neutral-800);
 
-    /* Rampa ancorada em #0a0a0f (mesma superfície do site/landing) — sai do
-       azulado do slate original. */
+    /* Rampa fora do azulado do slate original. A ponta escura (950/900/800)
+       subiu junto porque o fundo do app e as superfícies dos cards saem toda
+       dela: clarear só o 950 deixaria o card mais escuro que a página.
+       A landing NÃO usa estes tokens (hex fixo em layouts/guest), então
+       continua na superfície original #0a0a0f. */
     --color-slate-50: #fafafa;
     --color-slate-100: #ededed;
     --color-slate-200: #d9d9e0;
@@ -41,9 +48,55 @@
     --color-slate-500: #71717a;
     --color-slate-600: #3f3a4a;
     --color-slate-700: #2e2937;
-    --color-slate-800: #1f1b26;
-    --color-slate-900: #141018;
-    --color-slate-950: #0a0a0f;
+    --color-slate-800: #262030;
+    --color-slate-900: #1b1624;
+    --color-slate-950: #12101a;
+}
+
+/* A aplicação inteira pinta com a escala `slate` (bg-slate-950, text-slate-100,
+   border-slate-800...), então inverter a escala inverte todas as telas de uma
+   vez.
+   ponytail: inversão da rampa em vez de variantes `dark:` em ~36 blades. Teto:
+   acentos fora da rampa (emerald/purple/red) não mudam de tom — se algum ficar
+   ilegível no claro, ajuste aquele caso com `dark:` pontual. */
+@layer theme {
+    .dark {
+        --color-slate-50: #fafafa;
+        --color-slate-100: #ededed;
+        --color-slate-200: #d9d9e0;
+        --color-slate-300: #c4c4cc;
+        --color-slate-400: #a1a1aa;
+        --color-slate-500: #71717a;
+        --color-slate-600: #3f3a4a;
+        --color-slate-700: #2e2937;
+        --color-slate-800: #262030;
+        --color-slate-900: #1b1624;
+        --color-slate-950: #12101a;
+    }
+
+    html:not(.dark) {
+        --color-slate-50: #12101a;
+        --color-slate-100: #1b1624;
+        --color-slate-200: #262030;
+        --color-slate-300: #2e2937;
+        --color-slate-400: #52525b;
+        --color-slate-500: #71717a;
+        --color-slate-600: #a1a1aa;
+        --color-slate-700: #d4d4d8;
+        --color-slate-800: #e4e4e7;
+        --color-slate-900: #f4f4f5;
+        --color-slate-950: #fafafa;
+    }
+}
+
+/* A troca de tema repinta a página inteira; sem isto cada elemento com
+   `transition` interpola no seu próprio tempo e o flip vira um piscar
+   escalonado. Suprimimos as transições por um frame. */
+.theme-switching,
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+    transition: none !important;
 }
 
 @layer base {
