@@ -1,18 +1,11 @@
-@props(['placement' => 'bottom', 'align' => 'start', 'collapsible' => false])
+@props(['placement' => 'bottom', 'align' => 'start'])
 
 <x-ui.dropdown :align="$align" :placement="$placement" {{ $attributes }}>
     <x-slot:trigger>
-        <div class="flex w-full items-center gap-2 rounded-lg p-2 text-start transition hover:bg-slate-900" data-test="sidebar-menu-button">
+        <div class="flex w-full items-center gap-2 rounded-lg p-2 text-start transition hover:bg-slate-900" data-test="user-menu-button">
             <x-ui.avatar :initials="auth()->user()->initials()" :name="auth()->user()->name" />
-            <span
-                class="flex-1 truncate text-sm font-medium text-slate-200 transition-opacity duration-200"
-                @if ($collapsible) :class="expanded ? 'lg:opacity-100 lg:delay-150' : 'lg:pointer-events-none lg:opacity-0 lg:delay-0'" @endif
-            >{{ auth()->user()->name }}</span>
-            <x-ui.icon
-                name="chevrons-up-down"
-                class="shrink-0 text-slate-500 transition-opacity duration-200"
-                @if ($collapsible) ::class="expanded ? 'lg:opacity-100 lg:delay-150' : 'lg:pointer-events-none lg:opacity-0 lg:delay-0'" @endif
-            />
+            <span class="flex-1 truncate text-sm font-medium text-slate-200">{{ auth()->user()->name }}</span>
+            <x-ui.icon name="chevrons-up-down" class="shrink-0 text-slate-500" />
         </div>
     </x-slot:trigger>
 
