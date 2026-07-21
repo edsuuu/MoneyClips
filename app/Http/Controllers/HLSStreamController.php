@@ -22,9 +22,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 final class HLSStreamController extends Controller
 {
-    // Allowlist estrita (e não busca por ".."): só os nomes que o empacotador
-    // de fato produz — renditions em subpasta, poster na raiz. O init vem como
-    // `init_N.mp4`: com múltiplas variantes o ffmpeg sufixa o índice.
     private const string SEGMENT_PATTERN = '#^(poster\.jpg|[A-Za-z0-9_-]+/(init(_\d+)?\.mp4|seg_\d{1,6}\.m4s|index\.m3u8))$#';
 
     private const int ACCEL_TTL_MINUTES = 5;
