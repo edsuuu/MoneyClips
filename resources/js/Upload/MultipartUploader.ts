@@ -1,14 +1,20 @@
-import { ClientLogger } from '../Support/ClientLogger';
-import { JsonClient } from '../Support/JsonClient';
 import { PartSender } from './PartSender';
 import { ResumeStore } from './ResumeStore';
 import { UploadProgress } from './UploadProgress';
-import type { CompletedUpload, SignedParts, StoredParts, UploaderCallbacks, UploadSession } from './UploadTypes';
+import type {
+    CompletedUpload,
+    SignedParts,
+    StoredParts,
+    UploaderCallbacks,
+    UploadSession,
+} from './UploadTypes';
+import { ClientLogger } from '../Support/ClientLogger';
+import { JsonClient } from '../Support/JsonClient';
 
 export class MultipartUploader {
-    static readonly SIGN_WINDOW = 20;
+    public static readonly SIGN_WINDOW = 20;
 
-    static readonly CONCURRENCY = 4;
+    public static readonly CONCURRENCY = 4;
 
     private file!: File;
 
@@ -18,13 +24,13 @@ export class MultipartUploader {
 
     private progress!: UploadProgress;
 
-    constructor(private readonly callbacks: UploaderCallbacks) {}
+    public constructor(private readonly callbacks: UploaderCallbacks) {}
 
     private static log(step: string, detail: Record<string, unknown> = {}): void {
         console.log(`[upload] ${step}`, detail);
     }
 
-    async upload(file: File): Promise<CompletedUpload> {
+    public async upload(file: File): Promise<CompletedUpload> {
         this.file = file;
         this.store = new ResumeStore(file);
 
@@ -65,7 +71,11 @@ export class MultipartUploader {
             return this.upload(file);
         }
 
-        this.progress = new UploadProgress(file.size, this.session.part_size, this.callbacks.onProgress);
+        this.progress = new UploadProgress(
+            file.size,
+            this.session.part_size,
+            this.callbacks.onProgress,
+        );
         this.progress.seed(Object.keys(this.session.completed).map(Number));
 
         const pending: number[] = [];
@@ -84,25 +94,35 @@ export class MultipartUploader {
 
         this.callbacks.onStatus('finishing');
         this.callbacks.onProgress(100);
-        MultipartUploader.log('fechando o multipart', { partes: Object.keys(this.session.completed).length });
-
-        const result = await JsonClient.post<CompletedUpload>(`/uploads/${this.session.video_uuid}/complete`, {
-            parts: Object.entries(this.session.completed).map(([number, etag]) => ({
-                part_number: Number(number),
-                etag,
-            })),
+        MultipartUploader.log('fechando o multipart', {
+            partes: Object.keys(this.session.completed).length,
         });
+
+        const result = await JsonClient.post<CompletedUpload>(
+            `/uploads/${this.session.video_uuid}/complete`,
+            {
+                parts: Object.entries(this.session.completed).map(([number, etag]) => ({
+                    part_number: Number(number),
+                    etag,
+                })),
+            },
+        );
 
         this.store.forget();
         this.callbacks.onStatus('done');
-        MultipartUploader.log('concluido', { video_uuid: this.session.video_uuid, status: result.status });
+        MultipartUploader.log('concluido', {
+            video_uuid: this.session.video_uuid,
+            status: result.status,
+        });
 
         return result;
     }
 
     private async syncWithServer(): Promise<boolean> {
         try {
-            const { parts } = await JsonClient.get<StoredParts>(`/uploads/${this.session.video_uuid}/parts`);
+            const { parts } = await JsonClient.get<StoredParts>(
+                `/uploads/${this.session.video_uuid}/parts`,
+            );
 
             for (const part of parts) {
                 this.session.completed[part.part_number] = part.etag;
@@ -115,52 +135,79 @@ export class MultipartUploader {
     }
 
     private async uploadWindow(window: number[]): Promise<void> {
-        const { urls } = await JsonClient.post<SignedParts>(`/uploads/${this.session.video_uuid}/parts`, {
-            part_numbers: window,
-        });
+        const { urls } = await JsonClient.post<SignedParts>(
+            `/uploads/${this.session.video_uuid}/parts`,
+            {
+                part_numbers: window,
+            },
+        );
 
-        MultipartUploader.log('janela assinada', { partes: window.length, de: window[0], ate: window[window.length - 1] });
+        MultipartUploader.log('janela assinada', {
+            partes: window.length,
+            de: window[0],
+            ate: window[window.length - 1],
+        });
 
         let cursor = 0;
 
         await Promise.all(
-            Array.from({ length: Math.min(MultipartUploader.CONCURRENCY, window.length) }, async () => {
-                while (cursor < window.length) {
-                    const number = window[cursor];
-                    cursor += 1;
+            Array.from(
+                { length: Math.min(MultipartUploader.CONCURRENCY, window.length) },
+                async () => {
+                    while (cursor < window.length) {
+                        const number = window[cursor];
+                        cursor += 1;
 
-                    if (number !== undefined) {
-                        await this.sendPart(number, urls[number] ?? '');
+                        if (number !== undefined) {
+                            await this.sendPart(number, urls[number] ?? '');
+                        }
                     }
-                }
-            }),
+                },
+            ),
         );
     }
 
     private async sendPart(number: number, url: string): Promise<void> {
         const start = (number - 1) * this.session.part_size;
-        const blob = this.file.slice(start, Math.min(start + this.session.part_size, this.file.size));
+        const blob = this.file.slice(
+            start,
+            Math.min(start + this.session.part_size, this.file.size),
+        );
 
         let lastError: unknown = null;
 
         for (let attempt = 1; attempt <= PartSender.MAX_ATTEMPTS; attempt += 1) {
             try {
-                const etag = await PartSender.put(url, blob, (loaded) => this.progress.track(number, loaded));
+                const etag = await PartSender.put(url, blob, (loaded) =>
+                    this.progress.track(number, loaded),
+                );
 
                 this.session.completed[number] = etag;
                 this.progress.settle(number, blob.size);
                 this.store.write(this.session);
-                MultipartUploader.log('parte enviada', { parte: number, bytes: blob.size, tentativa: attempt });
+                MultipartUploader.log('parte enviada', {
+                    parte: number,
+                    bytes: blob.size,
+                    tentativa: attempt,
+                });
 
                 return;
             } catch (error) {
                 lastError = error;
                 this.progress.drop(number);
-                MultipartUploader.log('parte falhou', { parte: number, tentativa: attempt, erro: String(error) });
-                ClientLogger.send('warning', `Parte ${number} falhou (tentativa ${attempt}): ${(error as Error).message}`, {
-                    video_uuid: this.session.video_uuid,
-                    part_number: number,
+                MultipartUploader.log('parte falhou', {
+                    parte: number,
+                    tentativa: attempt,
+                    erro: String(error),
                 });
+                ClientLogger.send(
+                    'warning',
+                    `Parte ${number} falhou (tentativa ${attempt}): ${(error as Error).message}`,
+                    {
+                        video_uuid: this.session.video_uuid,
+                        part_number: number,
+                    },
+                );
                 await new Promise((resolve) => setTimeout(resolve, 500 * attempt));
             }
         }

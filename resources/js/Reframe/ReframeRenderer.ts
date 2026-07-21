@@ -2,12 +2,12 @@ import { ReframeModes } from './ReframeModes';
 import type { Region, ReframeSettings } from './ReframeTypes';
 
 export class ReframeRenderer {
-    constructor(
+    public constructor(
         private readonly ctx: CanvasRenderingContext2D,
         private readonly video: HTMLVideoElement,
     ) {}
 
-    draw(mode: string, regions: Region[], settings: ReframeSettings): void {
+    public draw(mode: string, regions: Region[], settings: ReframeSettings): void {
         const { slots, fit } = ReframeModes.get(mode);
         const vw = this.video.videoWidth;
         const vh = this.video.videoHeight;
@@ -33,7 +33,17 @@ export class ReframeRenderer {
                 const scale = Math.min(slot.w / sw, slot.h / sh);
                 const dw = sw * scale;
                 const dh = sh * scale;
-                this.ctx.drawImage(this.video, sx, sy, sw, sh, slot.x + (slot.w - dw) / 2, slot.y + (slot.h - dh) / 2, dw, dh);
+                this.ctx.drawImage(
+                    this.video,
+                    sx,
+                    sy,
+                    sw,
+                    sh,
+                    slot.x + (slot.w - dw) / 2,
+                    slot.y + (slot.h - dh) / 2,
+                    dw,
+                    dh,
+                );
 
                 return;
             }
@@ -42,7 +52,7 @@ export class ReframeRenderer {
         });
     }
 
-    syncBoxes(boxes: HTMLElement[], regions: Region[]): void {
+    public syncBoxes(boxes: HTMLElement[], regions: Region[]): void {
         boxes.forEach((el, i) => {
             const r = regions[i];
 
