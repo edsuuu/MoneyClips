@@ -224,7 +224,6 @@ final class Accounts extends Component
 
         $accountsByPlatform = $accounts->groupBy('platform');
 
-        // Hoje só o YouTube tem publisher OAuth — TikTok usa cookie session.
         $platformLabels = ['youtube' => 'YouTube'];
 
         $providers = collect($platformLabels)

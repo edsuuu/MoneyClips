@@ -12,6 +12,8 @@ use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 use Mockery\MockInterface;
 
+const MP4_HEADER = "\x00\x00\x00\x18ftypmp42";
+
 beforeEach(function (): void {
     $this->user = User::factory()->create();
     $this->actingAs($this->user);
@@ -72,9 +74,9 @@ it('refuses a mime type that is not a supported video', function (): void {
 it('does not let one user sign parts for another users upload', function (): void {
     $foreign = Video::factory()->create();
 
-    $this->postJson(sprintf('/uploads/%s/parts', $foreign->uuid), ['part_numbers' => [1]])->assertForbidden();
-    $this->getJson(sprintf('/uploads/%s/parts', $foreign->uuid))->assertForbidden();
-    $this->deleteJson('/uploads/'.$foreign->uuid)->assertForbidden();
+    $this->postJson(sprintf('/uploads/%s/parts', $foreign->uuid), ['part_numbers' => [1]])->assertNotFound();
+    $this->getJson(sprintf('/uploads/%s/parts', $foreign->uuid))->assertNotFound();
+    $this->deleteJson('/uploads/'.$foreign->uuid)->assertNotFound();
 });
 
 it('caps how many parts can be signed at once', function (): void {
@@ -94,6 +96,7 @@ it('trusts the bucket over the client when completing', function (): void {
     $this->mock(MultipartUploadInterface::class, function (MockInterface $mock): void {
         $mock->shouldReceive('complete')->once();
         $mock->shouldReceive('size')->once()->andReturn(4096);
+        $mock->shouldReceive('firstBytes')->once()->andReturn(MP4_HEADER);
     });
 
     $this->postJson(sprintf('/uploads/%s/complete', $video->uuid), [
@@ -107,6 +110,36 @@ it('trusts the bucket over the client when completing', function (): void {
         ->and($video->upload_id)->toBeNull();
 
     Bus::assertDispatched(StartHLSPackagingJob::class);
+});
+
+it('rejects and deletes an upload whose bytes are not a video', function (): void {
+    Bus::fake();
+    Storage::fake('s3');
+
+    $video = Video::factory()->for($this->user)->create();
+    Storage::disk('s3')->put($video->path(), 'PK'."\x03\x04".'nao sou video');
+
+    $this->mock(MultipartUploadInterface::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('complete')->once();
+        $mock->shouldReceive('size')->once()->andReturn(4096);
+        $mock->shouldReceive('firstBytes')->once()->andReturn('PK'."\x03\x04".'nao sou');
+    });
+
+    $this->postJson(sprintf('/uploads/%s/complete', $video->uuid), [
+        'parts' => [['part_number' => 1, 'etag' => '"abc"']],
+    ])->assertStatus(422);
+
+    expect($video->refresh()->status)->toBe(VideoStatusEnum::Rejected)
+        ->and(Storage::disk('s3')->exists($video->path()))->toBeFalse();
+
+    Bus::assertNotDispatched(StartHLSPackagingJob::class);
+});
+
+it('caps how many upload sessions one user can keep open', function (): void {
+    Video::factory()->count(5)->for($this->user)->create(['status' => VideoStatusEnum::AwaitingUpload]);
+
+    $this->postJson('/uploads', ['file_size' => 1024, 'mime_type' => 'video/mp4'])
+        ->assertStatus(429);
 });
 
 it('rejects and deletes an upload that turned out to be oversized', function (): void {

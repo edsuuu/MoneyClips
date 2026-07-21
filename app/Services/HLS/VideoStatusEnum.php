@@ -4,17 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\HLS;
 
-/**
- * Ciclo de vida de um vídeo enviado em /upload, do voucher de upload até a
- * reprodução adaptativa.
- *
- *   AwaitingUpload → Uploaded → Packaging → Ready
- *                              ↘ Failed / Rejected
- *
- * `Rejected` é o veredito do ffprobe (não era vídeo de verdade) e é terminal:
- * o binário já foi apagado do MinIO, então não há o que reprocessar. `Failed`
- * é falha de empacotamento com a fonte intacta — dá para tentar de novo.
- */
 enum VideoStatusEnum: string
 {
     case AwaitingUpload = 'awaiting_upload';

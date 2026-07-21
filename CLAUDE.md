@@ -172,7 +172,7 @@ Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
   gera warning (não error) no Discord; a sessão continua válida.
 - O microserviço `MicroServices/TikTokUploader` é a fonte do contrato.
 
-## Observabilidade (OBSERVABILITY.md)
+## Observabilidade
 
 Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 
@@ -352,8 +352,6 @@ make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
 - Agente especializado no projeto: `.claude/agents/moneyclips-expert.md`
   (arquitetura, convenções e workflow de verificação — use para qualquer
   feature/refactor/review neste repo).
-- Contexto completo da refatoração de 07/2026 (decisões, incidentes de CI e
-  lições): [REFACTORING.md](REFACTORING.md).
 
 ## Histórico (apagados nesta refatoração)
 

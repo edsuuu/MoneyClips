@@ -1,5 +1,4 @@
 <div class="flex flex-col">
-    <!-- Session Status -->
     @if (session('status'))
         <div class="text-center font-medium text-sm text-green-600">
             {{ session('status') }}
@@ -13,7 +12,6 @@
     </div>
 
     <form wire:submit="register" class="flex flex-col gap-4">
-        <!-- Name -->
         <x-ui.input
             wire:model="name"
             :label="__('Name')"
@@ -24,7 +22,6 @@
             :placeholder="__('Full name')"
         />
 
-        <!-- Email Address -->
         <x-ui.input
             wire:model="email"
             :label="__('Email address')"
@@ -34,7 +31,6 @@
             placeholder="email@example.com"
         />
 
-        <!-- Password -->
         <div class="grid gap-6 sm:grid-cols-2">
             <x-ui.input
                 wire:model="password"

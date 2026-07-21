@@ -4,7 +4,6 @@
         <x-ui.subheading>{{ __('Enter your email to receive a password reset link') }}</x-ui.subheading>
     </div>
 
-    <!-- Session Status -->
     @if (session('status'))
         <div class="text-center font-medium text-sm text-green-600">
             {{ session('status') }}
@@ -12,7 +11,6 @@
     @endif
 
     <form wire:submit="sendPasswordResetLink" class="flex flex-col gap-6">
-        <!-- Email Address -->
         <x-ui.input
             wire:model="email"
             :label="__('Email address')"
@@ -30,7 +28,7 @@
         </div>
     </form>
 
-    <div class="space-x-1 text-sm text-center rtl:space-x-reverse text-zinc-600 dark:text-zinc-400">
+    <div class="space-x-1 text-sm text-center rtl:space-x-reverse text-zinc-400">
         <span>{{ __('Remember your password?') }}</span>
         <button
             type="button"

@@ -7,16 +7,11 @@ namespace App\Livewire\Uploads;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
 
-/**
- * Biblioteca dos vídeos longos enviados. Enquanto houver item em preparo a tela
- * faz poll — o empacotamento de um vídeo de horas termina fora da sessão.
- */
 final class Index extends Component
 {
     use WithPagination;
@@ -33,16 +28,12 @@ final class Index extends Component
 
     public function delete(string $uuid): void
     {
-        $video = Video::query()->where('uuid', $uuid)->first();
+        $video = Video::query()->where('uuid', $uuid)->where('user_id', auth()->id())->first();
 
         if (! $video instanceof Video) {
             return;
         }
 
-        Gate::authorize('delete', $video);
-
-        // A saída HLS são milhares de objetos sob o prefixo — apagar só a linha
-        // deixaria o bucket crescendo para sempre.
         Storage::disk('s3')->delete($video->path());
         Storage::disk('s3')->deleteDirectory($video->hlsPrefix());
 
@@ -53,7 +44,7 @@ final class Index extends Component
 
     public function render(): View
     {
-        $videos = Video::query()->latest('id')->paginate(12);
+        $videos = Video::query()->where('user_id', auth()->id())->latest('id')->paginate(12);
 
         $rows = $videos->through(fn (Video $video): array => [
             'uuid' => $video->uuid,
@@ -67,12 +58,11 @@ final class Index extends Component
             'resolutionLabel' => $video->height === null ? '—' : $video->height.'p',
             'createdLabel' => $video->created_at?->format('d/m/Y H:i') ?? '—',
             'error' => $video->error,
-            'canDelete' => Gate::allows('delete', $video),
         ]);
 
         return view('livewire.uploads.index', [
             'videos' => $rows,
-            'hasPending' => Video::query()->whereIn('status', VideoStatusEnum::pending())->exists(),
+            'hasPending' => Video::query()->where('user_id', auth()->id())->whereIn('status', VideoStatusEnum::pending())->exists(),
         ]);
     }
 

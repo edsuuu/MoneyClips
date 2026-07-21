@@ -9,16 +9,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 
-/**
- * Client do endpoint /package do microserviço de vídeo (porta 8790): empacota o vídeo em ABR
- * (360p/720p/1080p, fMP4/CMAF) e devolve o desfecho por webhook.
- *
- * Diferente dos outros clients, aqui trafegam CHAVES e não bytes: um vídeo de
- * 3GB vira milhares de segmentos, então o serviço lê a fonte e escreve a saída
- * direto no MinIO. É a segunda exceção à regra "só o Laravel toca o S3" (a
- * primeira é o download-shorts) — o serviço usa credencial própria, restrita a
- * leitura em `uploads/*` e escrita em `hls/*`.
- */
 final readonly class HLSPackagerService
 {
     public function startPackaging(string $videoKey, string $outputPrefix): string

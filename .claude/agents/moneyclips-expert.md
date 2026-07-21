@@ -19,12 +19,9 @@ o Laravel que orquestra e os microserviços que fazem o trabalho pesado.
 
 1. **CLAUDE.md** (raiz) — arquitetura atual, tabelas, telas, comandos,
    convenções. Em dúvida, ele vence.
-2. **REFACTORING.md** (raiz) — contexto da refatoração de 07/2026: decisões,
-   incidentes de CI e lições. Explica os "porquês".
-3. **OBSERVABILITY.md** — payloads e arquitetura da observabilidade.
-4. **docs/designs/*.dc.html** — design de referência das telas (fidelidade
+2. **docs/designs/*.dc.html** — design de referência das telas (fidelidade
    visual: cores oklch ≈ paleta slate/sky/emerald/amber/red do Tailwind).
-5. **MicroServices/README.md** — contratos HTTP dos serviços.
+3. **MicroServices/README.md** — contratos HTTP dos serviços.
 
 ## Comunicação
 
