@@ -4,7 +4,7 @@
 
     <div
         class="mt-8"
-        x-data="videoUploader({ maxBytes: @js($maxBytes), accepted: @js($accept), libraryUrl: @js($libraryUrl) })"
+        x-data="videoUploader({ maxBytes: @js($maxBytes), accepted: @js($accept) })"
     >
         <template x-if="state === 'done'">
             <div class="flex flex-col items-center gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-8 py-12 text-center">
@@ -14,7 +14,7 @@
 
                 <div class="flex items-center gap-3">
                     <x-ui.button variant="subtle" x-on:click="reset()">Enviar outro</x-ui.button>
-                    <x-ui.button variant="primary" x-bind:href="libraryUrl" tag="a">Ver biblioteca</x-ui.button>
+                    <x-ui.button variant="primary" :href="$libraryUrl" wire:navigate>Ver biblioteca</x-ui.button>
                 </div>
             </div>
         </template>

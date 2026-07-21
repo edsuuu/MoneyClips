@@ -2,8 +2,6 @@ import { MultipartUploader } from './MultipartUploader';
 import type { UploadState, VideoUploaderConfig } from './UploadTypes';
 
 export class VideoUploader {
-    readonly libraryUrl: string;
-
     state: UploadState = 'idle';
 
     progress = 0;
@@ -18,10 +16,9 @@ export class VideoUploader {
 
     private readonly accepted: string;
 
-    constructor({ maxBytes, accepted, libraryUrl }: VideoUploaderConfig) {
+    constructor({ maxBytes, accepted }: VideoUploaderConfig) {
         this.maxBytes = maxBytes;
         this.accepted = accepted;
-        this.libraryUrl = libraryUrl;
     }
 
     get busy(): boolean {
