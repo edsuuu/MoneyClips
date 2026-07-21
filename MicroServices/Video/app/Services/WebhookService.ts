@@ -13,7 +13,6 @@ export interface WebhookPayload {
     hash?: string;
     renditions?: string[];
     poster?: boolean;
-    /** Jobs de legenda: quais arquivos o job produziu. */
     files?: Record<string, boolean>;
 }
 

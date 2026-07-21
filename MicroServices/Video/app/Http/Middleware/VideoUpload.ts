@@ -25,6 +25,5 @@ export class VideoUpload {
     }
 }
 
-/** POST /reencode manda o binário no campo `video`; POST /videos, em `file`. */
 export const videoUpload = new VideoUpload('video');
 export const captionUpload = new VideoUpload('file');
