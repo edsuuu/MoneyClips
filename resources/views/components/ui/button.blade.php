@@ -18,7 +18,7 @@
             default => 'px-3.5 py-2 text-sm',
         },
         match ($variant) {
-            'primary' => 'bg-slate-100 text-slate-950 hover:bg-white',
+            'primary' => 'bg-slate-100 text-slate-950 hover:bg-slate-50',
             'filled' => 'bg-slate-800 text-slate-100 hover:bg-slate-700',
             'ghost' => 'text-slate-300 hover:text-slate-50',
             'subtle' => 'text-slate-300 hover:bg-slate-800/80 hover:text-slate-50',
