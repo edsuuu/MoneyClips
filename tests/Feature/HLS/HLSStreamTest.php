@@ -10,8 +10,9 @@ beforeEach(function (): void {
     Storage::fake('s3');
     config(['services.hls.delivery' => 'stream']);
 
-    $this->video = Video::factory()->ready()->create();
-    $this->actingAs(User::factory()->create());
+    $this->user = User::factory()->create();
+    $this->video = Video::factory()->ready()->create(['user_id' => $this->user->id]);
+    $this->actingAs($this->user);
 });
 
 it('keeps the stream behind authentication', function (): void {
@@ -21,7 +22,7 @@ it('keeps the stream behind authentication', function (): void {
     $this->get(sprintf('/hls/%s/720p/seg_00000.m4s', $this->video->uuid))->assertRedirect();
 });
 
-it('serves the master playlist to any signed in user', function (): void {
+it('serves the master playlist to the owner', function (): void {
     Storage::disk('s3')->put($this->video->masterPlaylistPath(), '#EXTM3U');
 
     $this->get(sprintf('/hls/%s/master.m3u8', $this->video->uuid))
@@ -59,7 +60,7 @@ it('refuses anything outside the allowlist', function (string $path): void {
 ]);
 
 it('does not stream a video that is not ready yet', function (): void {
-    $packaging = Video::factory()->packaging()->create();
+    $packaging = Video::factory()->packaging()->create(['user_id' => $this->user->id]);
     Storage::disk('s3')->put($packaging->masterPlaylistPath(), '#EXTM3U');
 
     $this->get(sprintf('/hls/%s/master.m3u8', $packaging->uuid))->assertNotFound();

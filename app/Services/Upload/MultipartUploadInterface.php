@@ -4,10 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Upload;
 
-/**
- * Fronteira do upload multipart. Existe para manter o service `final` (regra da
- * casa) e ainda assim permitir substituí-lo nos testes, que não têm MinIO.
- */
 interface MultipartUploadInterface
 {
     public function create(string $key, int $fileSize, string $mimeType): MultipartSessionData;
@@ -26,6 +22,8 @@ interface MultipartUploadInterface
     public function abort(string $key, string $uploadId): void;
 
     public function size(string $key): int;
+
+    public function firstBytes(string $key, int $length): string;
 
     /**
      * @return list<UploadPartData>

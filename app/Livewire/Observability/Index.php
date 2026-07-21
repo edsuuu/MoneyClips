@@ -26,7 +26,7 @@ final class Index extends Component
 
     public function setServiceFilter(string $service): void
     {
-        // Whitelist: só serviços conhecidos (heartbeat ou log já recebido).
+
         if ($service !== 'all' && ! in_array($service, $this->knownServices(), true)) {
             return;
         }
@@ -58,8 +58,6 @@ final class Index extends Component
 
         $this->detailId = null;
     }
-
-    // ── Internos ─────────────────────────────────────────────────────────
 
     /** @return list<string> */
     private function knownServices(): array

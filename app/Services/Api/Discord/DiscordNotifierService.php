@@ -56,7 +56,7 @@ final class DiscordNotifierService
                 ->post($webhook, ['embeds' => [$embed]])
                 ->throw();
         } catch (Throwable $throwable) {
-            // Nunca deixar a notificação derrubar o fluxo principal.
+
             Log::warning('[DiscordNotifierService] Falha ao enviar webhook.', [
                 'error' => $throwable->getMessage(),
             ]);

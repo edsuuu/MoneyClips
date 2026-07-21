@@ -7,7 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Logs centralizados dos microserviços (OBSERVABILITY.md): os serviços fazem
+ * Logs centralizados dos microserviços: os serviços fazem
  * push em lote pra POST /api/observability/logs; a tela /observabilidade lê
  * daqui com polling. Prune de 14 dias via ServiceLog::prunable().
  */

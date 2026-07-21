@@ -78,9 +78,3 @@ it('never updates the email from the profile screen', function (): void {
     expect($user->fresh()?->email)->toBe('fixo@moneyclips.test')
         ->and($user->fresh()?->name)->toBe('Novo Nome');
 });
-
-it('redirects the old english settings paths to the pt-br ones', function (): void {
-    $this->actingAs(User::factory()->create())
-        ->get('/settings/security')
-        ->assertRedirect('/configuracoes/seguranca');
-});

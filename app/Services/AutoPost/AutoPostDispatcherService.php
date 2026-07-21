@@ -55,10 +55,7 @@ final readonly class AutoPostDispatcherService
             $short = YoutubeShort::query()
                 ->readyToSchedule()
                 ->whereNotIn('youtube_id', SocialPost::query()->active()->select('youtube_id'))
-                // Sorteio em andamento: slot já reivindicado mas ainda sem
-                // ledger (reencode rodando) também segura o vídeo — sem isso
-                // o mesmo short entraria em 2 slots até o fan-out criar as
-                // social_posts.
+
                 ->whereDoesntHave('scheduleSlots', fn (Builder $q) => $q
                     ->whereNotNull('dispatched_at')
                     ->whereDoesntHave('socialPosts'))

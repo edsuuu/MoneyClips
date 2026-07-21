@@ -7,7 +7,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Heartbeat dos microserviços (OBSERVABILITY.md): cada serviço faz POST
+ * Heartbeat dos microserviços: cada serviço faz POST
  * /api/observability/heartbeat a cada 30s; upsert por `service` = 1 linha
  * por serviço. `last_seen_at` > 90s = serviço fora do ar (alerta Discord).
  */

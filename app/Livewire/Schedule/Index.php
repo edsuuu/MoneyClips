@@ -207,7 +207,6 @@ final class Index extends Component
             return;
         }
 
-        // Título/hashtags editam o próprio vídeo (valem pra qualquer slot).
         if (is_int($picker['short_id'])) {
             $short = YoutubeShort::query()->find($picker['short_id']);
             if ($short instanceof YoutubeShort) {
@@ -365,8 +364,6 @@ final class Index extends Component
             : 'Modo aleatório desativado — slot sem vídeo atribuído fica pulado.');
     }
 
-    // ── Internos ─────────────────────────────────────────────────────────
-
     private function randomModeEnabled(): bool
     {
         return (bool) Cache::get(AutoPostDispatcherService::RANDOM_MODE, false);
@@ -400,7 +397,7 @@ final class Index extends Component
         }
 
         if ($this->isLockedWeek()) {
-            return; // semana passada: só leitura, sem rascunho
+            return;
         }
 
         $slots = ScheduleSlot::query()
@@ -474,11 +471,9 @@ final class Index extends Component
         $date = $day->toDateString();
         $entries = [];
 
-        // Slots read-only: despachados (status agregado das social_posts) e,
-        // em semana bloqueada, também os não despachados (skipped/empty).
         foreach ($daySlots as $slot) {
             if ($slot->dispatched_at === null && ! $locked) {
-                continue; // editável — vive no rascunho
+                continue;
             }
 
             $resolved = SlotStatusService::resolve($slot, $now);
@@ -492,7 +487,6 @@ final class Index extends Component
             ]);
         }
 
-        // Rascunho (não despachados): status computado num slot transiente.
         foreach ($this->days[$date] ?? [] as $index => $draft) {
             $transient = new ScheduleSlot([
                 'slot_date' => $date,
