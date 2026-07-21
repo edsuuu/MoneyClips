@@ -4,7 +4,7 @@
 
     <div
         class="mt-8"
-        x-data="videoUploader({ maxBytes: {{ $maxBytes }}, accepted: @js($accept), libraryUrl: @js($libraryUrl) })"
+        x-data="videoUploader({ maxBytes: @js($maxBytes), accepted: @js($accept), libraryUrl: @js($libraryUrl) })"
     >
         <template x-if="state === 'done'">
             <div class="flex flex-col items-center gap-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-8 py-12 text-center">

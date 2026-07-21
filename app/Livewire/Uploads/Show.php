@@ -7,17 +7,22 @@ namespace App\Livewire\Uploads;
 use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
 use Illuminate\View\View;
-use Livewire\Attributes\Layout;
 use Livewire\Component;
 
-#[Layout('layouts.app')]
 final class Show extends Component
 {
     public Video $video;
 
-    public function mount(Video $video): void
+    /**
+     * O dono e filtrado aqui, e nao no resolveRouteBinding do Video: a rota e
+     * `Route::view`, que nao dispara model binding.
+     */
+    public function mount(string $uuid): void
     {
-        $this->video = $video;
+        $this->video = Video::query()
+            ->where('uuid', $uuid)
+            ->where('user_id', auth()->id())
+            ->firstOrFail();
     }
 
     public function render(): View

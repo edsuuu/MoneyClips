@@ -5,7 +5,6 @@ declare(strict_types=1);
 use App\Http\Controllers\HLSStreamController;
 use App\Http\Controllers\MultipartUploadController;
 use App\Http\Controllers\OAuthController;
-use App\Livewire\Uploads\Show as ShowUpload;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home.welcome')->name('home');
@@ -24,19 +23,14 @@ Route::middleware(['auth'])->group(function (): void {
     Route::view('/dashboard', 'dashboard.index')->name('dashboard.index');
 
     Route::view('/upload', 'upload.index')->name('upload.index');
-
     Route::view('/meus-uploads', 'uploads.index')->name('uploads.index');
-    Route::get('/meus-uploads/{video:uuid}', ShowUpload::class)->name('uploads.show');
+    Route::view('/meus-uploads/{video:uuid}', 'uploads.show')->name('uploads.show');
 
-    // Manifests e segmentos sob o mesmo prefixo: as URIs relativas do ffmpeg
-    // resolvem sem reescrita, e o cookie de sessão autentica cada request.
     Route::get('/hls/{video:uuid}/master.m3u8', [HLSStreamController::class, 'master'])->name('hls.master');
     Route::get('/hls/{video:uuid}/{path}', [HLSStreamController::class, 'segment'])
         ->where('path', '.*')
         ->name('hls.segment');
 
-    // Upload multipart: o Laravel só assina e confere — os bytes vão do browser
-    // direto para o MinIO, fora dos limites do PHP.
     Route::post('/uploads', [MultipartUploadController::class, 'store'])->name('uploads.create');
     Route::get('/uploads/{video:uuid}/parts', [MultipartUploadController::class, 'parts'])->name('uploads.parts.index');
     Route::post('/uploads/{video:uuid}/parts', [MultipartUploadController::class, 'sign'])->name('uploads.parts.sign');

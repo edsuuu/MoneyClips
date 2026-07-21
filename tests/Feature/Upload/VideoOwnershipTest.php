@@ -21,6 +21,12 @@ it('lista apenas os vídeos do próprio usuário', function (): void {
         ->assertDontSee($theirs->uuid);
 });
 
+it('abre o player do próprio vídeo', function (): void {
+    $mine = Video::factory()->ready()->create(['user_id' => $this->user->id]);
+
+    $this->get(route('uploads.show', $mine->uuid))->assertOk();
+});
+
 it('não resolve o vídeo alheio em nenhuma rota', function (): void {
     $theirs = Video::factory()->ready()->create(['user_id' => User::factory()->create()->id]);
 
