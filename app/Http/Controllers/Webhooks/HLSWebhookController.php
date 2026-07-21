@@ -5,33 +5,18 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Webhooks\HLSWebhookRequest;
 use App\Models\Video;
 use App\Services\Api\Discord\DiscordNotifierService;
 use App\Services\HLS\VideoStatusEnum;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 final class HLSWebhookController extends Controller
 {
-    public function __invoke(Request $request, DiscordNotifierService $discord): JsonResponse
+    public function __invoke(HLSWebhookRequest $request, DiscordNotifierService $discord): JsonResponse
     {
-        /** @var array{uuid: string, status: string, progress?: int|null, error?: string|null, duration_seconds?: int|null, width?: int|null, height?: int|null, hash?: string|null, renditions?: list<string>|null, poster?: bool|null} $data */
-        $data = $request->validate([
-            'uuid' => ['required', 'string'],
-            'status' => ['required', 'in:done,failed,rejected,progress'],
-            'progress' => ['nullable', 'integer', 'min:0', 'max:100'],
-            'error' => ['nullable', 'string'],
-            'duration_seconds' => ['nullable', 'integer', 'min:0'],
-            'width' => ['nullable', 'integer', 'min:1'],
-            'height' => ['nullable', 'integer', 'min:1'],
-            'hash' => ['nullable', 'string', 'size:32'],
-            'renditions' => ['nullable', 'array'],
-            'renditions.*' => ['string', 'max:16'],
-            'poster' => ['nullable', 'boolean'],
-        ]);
-
-        $video = Video::query()->where('hls_remote_id', $data['uuid'])->first();
+        $video = Video::query()->where('hls_remote_id', $request->uuid())->first();
 
         if (! $video instanceof Video) {
             return response()->json(['status' => 'unknown-job'], 404);
@@ -41,18 +26,17 @@ final class HLSWebhookController extends Controller
             return response()->json(['status' => 'already-finished']);
         }
 
-        if ($data['status'] === 'progress') {
-
+        if ($request->status() === 'progress') {
             Video::query()
                 ->whereKey($video->id)
-                ->where('progress', '<', $data['progress'] ?? 0)
-                ->update(['progress' => $data['progress'] ?? 0]);
+                ->where('progress', '<', $request->progress())
+                ->update(['progress' => $request->progress()]);
 
             return response()->json(['status' => 'progress-recorded']);
         }
 
-        if ($data['status'] !== 'done') {
-            $this->finishWithFailure($video, $data['status'], $data['error'] ?? null, $discord);
+        if ($request->status() !== 'done') {
+            $this->finishWithFailure($video, $request->status(), $request->error(), $discord);
 
             return response()->json(['status' => 'failure-recorded']);
         }
@@ -60,13 +44,13 @@ final class HLSWebhookController extends Controller
         $video->fill([
             'status' => VideoStatusEnum::Ready,
             'progress' => 100,
-            'duration_seconds' => $data['duration_seconds'] ?? null,
-            'width' => $data['width'] ?? null,
-            'height' => $data['height'] ?? null,
-            'hash' => $data['hash'] ?? null,
-            'renditions' => $data['renditions'] ?? [],
+            'duration_seconds' => $request->durationSeconds(),
+            'width' => $request->width(),
+            'height' => $request->height(),
+            'hash' => $request->hash(),
+            'renditions' => $request->renditions(),
             'hls_path' => $video->hlsPrefix(),
-            'poster_path' => ($data['poster'] ?? false) ? $video->hlsPrefix().'/poster.jpg' : null,
+            'poster_path' => $request->hasPoster() ? $video->hlsPrefix().'/poster.jpg' : null,
             'error' => null,
             'ready_at' => now(),
         ])->save();

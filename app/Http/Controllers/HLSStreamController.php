@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Models\Video;
-use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -23,7 +22,7 @@ final class HLSStreamController extends Controller
         return $this->deliver($video->masterPlaylistPath(), 'application/vnd.apple.mpegurl', false);
     }
 
-    public function segment(Request $request, Video $video, string $path): Response|StreamedResponse
+    public function segment(Video $video, string $path): Response|StreamedResponse
     {
         abort_unless($video->isReady(), 404);
         abort_unless(preg_match(self::SEGMENT_PATTERN, $path) === 1, 404);
