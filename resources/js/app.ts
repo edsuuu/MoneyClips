@@ -1,10 +1,10 @@
 import { HlsPlayer } from './Player/HlsPlayer';
 import { ReframeEditor } from './Reframe/ReframeEditor';
+import type { ReframePayload } from './Reframe/ReframeTypes';
 import { ClientLogger } from './Support/ClientLogger';
 import { MultipartUploader } from './Upload/MultipartUploader';
-import { VideoUploader } from './Upload/VideoUploader';
-import type { ReframePayload } from './Reframe/ReframeTypes';
 import type { VideoUploaderConfig } from './Upload/UploadTypes';
+import { VideoUploader } from './Upload/VideoUploader';
 
 declare global {
     interface Window {
@@ -34,6 +34,12 @@ window.initAdaptiveVideoPlayer = (element: HTMLVideoElement): void => {
 ClientLogger.install();
 
 document.addEventListener('alpine:init', () => {
-    window.Alpine.data('reframeEditor', (initial) => new ReframeEditor(initial as unknown as ReframePayload));
-    window.Alpine.data('videoUploader', (config) => new VideoUploader(config as unknown as VideoUploaderConfig));
+    window.Alpine.data(
+        'reframeEditor',
+        (initial) => new ReframeEditor(initial as unknown as ReframePayload),
+    );
+    window.Alpine.data(
+        'videoUploader',
+        (config) => new VideoUploader(config as unknown as VideoUploaderConfig),
+    );
 });

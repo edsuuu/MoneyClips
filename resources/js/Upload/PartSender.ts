@@ -1,7 +1,11 @@
 export class PartSender {
-    static readonly MAX_ATTEMPTS = 3;
+    public static readonly MAX_ATTEMPTS = 3;
 
-    static put(url: string, blob: Blob, onProgress: (loaded: number) => void): Promise<string> {
+    public static put(
+        url: string,
+        blob: Blob,
+        onProgress: (loaded: number) => void,
+    ): Promise<string> {
         return new Promise<string>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
             xhr.open('PUT', url, true);

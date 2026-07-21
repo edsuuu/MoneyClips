@@ -2,30 +2,30 @@ import { MultipartUploader } from './MultipartUploader';
 import type { UploadState, VideoUploaderConfig } from './UploadTypes';
 
 export class VideoUploader {
-    state: UploadState = 'idle';
+    public state: UploadState = 'idle';
 
-    progress = 0;
+    public progress = 0;
 
-    dragging = false;
+    public dragging = false;
 
-    error = '';
+    public error = '';
 
-    $refs!: Record<string, HTMLInputElement | undefined>;
+    public $refs!: Record<string, HTMLInputElement | undefined>;
 
     private readonly maxBytes: number;
 
     private readonly accepted: string;
 
-    constructor({ maxBytes, accepted }: VideoUploaderConfig) {
+    public constructor({ maxBytes, accepted }: VideoUploaderConfig) {
         this.maxBytes = maxBytes;
         this.accepted = accepted;
     }
 
-    get busy(): boolean {
+    public get busy(): boolean {
         return this.state === 'uploading' || this.state === 'finishing';
     }
 
-    async start(file: File | undefined): Promise<void> {
+    public async start(file: File | undefined): Promise<void> {
         if (!file || this.busy) {
             return;
         }
@@ -60,7 +60,7 @@ export class VideoUploader {
         }
     }
 
-    reset(): void {
+    public reset(): void {
         this.state = 'idle';
         this.progress = 0;
         this.error = '';

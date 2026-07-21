@@ -1,15 +1,15 @@
 import type { UploadSession } from './UploadTypes';
 
 export class ResumeStore {
-    static readonly PREFIX = 'moneyclips.upload.';
+    public static readonly PREFIX = 'moneyclips.upload.';
 
     private readonly key: string;
 
-    constructor(file: File) {
+    public constructor(file: File) {
         this.key = `${ResumeStore.PREFIX}${file.name}:${file.size}:${file.lastModified}`;
     }
 
-    read(): UploadSession | null {
+    public read(): UploadSession | null {
         try {
             const raw = window.localStorage.getItem(this.key);
 
@@ -19,7 +19,7 @@ export class ResumeStore {
         }
     }
 
-    write(session: UploadSession): void {
+    public write(session: UploadSession): void {
         try {
             window.localStorage.setItem(this.key, JSON.stringify(session));
         } catch {
@@ -27,7 +27,7 @@ export class ResumeStore {
         }
     }
 
-    forget(): void {
+    public forget(): void {
         try {
             window.localStorage.removeItem(this.key);
         } catch {
