@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
+use App\Helpers\Hashtags;
 use App\Jobs\PostSlotToPlatformJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\PlatformSetting;
@@ -13,7 +14,6 @@ use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\DownloadShorts\DownloadShortsService;
 use App\Services\Processing\VideoProcessingService;
-use App\Support\Hashtags;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;

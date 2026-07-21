@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Schedule;
 
+use App\Helpers\Hashtags;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
@@ -11,7 +12,6 @@ use App\Models\YoutubeShort;
 use App\Services\AutoPost\AutoPostDispatcherService;
 use App\Services\AutoPost\SlotStatusService;
 use App\Services\AutoPost\WeekGeneratorService;
-use App\Support\Hashtags;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;

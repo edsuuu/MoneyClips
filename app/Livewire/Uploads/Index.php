@@ -7,6 +7,8 @@ namespace App\Livewire\Uploads;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -17,18 +19,9 @@ final class Index extends Component
     use WithPagination;
     use WithToasts;
 
-    private const array BADGE_CLASSES = [
-        'awaiting_upload' => 'bg-slate-500/15 text-slate-300',
-        'uploaded' => 'bg-sky-500/15 text-sky-300',
-        'packaging' => 'bg-amber-500/15 text-amber-300',
-        'ready' => 'bg-emerald-500/15 text-emerald-300',
-        'failed' => 'bg-red-500/15 text-red-300',
-        'rejected' => 'bg-red-500/15 text-red-300',
-    ];
-
     public function delete(string $uuid): void
     {
-        $video = Video::query()->where('uuid', $uuid)->where('user_id', auth()->id())->first();
+        $video = $this->videos()->where('uuid', $uuid)->first();
 
         if (! $video instanceof Video) {
             return;
@@ -42,28 +35,10 @@ final class Index extends Component
         $this->toast('Vídeo removido.');
     }
 
-    public function render(): View
+    /** @return Builder<Video> */
+    private function videos(): Builder
     {
-        $videos = Video::query()->where('user_id', auth()->id())->latest('id')->paginate(12);
-
-        $rows = $videos->through(fn (Video $video): array => [
-            'uuid' => $video->uuid,
-            'isPackaging' => $video->status === VideoStatusEnum::Packaging,
-            'statusLabel' => $video->status->label(),
-            'badgeClass' => self::BADGE_CLASSES[$video->status->value],
-            'progress' => $video->progress,
-            'isReady' => $video->isReady(),
-            'sizeLabel' => $this->humanSize($video->file_size),
-            'durationLabel' => $this->humanDuration($video->duration_seconds),
-            'resolutionLabel' => $video->height === null ? '—' : $video->height.'p',
-            'createdLabel' => $video->created_at?->format('d/m/Y H:i') ?? '—',
-            'error' => $video->error,
-        ]);
-
-        return view('livewire.uploads.index', [
-            'videos' => $rows,
-            'hasPending' => Video::query()->where('user_id', auth()->id())->whereIn('status', VideoStatusEnum::pending())->exists(),
-        ]);
+        return Video::query()->where('user_id', Auth::id());
     }
 
     private function humanSize(int $bytes): string
@@ -89,5 +64,27 @@ final class Index extends Component
         }
 
         return sprintf('%dmin%02ds', $minutes, $seconds % 60);
+    }
+
+    public function render(): View
+    {
+        $rows = $this->videos()->latest('id')->paginate(12)->through(fn (Video $video): array => [
+            'uuid' => $video->uuid,
+            'isPackaging' => $video->status === VideoStatusEnum::Packaging,
+            'statusLabel' => $video->status->label(),
+            'badgeClass' => $video->status->badgeClass(),
+            'progress' => $video->progress,
+            'isReady' => $video->isReady(),
+            'sizeLabel' => $this->humanSize($video->file_size),
+            'durationLabel' => $this->humanDuration($video->duration_seconds),
+            'resolutionLabel' => $video->height === null ? '—' : $video->height.'p',
+            'createdLabel' => $video->created_at?->format('d/m/Y H:i') ?? '—',
+            'error' => $video->error,
+        ]);
+
+        return view('livewire.uploads.index', [
+            'videos' => $rows,
+            'hasPending' => $this->videos()->whereIn('status', VideoStatusEnum::pending())->exists(),
+        ]);
     }
 }

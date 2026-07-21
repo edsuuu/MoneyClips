@@ -6,18 +6,18 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Webhooks\TiktokPostWebhookRequest;
+use App\Http\Resources\StatusResource;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\Api\Discord\DiscordNotifierService;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 
 final class TiktokPostWebhookController extends Controller
 {
     private const array FINISHED_STATUSES = ['completed', 'dry-run', 'restricted'];
 
-    public function __invoke(TiktokPostWebhookRequest $request, DiscordNotifierService $discord): JsonResponse
+    public function __invoke(TiktokPostWebhookRequest $request, DiscordNotifierService $discord): StatusResource
     {
         $post = SocialPost::query()
             ->where('platform', 'tiktok')
@@ -25,7 +25,7 @@ final class TiktokPostWebhookController extends Controller
             ->first();
 
         if (! $post instanceof SocialPost) {
-            return response()->json(['status' => 'unknown-job'], 404);
+            return new StatusResource('unknown-job', 404);
         }
 
         $claimed = SocialPost::query()
@@ -38,13 +38,13 @@ final class TiktokPostWebhookController extends Controller
             ]);
 
         if ($claimed !== 1) {
-            return response()->json(['status' => 'already-finished']);
+            return new StatusResource('already-finished');
         }
 
         $this->notifyOutcome($post->refresh(), $request, $discord);
         $this->syncAccount($request, $discord);
 
-        return response()->json(['status' => 'ok']);
+        return new StatusResource('ok');
     }
 
     private function notifyOutcome(SocialPost $post, TiktokPostWebhookRequest $request, DiscordNotifierService $discord): void

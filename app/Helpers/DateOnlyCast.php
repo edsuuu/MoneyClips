@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Casts;
+namespace App\Helpers;
 
 use Carbon\CarbonImmutable;
 use DateTimeInterface;

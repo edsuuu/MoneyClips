@@ -43,4 +43,15 @@ enum VideoStatusEnum: string
             self::Rejected => 'Arquivo inválido',
         };
     }
+
+    public function badgeClass(): string
+    {
+        return match ($this) {
+            self::AwaitingUpload => 'bg-slate-500/15 text-slate-300',
+            self::Uploaded => 'bg-sky-500/15 text-sky-300',
+            self::Packaging => 'bg-amber-500/15 text-amber-300',
+            self::Ready => 'bg-emerald-500/15 text-emerald-300',
+            self::Failed, self::Rejected => 'bg-red-500/15 text-red-300',
+        };
+    }
 }

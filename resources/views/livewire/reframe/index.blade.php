@@ -83,7 +83,7 @@
                 <div class="rounded-2xl border border-slate-800 bg-slate-900 p-4">
                     <div class="flex flex-wrap items-center gap-3">
                         <button type="button" x-on:click="togglePlay()"
-                            class="flex size-9 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-950 transition hover:bg-white">
+                            class="flex size-9 cursor-pointer items-center justify-center rounded-full bg-slate-100 text-slate-950 transition hover:bg-slate-50">
                             <span x-show="!playing"><x-ui.icon name="play" class="size-4" /></span>
                             <span x-show="playing" x-cloak><x-ui.icon name="pause" class="size-4" /></span>
                         </button>
