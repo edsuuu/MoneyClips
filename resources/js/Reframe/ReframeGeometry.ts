@@ -2,21 +2,21 @@ import { ReframeModes } from './ReframeModes';
 import type { DragHandle, Keyframe, Region, Slot } from './ReframeTypes';
 
 export class ReframeGeometry {
-    static readonly MIN_SIZE = 0.05;
+    public static readonly MIN_SIZE = 0.05;
 
-    static clamp(value: number, min: number, max: number): number {
+    public static clamp(value: number, min: number, max: number): number {
         return Math.min(Math.max(value, min), max);
     }
 
-    static round4(value: number): number {
+    public static round4(value: number): number {
         return Math.round(value * 10000) / 10000;
     }
 
-    static round3(value: number): number {
+    public static round3(value: number): number {
         return Math.round(value * 1000) / 1000;
     }
 
-    static regionsAt(keyframes: Keyframe[], t: number): Region[] | null {
+    public static regionsAt(keyframes: Keyframe[], t: number): Region[] | null {
         const first = keyframes[0];
 
         if (first === undefined) {
@@ -57,7 +57,7 @@ export class ReframeGeometry {
         });
     }
 
-    static defaultRegion(mode: string, slot: Slot, vw: number, vh: number): Region {
+    public static defaultRegion(mode: string, slot: Slot, vw: number, vh: number): Region {
         let w = 1;
         let h = 1;
 
@@ -79,7 +79,12 @@ export class ReframeGeometry {
         };
     }
 
-    static lockAspect(mode: string, activeRegion: number, vw: number, vh: number): number | null {
+    public static lockAspect(
+        mode: string,
+        activeRegion: number,
+        vw: number,
+        vh: number,
+    ): number | null {
         const definition = ReframeModes.get(mode);
 
         if (definition.lock === 'free') {
@@ -95,7 +100,15 @@ export class ReframeGeometry {
         return slot === undefined ? null : slot.w / slot.h;
     }
 
-    static resize(start: Region, handle: DragHandle, dx: number, dy: number, aspect: number | null, vw: number, vh: number): Region {
+    public static resize(
+        start: Region,
+        handle: DragHandle,
+        dx: number,
+        dy: number,
+        aspect: number | null,
+        vw: number,
+        vh: number,
+    ): Region {
         const west = handle.includes('w');
         const north = handle.includes('n');
 
@@ -111,11 +124,23 @@ export class ReframeGeometry {
 
         if (aspect !== null) {
             const wFromMaxH = (maxH * aspect * vh) / vw;
-            w = ReframeGeometry.clamp(Math.max(w, ReframeGeometry.MIN_SIZE), ReframeGeometry.MIN_SIZE, Math.min(maxW, wFromMaxH));
+            w = ReframeGeometry.clamp(
+                Math.max(w, ReframeGeometry.MIN_SIZE),
+                ReframeGeometry.MIN_SIZE,
+                Math.min(maxW, wFromMaxH),
+            );
             h = (w * vw) / (aspect * vh);
         } else {
-            w = ReframeGeometry.clamp(Math.max(w, ReframeGeometry.MIN_SIZE), ReframeGeometry.MIN_SIZE, maxW);
-            h = ReframeGeometry.clamp(Math.max(h, ReframeGeometry.MIN_SIZE), ReframeGeometry.MIN_SIZE, maxH);
+            w = ReframeGeometry.clamp(
+                Math.max(w, ReframeGeometry.MIN_SIZE),
+                ReframeGeometry.MIN_SIZE,
+                maxW,
+            );
+            h = ReframeGeometry.clamp(
+                Math.max(h, ReframeGeometry.MIN_SIZE),
+                ReframeGeometry.MIN_SIZE,
+                maxH,
+            );
         }
 
         return {

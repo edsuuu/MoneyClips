@@ -1,0 +1,3 @@
+# Builds de postinstall permitidos (pnpm 11 exige aprovação explícita).
+allowBuilds:
+  unrs-resolver: true

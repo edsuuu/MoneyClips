@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\ClientLogController;
 use App\Http\Controllers\HLSStreamController;
 use App\Http\Controllers\MultipartUploadController;
-use App\Http\Controllers\OAuthController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home.welcome')->name('home');
