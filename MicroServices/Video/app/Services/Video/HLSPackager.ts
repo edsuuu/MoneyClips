@@ -243,6 +243,14 @@ export class HLSPackager extends Logger {
             // VideoToolbox não usa -preset; -allow_sw deixa cair pro encoder de
             // software da Apple num Mac sem sessão de HW (headless/CI).
             args.push('-allow_sw', '1');
+
+            // Medido num Mac (Darwin 25.5): o VideoToolbox IGNORA o
+            // -force_key_frames abaixo e emite keyframe a cada ~0.4s — 75 num
+            // clipe de 30s, contra os 5 do libx264. As renditions continuam
+            // alinhadas (todas erram igual), então o player não trava, mas o
+            // encode desperdiça bits em I-frame. Ele respeita `-g`, então o GOP
+            // vai explícito em frames.
+            args.push('-g', String(Math.max(1, Math.round(meta.fps * seg))));
         }
 
         args.push(

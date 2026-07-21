@@ -13,22 +13,17 @@ export class Env {
     public readonly storageSecretKey: string;
     public readonly storageForcePathStyle: boolean;
     public readonly apiPort: number;
-    /** Vazio = endpoints abertos (dev); setado = exige Bearer token. */
     public readonly apiToken: string;
-    /** Compartilhado com o Laravel — autentica o webhook do desfecho (fail-closed do lado de lá). */
     public readonly observabilityToken: string;
     public readonly reencodeEnabled: boolean;
     public readonly reencodeBitrateThresholdKbps: number;
     public readonly discordWebhookUrl: string;
 
-    /** Diretório local do /videos (source, transcript, variantes renderizadas). */
     public readonly captionStorageDir: string;
-    /** Serviço Python que só transcreve (faster-whisper). */
     public readonly transcriberUrl: string;
     public readonly transcriberTimeoutMs: number;
     public readonly maxWordsPerLine: number;
     public readonly maxLineDuration: number;
-    /** Resolvida pelo fontconfig (libass), não é caminho de arquivo. */
     public readonly fontName: string;
     public readonly fontSize: number;
     public readonly highlightColor: string;
@@ -37,7 +32,6 @@ export class Env {
     public readonly channelName: string;
     public readonly channelHandle: string;
     public readonly channelLogo: string;
-    /** Família de fonte do cabeçalho do template (SVG/fontconfig). */
     public readonly templateFontFamily: string;
     public readonly watermarkText: string;
     public readonly outputVariants: string;
