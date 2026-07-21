@@ -65,15 +65,13 @@
                             </x-ui.button>
                         @endif
 
-                        @if ($video['canDelete'])
-                            <x-ui.button
-                                variant="ghost"
-                                wire:click="delete('{{ $video['uuid'] }}')"
-                                wire:confirm="Remover este vídeo e tudo que foi gerado a partir dele?"
-                            >
-                                <x-ui.icon name="trash" class="size-4" />
-                            </x-ui.button>
-                        @endif
+                        <x-ui.button
+                            variant="ghost"
+                            wire:click="delete('{{ $video['uuid'] }}')"
+                            wire:confirm="Remover este vídeo e tudo que foi gerado a partir dele?"
+                        >
+                            <x-ui.icon name="trash" class="size-4" />
+                        </x-ui.button>
                     </div>
                 </div>
             @endforeach

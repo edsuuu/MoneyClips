@@ -6,7 +6,6 @@ namespace App\Livewire\Uploads;
 
 use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
-use Illuminate\Support\Facades\Gate;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -22,8 +21,6 @@ final class Show extends Component
 
     public function mount(Video $video): void
     {
-        Gate::authorize('view', $video);
-
         $this->video = $video;
     }
 

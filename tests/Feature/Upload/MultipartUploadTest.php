@@ -72,9 +72,9 @@ it('refuses a mime type that is not a supported video', function (): void {
 it('does not let one user sign parts for another users upload', function (): void {
     $foreign = Video::factory()->create();
 
-    $this->postJson(sprintf('/uploads/%s/parts', $foreign->uuid), ['part_numbers' => [1]])->assertForbidden();
-    $this->getJson(sprintf('/uploads/%s/parts', $foreign->uuid))->assertForbidden();
-    $this->deleteJson('/uploads/'.$foreign->uuid)->assertForbidden();
+    $this->postJson(sprintf('/uploads/%s/parts', $foreign->uuid), ['part_numbers' => [1]])->assertNotFound();
+    $this->getJson(sprintf('/uploads/%s/parts', $foreign->uuid))->assertNotFound();
+    $this->deleteJson('/uploads/'.$foreign->uuid)->assertNotFound();
 });
 
 it('caps how many parts can be signed at once', function (): void {

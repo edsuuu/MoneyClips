@@ -31,7 +31,6 @@ final class HLSStreamController extends Controller
 
     public function master(Video $video): Response|StreamedResponse
     {
-        $this->authorize('view', $video);
         abort_unless($video->isReady(), 404);
 
         return $this->deliver($video->masterPlaylistPath(), 'application/vnd.apple.mpegurl', false);
@@ -39,7 +38,6 @@ final class HLSStreamController extends Controller
 
     public function segment(Request $request, Video $video, string $path): Response|StreamedResponse
     {
-        $this->authorize('view', $video);
         abort_unless($video->isReady(), 404);
         abort_unless(preg_match(self::SEGMENT_PATTERN, $path) === 1, 404);
 

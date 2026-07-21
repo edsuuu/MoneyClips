@@ -15,7 +15,6 @@ final class AbortMultipartUploadController extends Controller
 {
     public function __invoke(Video $video, MultipartUploadInterface $uploads): JsonResponse
     {
-        $this->authorize('delete', $video);
 
         if ($video->status !== VideoStatusEnum::AwaitingUpload) {
             return response()->json(['message' => 'Este upload já foi concluído.'], 409);

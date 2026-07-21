@@ -17,7 +17,6 @@ final class ListUploadPartsController extends Controller
 {
     public function __invoke(Video $video, MultipartUploadInterface $uploads): JsonResponse
     {
-        $this->authorize('update', $video);
 
         if ($video->upload_id === null) {
             return response()->json(['message' => 'Este upload já foi encerrado.'], 409);
