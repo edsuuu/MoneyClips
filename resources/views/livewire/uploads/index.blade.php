@@ -5,7 +5,7 @@
             <x-ui.subheading>Vídeos longos enviados, prontos para virar cortes.</x-ui.subheading>
         </div>
 
-        <x-ui.button variant="primary" tag="a" href="{{ route('upload.index') }}">Enviar vídeo</x-ui.button>
+        <x-ui.button variant="primary" href="{{ route('upload.index') }}">Enviar vídeo</x-ui.button>
     </div>
 
     @if ($videos->isEmpty())
@@ -60,20 +60,18 @@
 
                     <div class="mt-auto flex items-center gap-2">
                         @if ($video['isReady'])
-                            <x-ui.button variant="subtle" tag="a" href="{{ route('uploads.show', $video['uuid']) }}" class="flex-1">
+                            <x-ui.button variant="subtle" href="{{ route('uploads.show', $video['uuid']) }}" class="flex-1">
                                 Assistir
                             </x-ui.button>
                         @endif
 
-                        @if ($video['canDelete'])
-                            <x-ui.button
-                                variant="ghost"
-                                wire:click="delete('{{ $video['uuid'] }}')"
-                                wire:confirm="Remover este vídeo e tudo que foi gerado a partir dele?"
-                            >
-                                <x-ui.icon name="trash" class="size-4" />
-                            </x-ui.button>
-                        @endif
+                        <x-ui.button
+                            variant="ghost"
+                            wire:click="delete('{{ $video['uuid'] }}')"
+                            wire:confirm="Remover este vídeo e tudo que foi gerado a partir dele?"
+                        >
+                            <x-ui.icon name="trash" class="size-4" />
+                        </x-ui.button>
                     </div>
                 </div>
             @endforeach

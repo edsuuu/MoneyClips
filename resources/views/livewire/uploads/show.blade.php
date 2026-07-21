@@ -5,7 +5,7 @@
             <x-ui.subheading>{{ $statusLabel }}</x-ui.subheading>
         </div>
 
-        <x-ui.button variant="subtle" tag="a" href="{{ route('uploads.index') }}">Voltar</x-ui.button>
+        <x-ui.button variant="subtle" href="{{ route('uploads.index') }}">Voltar</x-ui.button>
     </div>
 
     @if ($isReady)

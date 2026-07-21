@@ -1,87 +1,61 @@
-# MoneyClips
+<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-Plataforma de **auto-postagem de Shorts** multi-plataforma (YouTube + TikTok
-hoje; TikTok oficial/Instagram/Facebook/Kwai com posters preparados). O
-Laravel orquestra; o trabalho pesado (download, upload via navegador,
-reencode, render de template) roda em microserviços dedicados em
-[`MicroServices/`](MicroServices/). **Tudo nativo — sem Docker.**
+<p align="center">
+<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
+<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+</p>
 
-## Stack
+## About Laravel
 
-- **PHP 8.4+ / Laravel 13+** (`bootstrap/app.php`)
-- **Livewire 4 + Tailwind 4 + Vite** — kit próprio de componentes Blade em
-  `resources/views/components/ui/` (sem Flux UI)
-- **MySQL** + **fila em banco** (filas `posting` e `processing`)
-- **MinIO** (S3-compatível) — disk `s3`; **só o Laravel toca o S3** (os
-  microserviços recebem/entregam o vídeo por HTTP multipart)
-- Qualidade: **PHPStan/Larastan**, **Pint**, **Rector**
-- Design das telas: [`docs/designs/`](docs/designs/) (claude.ai/design)
+Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
 
-## Como funciona
+- [Simple, fast routing engine](https://laravel.com/docs/routing).
+- [Powerful dependency injection container](https://laravel.com/docs/container).
+- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
+- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
+- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
+- [Robust background job processing](https://laravel.com/docs/queues).
+- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
 
-```
-download-shorts (8770) → MinIO + youtube_shorts (estoque)
-   → /meus-videos: revisão → pronto (ready_at)
-        └─ opcional: reencode OU template — ambos no video (8790)
-   → /agenda: schedule_slots (data+hora+vídeo) → cron → AutoPostDispatcherService
-        → 1 job por plataforma habilitada (platform_settings)
-             ├─ YoutubePosterService  (YouTube Data API v3)
-             ├─ TiktokPosterService   (202 {job_id} → tiktok-uploader 8090 → webhook)
-             └─ stubs: tiktok_official, instagram, facebook, kwai
-```
+Laravel is accessible, powerful, and provides tools required for large, robust applications.
 
-- **Agenda em banco**: slots concretos (data + hora + vídeo atribuído) editáveis
-  em `/agenda` — kanban semanal com "Gerar semana", drag & drop, "Forçar agora"
-  e status por plataforma em cada slot.
-- **YouTube**: OAuth Google em `social_accounts`; connect em `/contas`.
-- **TikTok**: sem OAuth oficial — cookies do Playwright **criptografados** em
-  `social_accounts.cookies`. O Laravel envia o binário do vídeo + cookies por
-  multipart e recebe o desfecho na resposta (`completed|dry-run|restricted`).
-- **Observabilidade**: logs + heartbeat dos serviços em `/observabilidade`
-  (push HTTP → banco; ver [`OBSERVABILITY.md`](OBSERVABILITY.md)).
+## Learning Laravel
 
-Detalhes de tabelas, serviços e comandos em [`CLAUDE.md`](CLAUDE.md).
+Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
 
-## Microserviços
+You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
 
-| Serviço | Stack | Porta | Papel |
-| --- | --- | --- | --- |
-| **download-shorts** | Python / FastAPI | 8770 | baixa Shorts de canais p/ o MinIO + webhook por item |
-| **tiktok-uploader** | Node 22 + Playwright | 8090 | publica no TikTok via navegador (assíncrono: 202 {job_id} + webhook) |
-| **video** | Node 22 + ffmpeg + sharp | 8790 | todo o ffmpeg: reencode (síncrono), HLS/ABR e render de legenda karaokê + template (assíncronos + webhook) |
-| **transcriber** | Python / faster-whisper (CUDA) | 8780 | só a transcrição (timestamps por palavra), chamada pelo `video` |
+If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
 
-## Rodando localmente
+## Laravel Sponsors
 
-Pré-requisitos: **MySQL** com o banco do `.env` criado, **MinIO** no ar com o
-bucket `video`, PHP 8.4, Node 22 + pnpm, Python 3.11+, ffmpeg.
+We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
 
-```bash
-make setup     # 1ª vez: deps + .env de tudo (Laravel + 4 serviços)
-php artisan migrate && php artisan schedule:migrate-legacy
-make up        # sobe TUDO num terminal só (ctrl-C derruba)
-```
+### Premium Partners
 
-> **TikTok:** gere os cookies fora e importe pro banco
-> (`php artisan tiktok:import-cookies-from-file`); o status da sessão aparece
-> em `/contas`. Mantenha `DRY_RUN=true` ao testar — publicação é irreversível.
+- **[Vehikl](https://vehikl.com)**
+- **[Tighten Co.](https://tighten.co)**
+- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
+- **[64 Robots](https://64robots.com)**
+- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
+- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
+- **[Redberry](https://redberry.international/laravel-development)**
+- **[Active Logic](https://activelogic.com)**
 
-## Produção
+## Contributing
 
-Laravel nativo (nginx + PHP-FPM 8.4); microserviços via pm2/systemd. Webhooks
-e observabilidade apontam pro domínio real (nginx :80/HTTPS), não `:8000`.
+Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
 
-```
-* * * * * cd /var/www/projects/MoneyClips && php artisan schedule:run
-```
+## Code of Conduct
 
-- Worker de fila: `php artisan queue:listen --queue=posting,processing,default --tries=1 --timeout=1800`
-- Deploy desta versão: rode `php artisan schedule:migrate-legacy` uma vez
-  após o `migrate` e configure `OBSERVABILITY_TOKEN` em todos os `.env`.
+In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
 
-## Qualidade / CI
+## Security Vulnerabilities
 
-```bash
-composer check      # phpstan + pint + rector + pest — é o que o CI roda
-composer lint       # pint + rector aplicando fixes
-```
+If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+
+## License
+
+The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).

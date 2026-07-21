@@ -21,7 +21,6 @@ final class YoutubeAccountConnectorService
         $channelId = null;
         $channelTitle = $user->getName() ?: ($user->getNickname() ?: 'Canal do YouTube');
 
-        // Busca o canal para guardar o id/título (não é obrigatório para publicar).
         try {
             $resp = Http::withToken((string) ($user->token))->get('https://www.googleapis.com/youtube/v3/channels', [
                 'part' => 'id,snippet',
@@ -35,7 +34,7 @@ final class YoutubeAccountConnectorService
                 $channelTitle = (string) ($snippet['title'] ?? '') ?: $channelTitle;
             }
         } catch (Throwable) {
-            // segue sem o canal; o token já é suficiente para o upload
+
         }
 
         $account = $this->upsert($userId, 'youtube', $channelId ?: $user->getId(), $channelTitle, [
