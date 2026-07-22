@@ -38,7 +38,7 @@ export class Env {
 
     public constructor(env: NodeJS.ProcessEnv = process.env) {
         this.encoder = env['HLS_ENCODER'] === 'cpu' ? 'cpu' : 'gpu';
-        this.segmentSeconds = Env.asInt(env['HLS_SEGMENT_SECONDS'], 6);
+        this.segmentSeconds = Env.asInt(env['HLS_SEGMENT_SECONDS'], 10);
         this.workDir = Env.asStr(env['HLS_WORK_DIR']);
         this.storageEndpoint = Env.asStr(env['STORAGE_ENDPOINT'], 'http://127.0.0.1:9000');
         this.storageRegion = Env.asStr(env['STORAGE_REGION'], 'us-east-1');
