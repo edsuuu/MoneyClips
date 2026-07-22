@@ -20,6 +20,7 @@ export class S3Storage extends Logger {
         '.m3u8': 'application/vnd.apple.mpegurl',
         '.m4s': 'video/iso.segment',
         '.mp4': 'video/mp4',
+        '.m4a': 'audio/mp4',
         '.jpg': 'image/jpeg',
     };
 
@@ -50,6 +51,21 @@ export class S3Storage extends Logger {
         }
 
         await pipeline(result.Body as Readable, createWriteStream(destination));
+    }
+
+    public async uploadFile(localPath: string, key: string): Promise<void> {
+        const extension = localPath.slice(localPath.lastIndexOf('.'));
+
+        await this.client.send(
+            new PutObjectCommand({
+                Bucket: settings.storageBucket,
+                Key: key,
+                Body: await readFile(localPath),
+                ContentType: S3Storage.CONTENT_TYPES[extension] ?? 'application/octet-stream',
+            }),
+        );
+
+        this.info(`Subiu ${key}`);
     }
 
     public async uploadDirectory(localDir: string, keyPrefix: string): Promise<number> {

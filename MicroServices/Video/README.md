@@ -23,7 +23,9 @@ GET  /health    → {status, encoder, segment_seconds, queued,          (aberto)
                    captions_queued, transcriber_url}
 
 POST /package   → 202 {uuid}                                     (X-Api-Token)
-     JSON {video_key, output_prefix, webhook_url}   — assíncrono, via webhook
+     JSON {video_uuid, video_key, hls_prefix, poster_key, audio_key,
+           storyboard_key, webhook_url}   — assíncrono, via webhook
+           (o Laravel decide TODOS os paths; o serviço só escreve neles)
 
 POST /reencode  → 200 binário do vídeo (header X-Reencode: completed)
                   ou 200 {status: "skipped"} quando o bitrate já está ok
@@ -46,16 +48,19 @@ o do `/videos`, em `POST /api/autocaption/webhook` com
 // durante o encode, a cada ~10s
 {"uuid": "...", "status": "progress", "progress": 42}
 
-// sucesso
-{"uuid": "...", "status": "done", "duration_seconds": 3600, "width": 1920,
- "height": 1080, "hash": "<md5>", "renditions": ["360p","720p","1080p"],
- "poster": true}
+// sucesso (video_uuid ecoa o recebido — é como o Laravel acha o vídeo)
+{"uuid": "...", "video_uuid": "...", "status": "done", "duration_seconds": 3600,
+ "width": 1920, "height": 1080, "hash": "<md5>",
+ "renditions": ["360p","720p","1080p","1440p","2160p"], "poster": true, "audio": true,
+ "storyboard": {"cols": 12, "rows": 11, "interval": 28,
+                "tile_width": 160, "tile_height": 90}}
+// poster/audio/storyboard viram false quando o passo opcional falha
 
 // o arquivo não era um vídeo legível (terminal, sem retry)
-{"uuid": "...", "status": "rejected", "error": "..."}
+{"uuid": "...", "video_uuid": "...", "status": "rejected", "error": "..."}
 
 // falha do serviço (a fonte continua intacta)
-{"uuid": "...", "status": "failed", "error": "..."}
+{"uuid": "...", "video_uuid": "...", "status": "failed", "error": "..."}
 ```
 
 O `API_TOKEN` também vai como `X-Observability-Token` no webhook e precisa
@@ -93,8 +98,8 @@ hls/{uuid}/
   os segmentos não são intercambiáveis e o player trava ao trocar de qualidade.
 - **fMP4/CMAF** em vez de TS: menos overhead e os mesmos segmentos servem DASH.
 - **Nunca faz upscale**: o ladder é montado a partir do ffprobe — fonte 720p
-  gera `[360p, 720p]`, nunca 1080p. O bitrate de cada degrau também é limitado
-  ao da fonte.
+  gera `[360p, 720p]`, nunca 1080p; fonte 4K sobe até `[360p ... 2160p]`. O
+  bitrate de cada degrau também é limitado ao da fonte.
 - **Fast path**: fonte já H.264/AAC com um degrau útil é apenas remuxada
   (`-c copy`) — segundos em vez de horas.
 - **1 ffmpeg por vez por fila** (promise-chain): o encode monopoliza CPU/GPU.

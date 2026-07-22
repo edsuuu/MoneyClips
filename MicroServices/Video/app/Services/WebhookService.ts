@@ -1,9 +1,11 @@
 import { settings } from '@/Config/Env';
 import { Logger } from '@/Config/Logger';
+import type { StoryboardParams } from '@/Services/Video/StoryboardGenerator';
 import { Sleep } from '@/Utils/Sleep';
 
 export interface WebhookPayload {
     uuid: string;
+    video_uuid?: string;
     status: 'done' | 'failed' | 'rejected' | 'progress';
     progress?: number;
     error?: string;
@@ -13,6 +15,8 @@ export interface WebhookPayload {
     hash?: string;
     renditions?: string[];
     poster?: boolean;
+    audio?: boolean;
+    storyboard?: StoryboardParams | false;
     files?: Record<string, boolean>;
 }
 
@@ -61,13 +65,15 @@ export class WebhookService extends Logger {
         return false;
     }
 
-    public sendProgress(url: string, uuid: string, progress: number): void {
+    public sendProgress(url: string, videoUuid: string, progress: number): void {
         // Progresso é best-effort: uma atualização perdida não afeta o desfecho,
-        // então não gasta retries nem segura o encode.
+        // então não gasta retries nem segura o encode. O Laravel exige
+        // `video_uuid` para achar o vídeo — sem ele o webhook de progresso é
+        // rejeitado e a barra fica travada em 0%.
         void fetch(url, {
             method: 'POST',
             headers: this.headers(),
-            body: JSON.stringify({ uuid, status: 'progress', progress }),
+            body: JSON.stringify({ video_uuid: videoUuid, status: 'progress', progress }),
             signal: AbortSignal.timeout(5_000),
         }).catch(() => undefined);
     }

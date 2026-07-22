@@ -11,13 +11,20 @@ import { NotAVideoError } from '@/Exceptions/NotAVideoError';
 import { S3Storage } from '@/Services/S3Storage';
 import { HLSPackager } from '@/Services/Video/HLSPackager';
 import { LadderBuilder } from '@/Services/Video/LadderBuilder';
+import type { VideoMeta } from '@/Services/Video/Probe';
 import { Probe } from '@/Services/Video/Probe';
+import type { StoryboardParams } from '@/Services/Video/StoryboardGenerator';
+import { StoryboardGenerator } from '@/Services/Video/StoryboardGenerator';
 import { WebhookService } from '@/Services/WebhookService';
 
 interface PackageJob {
     uuid: string;
+    videoUuid: string;
     videoKey: string;
-    outputPrefix: string;
+    hlsPrefix: string;
+    posterKey: string;
+    audioKey: string;
+    storyboardKey: string;
     webhookUrl: string;
 }
 
@@ -37,6 +44,7 @@ export class PackageQueueService extends Logger {
         private readonly ladderBuilder: LadderBuilder = new LadderBuilder(),
         private readonly packager: HLSPackager = new HLSPackager(),
         private readonly webhooks: WebhookService = new WebhookService(),
+        private readonly storyboard: StoryboardGenerator = new StoryboardGenerator(),
     ) {
         super();
     }
@@ -90,6 +98,8 @@ export class PackageQueueService extends Logger {
                 `Ladder: ${ladder.map((rendition) => rendition.name).join(', ')}${remux ? ' (remux, sem reencode)' : ''}`,
             );
 
+            const audioPath = meta.hasAudio ? join(jobDir, 'audio.m4a') : null;
+
             let lastReport = 0;
             const codec = await this.packager.package(
                 sourcePath,
@@ -97,22 +107,28 @@ export class PackageQueueService extends Logger {
                 ladder,
                 meta,
                 remux,
+                audioPath,
                 (percent) => {
                     const now = Date.now();
                     if (now - lastReport >= PackageQueueService.PROGRESS_THROTTLE_MS) {
                         lastReport = now;
-                        this.webhooks.sendProgress(job.webhookUrl, job.uuid, percent);
+                        this.webhooks.sendProgress(job.webhookUrl, job.videoUuid, percent);
                     }
                 },
             );
             this.info(`Encode: ${codec}`);
 
-            const poster = await this.extractPoster(sourcePath, outputDir, meta.durationSeconds);
+            await this.storage.uploadDirectory(outputDir, job.hlsPrefix);
+
+            const poster = await this.extractPoster(job, sourcePath, jobDir, meta.durationSeconds);
+            const audio = await this.uploadAudio(job, audioPath);
+            const lowestRendition = join(outputDir, ladder[0]?.name ?? '', 'index.m3u8');
+            const storyboard = await this.buildStoryboard(job, lowestRendition, jobDir, meta);
             const hash = await this.hashFile(sourcePath);
-            await this.storage.uploadDirectory(outputDir, job.outputPrefix);
 
             await this.webhooks.send(job.webhookUrl, {
                 uuid: job.uuid,
+                video_uuid: job.videoUuid,
                 status: 'done',
                 duration_seconds: meta.durationSeconds,
                 width: meta.width,
@@ -120,6 +136,8 @@ export class PackageQueueService extends Logger {
                 hash,
                 renditions: ladder.map((rendition) => rendition.name),
                 poster,
+                audio,
+                storyboard,
             });
 
             this.info(`Empacotamento concluído: ${job.uuid}`);
@@ -129,6 +147,7 @@ export class PackageQueueService extends Logger {
 
             await this.webhooks.send(job.webhookUrl, {
                 uuid: job.uuid,
+                video_uuid: job.videoUuid,
                 status: error instanceof NotAVideoError ? 'rejected' : 'failed',
                 error: message,
             });
@@ -138,20 +157,51 @@ export class PackageQueueService extends Logger {
     }
 
     private async extractPoster(
+        job: PackageJob,
         sourcePath: string,
-        outputDir: string,
+        jobDir: string,
         durationSeconds: number,
     ): Promise<boolean> {
+        const local = join(jobDir, 'poster.jpg');
         try {
-            await this.packager.extractPoster(
-                sourcePath,
-                join(outputDir, 'poster.jpg'),
-                durationSeconds,
-            );
+            await this.packager.extractPoster(sourcePath, local, durationSeconds);
+            await this.storage.uploadFile(local, job.posterKey);
             return true;
         } catch (error) {
             // Poster é enfeite: a ausência dele não invalida o empacotamento.
             this.warn(`Poster não extraído: ${(error as Error).message}`);
+            return false;
+        }
+    }
+
+    private async uploadAudio(job: PackageJob, audioPath: string | null): Promise<boolean> {
+        if (audioPath === null) {
+            return false;
+        }
+        try {
+            await this.storage.uploadFile(audioPath, job.audioKey);
+            return true;
+        } catch (error) {
+            // Fonte sem áudio ou falha no upload não invalida o HLS.
+            this.warn(`Áudio não enviado: ${(error as Error).message}`);
+            return false;
+        }
+    }
+
+    private async buildStoryboard(
+        job: PackageJob,
+        storyboardSource: string,
+        jobDir: string,
+        meta: VideoMeta,
+    ): Promise<StoryboardParams | false> {
+        const local = join(jobDir, 'storyboard.jpg');
+        try {
+            const params = await this.storyboard.generate(storyboardSource, local, meta);
+            await this.storage.uploadFile(local, job.storyboardKey);
+            return params;
+        } catch (error) {
+            // Storyboard é enfeite de scrubbing: a ausência não invalida o HLS.
+            this.warn(`Storyboard não gerado: ${(error as Error).message}`);
             return false;
         }
     }
