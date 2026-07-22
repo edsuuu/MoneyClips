@@ -9,7 +9,9 @@ use Database\Factories\VideoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -17,10 +19,10 @@ use Throwable;
 /**
  * Vídeo longo enviado na tela /upload — matéria-prima para cortar em Shorts.
  *
- * O binário sobe direto do browser para o MinIO por multipart presigned (o
- * Laravel só assina as partes), fica em `uploads/{uuid}` e depois é empacotado
- * em HLS/ABR pelo microserviço `hls`, que escreve sob `hls/{uuid}/` — segunda
- * exceção à regra "só o Laravel toca o S3", junto com o download-shorts.
+ * A entidade só guarda o objetivo do vídeo; todo binário/artefato vive em
+ * `files` sob o prefixo `videos/{uuid}/` no MinIO (original, áudio, HLS, poster,
+ * storyboard, cortes). Os paths são deriváveis do uuid; a tabela `files` diz o
+ * que EXISTE e carrega o `meta` de cada artefato.
  *
  * Ciclo: awaiting_upload → uploaded → packaging → ready.
  *
@@ -28,32 +30,24 @@ use Throwable;
  * @property int $user_id
  * @property string $uuid
  * @property string|null $hash
- * @property int $file_size
- * @property string $mime_type
+ * @property string|null $name
  * @property VideoStatusEnum $status
- * @property string|null $upload_id
- * @property string|null $hls_remote_id
  * @property int $progress
  * @property int|null $duration_seconds
  * @property int|null $width
  * @property int|null $height
- * @property string|null $hls_path
- * @property string|null $poster_path
- * @property array<int, string>|null $renditions
  * @property string|null $error
  * @property Carbon|null $ready_at
+ * @property Carbon|null $created_at
  * @property-read User $user
+ * @property-read Collection<int, File> $files
  */
 final class Video extends Model
 {
     /** @use HasFactory<VideoFactory> */
     use HasFactory;
 
-    public const string DIRECTORY = 'uploads';
-
-    public const string HLS_DIRECTORY = 'hls';
-
-    public const string MASTER_PLAYLIST = 'master.m3u8';
+    public const string PREFIX = 'videos';
 
     public const int MAX_GIGABYTES = 3;
 
@@ -64,16 +58,25 @@ final class Video extends Model
     private const int PRESIGNED_TTL_MINUTES = 30;
 
     protected $fillable = [
-        'user_id', 'uuid', 'hash', 'file_size', 'mime_type',
-        'status', 'upload_id', 'hls_remote_id', 'progress',
-        'duration_seconds', 'width', 'height',
-        'hls_path', 'poster_path', 'renditions', 'error', 'ready_at',
+        'user_id', 'uuid', 'hash', 'name', 'status', 'progress',
+        'duration_seconds', 'width', 'height', 'error', 'ready_at',
     ];
 
     /** @return BelongsTo<User, $this> */
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /** @return HasMany<File, $this> */
+    public function files(): HasMany
+    {
+        return $this->hasMany(File::class);
+    }
+
+    public function file(string $type): ?File
+    {
+        return $this->files->firstWhere('type', $type);
     }
 
     /**
@@ -87,24 +90,56 @@ final class Video extends Model
             ->first();
     }
 
-    public function path(): string
+    public function prefix(): string
     {
-        return self::DIRECTORY.'/'.$this->uuid;
+        return self::PREFIX.'/'.$this->uuid;
+    }
+
+    public function originalPath(): string
+    {
+        return $this->prefix().'/'.$this->uuid.'.mp4';
     }
 
     public function hlsPrefix(): string
     {
-        return self::HLS_DIRECTORY.'/'.$this->uuid;
+        return $this->prefix().'/hls';
     }
 
     public function masterPlaylistPath(): string
     {
-        return $this->hlsPrefix().'/'.self::MASTER_PLAYLIST;
+        return $this->hlsPrefix().'/master.m3u8';
+    }
+
+    public function posterPath(): string
+    {
+        return $this->prefix().'/poster.jpg';
+    }
+
+    public function audioPath(): string
+    {
+        return $this->prefix().'/audio/audio.m4a';
+    }
+
+    public function storyboardPath(): string
+    {
+        return $this->prefix().'/storyboard.jpg';
     }
 
     public function isReady(): bool
     {
         return $this->status->isPlayable();
+    }
+
+    /** @return list<string> */
+    public function renditions(): array
+    {
+        $renditions = $this->file(File::HLS)?->meta['renditions'] ?? [];
+
+        if (! is_array($renditions)) {
+            return [];
+        }
+
+        return array_values(array_filter($renditions, is_string(...)));
     }
 
     /**
@@ -113,7 +148,7 @@ final class Video extends Model
     public function presignedUrl(): ?string
     {
         try {
-            return Storage::disk('s3')->temporaryUrl($this->path(), now()->addMinutes(self::PRESIGNED_TTL_MINUTES));
+            return Storage::disk('s3')->temporaryUrl($this->originalPath(), now()->addMinutes(self::PRESIGNED_TTL_MINUTES));
         } catch (Throwable) {
             return null;
         }
@@ -122,13 +157,11 @@ final class Video extends Model
     protected function casts(): array
     {
         return [
-            'file_size' => 'integer',
             'status' => VideoStatusEnum::class,
             'progress' => 'integer',
             'duration_seconds' => 'integer',
             'width' => 'integer',
             'height' => 'integer',
-            'renditions' => 'array',
             'ready_at' => 'datetime',
         ];
     }

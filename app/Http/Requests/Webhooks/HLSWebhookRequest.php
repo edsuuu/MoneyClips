@@ -12,7 +12,7 @@ final class HLSWebhookRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'uuid' => ['required', 'string'],
+            'video_uuid' => ['required', 'string'],
             'status' => ['required', 'in:done,failed,rejected,progress'],
             'progress' => ['nullable', 'integer', 'min:0', 'max:100'],
             'error' => ['nullable', 'string'],
@@ -23,12 +23,19 @@ final class HLSWebhookRequest extends FormRequest
             'renditions' => ['nullable', 'array'],
             'renditions.*' => ['string', 'max:16'],
             'poster' => ['nullable', 'boolean'],
+            'audio' => ['nullable', 'boolean'],
+            'storyboard' => ['nullable', 'array'],
+            'storyboard.cols' => ['nullable', 'integer', 'min:1'],
+            'storyboard.rows' => ['nullable', 'integer', 'min:1'],
+            'storyboard.interval' => ['nullable', 'numeric', 'min:0'],
+            'storyboard.tile_width' => ['nullable', 'integer', 'min:1'],
+            'storyboard.tile_height' => ['nullable', 'integer', 'min:1'],
         ];
     }
 
-    public function uuid(): string
+    public function videoUuid(): string
     {
-        return (string) $this->validated('uuid');
+        return (string) $this->validated('video_uuid');
     }
 
     public function status(): string
@@ -94,5 +101,28 @@ final class HLSWebhookRequest extends FormRequest
     public function hasPoster(): bool
     {
         return (bool) $this->validated('poster');
+    }
+
+    public function hasAudio(): bool
+    {
+        return (bool) $this->validated('audio');
+    }
+
+    /** @return array<string, int|float>|null */
+    public function storyboard(): ?array
+    {
+        $storyboard = $this->validated('storyboard');
+
+        if (! is_array($storyboard) || $storyboard === []) {
+            return null;
+        }
+
+        return [
+            'cols' => (int) ($storyboard['cols'] ?? 0),
+            'rows' => (int) ($storyboard['rows'] ?? 0),
+            'interval' => (float) ($storyboard['interval'] ?? 0),
+            'tile_width' => (int) ($storyboard['tile_width'] ?? 0),
+            'tile_height' => (int) ($storyboard['tile_height'] ?? 0),
+        ];
     }
 }

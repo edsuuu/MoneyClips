@@ -16,9 +16,12 @@ export class VideoUploader {
 
     private readonly accepted: string;
 
-    public constructor({ maxBytes, accepted }: VideoUploaderConfig) {
+    private readonly videoUrlBase: string;
+
+    public constructor({ maxBytes, accepted, videoUrlBase }: VideoUploaderConfig) {
         this.maxBytes = maxBytes;
         this.accepted = accepted;
+        this.videoUrlBase = videoUrlBase;
     }
 
     public get busy(): boolean {
@@ -45,7 +48,7 @@ export class VideoUploader {
         }
 
         try {
-            await new MultipartUploader({
+            const result = await new MultipartUploader({
                 onProgress: (value) => {
                     this.progress = value;
                 },
@@ -53,6 +56,8 @@ export class VideoUploader {
                     this.state = value;
                 },
             }).upload(file);
+
+            window.location.href = `${this.videoUrlBase}/${result.video_uuid}`;
         } catch (error) {
             this.state = 'idle';
             this.progress = 0;

@@ -16,6 +16,7 @@ use App\Http\Resources\StatusResource;
 use App\Http\Resources\UploadPartResource;
 use App\Http\Resources\UploadSessionResource;
 use App\Jobs\StartHLSPackagingJob;
+use App\Models\File;
 use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
 use App\Services\Upload\MultipartUploadInterface;
@@ -43,17 +44,20 @@ final class MultipartUploadController extends Controller
 
         throw_if($open >= self::MAX_OPEN_SESSIONS, TooManyOpenUploadsException::class);
 
-        $uuid = (string) Str::uuid();
-
-        $session = $uploads->create(Video::DIRECTORY.'/'.$uuid, $request->fileSize(), $request->mimeType());
-
         $video = Video::query()->create([
             'user_id' => Auth::id(),
-            'uuid' => $uuid,
-            'file_size' => $request->fileSize(),
-            'mime_type' => $request->mimeType(),
+            'uuid' => (string) Str::uuid(),
             'status' => VideoStatusEnum::AwaitingUpload,
+        ]);
+
+        $session = $uploads->create($video->originalPath(), $request->fileSize(), $request->mimeType());
+
+        $video->files()->create([
+            'type' => File::ORIGINAL,
+            'path' => $video->originalPath(),
             'upload_id' => $session->uploadId,
+            'size' => $request->fileSize(),
+            'mime_type' => $request->mimeType(),
         ]);
 
         return new UploadSessionResource($video, $session);
@@ -62,14 +66,14 @@ final class MultipartUploadController extends Controller
     public function parts(Video $video, MultipartUploadInterface $uploads): AnonymousResourceCollection
     {
         return UploadPartResource::collection(
-            $uploads->listParts($video->path(), $this->activeUploadId($video)),
+            $uploads->listParts($video->originalPath(), $this->activeUploadId($video)),
         );
     }
 
     public function sign(SignUploadPartsRequest $request, Video $video, MultipartUploadInterface $uploads): SignedPartUrlsResource
     {
         return new SignedPartUrlsResource(
-            $uploads->signParts($video->path(), $this->activeUploadId($video), $request->partNumbers()),
+            $uploads->signParts($video->originalPath(), $this->activeUploadId($video), $request->partNumbers()),
         );
     }
 
@@ -79,17 +83,18 @@ final class MultipartUploadController extends Controller
         MultipartUploadInterface $uploads,
         VideoSignatureService $signatures,
     ): StatusResource {
+        $original = $this->originalFile($video);
         $uploadId = $this->activeUploadId($video);
 
-        $uploads->complete($video->path(), $uploadId, $request->parts());
+        $uploads->complete($video->originalPath(), $uploadId, $request->parts());
 
-        $actualSize = $uploads->size($video->path());
+        $actualSize = $uploads->size($video->originalPath());
 
         if ($actualSize > Video::MAX_BYTES) {
             $this->reject($video, 'O arquivo enviado passa do limite de 3GB.', 'O vídeo passa do limite de 3GB.');
         }
 
-        $header = $uploads->firstBytes($video->path(), VideoSignatureService::HEADER_BYTES);
+        $header = $uploads->firstBytes($video->originalPath(), VideoSignatureService::HEADER_BYTES);
 
         if (! $signatures->looksLikeVideo($header)) {
             $this->reject(
@@ -99,11 +104,8 @@ final class MultipartUploadController extends Controller
             );
         }
 
-        $video->fill([
-            'file_size' => $actualSize,
-            'status' => VideoStatusEnum::Uploaded,
-            'upload_id' => null,
-        ])->save();
+        $original->update(['size' => $actualSize, 'upload_id' => null]);
+        $video->update(['status' => VideoStatusEnum::Uploaded]);
 
         dispatch(new StartHLSPackagingJob($video->id));
 
@@ -114,9 +116,11 @@ final class MultipartUploadController extends Controller
     {
         throw_if($video->status !== VideoStatusEnum::AwaitingUpload, UploadAlreadyCompletedException::class);
 
-        if ($video->upload_id !== null) {
+        $uploadId = $video->file(File::ORIGINAL)?->upload_id;
+
+        if ($uploadId !== null) {
             try {
-                $uploads->abort($video->path(), $video->upload_id);
+                $uploads->abort($video->originalPath(), $uploadId);
             } catch (Throwable) {
 
             }
@@ -129,20 +133,30 @@ final class MultipartUploadController extends Controller
 
     private function reject(Video $video, string $reason, string $userMessage): never
     {
-        Storage::disk('s3')->delete($video->path());
+        Storage::disk('s3')->deleteDirectory($video->prefix());
+
+        $video->file(File::ORIGINAL)?->update(['upload_id' => null]);
 
         $video->fill([
             'status' => VideoStatusEnum::Rejected,
-            'upload_id' => null,
             'error' => $reason,
         ])->save();
 
         throw new UploadRejectedException($userMessage, $reason);
     }
 
+    private function originalFile(Video $video): File
+    {
+        $file = $video->file(File::ORIGINAL);
+
+        throw_if(! $file instanceof File, UploadSessionClosedException::class);
+
+        return $file;
+    }
+
     private function activeUploadId(Video $video): string
     {
-        $uploadId = $video->upload_id;
+        $uploadId = $this->originalFile($video)->upload_id;
 
         throw_if($uploadId === null, UploadSessionClosedException::class);
 

@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Jobs\StartHLSPackagingJob;
+use App\Models\File;
 use App\Models\User;
 use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
@@ -46,7 +47,7 @@ it('creates a multipart session and the awaiting video row', function (): void {
     $video = Video::query()->sole();
 
     expect($video->status)->toBe(VideoStatusEnum::AwaitingUpload)
-        ->and($video->upload_id)->toBe('upload-123')
+        ->and($video->file(File::ORIGINAL)?->upload_id)->toBe('upload-123')
         ->and($video->user_id)->toBe($this->user->id)
         ->and($response->json('part_count'))->toBe(3);
 });
@@ -91,7 +92,7 @@ it('trusts the bucket over the client when completing', function (): void {
     Bus::fake();
     Storage::fake('s3');
 
-    $video = Video::factory()->for($this->user)->create(['file_size' => 1024]);
+    $video = Video::factory()->for($this->user)->create();
 
     $this->mock(MultipartUploadInterface::class, function (MockInterface $mock): void {
         $mock->shouldReceive('complete')->once();
@@ -103,11 +104,11 @@ it('trusts the bucket over the client when completing', function (): void {
         'parts' => [['part_number' => 1, 'etag' => '"abc"']],
     ])->assertOk()->assertJson(['status' => 'uploaded']);
 
-    $video->refresh();
+    $fresh = $video->fresh();
 
-    expect($video->file_size)->toBe(4096)
-        ->and($video->status)->toBe(VideoStatusEnum::Uploaded)
-        ->and($video->upload_id)->toBeNull();
+    expect($fresh?->status)->toBe(VideoStatusEnum::Uploaded)
+        ->and($fresh?->file(File::ORIGINAL)?->size)->toBe(4096)
+        ->and($fresh?->file(File::ORIGINAL)?->upload_id)->toBeNull();
 
     Bus::assertDispatched(StartHLSPackagingJob::class);
 });
@@ -117,7 +118,7 @@ it('rejects and deletes an upload whose bytes are not a video', function (): voi
     Storage::fake('s3');
 
     $video = Video::factory()->for($this->user)->create();
-    Storage::disk('s3')->put($video->path(), 'PK'."\x03\x04".'nao sou video');
+    Storage::disk('s3')->put($video->originalPath(), 'PK'."\x03\x04".'nao sou video');
 
     $this->mock(MultipartUploadInterface::class, function (MockInterface $mock): void {
         $mock->shouldReceive('complete')->once();
@@ -130,7 +131,7 @@ it('rejects and deletes an upload whose bytes are not a video', function (): voi
     ])->assertStatus(422);
 
     expect($video->refresh()->status)->toBe(VideoStatusEnum::Rejected)
-        ->and(Storage::disk('s3')->exists($video->path()))->toBeFalse();
+        ->and(Storage::disk('s3')->exists($video->originalPath()))->toBeFalse();
 
     Bus::assertNotDispatched(StartHLSPackagingJob::class);
 });
@@ -147,7 +148,7 @@ it('rejects and deletes an upload that turned out to be oversized', function ():
     Storage::fake('s3');
 
     $video = Video::factory()->for($this->user)->create();
-    Storage::disk('s3')->put($video->path(), 'conteudo');
+    Storage::disk('s3')->put($video->originalPath(), 'conteudo');
 
     $this->mock(MultipartUploadInterface::class, function (MockInterface $mock): void {
         $mock->shouldReceive('complete')->once();
@@ -161,7 +162,7 @@ it('rejects and deletes an upload that turned out to be oversized', function ():
     $video->refresh();
 
     expect($video->status)->toBe(VideoStatusEnum::Rejected);
-    Storage::disk('s3')->assertMissing($video->path());
+    Storage::disk('s3')->assertMissing($video->originalPath());
     Bus::assertNotDispatched(StartHLSPackagingJob::class);
 });
 
