@@ -243,10 +243,6 @@ export class VideoPlayer {
         this.showControls();
     }
 
-    public skip(seconds: number): void {
-        this.video().currentTime = Math.max(0, Math.min(this.duration, this.current + seconds));
-    }
-
     public selectLevel(index: number): void {
         this.selectedLevel = index;
         this.menuOpen = false;
