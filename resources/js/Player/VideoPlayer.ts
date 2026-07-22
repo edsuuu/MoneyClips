@@ -1,15 +1,32 @@
 import { HlsPlayer, type HlsInstance } from './HlsPlayer';
 import { ClientLogger } from '../Support/ClientLogger';
 
+export interface StoryboardConfig {
+    url: string;
+    cols: number;
+    rows: number;
+    interval: number;
+    tileWidth: number;
+    tileHeight: number;
+}
+
 export interface VideoPlayerConfig {
     hlsSrc: string;
     fallbackSrc: string;
     poster: string;
+    storyboard: StoryboardConfig | null;
 }
 
 interface QualityOption {
     index: number;
     label: string;
+}
+
+interface Preview {
+    visible: boolean;
+    x: number;
+    time: string;
+    style: string;
 }
 
 export class VideoPlayer {
@@ -35,19 +52,29 @@ export class VideoPlayer {
 
     public fullscreen = false;
 
+    public switching = false;
+
+    public waiting = false;
+
     public levels: QualityOption[] = [];
 
     public selectedLevel = -1;
 
     public activeLabel = 'Auto';
 
+    public preview: Preview = { visible: false, x: 0, time: '0:00', style: '' };
+
     public $refs!: Record<string, HTMLElement | undefined>;
 
     private readonly config: VideoPlayerConfig;
 
+    private readonly storyboard: StoryboardConfig | null;
+
     private hls: HlsInstance | null = null;
 
     private hideTimer = 0;
+
+    private switchTimer = 0;
 
     private resumeAt = 0;
 
@@ -55,6 +82,7 @@ export class VideoPlayer {
 
     public constructor(config: VideoPlayerConfig) {
         this.config = config;
+        this.storyboard = config.storyboard;
     }
 
     public async init(): Promise<void> {
@@ -62,6 +90,12 @@ export class VideoPlayer {
         video.poster = this.config.poster;
         video.dataset.hlsSrc = this.config.hlsSrc;
         this.resumeAt = VideoPlayer.readStartParam();
+
+        const savedVolume = Number.parseFloat(window.localStorage.getItem('player.volume') ?? '');
+        if (Number.isFinite(savedVolume)) {
+            video.volume = Math.min(1, Math.max(0, savedVolume));
+        }
+        video.muted = window.localStorage.getItem('player.muted') === '1';
 
         if (this.config.fallbackSrc) {
             video.dataset.fallbackSrc = this.config.fallbackSrc;
@@ -101,8 +135,19 @@ export class VideoPlayer {
         video.addEventListener('volumechange', () => {
             this.muted = video.muted;
             this.volume = video.volume;
+            window.localStorage.setItem('player.volume', String(video.volume));
+            window.localStorage.setItem('player.muted', video.muted ? '1' : '0');
         });
         video.addEventListener('progress', () => this.syncBuffered());
+        video.addEventListener('waiting', () => {
+            this.waiting = true;
+        });
+        video.addEventListener('playing', () => {
+            this.waiting = false;
+        });
+        video.addEventListener('canplay', () => {
+            this.waiting = false;
+        });
 
         document.addEventListener('fullscreenchange', () => {
             this.fullscreen = document.fullscreenElement === this.wrapper();
@@ -149,6 +194,40 @@ export class VideoPlayer {
         this.current = this.fraction(event, this.$refs.track) * this.duration;
     }
 
+    public trackMove(event: PointerEvent): void {
+        this.moveScrub(event);
+        this.updatePreview(event);
+    }
+
+    public hidePreview(): void {
+        this.preview = { ...this.preview, visible: false };
+    }
+
+    private updatePreview(event: PointerEvent): void {
+        const track = this.$refs.track;
+
+        if (this.storyboard === null || track === undefined || this.duration <= 0) {
+            return;
+        }
+
+        const fraction = this.fraction(event, track);
+        const time = fraction * this.duration;
+        const { cols, rows, interval, tileWidth: w, tileHeight: h, url } = this.storyboard;
+        const index = Math.max(0, Math.min(cols * rows - 1, Math.floor(time / interval)));
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+
+        this.preview = {
+            visible: true,
+            x: fraction * track.getBoundingClientRect().width,
+            time: VideoPlayer.timecode(time),
+            style:
+                `width:${String(w)}px;height:${String(h)}px;background-image:url('${url}');` +
+                `background-position:-${String(col * w)}px -${String(row * h)}px;` +
+                `background-size:${String(cols * w)}px ${String(rows * h)}px;`,
+        };
+    }
+
     public endScrub(): void {
         if (!this.scrubbing) {
             return;
@@ -172,6 +251,13 @@ export class VideoPlayer {
         this.selectedLevel = index;
         this.menuOpen = false;
         if (this.hls) {
+            this.switching = true;
+            // rede/level-switch do hls.js às vezes não emite LEVEL_SWITCHED
+            // (troca já bufferada) — teto pra o spinner nunca travar.
+            window.clearTimeout(this.switchTimer);
+            this.switchTimer = window.setTimeout(() => {
+                this.switching = false;
+            }, 4000);
             this.hls.currentLevel = index;
         }
     }
@@ -235,6 +321,8 @@ export class VideoPlayer {
         });
         hls.on(Events.LEVEL_SWITCHED, (_event, data) => {
             this.activeLabel = this.labelFor(data.level);
+            window.clearTimeout(this.switchTimer);
+            this.switching = false;
         });
     }
 
