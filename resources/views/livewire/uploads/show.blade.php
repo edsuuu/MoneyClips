@@ -207,27 +207,20 @@
         </div>
     @elseif ($isPackaging)
         <div class="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-8 py-16 text-center">
-            <x-ui.icon name="cog-6-tooth" class="mx-auto size-9 animate-spin text-amber-400" />
-            <div class="mt-4 text-sm font-semibold text-amber-200">Preparando reprodução — {{ $progress }}%</div>
-            <div class="mt-1 text-xs text-amber-400/70">Vídeos longos podem levar horas. Pode fechar a página.</div>
+            <x-ui.icon name="cog-6-tooth" class="mx-auto size-9 animate-spin text-amber-500 dark:text-amber-400" />
+            <div class="mt-4 text-sm font-semibold text-amber-700 dark:text-amber-200">Preparando reprodução — {{ $progress }}%</div>
+            <div class="mt-1 text-xs text-amber-600/90 dark:text-amber-400/70">Vídeos longos podem levar horas. Pode fechar a página.</div>
 
             <div class="mx-auto mt-5 h-2 w-full max-w-sm overflow-hidden rounded-full bg-slate-800">
                 <div class="h-full rounded-full bg-amber-500 transition-all" style="width: {{ $progress }}%"></div>
             </div>
-
-            @if ($fallbackUrl)
-                <div class="mt-8">
-                    <div class="mb-2 text-xs text-slate-500">Enquanto isso, o original:</div>
-                    <video class="mx-auto aspect-video w-full max-w-2xl rounded-xl" controls playsinline preload="none" src="{{ $fallbackUrl }}"></video>
-                </div>
-            @endif
         </div>
     @else
         <div class="rounded-2xl border border-red-500/30 bg-red-500/5 px-8 py-16 text-center">
-            <x-ui.icon name="exclamation-triangle" class="mx-auto size-9 text-red-400" />
-            <div class="mt-4 text-sm font-semibold text-red-200">{{ $statusLabel }}</div>
+            <x-ui.icon name="exclamation-triangle" class="mx-auto size-9 text-red-500 dark:text-red-400" />
+            <div class="mt-4 text-sm font-semibold text-red-700 dark:text-red-200">{{ $statusLabel }}</div>
             @if ($error)
-                <div class="mt-2 text-xs text-red-400/80">{{ $error }}</div>
+                <div class="mt-2 text-xs text-red-600/90 dark:text-red-400/80">{{ $error }}</div>
             @endif
         </div>
     @endif
