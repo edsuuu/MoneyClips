@@ -53,22 +53,21 @@ final class StartHLSPackagingJob implements ShouldQueue
             return;
         }
 
-        $sourceKey = $video->path();
+        $sourceKey = $video->originalPath();
         throw_unless(
             Storage::disk('s3')->exists($sourceKey),
             RuntimeException::class,
             sprintf('Vídeo não encontrado no MinIO: "%s".', $sourceKey),
         );
 
-        $remoteId = $packager->startPackaging($sourceKey, $video->hlsPrefix());
+        $packager->startPackaging($video);
 
         $video->fill([
             'status' => VideoStatusEnum::Packaging,
-            'hls_remote_id' => $remoteId,
             'progress' => 0,
         ])->save();
 
-        Log::info('[HLS] Empacotamento iniciado.', ['video_id' => $video->id, 'remote_id' => $remoteId]);
+        Log::info('[HLS] Empacotamento iniciado.', ['video_id' => $video->id]);
     }
 
     public function failed(?Throwable $exception): void

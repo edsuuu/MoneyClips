@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\HLS;
 
+use App\Models\Video;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -11,11 +12,20 @@ use RuntimeException;
 
 final readonly class HLSPackagerService
 {
-    public function startPackaging(string $videoKey, string $outputPrefix): string
+    /**
+     * O desfecho chega por webhook chaveado pelo uuid do vídeo (o serviço ecoa
+     * `video_uuid`) — não guardamos id de job. O Laravel manda TODAS as chaves
+     * de destino; o serviço só escreve onde mandaram.
+     */
+    public function startPackaging(Video $video): void
     {
         $response = $this->client()->post('/package', [
-            'video_key' => $videoKey,
-            'output_prefix' => $outputPrefix,
+            'video_uuid' => $video->uuid,
+            'video_key' => $video->originalPath(),
+            'hls_prefix' => $video->hlsPrefix(),
+            'poster_key' => $video->posterPath(),
+            'audio_key' => $video->audioPath(),
+            'storyboard_key' => $video->storyboardPath(),
             'webhook_url' => (string) config('services.hls.webhook_url'),
         ]);
 
@@ -26,11 +36,6 @@ final readonly class HLSPackagerService
                 Str::limit($response->body(), 300),
             ));
         }
-
-        $uuid = $response->json('uuid');
-        throw_unless(is_string($uuid) && $uuid !== '', RuntimeException::class, 'Serviço de HLS não retornou o uuid do job.');
-
-        return $uuid;
     }
 
     private function client(): PendingRequest
