@@ -8,6 +8,7 @@ use Aws\S3\S3Client;
 use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Support\Facades\Storage;
 use RuntimeException;
+use Throwable;
 
 final class MultipartUploadService implements MultipartUploadInterface
 {
@@ -17,6 +18,9 @@ final class MultipartUploadService implements MultipartUploadInterface
 
     private const string PART_URL_TTL = '+2 hours';
 
+    /**
+     * @throws Throwable
+     */
     public function create(string $key, int $fileSize, string $mimeType): MultipartSessionData
     {
         $result = $this->client()->createMultipartUpload([
@@ -35,6 +39,8 @@ final class MultipartUploadService implements MultipartUploadInterface
     /**
      * @param  list<int>  $partNumbers
      * @return array<int, string>
+     *
+     * @throws Throwable
      */
     public function signParts(string $key, string $uploadId, array $partNumbers): array
     {
@@ -57,6 +63,8 @@ final class MultipartUploadService implements MultipartUploadInterface
 
     /**
      * @param  list<UploadPartData>  $parts
+     *
+     * @throws Throwable
      */
     public function complete(string $key, string $uploadId, array $parts): void
     {
@@ -149,6 +157,9 @@ final class MultipartUploadService implements MultipartUploadInterface
         return (string) config('filesystems.disks.s3.bucket');
     }
 
+    /**
+     * @throws Throwable
+     */
     private function client(): S3Client
     {
         $disk = Storage::disk('s3');

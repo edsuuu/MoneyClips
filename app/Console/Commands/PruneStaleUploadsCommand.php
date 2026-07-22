@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Models\File;
 use App\Models\Video;
 use App\Services\Api\Discord\DiscordNotifierService;
 use App\Services\HLS\VideoStatusEnum;
@@ -47,6 +48,7 @@ final class PruneStaleUploadsCommand extends Command
     private function pruneAbandoned(MultipartUploadInterface $uploads): void
     {
         $stale = Video::query()
+            ->with('files')
             ->where('status', VideoStatusEnum::AwaitingUpload)
             ->where('created_at', '<', now()->subHours(self::STALE_HOURS))
             ->get();
@@ -58,9 +60,11 @@ final class PruneStaleUploadsCommand extends Command
         }
 
         foreach ($stale as $video) {
-            if ($video->upload_id !== null) {
+            $uploadId = $video->file(File::ORIGINAL)?->upload_id;
+
+            if ($uploadId !== null) {
                 try {
-                    $uploads->abort($video->path(), $video->upload_id);
+                    $uploads->abort($video->originalPath(), $uploadId);
                 } catch (Throwable $exception) {
                     $this->warn(sprintf('Falha ao abortar %s: %s', $video->uuid, $exception->getMessage()));
                 }

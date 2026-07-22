@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class HLSStreamController extends Controller
 {
-    private const string SEGMENT_PATTERN = '#^(poster\.jpg|[A-Za-z0-9_-]+/(init(_\d+)?\.mp4|seg_\d{1,6}\.m4s|index\.m3u8))$#';
+    private const string SEGMENT_PATTERN = '#^(poster\.jpg|storyboard\.jpg|[A-Za-z0-9_-]+/(init(_\d+)?\.mp4|seg_\d{1,6}\.m4s|index\.m3u8))$#';
 
     private const int ACCEL_TTL_MINUTES = 5;
 
@@ -29,8 +29,14 @@ final class HLSStreamController extends Controller
 
         $isPlaylist = str_ends_with($path, '.m3u8');
 
+        $key = match ($path) {
+            'poster.jpg' => $video->posterPath(),
+            'storyboard.jpg' => $video->storyboardPath(),
+            default => $video->hlsPrefix().'/'.$path,
+        };
+
         return $this->deliver(
-            $video->hlsPrefix().'/'.$path,
+            $key,
             $isPlaylist ? 'application/vnd.apple.mpegurl' : $this->segmentMime($path),
             ! $isPlaylist,
         );

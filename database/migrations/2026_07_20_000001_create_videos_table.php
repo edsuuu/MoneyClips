@@ -7,11 +7,14 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Vídeos enviados pelo operador na tela /upload.
+ * Vídeos longos enviados pelo operador na tela /upload — a entidade lógica.
  *
- * O binário vive no MinIO em `uploads/{uuid}` — não existe coluna de path
- * porque a chave é derivável do uuid (Video::path()). `hash` é o md5 do
- * binário, indexado para deduplicação futura (mesmo arquivo reenviado).
+ * Só campos objetivos do vídeo: nenhum path mora aqui. Todo binário/artefato
+ * (original, áudio, HLS, poster, storyboard, cortes) vira uma linha em `files`.
+ * `hash` é o md5 do original (dedup futuro); `name` é o título editável para
+ * achar o vídeo depois.
+ *
+ * Ciclo (status): awaiting_upload → uploaded → packaging → ready.
  */
 return new class extends Migration
 {
@@ -21,10 +24,18 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->uuid('uuid')->unique();
-            $table->string('hash', 32)->index();
-            $table->unsignedBigInteger('file_size');
-            $table->string('mime_type', 128);
+            $table->string('hash', 32)->nullable()->index();
+            $table->string('name')->nullable();
+            $table->string('status', 32)->default('awaiting_upload');
+            $table->unsignedTinyInteger('progress')->default(0);
+            $table->unsignedInteger('duration_seconds')->nullable();
+            $table->unsignedSmallInteger('width')->nullable();
+            $table->unsignedSmallInteger('height')->nullable();
+            $table->text('error')->nullable();
+            $table->timestamp('ready_at')->nullable();
             $table->timestamps();
+
+            $table->index(['status', 'user_id']);
         });
     }
 

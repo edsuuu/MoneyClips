@@ -1,5 +1,7 @@
 type HlsConstructor = typeof import('hls.js').default;
 
+export type HlsInstance = InstanceType<HlsConstructor>;
+
 export class HlsPlayer {
     private static modulePromise: Promise<HlsConstructor> | null = null;
 
@@ -9,7 +11,7 @@ export class HlsPlayer {
         return HlsPlayer.modulePromise;
     }
 
-    public static async attach(element: HTMLVideoElement): Promise<void> {
+    public static async attach(element: HTMLVideoElement): Promise<HlsInstance | null> {
         const hlsSrc = element.dataset.hlsSrc;
         const fallbackSrc = element.dataset.fallbackSrc;
 
@@ -18,18 +20,15 @@ export class HlsPlayer {
                 element.src = fallbackSrc;
             }
 
-            return;
-        }
-
-        if (element.canPlayType('application/vnd.apple.mpegurl')) {
-            element.src = hlsSrc;
-
-            return;
+            return null;
         }
 
         try {
             const Hls = await HlsPlayer.library();
 
+            // hls.js (MSE) primeiro: Chrome/Firefox/Edge devolvem "maybe" no
+            // canPlayType de HLS mas NÃO tocam nativo — só o Safari toca. Checar
+            // canPlayType antes usaria src nativo e travaria fora do Safari.
             if (Hls.isSupported()) {
                 const hls = new Hls({
                     maxBufferLength: 20,
@@ -42,14 +41,22 @@ export class HlsPlayer {
                 hls.loadSource(hlsSrc);
                 hls.attachMedia(element);
 
-                return;
+                return hls;
             }
         } catch (error) {
-            console.warn('Falha ao carregar hls.js, usando fallback MP4.', error);
+            console.warn('Falha ao carregar hls.js, tentando player nativo.', error);
+        }
+
+        if (element.canPlayType('application/vnd.apple.mpegurl')) {
+            element.src = hlsSrc;
+
+            return null;
         }
 
         if (fallbackSrc) {
             element.src = fallbackSrc;
         }
+
+        return null;
     }
 }

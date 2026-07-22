@@ -29,4 +29,5 @@ export interface UploaderCallbacks {
 export interface VideoUploaderConfig {
     maxBytes: number;
     accepted: string;
+    videoUrlBase: string;
 }
