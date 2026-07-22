@@ -7,6 +7,7 @@ namespace App\Http\Controllers\Webhooks;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Webhooks\HLSWebhookRequest;
 use App\Http\Resources\StatusResource;
+use App\Models\File;
 use App\Models\Video;
 use App\Services\Api\Discord\DiscordNotifierService;
 use App\Services\HLS\VideoStatusEnum;
@@ -16,7 +17,7 @@ final class HLSWebhookController extends Controller
 {
     public function __invoke(HLSWebhookRequest $request, DiscordNotifierService $discord): StatusResource
     {
-        $video = Video::query()->where('hls_remote_id', $request->uuid())->first();
+        $video = Video::query()->where('uuid', $request->videoUuid())->first();
 
         if (! $video instanceof Video) {
             return new StatusResource('unknown-job', 404);
@@ -41,6 +42,8 @@ final class HLSWebhookController extends Controller
             return new StatusResource('failure-recorded');
         }
 
+        $this->recordArtifacts($video, $request);
+
         $video->fill([
             'status' => VideoStatusEnum::Ready,
             'progress' => 100,
@@ -48,14 +51,44 @@ final class HLSWebhookController extends Controller
             'width' => $request->width(),
             'height' => $request->height(),
             'hash' => $request->hash(),
-            'renditions' => $request->renditions(),
-            'hls_path' => $video->hlsPrefix(),
-            'poster_path' => $request->hasPoster() ? $video->hlsPrefix().'/poster.jpg' : null,
             'error' => null,
             'ready_at' => now(),
         ])->save();
 
         return new StatusResource('ready');
+    }
+
+    private function recordArtifacts(Video $video, HLSWebhookRequest $request): void
+    {
+        $video->files()->updateOrCreate(['type' => File::HLS], [
+            'path' => $video->masterPlaylistPath(),
+            'meta' => [
+                'renditions' => $request->renditions(),
+                'duration' => $request->durationSeconds(),
+                'width' => $request->width(),
+                'height' => $request->height(),
+            ],
+        ]);
+
+        if ($request->hasPoster()) {
+            $video->files()->updateOrCreate(['type' => File::POSTER], ['path' => $video->posterPath()]);
+        }
+
+        if ($request->hasAudio()) {
+            $video->files()->updateOrCreate(['type' => File::AUDIO], [
+                'path' => $video->audioPath(),
+                'mime_type' => 'audio/mp4',
+            ]);
+        }
+
+        $storyboard = $request->storyboard();
+
+        if ($storyboard !== null) {
+            $video->files()->updateOrCreate(['type' => File::STORYBOARD], [
+                'path' => $video->storyboardPath(),
+                'meta' => $storyboard,
+            ]);
+        }
     }
 
     private function finishWithFailure(Video $video, string $status, ?string $error, DiscordNotifierService $discord): void
@@ -68,7 +101,7 @@ final class HLSWebhookController extends Controller
         ])->save();
 
         if ($rejected) {
-            Storage::disk('s3')->delete($video->path());
+            Storage::disk('s3')->deleteDirectory($video->prefix());
         }
 
         $discord->error(

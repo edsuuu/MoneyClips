@@ -27,11 +27,6 @@ final readonly class PosterResultData
         return new self($platform, 'queued', externalId: $externalId);
     }
 
-    public static function dryRun(string $platform): self
-    {
-        return new self($platform, 'dry-run');
-    }
-
     public static function restricted(string $platform, ?string $detail = null): self
     {
         return new self($platform, 'restricted', error: $detail);

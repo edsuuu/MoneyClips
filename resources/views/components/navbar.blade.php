@@ -21,7 +21,6 @@
                 @foreach ([
                     ['label' => 'Dashboard', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*'],
                     ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*'],
-                    ['label' => 'Enviar vídeo', 'icon' => 'arrow-up-tray', 'route' => 'upload.index', 'pattern' => 'upload.*'],
                     ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*'],
                 ] as $item)
                     <li class="shrink-0">

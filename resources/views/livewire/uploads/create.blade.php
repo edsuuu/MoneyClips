@@ -4,7 +4,7 @@
 
     <div
         class="mt-8"
-        x-data="videoUploader({ maxBytes: @js($maxBytes), accepted: @js($accept) })"
+        x-data="videoUploader({ maxBytes: @js($maxBytes), accepted: @js($accept), videoUrlBase: @js($videoUrlBase) })"
     >
         <template x-if="state === 'done'">
             <div

@@ -23,6 +23,7 @@ export class HLSPackager extends Logger {
         ladder: Rendition[],
         meta: VideoMeta,
         remux: boolean,
+        audioPath: string | null,
         onProgress: (percent: number) => void,
     ): Promise<string> {
         for (const rendition of ladder) {
@@ -30,14 +31,14 @@ export class HLSPackager extends Logger {
         }
 
         if (remux) {
-            await this.runFfmpeg(input, outputDir, ladder, meta, 'copy', onProgress);
+            await this.runFfmpeg(input, outputDir, ladder, meta, 'copy', audioPath, onProgress);
             return 'copy';
         }
 
         const codec = await this.resolveEncoder();
 
         try {
-            await this.runFfmpeg(input, outputDir, ladder, meta, codec, onProgress);
+            await this.runFfmpeg(input, outputDir, ladder, meta, codec, audioPath, onProgress);
             return codec;
         } catch (error) {
             if (codec === 'libx264') {
@@ -46,7 +47,7 @@ export class HLSPackager extends Logger {
             // O hardware pode recusar em runtime (driver, sessão esgotada, Mac
             // headless): CPU é melhor que perder um empacotamento de horas.
             this.warn(`${codec} falhou em runtime, refazendo em CPU: ${(error as Error).message}`);
-            await this.runFfmpeg(input, outputDir, ladder, meta, 'libx264', onProgress);
+            await this.runFfmpeg(input, outputDir, ladder, meta, 'libx264', audioPath, onProgress);
             return 'libx264';
         }
     }
@@ -153,6 +154,7 @@ export class HLSPackager extends Logger {
         ladder: Rendition[],
         meta: VideoMeta,
         codec: string,
+        audioPath: string | null,
     ): string[] {
         const seg = settings.segmentSeconds;
         const args = ['-hide_banner', '-y'];
@@ -203,6 +205,13 @@ export class HLSPackager extends Logger {
             '-nostats',
             join(outputDir, '%v', 'index.m3u8'),
         );
+
+        // Áudio AAC extraído no mesmo decode do HLS (saída à parte, fora do
+        // diretório do HLS): o comando já decodifica/encoda o áudio das
+        // renditions, então este `.m4a` não custa um segundo decode do 4K.
+        if (audioPath !== null && meta.hasAudio) {
+            args.push('-map', 'a:0', '-c:a', 'aac', '-b:a', '192k', audioPath);
+        }
 
         return args;
     }
@@ -283,9 +292,10 @@ export class HLSPackager extends Logger {
         ladder: Rendition[],
         meta: VideoMeta,
         codec: string,
+        audioPath: string | null,
         onProgress: (percent: number) => void,
     ): Promise<void> {
-        const args = this.buildArgs(input, outputDir, ladder, meta, codec);
+        const args = this.buildArgs(input, outputDir, ladder, meta, codec, audioPath);
         this.info(`ffmpeg ${args.join(' ')}`);
 
         return new Promise((resolve, reject) => {

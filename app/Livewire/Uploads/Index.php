@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Uploads;
 
 use App\Livewire\Concerns\WithToasts;
+use App\Models\File;
 use App\Models\Video;
 use App\Services\HLS\VideoStatusEnum;
 use Illuminate\Database\Eloquent\Builder;
@@ -27,8 +28,7 @@ final class Index extends Component
             return;
         }
 
-        Storage::disk('s3')->delete($video->path());
-        Storage::disk('s3')->deleteDirectory($video->hlsPrefix());
+        Storage::disk('s3')->deleteDirectory($video->prefix());
 
         $video->delete();
 
@@ -38,7 +38,7 @@ final class Index extends Component
     /** @return Builder<Video> */
     private function videos(): Builder
     {
-        return Video::query()->where('user_id', Auth::id());
+        return Video::query()->where('user_id', Auth::id())->with('files');
     }
 
     private function humanSize(int $bytes): string
@@ -68,19 +68,24 @@ final class Index extends Component
 
     public function render(): View
     {
-        $rows = $this->videos()->latest('id')->paginate(12)->through(fn (Video $video): array => [
-            'uuid' => $video->uuid,
-            'isPackaging' => $video->status === VideoStatusEnum::Packaging,
-            'statusLabel' => $video->status->label(),
-            'badgeClass' => $video->status->badgeClass(),
-            'progress' => $video->progress,
-            'isReady' => $video->isReady(),
-            'sizeLabel' => $this->humanSize($video->file_size),
-            'durationLabel' => $this->humanDuration($video->duration_seconds),
-            'resolutionLabel' => $video->height === null ? '—' : $video->height.'p',
-            'createdLabel' => $video->created_at?->format('d/m/Y H:i') ?? '—',
-            'error' => $video->error,
-        ]);
+        $rows = $this->videos()->latest('id')->paginate(12)->through(function (Video $video): array {
+            $original = $video->file(File::ORIGINAL);
+
+            return [
+                'uuid' => $video->uuid,
+                'isPackaging' => $video->status === VideoStatusEnum::Packaging,
+                'statusLabel' => $video->status->label(),
+                'badgeClass' => $video->status->badgeClass(),
+                'progress' => $video->progress,
+                'isReady' => $video->isReady(),
+                'posterUrl' => $video->file(File::POSTER) instanceof File ? route('hls.segment', [$video->uuid, 'poster.jpg']) : null,
+                'sizeLabel' => $this->humanSize($original instanceof File ? ($original->size ?? 0) : 0),
+                'durationLabel' => $this->humanDuration($video->duration_seconds),
+                'resolutionLabel' => $video->height === null ? '—' : $video->height.'p',
+                'createdLabel' => $video->created_at?->format('d/m/Y H:i') ?? '—',
+                'error' => $video->error,
+            ];
+        });
 
         return view('livewire.uploads.index', [
             'videos' => $rows,

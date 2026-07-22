@@ -16,6 +16,8 @@ export class LadderBuilder {
         { name: '360p', height: 360, videoBitrateKbps: 800, audioBitrateKbps: 96 },
         { name: '720p', height: 720, videoBitrateKbps: 2800, audioBitrateKbps: 128 },
         { name: '1080p', height: 1080, videoBitrateKbps: 5000, audioBitrateKbps: 192 },
+        { name: '1440p', height: 1440, videoBitrateKbps: 9000, audioBitrateKbps: 192 },
+        { name: '2160p', height: 2160, videoBitrateKbps: 16000, audioBitrateKbps: 192 },
     ];
 
     public build(meta: VideoMeta): Rendition[] {
