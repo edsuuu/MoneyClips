@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
+use App\Enums\VideoStatusEnum;
 use App\Jobs\StartHLSPackagingJob;
 use App\Models\File;
 use App\Models\User;
 use App\Models\Video;
-use App\Services\HLS\VideoStatusEnum;
-use App\Services\Upload\MultipartSessionData;
+use App\Services\Upload\Data\MultipartSessionData;
 use App\Services\Upload\MultipartUploadInterface;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
@@ -29,7 +29,6 @@ it('requires authentication on every upload endpoint', function (): void {
     $this->getJson(sprintf('/uploads/%s/parts', $video->uuid))->assertUnauthorized();
     $this->postJson(sprintf('/uploads/%s/parts', $video->uuid), ['part_numbers' => [1]])->assertUnauthorized();
     $this->postJson(sprintf('/uploads/%s/complete', $video->uuid), ['parts' => []])->assertUnauthorized();
-    $this->deleteJson('/uploads/'.$video->uuid)->assertUnauthorized();
 });
 
 it('creates a multipart session and the awaiting video row', function (): void {
@@ -77,7 +76,6 @@ it('does not let one user sign parts for another users upload', function (): voi
 
     $this->postJson(sprintf('/uploads/%s/parts', $foreign->uuid), ['part_numbers' => [1]])->assertNotFound();
     $this->getJson(sprintf('/uploads/%s/parts', $foreign->uuid))->assertNotFound();
-    $this->deleteJson('/uploads/'.$foreign->uuid)->assertNotFound();
 });
 
 it('caps how many parts can be signed at once', function (): void {
@@ -113,7 +111,7 @@ it('trusts the bucket over the client when completing', function (): void {
     Bus::assertDispatched(StartHLSPackagingJob::class);
 });
 
-it('rejects and deletes an upload whose bytes are not a video', function (): void {
+it('rejects an upload whose bytes are not a video and keeps the file', function (): void {
     Bus::fake();
     Storage::fake('s3');
 
@@ -131,7 +129,7 @@ it('rejects and deletes an upload whose bytes are not a video', function (): voi
     ])->assertStatus(422);
 
     expect($video->refresh()->status)->toBe(VideoStatusEnum::Rejected)
-        ->and(Storage::disk('s3')->exists($video->originalPath()))->toBeFalse();
+        ->and(Storage::disk('s3')->exists($video->originalPath()))->toBeTrue();
 
     Bus::assertNotDispatched(StartHLSPackagingJob::class);
 });
@@ -141,47 +139,4 @@ it('caps how many upload sessions one user can keep open', function (): void {
 
     $this->postJson('/uploads', ['file_size' => 1024, 'mime_type' => 'video/mp4'])
         ->assertStatus(429);
-});
-
-it('rejects and deletes an upload that turned out to be oversized', function (): void {
-    Bus::fake();
-    Storage::fake('s3');
-
-    $video = Video::factory()->for($this->user)->create();
-    Storage::disk('s3')->put($video->originalPath(), 'conteudo');
-
-    $this->mock(MultipartUploadInterface::class, function (MockInterface $mock): void {
-        $mock->shouldReceive('complete')->once();
-        $mock->shouldReceive('size')->once()->andReturn(Video::MAX_BYTES + 1);
-    });
-
-    $this->postJson(sprintf('/uploads/%s/complete', $video->uuid), [
-        'parts' => [['part_number' => 1, 'etag' => '"abc"']],
-    ])->assertStatus(422);
-
-    $video->refresh();
-
-    expect($video->status)->toBe(VideoStatusEnum::Rejected);
-    Storage::disk('s3')->assertMissing($video->originalPath());
-    Bus::assertNotDispatched(StartHLSPackagingJob::class);
-});
-
-it('aborts an upload in progress and drops the row', function (): void {
-    $video = Video::factory()->for($this->user)->create();
-
-    $this->mock(MultipartUploadInterface::class, function (MockInterface $mock): void {
-        $mock->shouldReceive('abort')->once();
-    });
-
-    $this->deleteJson('/uploads/'.$video->uuid)->assertOk();
-
-    expect(Video::query()->count())->toBe(0);
-});
-
-it('will not abort an upload that already finished', function (): void {
-    $video = Video::factory()->for($this->user)->ready()->create();
-
-    $this->deleteJson('/uploads/'.$video->uuid)->assertStatus(409);
-
-    expect(Video::query()->count())->toBe(1);
 });

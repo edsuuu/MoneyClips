@@ -27,7 +27,8 @@ Route::middleware('guest')
 Route::middleware(['auth'])->group(function (): void {
     Route::view('/dashboard', 'dashboard.index')->name('dashboard.index');
 
-    Route::view('/upload', 'upload.index')->name('upload.index');
+    Route::view('/upload', 'upload.create')->name('uploads.create');
+
     Route::prefix('meus-uploads')->name('uploads.')->group(function (): void {
         Route::view('/', 'uploads.index')->name('index');
         Route::view('/{video:uuid}', 'uploads.show')->name('show');
@@ -54,7 +55,6 @@ Route::middleware(['auth'])->group(function (): void {
             Route::get('/{video:uuid}/parts', 'parts')->name('parts.index');
             Route::post('/{video:uuid}/parts', 'sign')->name('parts.sign');
             Route::post('/{video:uuid}/complete', 'complete')->name('complete');
-            Route::delete('/{video:uuid}', 'destroy')->name('abort');
         });
 
     Route::view('/meus-videos', 'videos.index')->name('videos.index');

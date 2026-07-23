@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Enums\VideoStatusEnum;
 use App\Exceptions\TooManyOpenUploadsException;
-use App\Exceptions\UploadAlreadyCompletedException;
+use App\Exceptions\UploadFailedException;
 use App\Exceptions\UploadRejectedException;
 use App\Exceptions\UploadSessionClosedException;
 use App\Http\Requests\Upload\CompleteUploadRequest;
@@ -18,14 +19,12 @@ use App\Http\Resources\UploadSessionResource;
 use App\Jobs\StartHLSPackagingJob;
 use App\Models\File;
 use App\Models\Video;
-use App\Services\HLS\VideoStatusEnum;
 use App\Services\Upload\MultipartUploadInterface;
 use App\Services\Upload\VideoSignatureService;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -79,10 +78,11 @@ final class MultipartUploadController extends Controller
                     return $video;
                 });
             } catch (Throwable $exception) {
-                // O banco falhou depois da sessão S3 abrir — não deixa multipart órfão.
+                // O banco falhou depois da sessão S3 abrir — não deixa multipart
+                // órfão e devolve uma mensagem limpa (o desfecho vira toast no cliente).
                 $uploads->abort($key, $session->uploadId);
 
-                throw $exception;
+                throw new UploadFailedException(message: $exception->getMessage(), code: $exception->getCode(), previous: $exception);
             }
 
             return new UploadSessionResource($video, $session);
@@ -91,6 +91,9 @@ final class MultipartUploadController extends Controller
         }
     }
 
+    /**
+     * @throws Throwable
+     */
     public function parts(Video $video, MultipartUploadInterface $uploads): AnonymousResourceCollection
     {
         return UploadPartResource::collection(
@@ -98,6 +101,9 @@ final class MultipartUploadController extends Controller
         );
     }
 
+    /**
+     * @throws Throwable
+     */
     public function sign(SignUploadPartsRequest $request, Video $video, MultipartUploadInterface $uploads): SignedPartUrlsResource
     {
         return new SignedPartUrlsResource(
@@ -107,6 +113,7 @@ final class MultipartUploadController extends Controller
 
     /**
      * @throws UploadRejectedException
+     * @throws Throwable
      */
     public function complete(
         CompleteUploadRequest $request,
@@ -120,10 +127,6 @@ final class MultipartUploadController extends Controller
         $uploads->complete($video->originalPath(), $uploadId, $request->parts());
 
         $actualSize = $uploads->size($video->originalPath());
-
-        if ($actualSize > Video::MAX_BYTES) {
-            $this->reject($video, 'O arquivo enviado passa do limite de 3GB.', 'O vídeo passa do limite de 3GB.');
-        }
 
         $header = $uploads->firstBytes($video->originalPath(), VideoSignatureService::HEADER_BYTES);
 
@@ -143,32 +146,10 @@ final class MultipartUploadController extends Controller
         return new StatusResource('uploaded', extra: ['video_uuid' => $video->uuid]);
     }
 
-    /**
-     * @throws Throwable
-     */
-    public function destroy(Video $video, MultipartUploadInterface $uploads): StatusResource
-    {
-        throw_if($video->status !== VideoStatusEnum::AwaitingUpload, UploadAlreadyCompletedException::class);
-
-        $uploadId = $video->file(File::ORIGINAL)?->upload_id;
-
-        if ($uploadId !== null) {
-            try {
-                $uploads->abort($video->originalPath(), $uploadId);
-            } catch (Throwable) {
-
-            }
-        }
-
-        $video->delete();
-
-        return new StatusResource('aborted');
-    }
-
     private function reject(Video $video, string $reason, string $userMessage): never
     {
-        Storage::disk('s3')->deleteDirectory($video->prefix());
-
+        // Não apaga o S3 — o binário fica (recuperável/auditável), só marca o
+        // vídeo como recusado.
         $video->file(File::ORIGINAL)?->update(['upload_id' => null]);
 
         $video->fill([
@@ -179,6 +160,9 @@ final class MultipartUploadController extends Controller
         throw new UploadRejectedException($userMessage, $reason);
     }
 
+    /**
+     * @throws Throwable
+     */
     private function originalFile(Video $video): File
     {
         $file = $video->file(File::ORIGINAL);
@@ -188,6 +172,9 @@ final class MultipartUploadController extends Controller
         return $file;
     }
 
+    /**
+     * @throws Throwable
+     */
     private function activeUploadId(Video $video): string
     {
         $uploadId = $this->originalFile($video)->upload_id;
