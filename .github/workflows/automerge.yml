@@ -6,6 +6,7 @@ on:
       - tests
       - tiktok-uploader (CI)
       - download-shorts (CI)
+      - video (CI)
     types: [completed]
 
 # Bloco permissions zera tudo que nao for listado: `actions: read` e
