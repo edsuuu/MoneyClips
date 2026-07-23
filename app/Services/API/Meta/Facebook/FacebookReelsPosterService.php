@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Api\TikTok;
+namespace App\Services\API\Meta\Facebook;
 
 use App\Models\PlatformSetting;
 use App\Services\AutoPost\PosterInterface;
@@ -10,11 +10,11 @@ use App\Services\AutoPost\PosterResultData;
 use App\Services\AutoPost\PostTaskData;
 use Illuminate\Support\Facades\Log;
 
-final readonly class TiktokOfficialPosterService implements PosterInterface
+final readonly class FacebookReelsPosterService implements PosterInterface
 {
     public function platform(): string
     {
-        return 'tiktok_official';
+        return 'facebook';
     }
 
     public function isEnabled(): bool
@@ -24,7 +24,7 @@ final readonly class TiktokOfficialPosterService implements PosterInterface
 
     public function post(PostTaskData $task): PosterResultData
     {
-        Log::warning('[AutoPost][TikTokOficial] Poster ainda não implementado.', ['short_id' => $task->short->id]);
+        Log::warning('[AutoPost][FacebookReels] Poster ainda não implementado.', ['short_id' => $task->short->id]);
 
         return PosterResultData::failed($this->platform(), 'Poster não implementado.');
     }

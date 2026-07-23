@@ -6,7 +6,7 @@ namespace App\Console\Commands;
 
 use App\Models\File;
 use App\Models\Video;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\HLS\VideoStatusEnum;
 use App\Services\Upload\MultipartUploadInterface;
 use Illuminate\Console\Command;

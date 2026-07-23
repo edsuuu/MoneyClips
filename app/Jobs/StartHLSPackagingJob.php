@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Jobs;
 
 use App\Models\Video;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\HLS\HLSPackagerService;
 use App\Services\HLS\VideoStatusEnum;
 use Illuminate\Contracts\Queue\ShouldQueue;

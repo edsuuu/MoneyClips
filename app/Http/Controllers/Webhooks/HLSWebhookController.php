@@ -9,7 +9,7 @@ use App\Http\Requests\Webhooks\HLSWebhookRequest;
 use App\Http\Resources\StatusResource;
 use App\Models\File;
 use App\Models\Video;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\HLS\VideoStatusEnum;
 use Illuminate\Support\Facades\Storage;
 

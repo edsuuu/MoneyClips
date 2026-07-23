@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Api\Youtube;
+namespace App\Services\API\Youtube;
 
 use App\Models\SocialAccount;
 use Illuminate\Support\Facades\Http;

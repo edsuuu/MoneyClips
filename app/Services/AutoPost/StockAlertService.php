@@ -6,7 +6,7 @@ namespace App\Services\AutoPost;
 
 use App\Models\ScheduleSlot;
 use App\Models\YoutubeShort;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Cache;
 
