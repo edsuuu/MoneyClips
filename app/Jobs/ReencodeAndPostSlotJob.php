@@ -6,7 +6,7 @@ namespace App\Jobs;
 
 use App\Models\ScheduleSlot;
 use App\Models\YoutubeShort;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\AutoPost\AutoPostDispatcherService;
 use App\Services\Reencode\ReencodeShortService;
 use Illuminate\Contracts\Queue\ShouldQueue;

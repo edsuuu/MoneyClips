@@ -7,7 +7,7 @@ namespace App\Jobs;
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\AutoPost\PosterRegistryService;
 use App\Services\AutoPost\PostTaskData;
 use Illuminate\Contracts\Queue\ShouldQueue;

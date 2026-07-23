@@ -6,7 +6,7 @@ namespace App\Jobs;
 
 use App\Models\ProcessingJob;
 use App\Models\YoutubeShort;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\Reencode\ReencodeShortService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;

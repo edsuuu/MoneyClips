@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Services\HLS;
+namespace App\Services\Upload\HLS;
 
 use App\Models\Video;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
@@ -16,6 +17,8 @@ final readonly class HLSPackagerService
      * O desfecho chega por webhook chaveado pelo uuid do vídeo (o serviço ecoa
      * `video_uuid`) — não guardamos id de job. O Laravel manda TODAS as chaves
      * de destino; o serviço só escreve onde mandaram.
+     *
+     * @throws ConnectionException
      */
     public function startPackaging(Video $video): void
     {

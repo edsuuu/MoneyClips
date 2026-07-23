@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Processing;
 
+use App\Enums\TemplateStyleEnum;
+
 final readonly class TemplateRenderOptionsData
 {
     public function __construct(

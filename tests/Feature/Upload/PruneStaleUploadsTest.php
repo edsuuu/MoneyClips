@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Enums\VideoStatusEnum;
 use App\Models\Video;
-use App\Services\HLS\VideoStatusEnum;
 use App\Services\Upload\MultipartUploadInterface;
 use Illuminate\Support\Facades\Date;
 

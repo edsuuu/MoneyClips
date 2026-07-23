@@ -10,7 +10,7 @@ use App\Http\Resources\StatusResource;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use Illuminate\Support\Facades\Log;
 
 final class TiktokPostWebhookController extends Controller
