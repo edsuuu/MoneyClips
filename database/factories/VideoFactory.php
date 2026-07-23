@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
+use App\Enums\VideoStatusEnum;
 use App\Models\File;
 use App\Models\User;
 use App\Models\Video;
-use App\Services\HLS\VideoStatusEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 

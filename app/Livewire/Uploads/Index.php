@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Livewire\Uploads;
 
+use App\Enums\VideoStatusEnum;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\File;
 use App\Models\Video;
-use App\Services\HLS\VideoStatusEnum;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;

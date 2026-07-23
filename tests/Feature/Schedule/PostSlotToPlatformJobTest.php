@@ -6,7 +6,7 @@ use App\Jobs\PostSlotToPlatformJob;
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\AutoPost\PosterInterface;
 use App\Services\AutoPost\PosterRegistryService;
 use App\Services\AutoPost\PosterResultData;
