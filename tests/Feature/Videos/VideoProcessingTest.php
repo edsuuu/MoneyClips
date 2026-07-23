@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
+use App\Enums\TemplateStyleEnum;
 use App\Jobs\FetchTemplateOutputJob;
 use App\Jobs\RunReencodeJob;
 use App\Jobs\StartTemplateRenderJob;
 use App\Models\ProcessingJob;
 use App\Models\YoutubeShort;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\AutoCaption\AutoCaptionService;
 use App\Services\Processing\TemplateRenderOptionsData;
-use App\Services\Processing\TemplateStyleEnum;
 use App\Services\Processing\VideoProcessingService;
 use App\Services\Reencode\ReencodeShortService;
 use Illuminate\Support\Facades\Http;

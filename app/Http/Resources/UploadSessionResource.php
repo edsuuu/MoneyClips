@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Models\Video;
-use App\Services\Upload\MultipartSessionData;
+use App\Services\Upload\Data\MultipartSessionData;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 

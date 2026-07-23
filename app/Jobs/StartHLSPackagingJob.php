@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
+use App\Enums\VideoStatusEnum;
 use App\Models\Video;
-use App\Services\Api\Discord\DiscordNotifierService;
-use App\Services\HLS\HLSPackagerService;
-use App\Services\HLS\VideoStatusEnum;
+use App\Services\API\Discord\DiscordNotifierService;
+use App\Services\Upload\HLS\HLSPackagerService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -25,7 +25,7 @@ final class StartHLSPackagingJob implements ShouldQueue
     use Dispatchable;
     use Queueable;
 
-    public int $tries = 1;
+    public int $tries = 3;
 
     public int $timeout = 120;
 
@@ -34,18 +34,21 @@ final class StartHLSPackagingJob implements ShouldQueue
         $this->onQueue('processing');
     }
 
+    /**
+     * @throws Throwable
+     */
     public function handle(HLSPackagerService $packager): void
     {
         $video = Video::query()->find($this->videoId);
 
         if (! $video instanceof Video) {
-            Log::warning('[HLS] Vídeo inexistente ao iniciar empacotamento.', ['id' => $this->videoId]);
+            Log::channel('hls')->warning('[HLS] Vídeo inexistente ao iniciar empacotamento.', ['id' => $this->videoId]);
 
             return;
         }
 
         if ($video->status !== VideoStatusEnum::Uploaded) {
-            Log::info('[HLS] Vídeo fora do estado "uploaded" — ignorando.', [
+            Log::channel('hls')->info('[HLS] Vídeo fora do estado "uploaded" — ignorando.', [
                 'id' => $video->id,
                 'status' => $video->status->value,
             ]);
@@ -57,7 +60,7 @@ final class StartHLSPackagingJob implements ShouldQueue
         throw_unless(
             Storage::disk('s3')->exists($sourceKey),
             RuntimeException::class,
-            sprintf('Vídeo não encontrado no MinIO: "%s".', $sourceKey),
+            sprintf('Vídeo não encontrado no s3: "%s".', $sourceKey),
         );
 
         $packager->startPackaging($video);
@@ -67,7 +70,7 @@ final class StartHLSPackagingJob implements ShouldQueue
             'progress' => 0,
         ])->save();
 
-        Log::info('[HLS] Empacotamento iniciado.', ['video_id' => $video->id]);
+        Log::channel('hls')->info('[HLS] Empacotamento iniciado.', ['video_id' => $video->id]);
     }
 
     public function failed(?Throwable $exception): void

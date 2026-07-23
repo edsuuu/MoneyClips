@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Api\Youtube;
+namespace App\Services\API\Youtube;
 
 use App\Models\PlatformSetting;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\AutoPost\PosterInterface;
 use App\Services\AutoPost\PosterResultData;
 use App\Services\AutoPost\PostTaskData;

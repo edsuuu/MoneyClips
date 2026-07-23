@@ -61,7 +61,11 @@ export class VideoUploader {
         } catch (error) {
             this.state = 'idle';
             this.progress = 0;
-            this.error = (error as Error).message || 'Falha ao enviar o vídeo.';
+            const message =
+                (error as Error).message || 'Não foi possível enviar o vídeo. Tente novamente.';
+            window.dispatchEvent(
+                new CustomEvent('toast', { detail: { message, variant: 'danger' } }),
+            );
         }
     }
 

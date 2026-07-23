@@ -79,7 +79,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Credenciais de APP das APIs oficiais (posters em App\Services\Api\*)
+    | Credenciais de APP das APIs oficiais (posters em App\Services\API\*)
     |--------------------------------------------------------------------------
     | Estrutura pronta — só preencher os envs quando cada poster sair de stub.
     | Tokens por conta conectada (OAuth) vivem em social_accounts; aqui ficam

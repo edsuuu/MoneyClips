@@ -54,11 +54,13 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
   (DTOs), `*Enum`, `*Job`, `*Cast`, `*Exception`, `*Controller`, `*Command`.
   SOLID simples — sem camadas de clean architecture.
 - **A arquitetura é específica de cada serviço, não geral da aplicação**:
-  interface/DTOs/enums vivem NA PASTA do serviço dono (ex.:
+  interface/DTOs vivem NA PASTA do serviço dono (ex.:
   `PosterInterface`, `PostTaskData` e `PosterResultData` em
-  `app/Services/AutoPost/`; `TemplateStyleEnum` e `TemplateRenderOptionsData`
+  `app/Services/AutoPost/`; `TemplateRenderOptionsData`
   em `app/Services/Processing/`). NÃO existem pastas gerais tipo
   `app/Contracts` ou `app/DataTransferObjects`.
+- **`*Enum` vive em `app/Enums/`** (`VideoStatusEnum`, `TemplateStyleEnum`),
+  não na pasta do serviço dono — mesma lógica das exceptions abaixo.
 - **Exceptions são a exceção da regra acima**: `*Exception` vive em
   `app/Exceptions/`, não na pasta do serviço dono. É a convenção histórica do
   Laravel e o primeiro lugar onde se procura uma falha. Cada exception que

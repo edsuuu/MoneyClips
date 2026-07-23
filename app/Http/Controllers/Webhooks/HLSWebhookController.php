@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Webhooks;
 
+use App\Enums\VideoStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Webhooks\HLSWebhookRequest;
 use App\Http\Resources\StatusResource;
 use App\Models\File;
 use App\Models\Video;
-use App\Services\Api\Discord\DiscordNotifierService;
-use App\Services\HLS\VideoStatusEnum;
+use App\Services\API\Discord\DiscordNotifierService;
 use Illuminate\Support\Facades\Storage;
 
 final class HLSWebhookController extends Controller

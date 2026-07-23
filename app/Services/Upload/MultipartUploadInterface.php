@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Upload;
 
+use App\Services\Upload\Data\MultipartSessionData;
+use App\Services\Upload\Data\UploadPartData;
+
 interface MultipartUploadInterface
 {
     public function create(string $key, int $fileSize, string $mimeType): MultipartSessionData;

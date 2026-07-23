@@ -10,7 +10,13 @@
         </title>
 
         <script>
-            document.documentElement.classList.toggle('dark', (localStorage.theme ?? 'dark') === 'dark');
+            (() => {
+                const apply = () => document.documentElement.classList.toggle('dark', (localStorage.theme ?? 'dark') === 'dark');
+                apply();
+                // wire:navigate faz morph do <html> com a marcacao do servidor (sem
+                // a classe, que e client-side) — re-aplica apos cada navegacao SPA.
+                document.addEventListener('livewire:navigated', apply);
+            })();
         </script>
 
         <link rel="icon" href="/favicon.ico" sizes="any">

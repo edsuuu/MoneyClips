@@ -76,6 +76,8 @@ export class VideoPlayer {
 
     private switchTimer = 0;
 
+    private resumeAfterSwitch = false;
+
     private resumeAt = 0;
 
     private savedAt = 0;
@@ -246,15 +248,31 @@ export class VideoPlayer {
     public selectLevel(index: number): void {
         this.selectedLevel = index;
         this.menuOpen = false;
-        if (this.hls) {
-            this.switching = true;
-            // rede/level-switch do hls.js às vezes não emite LEVEL_SWITCHED
-            // (troca já bufferada) — teto pra o spinner nunca travar.
-            window.clearTimeout(this.switchTimer);
-            this.switchTimer = window.setTimeout(() => {
-                this.switching = false;
-            }, 4000);
-            this.hls.currentLevel = index;
+        if (!this.hls) {
+            return;
+        }
+
+        const video = this.video();
+        this.switching = true;
+        // Pausa áudio+vídeo durante a troca: o hls.js troca "seamless" e o áudio
+        // continuaria tocando enquanto a imagem recarrega, dessincronizando.
+        this.resumeAfterSwitch = !video.paused;
+        video.pause();
+
+        window.clearTimeout(this.switchTimer);
+        // teto: se LEVEL_SWITCHED não vier (troca já bufferada), destrava e retoma.
+        this.switchTimer = window.setTimeout(() => this.finishSwitch(), 4000);
+        this.hls.currentLevel = index;
+    }
+
+    private finishSwitch(): void {
+        window.clearTimeout(this.switchTimer);
+        this.switching = false;
+        if (this.resumeAfterSwitch) {
+            this.resumeAfterSwitch = false;
+            void this.video()
+                .play()
+                .catch(() => undefined);
         }
     }
 
@@ -317,8 +335,7 @@ export class VideoPlayer {
         });
         hls.on(Events.LEVEL_SWITCHED, (_event, data) => {
             this.activeLabel = this.labelFor(data.level);
-            window.clearTimeout(this.switchTimer);
-            this.switching = false;
+            this.finishSwitch();
         });
     }
 
