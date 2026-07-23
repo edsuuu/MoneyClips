@@ -378,9 +378,12 @@ make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
   sqlite não).
 - **`php artisan view:clear` faz parte do deploy**: trocar componente anônimo
   por componente de classe com o mesmo nome quebra com o cache antigo.
-- **Automerge está DESATIVADO** (`gh workflow enable automerge.yml` religa).
-  Se religar: ele mergeia sozinho segundos após o `tests` ficar verde, então
-  qualquer push vira merge sem revisão.
+- **Automerge está ATIVO** (`gh workflow disable automerge.yml` desliga). Ele
+  mergeia sozinho (squash) segundos após TODOS os CIs ficarem verdes —
+  `tests`, `tiktok-uploader`, `download-shorts` e `video` — então qualquer
+  push vira merge sem revisão. Duas exceções que exigem merge manual: PR que
+  altera `.github/workflows/` (o `GITHUB_TOKEN` não tem escopo `workflows`) e
+  o próprio PR que reativa/edita o automerge (a versão que roda é a da `main`).
 
 ## Pendências
 
