@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Upload;
 
+use App\Services\Upload\Data\MultipartSessionData;
+use App\Services\Upload\Data\UploadPartData;
 use Aws\S3\S3Client;
 use Illuminate\Filesystem\AwsS3V3Adapter;
 use Illuminate\Support\Facades\Storage;
@@ -82,6 +84,9 @@ final class MultipartUploadService implements MultipartUploadInterface
         ]);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function abort(string $key, string $uploadId): void
     {
         $this->client()->abortMultipartUpload([
@@ -103,6 +108,8 @@ final class MultipartUploadService implements MultipartUploadInterface
 
     /**
      * Range GET: o objeto pode ter gigabytes e só o cabeçalho interessa.
+     *
+     * @throws Throwable
      */
     public function firstBytes(string $key, int $length): string
     {
@@ -120,6 +127,8 @@ final class MultipartUploadService implements MultipartUploadInterface
      * o que já subiu.
      *
      * @return list<UploadPartData>
+     *
+     * @throws Throwable
      */
     public function listParts(string $key, string $uploadId): array
     {

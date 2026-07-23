@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests\Upload;
 
+use App\Services\Upload\Data\UploadPartData;
 use App\Services\Upload\MultipartUploadService;
-use App\Services\Upload\UploadPartData;
 use Illuminate\Foundation\Http\FormRequest;
 
 final class CompleteUploadRequest extends FormRequest
