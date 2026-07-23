@@ -23,6 +23,8 @@ use App\Services\Upload\MultipartUploadInterface;
 use App\Services\Upload\VideoSignatureService;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
@@ -35,32 +37,58 @@ final class MultipartUploadController extends Controller
      */
     private const int MAX_OPEN_SESSIONS = 5;
 
+    /**
+     * @throws Throwable
+     */
     public function store(StoreUploadRequest $request, MultipartUploadInterface $uploads): UploadSessionResource
     {
-        $open = Video::query()
-            ->where('user_id', Auth::id())
-            ->where('status', VideoStatusEnum::AwaitingUpload)
-            ->count();
+        $lock = Cache::lock('upload-start:'.Auth::id(), 120);
 
-        throw_if($open >= self::MAX_OPEN_SESSIONS, TooManyOpenUploadsException::class);
+        // Non-blocking: dois POST /uploads concorrentes do mesmo usuário não
+        // correm a checagem de MAX_OPEN nem abrem sessões duplicadas.
+        throw_if(! $lock->get(), TooManyOpenUploadsException::class);
 
-        $video = Video::query()->create([
-            'user_id' => Auth::id(),
-            'uuid' => (string) Str::uuid(),
-            'status' => VideoStatusEnum::AwaitingUpload,
-        ]);
+        try {
+            $open = Video::query()
+                ->where('user_id', Auth::id())
+                ->where('status', VideoStatusEnum::AwaitingUpload)
+                ->count();
 
-        $session = $uploads->create($video->originalPath(), $request->fileSize(), $request->mimeType());
+            throw_if($open >= self::MAX_OPEN_SESSIONS, TooManyOpenUploadsException::class);
 
-        $video->files()->create([
-            'type' => File::ORIGINAL,
-            'path' => $video->originalPath(),
-            'upload_id' => $session->uploadId,
-            'size' => $request->fileSize(),
-            'mime_type' => $request->mimeType(),
-        ]);
+            $uuid = (string) Str::uuid();
+            $key = Video::originalPathFor($uuid);
+            $session = $uploads->create($key, $request->fileSize(), $request->mimeType());
 
-        return new UploadSessionResource($video, $session);
+            try {
+                $video = DB::transaction(function () use ($uuid, $key, $session, $request): Video {
+                    $video = Video::query()->create([
+                        'user_id' => Auth::id(),
+                        'uuid' => $uuid,
+                        'status' => VideoStatusEnum::AwaitingUpload,
+                    ]);
+
+                    $video->files()->create([
+                        'type' => File::ORIGINAL,
+                        'path' => $key,
+                        'upload_id' => $session->uploadId,
+                        'size' => $request->fileSize(),
+                        'mime_type' => $request->mimeType(),
+                    ]);
+
+                    return $video;
+                });
+            } catch (Throwable $exception) {
+                // O banco falhou depois da sessão S3 abrir — não deixa multipart órfão.
+                $uploads->abort($key, $session->uploadId);
+
+                throw $exception;
+            }
+
+            return new UploadSessionResource($video, $session);
+        } finally {
+            $lock->release();
+        }
     }
 
     public function parts(Video $video, MultipartUploadInterface $uploads): AnonymousResourceCollection
@@ -77,6 +105,9 @@ final class MultipartUploadController extends Controller
         );
     }
 
+    /**
+     * @throws UploadRejectedException
+     */
     public function complete(
         CompleteUploadRequest $request,
         Video $video,
@@ -112,6 +143,9 @@ final class MultipartUploadController extends Controller
         return new StatusResource('uploaded', extra: ['video_uuid' => $video->uuid]);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function destroy(Video $video, MultipartUploadInterface $uploads): StatusResource
     {
         throw_if($video->status !== VideoStatusEnum::AwaitingUpload, UploadAlreadyCompletedException::class);

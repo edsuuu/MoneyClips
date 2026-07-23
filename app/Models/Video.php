@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -38,6 +39,7 @@ use Throwable;
  * @property int|null $height
  * @property string|null $error
  * @property Carbon|null $ready_at
+ * @property Carbon|null $deleted_at
  * @property Carbon|null $created_at
  * @property-read User $user
  * @property-read Collection<int, File> $files
@@ -46,6 +48,8 @@ final class Video extends Model
 {
     /** @use HasFactory<VideoFactory> */
     use HasFactory;
+
+    use SoftDeletes;
 
     public const string PREFIX = 'videos';
 
@@ -95,9 +99,14 @@ final class Video extends Model
         return self::PREFIX.'/'.$this->uuid;
     }
 
+    public static function originalPathFor(string $uuid): string
+    {
+        return self::PREFIX.'/'.$uuid.'/'.$uuid.'.mp4';
+    }
+
     public function originalPath(): string
     {
-        return $this->prefix().'/'.$this->uuid.'.mp4';
+        return self::originalPathFor($this->uuid);
     }
 
     public function hlsPrefix(): string
