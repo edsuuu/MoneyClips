@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
+use App\Enums\VideoStatusEnum;
 use App\Models\File;
 use App\Models\Video;
-use App\Services\HLS\VideoStatusEnum;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {

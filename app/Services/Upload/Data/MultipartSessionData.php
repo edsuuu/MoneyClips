@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Upload;
+namespace App\Services\Upload\Data;
 
 final readonly class MultipartSessionData
 {

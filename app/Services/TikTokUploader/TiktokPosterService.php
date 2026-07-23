@@ -6,7 +6,7 @@ namespace App\Services\TikTokUploader;
 
 use App\Models\PlatformSetting;
 use App\Models\SocialAccount;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\AutoPost\PosterInterface;
 use App\Services\AutoPost\PosterResultData;
 use App\Services\AutoPost\PostTaskData;

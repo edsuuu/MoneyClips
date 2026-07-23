@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
-use App\Services\Api\Kwai\KwaiPosterService;
-use App\Services\Api\Meta\Facebook\FacebookReelsPosterService;
-use App\Services\Api\Meta\Instagram\InstagramReelsPosterService;
-use App\Services\Api\TikTok\TiktokOfficialPosterService;
-use App\Services\Api\Youtube\YoutubePosterService;
+use App\Services\API\Kwai\KwaiPosterService;
+use App\Services\API\Meta\Facebook\FacebookReelsPosterService;
+use App\Services\API\Meta\Instagram\InstagramReelsPosterService;
+use App\Services\API\TikTok\TiktokOfficialPosterService;
+use App\Services\API\Youtube\YoutubePosterService;
 use App\Services\AutoPost\PosterRegistryService;
 use App\Services\TikTokUploader\TiktokPosterService;
 use App\Services\Upload\MultipartUploadInterface;
@@ -33,7 +33,7 @@ final class AppServiceProvider extends ServiceProvider
     {
         // Registro dos Posters por plataforma. Adicionar plataforma nova =
         // criar o *PosterService na pasta da integração (API oficial em
-        // App\Services\Api\<Plataforma>; microserviço em App\Services\<Nome>)
+        // App\Services\API\<Plataforma>; microserviço em App\Services\<Nome>)
         // implementando App\Services\AutoPost\PosterInterface e listar aqui
         // (o toggle vive em platform_settings, editável na /agenda).
         $this->app->singleton(PosterRegistryService::class, fn (Application $app): PosterRegistryService => new PosterRegistryService([
