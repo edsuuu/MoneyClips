@@ -9,7 +9,7 @@ use App\Http\Requests\Webhooks\TemplateRenderWebhookRequest;
 use App\Http\Resources\StatusResource;
 use App\Jobs\FetchTemplateOutputJob;
 use App\Models\ProcessingJob;
-use App\Services\Api\Discord\DiscordNotifierService;
+use App\Services\API\Discord\DiscordNotifierService;
 
 final class AutoCaptionWebhookController extends Controller
 {

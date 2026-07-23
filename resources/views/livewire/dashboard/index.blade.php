@@ -14,7 +14,7 @@
                 <div class="mt-2 text-sm text-slate-300">Envie um vídeo para transformar em clipes.</div>
             </div>
 
-            <x-ui.button variant="primary" class="mt-4 w-full" :href="route('upload.index')" wire:navigate>
+            <x-ui.button variant="primary" class="mt-4 w-full" :href="route('uploads.create')" wire:navigate>
                 Enviar vídeo
             </x-ui.button>
         </div>

@@ -46,7 +46,7 @@ final readonly class ReencodeService
 
         $token = (string) config('services.reencode.api_token', '');
 
-        return $token === '' ? $request : $request->withHeaders(['X-Api-Token' => $token]);
+        return $token === '' ? $request : $request->withHeaders(['X-API-Token' => $token]);
     }
 
     private function baseUrl(): string

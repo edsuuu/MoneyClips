@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\HLS;
+namespace App\Enums;
 
 enum VideoStatusEnum: string
 {

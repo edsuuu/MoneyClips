@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Livewire\Uploads;
 
+use App\Enums\VideoStatusEnum;
 use App\Models\File;
 use App\Models\Video;
-use App\Services\HLS\VideoStatusEnum;
 use Illuminate\View\View;
 use Livewire\Component;
+
+use function in_array;
+use function route;
+use function view;
 
 final class Show extends Component
 {
@@ -57,6 +61,25 @@ final class Show extends Component
         return sprintf('%02d:%02d', intdiv($seconds, 60), $seconds % 60);
     }
 
+    /** @return array<string, float|int|string>|null */
+    private function storyboard(Video $video): ?array
+    {
+        $file = $video->file(File::STORYBOARD);
+
+        if (! $file instanceof File) {
+            return null;
+        }
+
+        return [
+            'url' => route('hls.segment', [$video->uuid, 'storyboard.jpg']),
+            'cols' => (int) ($file->meta['cols'] ?? 0),
+            'rows' => (int) ($file->meta['rows'] ?? 0),
+            'interval' => (float) ($file->meta['interval'] ?? 0),
+            'tileWidth' => (int) ($file->meta['tile_width'] ?? 0),
+            'tileHeight' => (int) ($file->meta['tile_height'] ?? 0),
+        ];
+    }
+
     public function render(): View
     {
         $video = $this->video->fresh(['files']) ?? $this->video;
@@ -77,24 +100,5 @@ final class Show extends Component
             'storyboard' => $this->storyboard($video),
             'clips' => $video->isReady() ? $this->mockClips() : [],
         ]);
-    }
-
-    /** @return array<string, float|int|string>|null */
-    private function storyboard(Video $video): ?array
-    {
-        $file = $video->file(File::STORYBOARD);
-
-        if (! $file instanceof File) {
-            return null;
-        }
-
-        return [
-            'url' => route('hls.segment', [$video->uuid, 'storyboard.jpg']),
-            'cols' => (int) ($file->meta['cols'] ?? 0),
-            'rows' => (int) ($file->meta['rows'] ?? 0),
-            'interval' => (float) ($file->meta['interval'] ?? 0),
-            'tileWidth' => (int) ($file->meta['tile_width'] ?? 0),
-            'tileHeight' => (int) ($file->meta['tile_height'] ?? 0),
-        ];
     }
 }

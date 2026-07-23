@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\AutoCaption;
 
-use App\Services\Processing\TemplateStyleEnum;
+use App\Enums\TemplateStyleEnum;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;

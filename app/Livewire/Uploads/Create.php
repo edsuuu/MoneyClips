@@ -25,7 +25,7 @@ final class Create extends Component
             'acceptedLabel' => 'MP4, MOV, WEBM',
             'accept' => implode(',', Video::MIME_TYPES),
             'libraryUrl' => route('uploads.index'),
-            'videoUrlBase' => url('/meus-uploads'),
+            'videoUrlBase' => route('uploads.index'),
         ]);
     }
 }

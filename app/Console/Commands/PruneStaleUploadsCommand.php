@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Enums\VideoStatusEnum;
 use App\Models\File;
 use App\Models\Video;
-use App\Services\Api\Discord\DiscordNotifierService;
-use App\Services\HLS\VideoStatusEnum;
+use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\Upload\MultipartUploadInterface;
 use Illuminate\Console\Command;
 use Throwable;
