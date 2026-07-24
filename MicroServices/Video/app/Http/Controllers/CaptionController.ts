@@ -14,6 +14,7 @@ import { Logger } from '@/Config/Logger';
 import { ValidationError } from '@/Exceptions/ValidationError';
 import { ALL_VARIANTS, CaptionOptionsData } from '@/Services/Caption/CaptionOptionsData';
 import { CaptionQueueService } from '@/Services/Caption/CaptionQueueService';
+import type { Transcript } from '@/Services/Caption/SubtitleBuilder';
 import { VideoStore } from '@/Services/Caption/VideoStore';
 
 const SOURCE_EXTENSIONS = ['.mp4', '.mov', '.mkv', '.webm', '.avi', '.m4v'];
@@ -74,6 +75,9 @@ export class CaptionController extends Logger {
                 caption_position: options.captionPosition,
                 channel_name: options.channelName,
                 channel_handle: options.channelHandle,
+                watermark_text: options.watermarkText,
+                with_captions: options.withCaptions,
+                subtitle_offset: options.subtitleOffset,
             },
         });
 
@@ -81,6 +85,35 @@ export class CaptionController extends Logger {
         this.info(`[Caption] Job ${uuid} enfileirado (${options.variants.join(', ')}).`);
 
         res.status(202).json({ uuid, status: 'processing' });
+    }
+
+    public async transcription(req: Request, res: Response): Promise<void> {
+        if (!this.authorized(req)) {
+            res.status(401).json({ detail: 'não autorizado' });
+
+            return;
+        }
+
+        const uuid = String(req.params['uuid']);
+
+        if ((await this.store.readStatus(uuid)) === null) {
+            res.status(404).json({ detail: 'job não encontrado' });
+
+            return;
+        }
+
+        const body = req.body as Record<string, unknown>;
+
+        if (this.asString(body['status']) === 'done') {
+            this.queue.enqueueResume(uuid, body['transcript'] as Transcript);
+        } else {
+            this.queue.enqueueResumeFailure(
+                uuid,
+                this.asString(body['error']) || 'transcrição falhou',
+            );
+        }
+
+        res.status(202).json({ status: 'accepted' });
     }
 
     public async index(_req: Request, res: Response): Promise<void> {
@@ -141,6 +174,12 @@ export class CaptionController extends Logger {
             .split(',')
             .map((variant) => variant.trim())
             .filter((variant) => ALL_VARIANTS.includes(variant));
+    }
+
+    private authorized(req: Request): boolean {
+        const expected = settings.observabilityToken;
+
+        return expected === '' || req.header('X-Observability-Token') === expected;
     }
 
     private asString(raw: unknown): string {

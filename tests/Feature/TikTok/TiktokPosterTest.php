@@ -48,7 +48,7 @@ it('queues the post sending the binary, cookies, webhook_url and account_id via 
             && $field('video') !== null
             && is_string($field('cookies')['contents'] ?? null)
             && str_contains($field('cookies')['contents'], 'sessionid')
-            && str_contains((string) ($field('webhook_url')['contents'] ?? ''), '/api/tiktok-posts/webhook')
+            && str_contains((string) ($field('webhook_url')['contents'] ?? ''), '/api/webhook/tiktok-posts')
             && ($field('account_id')['contents'] ?? '') === (string) $account->id;
     });
 });

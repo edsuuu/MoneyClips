@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+import platform
 from pathlib import Path
 from typing import Any
 
 from app.config.settings import settings
+from app.pipeline.device import resolve_device
 
 logger = logging.getLogger("transcriber.pipeline.transcribe")
 
@@ -13,20 +15,23 @@ _model: Any = None
 
 
 def _load_model() -> Any:
-    global _model  # noqa: PLW0603
+    global _model
     if _model is None:
         from faster_whisper import WhisperModel
 
+        device, compute_type = resolve_device(
+            platform.system(), settings.whisper_device, settings.whisper_compute_type
+        )
         logger.info(
             "carregando faster-whisper %s (device=%s, compute=%s)",
             settings.whisper_model,
-            settings.whisper_device,
-            settings.whisper_compute_type,
+            device,
+            compute_type,
         )
         _model = WhisperModel(
             settings.whisper_model,
-            device=settings.whisper_device,
-            compute_type=settings.whisper_compute_type,
+            device=device,
+            compute_type=compute_type,
         )
     return _model
 

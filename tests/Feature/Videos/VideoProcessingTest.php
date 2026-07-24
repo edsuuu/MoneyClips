@@ -103,20 +103,20 @@ it('handles the autocaption webhook: done fetches, failed records', function ():
     $done = ProcessingJob::factory()->template()->processing()->create(['remote_id' => 'remote-done']);
     $failed = ProcessingJob::factory()->template()->processing()->create(['remote_id' => 'remote-failed']);
 
-    $this->postJson(route('autocaption.webhook'), ['uuid' => 'remote-done', 'status' => 'done'])
+    $this->postJson(route('webhook.autocaption'), ['uuid' => 'remote-done', 'status' => 'done'])
         ->assertOk()
         ->assertJson(['status' => 'fetch-queued']);
     Queue::assertPushed(FetchTemplateOutputJob::class, fn (FetchTemplateOutputJob $j): bool => $j->processingJobId === $done->id);
 
-    $this->postJson(route('autocaption.webhook'), ['uuid' => 'remote-failed', 'status' => 'failed', 'error' => 'CUDA out of memory'])
+    $this->postJson(route('webhook.autocaption'), ['uuid' => 'remote-failed', 'status' => 'failed', 'error' => 'CUDA out of memory'])
         ->assertOk();
     expect($failed->refresh()->status)->toBe('failed')
         ->and($failed->error)->toBe('CUDA out of memory');
 
-    $this->postJson(route('autocaption.webhook'), ['uuid' => 'ghost', 'status' => 'done'])->assertNotFound();
+    $this->postJson(route('webhook.autocaption'), ['uuid' => 'ghost', 'status' => 'done'])->assertNotFound();
 
     // Retry pós-desfecho é idempotente.
-    $this->postJson(route('autocaption.webhook'), ['uuid' => 'remote-failed', 'status' => 'failed'])
+    $this->postJson(route('webhook.autocaption'), ['uuid' => 'remote-failed', 'status' => 'failed'])
         ->assertOk()
         ->assertJson(['status' => 'already-finished']);
 });

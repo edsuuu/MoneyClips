@@ -1048,3 +1048,31 @@
 .uv-blob-1 { animation: uv-float-1 16s ease-in-out infinite; }
 .uv-blob-2 { animation: uv-float-2 20s ease-in-out infinite; }
 .uv-blob-3 { animation: uv-float-3 24s ease-in-out infinite; filter: blur(50px); }
+
+/* Legenda nativa (WebVTT <track>): o default do browser dimensiona a cue por %
+   da altura do vídeo — num player grande vira texto gigante. Fixa um tamanho
+   legível com fundo pra contraste. */
+video::cue {
+    font-size: clamp(0.8rem, 2.3vh, 1.2rem);
+    line-height: 1.35;
+    background-color: rgba(0, 0, 0, 0.55);
+    color: #fff;
+}
+
+/* O chrome do player (controles, menus) fica SEMPRE sobre o vídeo preto, então
+   deve ser sempre "escuro" independente do tema. Como a app inverte a rampa
+   slate no claro (acima), aqui a fixamos nos tons do escuro dentro do player —
+   senão os textos `text-slate-*` invertem e somem no preto. */
+.player-chrome {
+    --color-slate-50: #fafafa;
+    --color-slate-100: #ededed;
+    --color-slate-200: #d9d9e0;
+    --color-slate-300: #c4c4cc;
+    --color-slate-400: #a1a1aa;
+    --color-slate-500: #71717a;
+    --color-slate-600: #3f3a4a;
+    --color-slate-700: #2e2937;
+    --color-slate-800: #262030;
+    --color-slate-900: #1b1624;
+    --color-slate-950: #12101a;
+}

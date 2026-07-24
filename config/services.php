@@ -58,7 +58,7 @@ return [
         'timeout' => (int) env('DOWNLOAD_YOUTUBE_TIMEOUT', 30),
         'webhook_url' => env(
             'DOWNLOAD_YOUTUBE_WEBHOOK_URL',
-            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/download-youtube/webhook',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/download-youtube',
         ),
     ],
 
@@ -70,7 +70,7 @@ return [
         'api_token' => env('TIKTOK_POST_API_TOKEN', ''),
         'webhook_url' => env(
             'TIKTOK_POST_WEBHOOK_URL',
-            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/tiktok-posts/webhook',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/tiktok-posts',
         ),
         // Conta TikTok ativa (handle público sem @). Usada em mensagens do
         // Discord pra rotular o destino. A autenticação real vive em cookies.
@@ -118,7 +118,7 @@ return [
         'api_token' => env('HLS_API_TOKEN', ''),
         'webhook_url' => env(
             'HLS_WEBHOOK_URL',
-            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/hls/webhook',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/hls',
         ),
         // `accel` delega o streaming dos segmentos ao nginx (X-Accel-Redirect);
         // `stream` devolve os bytes pelo PHP, para `artisan serve`, que não
@@ -138,12 +138,24 @@ return [
         'timeout' => (int) env('AUTOCAPTION_TIMEOUT', 300),
         'webhook_url' => env(
             'AUTOCAPTION_WEBHOOK_URL',
-            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/autocaption/webhook',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/autocaption',
         ),
         // Defaults do editor de template (/meus-videos): estilo + marca do canal.
         'default_style' => env('AUTOCAPTION_DEFAULT_STYLE', 'white'),
         'channel_name' => env('AUTOCAPTION_CHANNEL_NAME', ''),
         'channel_handle' => env('AUTOCAPTION_CHANNEL_HANDLE', ''),
+    ],
+
+    // Transcriber (MicroServices/transcriber, :8780) — o Laravel fala direto com
+    // ele: manda o wav, recebe 202 e o desfecho chega por webhook. Timeout curto
+    // porque a chamada só espera o 202 (a transcrição roda assíncrona no serviço).
+    'transcribe' => [
+        'base_url' => env('TRANSCRIBE_URL', 'http://127.0.0.1:8780'),
+        'timeout' => (int) env('TRANSCRIBE_TIMEOUT', 60),
+        'webhook_url' => env(
+            'TRANSCRIBE_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/transcribe',
+        ),
     ],
 
     'youtube_shorts' => [

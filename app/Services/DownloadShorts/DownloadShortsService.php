@@ -40,6 +40,6 @@ final class DownloadShortsService
     private function webhookUrl(): string
     {
         return (string) (config('services.download_youtube.webhook_url'))
-            ?: url('/api/download-youtube/webhook');
+            ?: url('/api/webhook/download-youtube');
     }
 }

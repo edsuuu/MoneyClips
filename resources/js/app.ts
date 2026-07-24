@@ -1,6 +1,7 @@
 import { VideoPlayer, type VideoPlayerConfig } from './Player/VideoPlayer';
 import { ReframeEditor } from './Reframe/ReframeEditor';
 import type { ReframePayload } from './Reframe/ReframeTypes';
+import { SubtitleEditor, type RawSegment } from './Subtitle/SubtitleEditor';
 import { ClientLogger } from './Support/ClientLogger';
 import { ThemeStore } from './Support/ThemeStore';
 import { MultipartUploader } from './Upload/MultipartUploader';
@@ -41,5 +42,9 @@ document.addEventListener('alpine:init', () => {
     window.Alpine.data(
         'videoPlayer',
         (config) => new VideoPlayer(config as unknown as VideoPlayerConfig),
+    );
+    window.Alpine.data(
+        'subtitleEditor',
+        (segments) => new SubtitleEditor(segments as unknown as RawSegment[]),
     );
 });

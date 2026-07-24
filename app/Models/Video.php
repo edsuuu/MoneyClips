@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoStatusEnum;
 use Database\Factories\VideoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -39,6 +40,7 @@ use Throwable;
  * @property int|null $height
  * @property string|null $error
  * @property Carbon|null $ready_at
+ * @property TranscriptionStatusEnum|null $transcription_status
  * @property Carbon|null $deleted_at
  * @property Carbon|null $created_at
  * @property-read User $user
@@ -64,6 +66,7 @@ final class Video extends Model
     protected $fillable = [
         'user_id', 'uuid', 'hash', 'name', 'status', 'progress',
         'duration_seconds', 'width', 'height', 'error', 'ready_at',
+        'transcription_status',
     ];
 
     /** @return BelongsTo<User, $this> */
@@ -126,7 +129,12 @@ final class Video extends Model
 
     public function audioPath(): string
     {
-        return $this->prefix().'/audio/audio.m4a';
+        return $this->prefix().'/audio/audio.wav';
+    }
+
+    public function transcriptPath(): string
+    {
+        return $this->prefix().'/audio/transcript.json';
     }
 
     public function storyboardPath(): string
@@ -167,6 +175,7 @@ final class Video extends Model
     {
         return [
             'status' => VideoStatusEnum::class,
+            'transcription_status' => TranscriptionStatusEnum::class,
             'progress' => 'integer',
             'duration_seconds' => 'integer',
             'width' => 'integer',
