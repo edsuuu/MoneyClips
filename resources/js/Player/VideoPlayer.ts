@@ -59,6 +59,8 @@ export class VideoPlayer {
 
     public captions = false;
 
+    public editing = false;
+
     public levels: QualityOption[] = [];
 
     public selectedLevel = -1;
@@ -84,6 +86,8 @@ export class VideoPlayer {
     private resumeAt = 0;
 
     private savedAt = 0;
+
+    private rangeEnd: number | null = null;
 
     public constructor(config: VideoPlayerConfig) {
         this.config = config;
@@ -118,6 +122,11 @@ export class VideoPlayer {
         );
 
         video.addEventListener('timeupdate', () => {
+            if (this.rangeEnd !== null && video.currentTime >= this.rangeEnd) {
+                video.currentTime = this.rangeEnd;
+                this.rangeEnd = null;
+                video.pause();
+            }
             if (!this.scrubbing) {
                 this.current = video.currentTime;
             }
@@ -239,14 +248,21 @@ export class VideoPlayer {
             return;
         }
         this.scrubbing = false;
+        this.rangeEnd = null;
         this.video().currentTime = this.current;
     }
 
     public seekTo(seconds: number): void {
+        this.rangeEnd = null;
         const video = this.video();
         video.currentTime = seconds;
         void video.play().catch(() => undefined);
         this.showControls();
+    }
+
+    public playRange(start: number, end: number): void {
+        this.seekTo(start);
+        this.rangeEnd = end;
     }
 
     public selectLevel(index: number): void {
