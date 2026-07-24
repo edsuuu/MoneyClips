@@ -36,6 +36,8 @@ final class File extends Model
 
     public const string CLIP = 'clip';
 
+    public const string TRANSCRIPT = 'transcript';
+
     protected $fillable = [
         'video_id', 'type', 'path', 'upload_id', 'size', 'mime_type', 'meta',
     ];
