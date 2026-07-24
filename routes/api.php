@@ -7,22 +7,20 @@ use App\Http\Controllers\Webhooks\AutoCaptionWebhookController;
 use App\Http\Controllers\Webhooks\DownloadYoutubeWebhookController;
 use App\Http\Controllers\Webhooks\HLSWebhookController;
 use App\Http\Controllers\Webhooks\TiktokPostWebhookController;
+use App\Http\Controllers\Webhooks\TranscribeWebhookController;
 use App\Http\Middleware\VerifyObservabilityToken;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/download-youtube/webhook', DownloadYoutubeWebhookController::class)
-    ->name('download-youtube.webhook');
+Route::prefix('webhook')->name('webhook.')->group(function (): void {
+    Route::post('/download-youtube', DownloadYoutubeWebhookController::class)->name('download-youtube');
+    Route::post('/autocaption', AutoCaptionWebhookController::class)->name('autocaption');
 
-Route::post('/autocaption/webhook', AutoCaptionWebhookController::class)
-    ->name('autocaption.webhook');
-
-Route::post('/hls/webhook', HLSWebhookController::class)
-    ->middleware(VerifyObservabilityToken::class)
-    ->name('hls.webhook');
-
-Route::post('/tiktok-posts/webhook', TiktokPostWebhookController::class)
-    ->middleware(VerifyObservabilityToken::class)
-    ->name('tiktok-posts.webhook');
+    Route::middleware(VerifyObservabilityToken::class)->group(function (): void {
+        Route::post('/hls', HLSWebhookController::class)->name('hls');
+        Route::post('/tiktok-posts', TiktokPostWebhookController::class)->name('tiktok-posts');
+        Route::post('/transcribe', TranscribeWebhookController::class)->name('transcribe');
+    });
+});
 
 Route::prefix('observability')->middleware(VerifyObservabilityToken::class)->group(function (): void {
     Route::post('/logs', [ObservabilityController::class, 'logs'])->name('observability.logs');

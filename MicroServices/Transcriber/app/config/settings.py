@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8780
     log_level: str = "INFO"
+    observability_token: str = ""
 
     whisper_model: str = "large-v3"
     whisper_language: str = "pt"

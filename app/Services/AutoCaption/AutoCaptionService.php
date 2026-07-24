@@ -14,7 +14,7 @@ use RuntimeException;
  * Client do endpoint /videos do microserviço de vídeo (porta 8790): renderiza o
  * template (legenda karaokê + moldura com canal/@handle). O Laravel envia o
  * binário por multipart, o serviço processa assíncrono e avisa via webhook
- * (/api/autocaption/webhook); o output é baixado daqui e gravado no MinIO
+ * (/api/webhook/autocaption); o output é baixado daqui e gravado no MinIO
  * pelo Laravel — o serviço não toca no S3.
  *
  * O contrato é o mesmo do antigo AutoCaption (FastAPI :8780), que hoje só

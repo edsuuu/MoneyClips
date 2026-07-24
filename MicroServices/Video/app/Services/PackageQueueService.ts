@@ -98,7 +98,7 @@ export class PackageQueueService extends Logger {
                 `Ladder: ${ladder.map((rendition) => rendition.name).join(', ')}${remux ? ' (remux, sem reencode)' : ''}`,
             );
 
-            const audioPath = meta.hasAudio ? join(jobDir, 'audio.m4a') : null;
+            const audioPath = meta.hasAudio ? join(jobDir, 'audio.wav') : null;
 
             let lastReport = 0;
             const codec = await this.packager.package(

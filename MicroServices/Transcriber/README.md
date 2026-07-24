@@ -1,27 +1,32 @@
 # Transcriber
 
-Microserviço de **transcrição**. Recebe um wav e devolve o texto com
-**timestamps por palavra**, usando **faster-whisper (large-v3, pt-BR)** na
-**GPU NVIDIA (CUDA)**.
+Microserviço de **transcrição**. Recebe um áudio e devolve o texto com
+**timestamps por palavra**, usando **faster-whisper (large-v3, pt-BR)**. O
+device é resolvido por S.O.: **CUDA** em produção (Linux/NVIDIA), **CPU** no
+macOS de dev (o backend CTranslate2 não suporta Metal/MPS).
 
-Faz só isso. Legenda `.ass`, moldura do template, render das variantes,
-storage, status e webhook vivem no microserviço **`Video`** (Node/ffmpeg,
-:8790), que é quem chama este endpoint. Antes da fusão, tudo isso morava aqui.
+Faz só isso, e é **assíncrono**: recebe o áudio, responde 202 na hora,
+enfileira (uma transcrição por vez — GPU/CPU não é reentrante) e devolve o
+resultado por **webhook**. Legenda `.ass`, moldura do template, render das
+variantes, storage e status vivem no microserviço **`Video`** (Node/ffmpeg,
+:8790), que é um dos que chamam este endpoint (o outro é o Laravel, direto).
 
-> Não usa banco, MinIO nem disco: o áudio vai pra um diretório temporário e é
-> apagado ao fim da requisição.
+> Não usa banco, MinIO nem disco persistente: o áudio vai pra um diretório
+> temporário e é apagado ao fim do job.
 
 ## Contrato
 
 ```
-GET  /health      → {status, model, device, language}
+GET  /health         → {status, model, device, language}
 
-POST /transcribe  → 200 {segments: [...], language}
-     multipart {audio: <wav mono 16kHz>}   — SÍNCRONO
+POST /transcriptions → 202 {job_id, status: "queued"}
+     multipart {audio, uuid, webhook_url}
+     → depois, POST {webhook_url} {uuid, status: done|failed, transcript?, error?}
+       (header X-Observability-Token)
 ```
 
-Formato da resposta (o `Video` consome `segments[].{start,end}` e
-`segments[].words[].{word,start,end}`):
+Formato do `transcript` no webhook (o `Video` consome `segments[].{start,end}`
+e `segments[].words[].{word,start,end}`):
 
 ```jsonc
 {
@@ -41,10 +46,11 @@ faz isso, com golden test cobrindo o caso).
 
 ## GPU
 
-`WHISPER_DEVICE=cuda` exige CUDA/Linux; o modelo fica carregado no processo e
-um `threading.Lock` serializa as requisições (a GPU não é reentrante). Em
-máquinas sem CUDA, `WHISPER_DEVICE=cpu` + `WHISPER_COMPUTE_TYPE=int8` sobe, mas
-é ordens de grandeza mais lento.
+O device é resolvido por S.O. (`app/pipeline/device.py`): **macOS → CPU/int8**
+(CTranslate2 não tem Metal/MPS), **resto → o configurado** (`WHISPER_DEVICE`,
+default `cuda`/`float16`, exige CUDA/Linux). O modelo fica carregado no processo
+e um `threading.Lock` serializa as transcrições (a GPU não é reentrante). No
+macOS sobe em CPU, mas é ordens de grandeza mais lento.
 
 torch com CUDA é instalado **à parte**, antes do `requirements.txt`:
 

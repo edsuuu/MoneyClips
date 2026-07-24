@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Webhooks;
 
+use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Webhooks\HLSWebhookRequest;
 use App\Http\Resources\StatusResource;
+use App\Jobs\StartTranscribeJob;
 use App\Models\File;
 use App\Models\Video;
 use App\Services\API\Discord\DiscordNotifierService;
@@ -55,7 +57,25 @@ final class HLSWebhookController extends Controller
             'ready_at' => now(),
         ])->save();
 
+        $this->startTranscription($video, $request->hasAudio());
+
         return new StatusResource('ready');
+    }
+
+    private function startTranscription(Video $video, bool $hasAudio): void
+    {
+        if (! $hasAudio) {
+            return;
+        }
+
+        $claimed = Video::query()
+            ->whereKey($video->id)
+            ->whereNull('transcription_status')
+            ->update(['transcription_status' => TranscriptionStatusEnum::Processing]);
+
+        if ($claimed === 1) {
+            dispatch(new StartTranscribeJob($video->id));
+        }
     }
 
     private function recordArtifacts(Video $video, HLSWebhookRequest $request): void
@@ -77,7 +97,7 @@ final class HLSWebhookController extends Controller
         if ($request->hasAudio()) {
             $video->files()->updateOrCreate(['type' => File::AUDIO], [
                 'path' => $video->audioPath(),
-                'mime_type' => 'audio/mp4',
+                'mime_type' => 'audio/wav',
             ]);
         }
 

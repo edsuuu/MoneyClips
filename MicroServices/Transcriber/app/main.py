@@ -1,40 +1,44 @@
-"""Serviço de transcrição (faster-whisper/CUDA).
+"""Serviço de transcrição (faster-whisper).
 
-Faz UMA coisa: recebe um wav e devolve o transcript com timestamps por palavra.
+Faz UMA coisa: recebe um áudio e devolve o transcript com timestamps por
+palavra. É assíncrono — `POST /transcriptions` responde 202 na hora, enfileira
+(uma transcrição por vez, GPU/CPU não é reentrante) e devolve o resultado por
+webhook. O device (CUDA em produção, CPU no macOS de dev) é resolvido por S.O.
+
 Todo o resto do antigo AutoCaption — legenda .ass, moldura do template, render
 das variantes, storage, status e webhook — vive no microserviço `Video`
 (Node/ffmpeg, porta 8790), que é quem chama este endpoint.
-
-O modelo fica carregado no processo e uma requisição por vez usa a GPU: o
-`_gpu_lock` serializa, como o worker antigo fazia.
 """
 
 from __future__ import annotations
 
 import logging
+import platform
 import tempfile
-import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Annotated
+from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, Form, UploadFile
 
 from app.config.settings import settings
 from app.logging_config import configure_logging
 from app.observability import start_observability
-from app.pipeline.transcribe import transcribe
+from app.pipeline.device import resolve_device
+from app.pipeline.worker import TranscriptionJob, worker
 
 logger = logging.getLogger("transcriber.api")
 
 _CHUNK = 1024 * 1024
-_gpu_lock = threading.Lock()
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     configure_logging(settings.log_level)
     start_observability("transcriber", "transcriber")
+    worker.start()
     logger.info("starting transcriber on %s:%s", settings.api_host, settings.api_port)
     yield
 
@@ -49,28 +53,42 @@ app = FastAPI(
 
 @app.get("/health")
 def health() -> dict[str, str]:
+    device, _ = resolve_device(
+        platform.system(), settings.whisper_device, settings.whisper_compute_type
+    )
+
     return {
         "status": "ok",
         "model": settings.whisper_model,
-        "device": settings.whisper_device,
+        "device": device,
         "language": settings.whisper_language,
     }
 
 
-@app.post("/transcribe")
-async def create_transcription(audio: UploadFile) -> dict:
-    if not (audio.filename or "").lower().endswith(".wav"):
-        raise HTTPException(status_code=422, detail="envie um .wav (mono 16kHz)")
+@app.post("/transcriptions", status_code=202)
+async def create_async_transcription(
+    audio: UploadFile,
+    uuid: Annotated[str, Form()],
+    webhook_url: Annotated[str, Form()],
+) -> dict:
+    job_id = uuid4().hex
+    work_dir = Path(tempfile.mkdtemp(prefix="transcribe-async-"))
+    source = work_dir / "audio.wav"
+    with source.open("wb") as out:
+        while chunk := await audio.read(_CHUNK):
+            out.write(chunk)
 
-    with tempfile.TemporaryDirectory(prefix="transcribe-") as tmp:
-        source = Path(tmp) / "audio.wav"
-        with source.open("wb") as out:
-            while chunk := await audio.read(_CHUNK):
-                out.write(chunk)
+    worker.submit(
+        TranscriptionJob(
+            job_id=job_id,
+            uuid=uuid,
+            work_dir=work_dir,
+            audio_path=source,
+            webhook_url=webhook_url,
+        )
+    )
 
-        # O modelo é global e a GPU não é reentrante: uma transcrição por vez.
-        with _gpu_lock:
-            return transcribe(source, Path(tmp) / "transcript.json")
+    return {"job_id": job_id, "status": "queued"}
 
 
 def run() -> None:
