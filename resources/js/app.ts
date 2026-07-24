@@ -4,6 +4,7 @@ import type { ReframePayload } from './Reframe/ReframeTypes';
 import { SubtitleEditor, type RawSegment } from './Subtitle/SubtitleEditor';
 import { ClientLogger } from './Support/ClientLogger';
 import { ThemeStore } from './Support/ThemeStore';
+import { TrimEditor, type TrimEditorConfig } from './Trim/TrimEditor';
 import { MultipartUploader } from './Upload/MultipartUploader';
 import type { VideoUploaderConfig } from './Upload/UploadTypes';
 import { VideoUploader } from './Upload/VideoUploader';
@@ -46,5 +47,9 @@ document.addEventListener('alpine:init', () => {
     window.Alpine.data(
         'subtitleEditor',
         (segments) => new SubtitleEditor(segments as unknown as RawSegment[]),
+    );
+    window.Alpine.data(
+        'trimEditor',
+        (config) => new TrimEditor(config as unknown as TrimEditorConfig),
     );
 });

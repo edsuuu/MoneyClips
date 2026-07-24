@@ -3,9 +3,10 @@
         <div
             x-data="videoPlayer(@js(['hlsSrc' => $hlsUrl, 'fallbackSrc' => $fallbackUrl ?? '', 'poster' => $posterUrl ?? '', 'storyboard' => $storyboard, 'captionsKey' => $captionsKey]))"
             x-on:captions-refresh.window="reloadCaptions()"
-            class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
+            x-on:trim-seek.window="seekTo($event.detail.time)"
+            class="grid gap-6 lg:h-[calc(100dvh-109px)] lg:grid-cols-[minmax(0,1fr)_340px]"
         >
-            <div class="min-w-0">
+            <div class="flex min-w-0 flex-col lg:min-h-0">
                 <div
                     wire:ignore
                     x-ref="wrapper"
@@ -14,13 +15,13 @@
                     x-on:pointerdown="$refs.wrapper.focus()"
                     x-on:pointermove="showControls()"
                     x-on:pointerleave="playing && (controlsVisible = false)"
-                    class="player-chrome group relative select-none overflow-hidden rounded-2xl border border-slate-800 bg-black outline-none"
+                    class="player-chrome group relative select-none overflow-hidden rounded-2xl border border-slate-800 bg-black outline-none lg:min-h-0 lg:flex-1"
                     x-bind:class="controlsVisible || !playing ? 'cursor-default' : 'cursor-none'"
                 >
                     <video
                         x-ref="video"
                         x-on:click="togglePlay()"
-                        class="aspect-video w-full"
+                        class="aspect-video w-full object-contain lg:aspect-auto lg:h-full"
                         playsinline
                         preload="metadata"
                         @if ($posterUrl) poster="{{ $posterUrl }}" @endif
@@ -163,7 +164,7 @@
                     </div>
                 </div>
 
-                <div class="mt-3 flex flex-wrap items-center gap-2">
+                <div x-show="!editing" class="mt-3 flex flex-wrap items-center gap-2">
                     <span class="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">{{ $statusLabel }}</span>
                     @if ($transcriptionLabel)
                         <span @class(['inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold', $transcriptionBadgeClass => true])>
@@ -186,29 +187,134 @@
                     @endif
                     <span class="text-xs text-slate-500">{{ $dateLabel }}</span>
                 </div>
+
+                @if ($storyboard && $durationSeconds > 0)
+                    <div x-show="editing" x-cloak class="mt-3 flex min-h-0 flex-col gap-3">
+                        <div wire:ignore x-data="trimEditor(@js(['storyboard' => $storyboard, 'duration' => $durationSeconds]))">
+                            <div
+                                x-ref="strip"
+                                x-on:pointermove="onDrag($event)"
+                                x-on:pointerup="endDrag()"
+                                x-on:pointercancel="endDrag()"
+                                x-on:click.self="seekFromClick($event)"
+                                class="relative flex cursor-pointer touch-none select-none overflow-hidden rounded-xl border border-slate-800 bg-slate-900 max-lg:h-14"
+                            >
+                                <template x-for="(tileStyle, index) in tiles" x-bind:key="index">
+                                    <div class="pointer-events-none min-w-0 flex-1 max-lg:even:hidden" x-bind:style="tileStyle"></div>
+                                </template>
+
+                                <div
+                                    class="pointer-events-none absolute inset-y-0 border-x-2 border-sky-600 bg-sky-500/20 dark:border-sky-400"
+                                    x-bind:style="`left: ${aPercent}%; width: ${bPercent - aPercent}%`"
+                                ></div>
+
+                                <button
+                                    type="button"
+                                    x-on:pointerdown.stop.prevent="startDrag('a', $event)"
+                                    class="absolute inset-y-0 w-4 -translate-x-1/2 cursor-ew-resize max-lg:w-8"
+                                    x-bind:style="`left: ${aPercent}%`"
+                                    aria-label="Início do corte"
+                                >
+                                    <span class="mx-auto block h-full w-1.5 rounded-full bg-sky-600 dark:bg-sky-400"></span>
+                                </button>
+                                <button
+                                    type="button"
+                                    x-on:pointerdown.stop.prevent="startDrag('b', $event)"
+                                    class="absolute inset-y-0 w-4 -translate-x-1/2 cursor-ew-resize max-lg:w-8"
+                                    x-bind:style="`left: ${bPercent}%`"
+                                    aria-label="Fim do corte"
+                                >
+                                    <span class="mx-auto block h-full w-1.5 rounded-full bg-sky-600 dark:bg-sky-400"></span>
+                                </button>
+                            </div>
+
+                            <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                                <label class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                                    Início
+                                    <input
+                                        type="text"
+                                        inputmode="numeric"
+                                        x-bind:value="aInput"
+                                        x-on:change="applyStart($event.target.value); $event.target.value = aInput"
+                                        class="w-20 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center text-sm tabular-nums text-slate-200 focus:border-sky-500 focus:outline-none"
+                                    />
+                                </label>
+                                <label class="flex items-center gap-2 text-xs font-semibold text-slate-400">
+                                    Fim
+                                    <input
+                                        type="text"
+                                        inputmode="numeric"
+                                        x-bind:value="bInput"
+                                        x-on:change="applyEnd($event.target.value); $event.target.value = bInput"
+                                        class="w-20 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center text-sm tabular-nums text-slate-200 focus:border-sky-500 focus:outline-none"
+                                    />
+                                </label>
+                                <span class="text-xs text-slate-500">Duração: <span class="font-semibold tabular-nums text-slate-300" x-text="rangeLabel"></span></span>
+                                <button
+                                    type="button"
+                                    x-on:click="addCut()"
+                                    x-bind:disabled="saving"
+                                    class="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <x-ui.icon name="scissors" class="size-3.5" />
+                                    Adicionar corte
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                @endif
             </div>
 
-            <aside class="flex flex-col gap-3">
-                <div class="flex items-center gap-2">
-                    <h2 class="text-sm font-semibold text-slate-200">Cortes sugeridos</h2>
-                    <span class="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-400">{{ count($clips) }}</span>
-                </div>
+            <aside class="flex flex-col gap-3 lg:min-h-0">
+                <h2 class="text-sm font-semibold text-slate-200">Cortes</h2>
 
-                @foreach ($clips as $clip)
+                @if ($storyboard && $durationSeconds > 0)
                     <button
                         type="button"
-                        x-on:click="seekTo({{ $clip['start'] }})"
-                        class="group flex cursor-pointer flex-col gap-2 rounded-xl border border-slate-800 bg-slate-900/60 p-4 text-left transition hover:border-sky-500/50 hover:bg-slate-900"
+                        x-on:click="editing = !editing"
+                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-500"
                     >
-                        <span class="line-clamp-1 text-sm font-semibold text-slate-200 group-hover:text-sky-300">{{ $clip['title'] }}</span>
-                        <span class="flex items-center gap-2 text-xs text-slate-500">
-                            <x-ui.icon name="scissors" class="size-3.5" />
-                            {{ $clip['rangeLabel'] }}
-                            <span class="text-slate-700">·</span>
-                            {{ $clip['durationLabel'] }}
-                        </span>
+                        <x-ui.icon name="scissors" class="size-4" />
+                        <span x-show="!editing">Criar cortes manuais</span>
+                        <span x-show="editing" x-cloak>Fechar editor</span>
                     </button>
-                @endforeach
+                @endif
+
+                @if ($subtitlesUrl)
+                    <button
+                        type="button"
+                        wire:click="suggestAiCuts"
+                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800/60"
+                    >
+                        <x-ui.icon name="sparkles" class="size-4" />
+                        Pedir sugestão com IA
+                    </button>
+                @endif
+
+                <div class="min-h-0 space-y-1.5 overflow-y-auto lg:flex-1">
+                    @foreach ($cutItems as $index => $cut)
+                        <div wire:key="cut-{{ $index }}" class="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
+                            <button
+                                type="button"
+                                x-on:click="playRange({{ $cut['start'] }}, {{ $cut['end'] }})"
+                                class="shrink-0 cursor-pointer rounded-md p-1 text-slate-400 transition hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-300"
+                                aria-label="Tocar corte"
+                            >
+                                <x-ui.icon name="play" class="size-4" />
+                            </button>
+                            <span class="text-xs font-semibold tabular-nums text-slate-300">{{ $cut['rangeLabel'] }}</span>
+                            <span class="text-xs tabular-nums text-slate-500">{{ $cut['durationLabel'] }}</span>
+                            <button
+                                type="button"
+                                wire:click="removeCut({{ $index }})"
+                                class="ml-auto shrink-0 cursor-pointer rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-red-500 dark:hover:text-red-400"
+                                aria-label="Remover corte"
+                            >
+                                <x-ui.icon name="x-mark" class="size-4" />
+                            </button>
+                        </div>
+                    @endforeach
+                </div>
             </aside>
         </div>
 
