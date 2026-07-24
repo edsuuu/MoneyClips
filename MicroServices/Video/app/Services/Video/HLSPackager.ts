@@ -206,11 +206,12 @@ export class HLSPackager extends Logger {
             join(outputDir, '%v', 'index.m3u8'),
         );
 
-        // Áudio AAC extraído no mesmo decode do HLS (saída à parte, fora do
-        // diretório do HLS): o comando já decodifica/encoda o áudio das
-        // renditions, então este `.m4a` não custa um segundo decode do 4K.
+        // Áudio WAV mono 16kHz extraído no mesmo decode do HLS (saída à parte,
+        // fora do diretório do HLS): é o input nativo do transcriber, e como o
+        // comando já decodifica o áudio das renditions, este `.wav` não custa
+        // um segundo decode do 4K.
         if (audioPath !== null && meta.hasAudio) {
-            args.push('-map', 'a:0', '-c:a', 'aac', '-b:a', '192k', audioPath);
+            args.push('-map', 'a:0', '-ac', '1', '-ar', '16000', '-c:a', 'pcm_s16le', audioPath);
         }
 
         return args;

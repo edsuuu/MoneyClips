@@ -14,7 +14,7 @@ beforeEach(function (): void {
 function postWebhook(array $payload): TestResponse
 {
     return test()->withHeader('X-Observability-Token', 'whk-token')
-        ->postJson('/api/tiktok-posts/webhook', $payload);
+        ->postJson('/api/webhook/tiktok-posts', $payload);
 }
 
 function queuedTiktokLedger(array $attributes = []): SocialPost
@@ -46,7 +46,7 @@ function webhookAccount(array $attributes = []): SocialAccount
 it('rejects requests without the shared token', function (): void {
     queuedTiktokLedger();
 
-    $this->postJson('/api/tiktok-posts/webhook', ['job_id' => 'job-123', 'status' => 'completed'])
+    $this->postJson('/api/webhook/tiktok-posts', ['job_id' => 'job-123', 'status' => 'completed'])
         ->assertUnauthorized();
 
     expect(SocialPost::query()->sole()->status)->toBe('queued');

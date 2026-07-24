@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Livewire\Uploads;
 
+use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoStatusEnum;
+use App\Livewire\Concerns\WithToasts;
 use App\Models\File;
 use App\Models\Video;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Component;
+use Throwable;
 
 use function in_array;
 use function route;
@@ -16,6 +20,10 @@ use function view;
 
 final class Show extends Component
 {
+    use WithToasts;
+
+    private const int MAX_SEGMENT_CHARS = 1000;
+
     public Video $video;
 
     /**
@@ -29,6 +37,74 @@ final class Show extends Component
             ->where('uuid', $uuid)
             ->where('user_id', auth()->id())
             ->firstOrFail();
+    }
+
+    /**
+     * Só o texto é editável — start/end/words vêm do S3 (autoritativo) e nunca
+     * do cliente. Nada de apagar/adicionar segmento: aplica text por índice.
+     *
+     * @param  list<array{i?: mixed, text?: mixed}>  $edits
+     */
+    public function saveTranscript(array $edits): bool
+    {
+        $disk = Storage::disk('s3');
+        $key = $this->video->transcriptPath();
+
+        try {
+            if (! $this->video->file(File::TRANSCRIPT) instanceof File || ! $disk->exists($key)) {
+                $this->toast('Transcrição não encontrada.', 'danger');
+
+                return false;
+            }
+
+            $data = json_decode((string) $disk->get($key), true, 512, JSON_THROW_ON_ERROR);
+
+            if (! is_array($data)) {
+                $this->toast('Transcrição inválida.', 'danger');
+
+                return false;
+            }
+
+            $segments = is_array($data['segments'] ?? null) ? $data['segments'] : [];
+            $count = count($segments);
+
+            if ($count === 0 || count($edits) > $count) {
+                $this->toast('Edição inválida.', 'danger');
+
+                return false;
+            }
+
+            foreach ($edits as $edit) {
+                $index = (int) ($edit['i'] ?? -1);
+                $text = mb_trim((string) ($edit['text'] ?? ''));
+
+                if ($index < 0 || $index >= $count || ! is_array($segments[$index])) {
+                    $this->toast('Edição inválida.', 'danger');
+
+                    return false;
+                }
+
+                if ($text === '' || mb_strlen($text) > self::MAX_SEGMENT_CHARS) {
+                    $this->toast('Cada segmento precisa de um texto (não pode ficar vazio).', 'danger');
+
+                    return false;
+                }
+
+                $segments[$index]['text'] = $text;
+            }
+
+            $data['segments'] = $segments;
+            $disk->put($key, json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $this->toast('Não foi possível salvar a legenda. Tente de novo.', 'danger');
+
+            return false;
+        }
+
+        $this->toast('Legenda salva.');
+
+        return true;
     }
 
     /**
@@ -61,6 +137,43 @@ final class Show extends Component
         return sprintf('%02d:%02d', intdiv($seconds, 60), $seconds % 60);
     }
 
+    /** @return list<array{i: int, start: float, text: string}> */
+    private function transcriptSegments(Video $video): array
+    {
+        if ($video->transcription_status !== TranscriptionStatusEnum::Ready) {
+            return [];
+        }
+
+        $disk = Storage::disk('s3');
+        $key = $video->transcriptPath();
+
+        try {
+            if (! $disk->exists($key)) {
+                return [];
+            }
+
+            $data = json_decode((string) $disk->get($key), true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $throwable) {
+            report($throwable);
+
+            return [];
+        }
+
+        $segments = is_array($data) && is_array($data['segments'] ?? null) ? $data['segments'] : [];
+
+        $out = [];
+
+        foreach (array_values($segments) as $index => $segment) {
+            $out[] = [
+                'i' => $index,
+                'start' => is_array($segment) ? (float) ($segment['start'] ?? 0) : 0.0,
+                'text' => is_array($segment) ? (string) ($segment['text'] ?? '') : '',
+            ];
+        }
+
+        return $out;
+    }
+
     /** @return array<string, float|int|string>|null */
     private function storyboard(Video $video): ?array
     {
@@ -84,12 +197,20 @@ final class Show extends Component
     {
         $video = $this->video->fresh(['files']) ?? $this->video;
         $isPackaging = in_array($video->status, [VideoStatusEnum::Uploaded, VideoStatusEnum::Packaging], true);
+        $transcription = $video->transcription_status;
 
         return view('livewire.uploads.show', [
-            'title' => 'Vídeo enviado em '.($video->created_at?->format('d/m/Y H:i') ?? '—'),
             'dateLabel' => $video->created_at?->format('d/m/Y H:i') ?? '—',
             'isReady' => $video->isReady(),
             'isPackaging' => $isPackaging,
+            'isTranscribing' => $transcription === TranscriptionStatusEnum::Processing,
+            'transcriptionLabel' => $transcription?->label(),
+            'transcriptionBadgeClass' => $transcription?->badgeClass() ?? '',
+            'subtitlesUrl' => $transcription === TranscriptionStatusEnum::Ready
+                ? route('uploads.subtitles', $video->uuid)
+                : null,
+            'transcriptSegments' => $this->transcriptSegments($video),
+            'captionsKey' => $video->uuid,
             'statusLabel' => $video->status->label(),
             'progress' => $video->progress,
             'error' => $video->error,

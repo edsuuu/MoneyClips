@@ -21,6 +21,7 @@ export class S3Storage extends Logger {
         '.m4s': 'video/iso.segment',
         '.mp4': 'video/mp4',
         '.m4a': 'audio/mp4',
+        '.wav': 'audio/wav',
         '.jpg': 'image/jpeg',
     };
 
