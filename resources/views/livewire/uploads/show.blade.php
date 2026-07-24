@@ -1,37 +1,20 @@
-<div @if ($isPackaging) wire:poll.5s @endif x-data="{ showClips: true }">
-    <div class="mb-5 flex items-center justify-between gap-3">
-        <x-ui.button variant="subtle" size="sm" href="{{ route('uploads.index') }}">
-            <x-ui.icon name="chevron-right" class="size-4 rotate-180" />
-            Voltar
-        </x-ui.button>
-
-        <div class="flex min-w-0 items-center gap-3">
-            <span class="truncate text-xs text-slate-500">{{ $title }}</span>
-            @if ($isReady)
-                <button
-                    type="button"
-                    x-on:click="showClips = !showClips"
-                    class="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-800/60"
-                >
-                    <x-ui.icon name="scissors" class="size-3.5" />
-                    <span x-text="showClips ? 'Ocultar cortes' : 'Cortes'"></span>
-                </button>
-            @endif
-        </div>
-    </div>
-
+<div @if ($isPackaging || $isTranscribing) wire:poll.5s @endif>
     @if ($isReady)
         <div
-            x-data="videoPlayer(@js(['hlsSrc' => $hlsUrl, 'fallbackSrc' => $fallbackUrl ?? '', 'poster' => $posterUrl ?? '', 'storyboard' => $storyboard]))"
-            class="grid gap-6"
-            x-bind:class="showClips ? 'lg:grid-cols-[minmax(0,1fr)_340px]' : 'lg:grid-cols-1'"
+            x-data="videoPlayer(@js(['hlsSrc' => $hlsUrl, 'fallbackSrc' => $fallbackUrl ?? '', 'poster' => $posterUrl ?? '', 'storyboard' => $storyboard, 'captionsKey' => $captionsKey]))"
+            x-on:captions-refresh.window="reloadCaptions()"
+            class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]"
         >
             <div class="min-w-0">
                 <div
+                    wire:ignore
                     x-ref="wrapper"
+                    tabindex="0"
+                    x-on:keydown="onKey($event)"
+                    x-on:pointerdown="$refs.wrapper.focus()"
                     x-on:pointermove="showControls()"
                     x-on:pointerleave="playing && (controlsVisible = false)"
-                    class="group relative select-none overflow-hidden rounded-2xl border border-slate-800 bg-black"
+                    class="player-chrome group relative select-none overflow-hidden rounded-2xl border border-slate-800 bg-black outline-none"
                     x-bind:class="controlsVisible || !playing ? 'cursor-default' : 'cursor-none'"
                 >
                     <video
@@ -41,7 +24,11 @@
                         playsinline
                         preload="metadata"
                         @if ($posterUrl) poster="{{ $posterUrl }}" @endif
-                    ></video>
+                    >
+                        @if ($subtitlesUrl)
+                            <track x-ref="captions" kind="subtitles" srclang="pt" label="Português" src="{{ $subtitlesUrl }}" />
+                        @endif
+                    </video>
 
                     <button
                         type="button"
@@ -122,6 +109,16 @@
                             </span>
 
                             <div class="ml-auto flex items-center gap-1.5">
+                                @if ($subtitlesUrl)
+                                    <button
+                                        type="button"
+                                        x-on:click="toggleCaptions()"
+                                        x-bind:class="captions ? 'bg-white/20 text-sky-300' : 'text-slate-100'"
+                                        class="cursor-pointer rounded-md px-2 py-1 text-xs font-bold transition hover:bg-white/15"
+                                        aria-label="Legendas"
+                                    >CC</button>
+                                @endif
+
                                 <div class="relative" x-show="levels.length" x-on:click.outside="menuOpen = false">
                                     <button
                                         type="button"
@@ -166,26 +163,35 @@
                     </div>
                 </div>
 
-                <div class="mt-3 flex items-center gap-2">
+                <div class="mt-3 flex flex-wrap items-center gap-2">
                     <span class="rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">{{ $statusLabel }}</span>
+                    @if ($transcriptionLabel)
+                        <span @class(['inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold', $transcriptionBadgeClass => true])>
+                            @if ($isTranscribing)
+                                <x-ui.icon name="loading" class="size-3" />
+                            @endif
+                            {{ $transcriptionLabel }}
+                        </span>
+                    @endif
+                    @if ($subtitlesUrl)
+                        <button
+                            type="button"
+                            x-data
+                            x-on:click="$dispatch('modal-show', { name: 'editar-legenda' })"
+                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-300 transition hover:bg-slate-800/60"
+                        >
+                            <x-ui.icon name="pencil-square" class="size-3.5" />
+                            Editar legenda
+                        </button>
+                    @endif
                     <span class="text-xs text-slate-500">{{ $dateLabel }}</span>
                 </div>
             </div>
 
-            <aside class="flex flex-col gap-3" x-show="showClips" x-cloak>
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-2">
-                        <h2 class="text-sm font-semibold text-slate-200">Cortes sugeridos</h2>
-                        <span class="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-400">{{ count($clips) }}</span>
-                    </div>
-                    <button
-                        type="button"
-                        x-on:click="showClips = false"
-                        class="cursor-pointer rounded-md p-1 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
-                        aria-label="Ocultar cortes"
-                    >
-                        <x-ui.icon name="x-mark" class="size-4" />
-                    </button>
+            <aside class="flex flex-col gap-3">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-sm font-semibold text-slate-200">Cortes sugeridos</h2>
+                    <span class="rounded-full bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-400">{{ count($clips) }}</span>
                 </div>
 
                 @foreach ($clips as $clip)
@@ -205,6 +211,66 @@
                 @endforeach
             </aside>
         </div>
+
+        @if ($subtitlesUrl)
+            <x-ui.modal name="editar-legenda" max-width="max-w-3xl">
+                <div wire:ignore x-data="subtitleEditor(@js($transcriptSegments))" class="flex max-h-[78vh] flex-col">
+                    <div class="shrink-0">
+                        <h2 class="text-base font-semibold text-slate-100">Editar legenda</h2>
+                        <div class="mt-2 rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2 text-xs leading-relaxed text-sky-700 dark:text-sky-200/90">
+                            Marque os segmentos que quiser corrigir e edite o texto. O horário à direita mostra onde o trecho aparece no vídeo. Não é possível apagar segmentos — só corrigir o texto, e ele não pode ficar vazio.
+                        </div>
+                        <input
+                            type="search"
+                            x-model="search"
+                            placeholder="Buscar no texto…"
+                            class="mt-3 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
+                        />
+                    </div>
+
+                    <div x-ref="list" class="mt-3 min-h-0 flex-1 space-y-1.5 overflow-y-auto pr-1">
+                        <template x-for="seg in segments" :key="seg.i">
+                            <div x-show="visible(seg)" class="flex items-start gap-2 rounded-lg border border-slate-800 bg-slate-900/40 p-2">
+                                <input
+                                    type="checkbox"
+                                    x-model="seg.editing"
+                                    class="mt-1.5 size-4 shrink-0 cursor-pointer rounded border-slate-600 bg-slate-950 text-sky-500 focus:ring-sky-500"
+                                />
+                                <input
+                                    type="text"
+                                    x-model="seg.text"
+                                    :disabled="!seg.editing"
+                                    :class="seg.editing && seg.text.trim() === '' ? 'border-red-500/60' : 'border-slate-700'"
+                                    class="min-w-0 flex-1 rounded-md border bg-slate-950 px-2 py-1.5 text-sm text-slate-200 focus:border-sky-500 focus:outline-none disabled:cursor-not-allowed disabled:text-slate-500"
+                                />
+                                <span class="mt-1.5 shrink-0 text-xs tabular-nums text-slate-500" x-text="timecode(seg.start)"></span>
+                            </div>
+                        </template>
+                    </div>
+
+                    <div class="mt-3 flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-3">
+                        <span class="text-xs text-slate-500"><span x-text="editedCount"></span> marcado(s) para editar</span>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div class="flex items-center gap-1 rounded-lg border border-slate-800 p-0.5">
+                                <button type="button" x-on:click="$refs.list.scrollTop = 0" class="cursor-pointer rounded-md px-2 py-1 text-[11px] font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-slate-200">Topo</button>
+                                <button type="button" x-on:click="$refs.list.scrollTop = $refs.list.scrollHeight / 2" class="cursor-pointer rounded-md px-2 py-1 text-[11px] font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-slate-200">Meio</button>
+                                <button type="button" x-on:click="$refs.list.scrollTop = $refs.list.scrollHeight" class="cursor-pointer rounded-md px-2 py-1 text-[11px] font-semibold text-slate-400 transition hover:bg-slate-800 hover:text-slate-200">Fim</button>
+                            </div>
+                            <button type="button" x-on:click="$dispatch('modal-close', { name: 'editar-legenda' })" class="cursor-pointer rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-300 transition hover:bg-slate-800">Cancelar</button>
+                            <button
+                                type="button"
+                                x-on:click="save()"
+                                :disabled="!canSave"
+                                class="cursor-pointer rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <span x-show="!saving">Salvar legenda</span>
+                                <span x-show="saving" x-cloak class="inline-flex items-center gap-1.5"><x-ui.icon name="loading" class="size-3.5" />Salvando…</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </x-ui.modal>
+        @endif
     @elseif ($isPackaging)
         <div class="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-8 py-16 text-center">
             <x-ui.icon name="cog-6-tooth" class="mx-auto size-9 animate-spin text-amber-500 dark:text-amber-400" />
