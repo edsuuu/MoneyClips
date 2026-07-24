@@ -22,6 +22,7 @@ export class Env {
     public readonly captionStorageDir: string;
     public readonly transcriberUrl: string;
     public readonly transcriberTimeoutMs: number;
+    public readonly selfBaseUrl: string;
     public readonly maxWordsPerLine: number;
     public readonly maxLineDuration: number;
     public readonly fontName: string;
@@ -56,6 +57,7 @@ export class Env {
         this.captionStorageDir = Env.asStr(env['CAPTION_STORAGE_DIR'], './storage');
         this.transcriberUrl = Env.asStr(env['TRANSCRIBER_URL'], 'http://127.0.0.1:8780');
         this.transcriberTimeoutMs = Env.asInt(env['TRANSCRIBER_TIMEOUT_MS'], 1_800_000);
+        this.selfBaseUrl = Env.asStr(env['VIDEO_BASE_URL'], 'http://127.0.0.1:8790');
         this.maxWordsPerLine = Env.asInt(env['MAX_WORDS_PER_LINE'], 3);
         this.maxLineDuration = Env.asFloat(env['MAX_LINE_DURATION'], 2.5);
         this.fontName = Env.asStr(env['FONT_NAME'], 'Realist Clostan');

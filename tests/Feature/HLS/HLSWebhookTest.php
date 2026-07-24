@@ -2,20 +2,24 @@
 
 declare(strict_types=1);
 
+use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoStatusEnum;
+use App\Jobs\StartTranscribeJob;
 use App\Models\File;
 use App\Models\Video;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
     config(['services.observability.token' => 'test-token']);
     $this->headers = ['X-Observability-Token' => 'test-token'];
+    Bus::fake([StartTranscribeJob::class]);
 });
 
 it('refuses a webhook without the shared token', function (): void {
     $video = Video::factory()->packaging()->create();
 
-    $this->postJson('/api/hls/webhook', [
+    $this->postJson('/api/webhook/hls', [
         'video_uuid' => $video->uuid,
         'status' => 'done',
     ])->assertUnauthorized();
@@ -24,7 +28,7 @@ it('refuses a webhook without the shared token', function (): void {
 });
 
 it('answers 404 for an unknown job', function (): void {
-    $this->postJson('/api/hls/webhook', [
+    $this->postJson('/api/webhook/hls', [
         'video_uuid' => 'nao-existe',
         'status' => 'done',
     ], $this->headers)->assertNotFound()->assertExactJson(['status' => 'unknown-job']);
@@ -33,7 +37,7 @@ it('answers 404 for an unknown job', function (): void {
 it('promotes the video to ready and records the artifacts', function (): void {
     $video = Video::factory()->packaging()->create();
 
-    $this->postJson('/api/hls/webhook', [
+    $this->postJson('/api/webhook/hls', [
         'video_uuid' => $video->uuid,
         'status' => 'done',
         'duration_seconds' => 40,
@@ -58,13 +62,16 @@ it('promotes the video to ready and records the artifacts', function (): void {
         ->and($video->file(File::POSTER))->not->toBeNull()
         ->and($video->file(File::AUDIO))->not->toBeNull()
         ->and($video->file(File::STORYBOARD)?->meta['cols'])->toBe(10)
-        ->and($video->ready_at)->not->toBeNull();
+        ->and($video->ready_at)->not->toBeNull()
+        ->and($video->transcription_status)->toBe(TranscriptionStatusEnum::Processing);
+
+    Bus::assertDispatched(StartTranscribeJob::class);
 });
 
 it('is idempotent once the video reached a terminal status', function (): void {
     $video = Video::factory()->ready()->create();
 
-    $this->postJson('/api/hls/webhook', [
+    $this->postJson('/api/webhook/hls', [
         'video_uuid' => $video->uuid,
         'status' => 'failed',
         'error' => 'retry atrasado',
@@ -76,7 +83,7 @@ it('is idempotent once the video reached a terminal status', function (): void {
 it('never lets progress go backwards', function (): void {
     $video = Video::factory()->packaging()->create(['progress' => 60]);
 
-    $this->postJson('/api/hls/webhook', [
+    $this->postJson('/api/webhook/hls', [
         'video_uuid' => $video->uuid,
         'status' => 'progress',
         'progress' => 20,
@@ -84,7 +91,7 @@ it('never lets progress go backwards', function (): void {
 
     expect($video->fresh()?->progress)->toBe(60);
 
-    $this->postJson('/api/hls/webhook', [
+    $this->postJson('/api/webhook/hls', [
         'video_uuid' => $video->uuid,
         'status' => 'progress',
         'progress' => 80,
@@ -99,7 +106,7 @@ it('keeps the source when packaging merely failed', function (): void {
     $video = Video::factory()->packaging()->create();
     Storage::disk('s3')->put($video->originalPath(), 'conteudo');
 
-    $this->postJson('/api/hls/webhook', [
+    $this->postJson('/api/webhook/hls', [
         'video_uuid' => $video->uuid,
         'status' => 'failed',
         'error' => 'ffmpeg morreu',
@@ -115,7 +122,7 @@ it('drops the source when the file was not a video', function (): void {
     $video = Video::factory()->packaging()->create();
     Storage::disk('s3')->put($video->originalPath(), 'nao e video');
 
-    $this->postJson('/api/hls/webhook', [
+    $this->postJson('/api/webhook/hls', [
         'video_uuid' => $video->uuid,
         'status' => 'rejected',
         'error' => 'O arquivo enviado não é um vídeo legível.',

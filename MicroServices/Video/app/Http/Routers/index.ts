@@ -49,6 +49,10 @@ export class Routers {
             void this.captionController.create(req, res).catch(next);
         });
 
+        this.router.post('/videos/:uuid/transcription', (req, res, next) => {
+            void this.captionController.transcription(req, res).catch(next);
+        });
+
         this.router.get('/videos', apiToken.handle, (req, res, next) => {
             void this.captionController.index(req, res).catch(next);
         });

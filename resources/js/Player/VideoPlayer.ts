@@ -15,6 +15,7 @@ export interface VideoPlayerConfig {
     fallbackSrc: string;
     poster: string;
     storyboard: StoryboardConfig | null;
+    captionsKey: string;
 }
 
 interface QualityOption {
@@ -55,6 +56,8 @@ export class VideoPlayer {
     public switching = false;
 
     public waiting = false;
+
+    public captions = false;
 
     public levels: QualityOption[] = [];
 
@@ -164,6 +167,7 @@ export class VideoPlayer {
             ClientLogger.send('error', `Player HLS falhou ao montar: ${String(error)}`);
         }
 
+        this.restoreCaptions();
         this.ready = true;
     }
 
@@ -276,11 +280,108 @@ export class VideoPlayer {
         }
     }
 
+    public toggleCaptions(): void {
+        this.applyCaptions(!this.captions);
+    }
+
+    private restoreCaptions(): void {
+        if (this.config.captionsKey === '') {
+            return;
+        }
+
+        this.applyCaptions(window.localStorage.getItem(this.captionsStorageKey()) === '1');
+    }
+
+    private applyCaptions(on: boolean): void {
+        const track = this.captionTrack();
+
+        if (track === null) {
+            return;
+        }
+
+        this.captions = on;
+        track.mode = on ? 'showing' : 'hidden';
+        window.localStorage.setItem(this.captionsStorageKey(), on ? '1' : '0');
+    }
+
+    private captionTrack(): TextTrack | null {
+        return (this.$refs.captions as HTMLTrackElement | undefined)?.track ?? null;
+    }
+
+    // Após editar a legenda o transcript.json muda, mas o <track> já parseou as
+    // cues antigas. Trocar o src (cache-bust) força o re-fetch das novas sem F5.
+    public reloadCaptions(): void {
+        const element = this.$refs.captions as HTMLTrackElement | undefined;
+
+        if (element === undefined) {
+            return;
+        }
+
+        const wasShowing = this.captions;
+        element.src = `${element.src.split('?')[0]}?v=${String(Date.now())}`;
+
+        const track = element.track;
+        if (track !== null) {
+            track.mode = wasShowing ? 'showing' : 'hidden';
+        }
+    }
+
+    private captionsStorageKey(): string {
+        return `player.captions.${this.config.captionsKey}`;
+    }
+
     public toggleFullscreen(): void {
         const wrapper = this.wrapper();
         void (document.fullscreenElement
             ? document.exitFullscreen()
             : wrapper.requestFullscreen().catch(() => undefined));
+    }
+
+    // Atalhos: só disparam com o player focado (o wrapper tem tabindex e recebe
+    // foco no clique). Enquanto o foco está num input — ex.: editor de legenda —
+    // eles não chegam aqui.
+    public onKey(event: KeyboardEvent): void {
+        const video = this.video();
+        const STEP = 0.05;
+
+        switch (event.key) {
+            case ' ':
+                event.preventDefault();
+                this.togglePlay();
+                break;
+            case 'm':
+            case 'M':
+                this.toggleMute();
+                break;
+            case 'ArrowRight':
+                event.preventDefault();
+                video.currentTime = Math.min(
+                    Number.isFinite(video.duration) ? video.duration : video.currentTime + 1,
+                    video.currentTime + 1,
+                );
+                this.showControls();
+                break;
+            case 'ArrowLeft':
+                event.preventDefault();
+                video.currentTime = Math.max(0, video.currentTime - 1);
+                this.showControls();
+                break;
+            case 'ArrowUp':
+                event.preventDefault();
+                video.muted = false;
+                video.volume = Math.min(1, video.volume + STEP);
+                break;
+            case 'ArrowDown':
+                event.preventDefault();
+                video.volume = Math.max(0, video.volume - STEP);
+                break;
+            case 'f':
+            case 'F':
+                this.toggleFullscreen();
+                break;
+            default:
+                break;
+        }
     }
 
     public showControls(): void {

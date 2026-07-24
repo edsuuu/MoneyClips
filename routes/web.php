@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\HLSStreamController;
 use App\Http\Controllers\MultipartUploadController;
 use App\Http\Controllers\ObservabilityController;
+use App\Http\Controllers\UploadSubtitlesController;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'home.welcome')->name('home');
@@ -32,6 +33,7 @@ Route::middleware(['auth'])->group(function (): void {
     Route::prefix('meus-uploads')->name('uploads.')->group(function (): void {
         Route::view('/', 'uploads.index')->name('index');
         Route::view('/{video:uuid}', 'uploads.show')->name('show');
+        Route::get('/{video:uuid}/legendas.vtt', UploadSubtitlesController::class)->name('subtitles');
     });
 
     Route::prefix('hls/{video:uuid}')
