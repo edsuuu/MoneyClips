@@ -45,6 +45,7 @@ use Throwable;
  * @property Carbon|null $created_at
  * @property-read User $user
  * @property-read Collection<int, File> $files
+ * @property-read Collection<int, VideoCut> $cuts
  */
 final class Video extends Model
 {
@@ -81,9 +82,21 @@ final class Video extends Model
         return $this->hasMany(File::class);
     }
 
+    /** @return HasMany<VideoCut, $this> */
+    public function cuts(): HasMany
+    {
+        return $this->hasMany(VideoCut::class);
+    }
+
+    /**
+     * Só artefatos DO VÍDEO: rows com video_cut_id pertencem a um corte e
+     * repetem types (audio, transcript) que colidiriam aqui.
+     */
     public function file(string $type): ?File
     {
-        return $this->files->firstWhere('type', $type);
+        return $this->files->first(
+            fn (File $file): bool => $file->type === $type && $file->video_cut_id === null,
+        );
     }
 
     /**

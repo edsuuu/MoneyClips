@@ -7,6 +7,13 @@ export interface Region {
 
 export interface Keyframe {
     t: number;
+    mode: string;
+    regions: Region[];
+}
+
+export interface RawKeyframe {
+    t: number;
+    mode?: string;
     regions: Region[];
 }
 
@@ -30,17 +37,20 @@ export interface ModeDefinition {
 
 export interface ReframeSettings {
     background: string;
+    captions?: boolean;
+    captionColor?: string;
+    captionCase?: string;
 }
 
 export interface ReframePayload {
     editId: number | null;
     videoUrl: string | null;
     mode: string;
-    keyframes: Keyframe[];
+    keyframes: RawKeyframe[];
     settings: ReframeSettings;
 }
 
-export type DragHandle = 'move' | 'nw' | 'ne' | 'sw' | 'se';
+export type DragHandle = 'move' | 'nw' | 'ne' | 'sw' | 'se' | 'n' | 's' | 'e' | 'w' | 'adjust';
 
 export interface DragState {
     type: DragHandle;

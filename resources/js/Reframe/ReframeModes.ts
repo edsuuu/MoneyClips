@@ -37,12 +37,6 @@ export class ReframeModes {
                 h: ReframeModes.OUT_H / 3,
             })),
         },
-        spotlight: {
-            label: 'Spotlight',
-            fit: 'contain',
-            lock: 'free',
-            slots: [{ x: 0, y: 0, w: ReframeModes.OUT_W, h: ReframeModes.OUT_H }],
-        },
         centered: {
             label: 'Centrado',
             fit: 'contain',

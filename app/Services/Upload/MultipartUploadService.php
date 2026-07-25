@@ -96,6 +96,9 @@ final class MultipartUploadService implements MultipartUploadInterface
         ]);
     }
 
+    /**
+     * @throws Throwable
+     */
     public function size(string $key): int
     {
         $result = $this->client()->headObject([

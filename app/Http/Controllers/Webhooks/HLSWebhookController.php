@@ -95,7 +95,7 @@ final class HLSWebhookController extends Controller
         }
 
         if ($request->hasAudio()) {
-            $video->files()->updateOrCreate(['type' => File::AUDIO], [
+            $video->files()->updateOrCreate(['type' => File::AUDIO, 'video_cut_id' => null], [
                 'path' => $video->audioPath(),
                 'mime_type' => 'audio/wav',
             ]);

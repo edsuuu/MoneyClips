@@ -6,6 +6,7 @@ import { Sleep } from '@/Utils/Sleep';
 export interface WebhookPayload {
     uuid: string;
     video_uuid?: string;
+    cut_uuid?: string;
     status: 'done' | 'failed' | 'rejected' | 'progress';
     progress?: number;
     error?: string;
