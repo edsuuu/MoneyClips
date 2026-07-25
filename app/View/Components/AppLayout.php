@@ -11,6 +11,7 @@ final class AppLayout extends Component
 {
     public function __construct(
         public ?string $title = null,
+        public bool $navbar = true,
     ) {}
 
     public function render(): View

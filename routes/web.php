@@ -59,9 +59,9 @@ Route::middleware(['auth'])->group(function (): void {
             Route::post('/{video:uuid}/complete', 'complete')->name('complete');
         });
 
-    Route::view('/meus-videos', 'videos.index')->name('videos.index');
+    //    Route::view('/meus-videos', 'videos.index')->name('videos.index');
     Route::view('/agenda', 'schedule.index')->name('agenda.index');
-    Route::view('/estudio-de-cortes', 'reframe.index')->name('reframe.index');
+    Route::view('/editor-de-video/{cut}', 'video-editor.index')->name('video-editor.index');
     Route::view('/contas', 'accounts.index')->name('accounts.index');
     Route::view('/observabilidade', 'observability.index')->name('observability.index');
 

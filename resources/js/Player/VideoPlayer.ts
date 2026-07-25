@@ -1,5 +1,6 @@
 import { HlsPlayer, type HlsInstance } from './HlsPlayer';
 import { ClientLogger } from '../Support/ClientLogger';
+import { Timecode } from '../Support/Timecode';
 
 export interface StoryboardConfig {
     url: string;
@@ -123,7 +124,6 @@ export class VideoPlayer {
 
         video.addEventListener('timeupdate', () => {
             if (this.rangeEnd !== null && video.currentTime >= this.rangeEnd) {
-                video.currentTime = this.rangeEnd;
                 this.rangeEnd = null;
                 video.pause();
             }
@@ -263,6 +263,12 @@ export class VideoPlayer {
     public playRange(start: number, end: number): void {
         this.seekTo(start);
         this.rangeEnd = end;
+    }
+
+    public scrubTo(seconds: number): void {
+        this.rangeEnd = null;
+        this.video().currentTime = seconds;
+        this.showControls();
     }
 
     public selectLevel(index: number): void {
@@ -430,16 +436,7 @@ export class VideoPlayer {
     }
 
     private static timecode(seconds: number): string {
-        if (!Number.isFinite(seconds) || seconds <= 0) {
-            return '0:00';
-        }
-        const total = Math.floor(seconds);
-        const h = Math.floor(total / 3600);
-        const m = Math.floor((total % 3600) / 60);
-        const s = total % 60;
-        const mm = h > 0 ? String(m).padStart(2, '0') : String(m);
-
-        return (h > 0 ? `${String(h)}:` : '') + `${mm}:${String(s).padStart(2, '0')}`;
+        return Timecode.format(seconds, false);
     }
 
     private bindQuality(hls: HlsInstance): void {
@@ -477,7 +474,7 @@ export class VideoPlayer {
         const url = new URL(window.location.href);
 
         if (seconds > 0) {
-            url.searchParams.set('t', String(seconds));
+            url.searchParams.set('t', `${String(seconds)}s`);
         } else {
             url.searchParams.delete('t');
         }

@@ -43,6 +43,12 @@ export class ReframeGeometry {
             return last.regions;
         }
 
+        // Modos diferentes não interpolam (contagem de regiões muda): o modo do
+        // keyframe anterior segura até o próximo keyframe — troca em degrau.
+        if (a.mode !== b.mode) {
+            return a.regions;
+        }
+
         const f = (t - a.t) / (b.t - a.t);
 
         return a.regions.map((ra, j) => {
@@ -57,7 +63,30 @@ export class ReframeGeometry {
         });
     }
 
-    public static defaultRegion(mode: string, slot: Slot, vw: number, vh: number): Region {
+    public static modeAt(keyframes: Keyframe[], t: number): string | null {
+        const first = keyframes[0];
+
+        if (first === undefined) {
+            return null;
+        }
+
+        let active = first;
+        for (const keyframe of keyframes) {
+            if (keyframe.t > t) break;
+            active = keyframe;
+        }
+
+        return active.mode;
+    }
+
+    public static defaultRegion(
+        mode: string,
+        slot: Slot,
+        vw: number,
+        vh: number,
+        index = 0,
+        total = 1,
+    ): Region {
         let w = 1;
         let h = 1;
 
@@ -71,9 +100,24 @@ export class ReframeGeometry {
             }
         }
 
+        let x = (1 - w) / 2;
+        let y = (1 - h) / 2;
+
+        // Com 2+ regiões, espalha os defaults pelo eixo livre — sobrepostas no
+        // mesmo retângulo, só a de cima recebia o clique.
+        if (total > 1) {
+            const spread = index / (total - 1);
+
+            if (w < 1) {
+                x = (1 - w) * spread;
+            } else if (h < 1) {
+                y = (1 - h) * spread;
+            }
+        }
+
         return {
-            x: ReframeGeometry.round4((1 - w) / 2),
-            y: ReframeGeometry.round4((1 - h) / 2),
+            x: ReframeGeometry.round4(x),
+            y: ReframeGeometry.round4(y),
             w: ReframeGeometry.round4(w),
             h: ReframeGeometry.round4(h),
         };
@@ -109,6 +153,14 @@ export class ReframeGeometry {
         vw: number,
         vh: number,
     ): Region {
+        if (handle === 'adjust') {
+            return ReframeGeometry.scaleFromCenter(start, dx, aspect, vw, vh);
+        }
+
+        if (handle === 'n' || handle === 's' || handle === 'e' || handle === 'w') {
+            return ReframeGeometry.resizeEdge(start, handle, dx, dy, aspect, vw, vh);
+        }
+
         const west = handle.includes('w');
         const north = handle.includes('n');
 
@@ -149,5 +201,108 @@ export class ReframeGeometry {
             w,
             h,
         };
+    }
+
+    /**
+     * Handle "↔ Ajustar": arrastar pra direita amplia, pra esquerda encolhe,
+     * sempre em torno do centro da região (o crop não "anda" enquanto escala).
+     */
+    private static scaleFromCenter(
+        start: Region,
+        dx: number,
+        aspect: number | null,
+        vw: number,
+        vh: number,
+    ): Region {
+        const centerX = start.x + start.w / 2;
+        const centerY = start.y + start.h / 2;
+
+        const maxW = Math.min(centerX, 1 - centerX) * 2;
+        const maxH = Math.min(centerY, 1 - centerY) * 2;
+
+        let w = ReframeGeometry.clamp(start.w + dx, ReframeGeometry.MIN_SIZE, maxW);
+        let h: number;
+
+        if (aspect !== null) {
+            h = (w * vw) / (aspect * vh);
+
+            if (h > maxH) {
+                h = maxH;
+                w = (h * aspect * vh) / vw;
+            }
+        } else {
+            h = ReframeGeometry.clamp(start.h * (w / start.w), ReframeGeometry.MIN_SIZE, maxH);
+        }
+
+        return {
+            x: centerX - w / 2,
+            y: centerY - h / 2,
+            w,
+            h,
+        };
+    }
+
+    private static resizeEdge(
+        start: Region,
+        handle: 'n' | 's' | 'e' | 'w',
+        dx: number,
+        dy: number,
+        aspect: number | null,
+        vw: number,
+        vh: number,
+    ): Region {
+        const horizontal = handle === 'e' || handle === 'w';
+        const grow = handle === 'e' || handle === 's' ? 1 : -1;
+        const delta = horizontal ? dx * grow : dy * grow;
+
+        const anchorX = handle === 'w' ? start.x + start.w : start.x;
+        const anchorY = handle === 'n' ? start.y + start.h : start.y;
+        const maxW = handle === 'w' ? anchorX : 1 - anchorX;
+        const maxH = handle === 'n' ? anchorY : 1 - anchorY;
+
+        let w = start.w;
+        let h = start.h;
+
+        if (horizontal) {
+            w = ReframeGeometry.clamp(start.w + delta, ReframeGeometry.MIN_SIZE, maxW);
+            if (aspect !== null) h = (w * vw) / (aspect * vh);
+        } else {
+            h = ReframeGeometry.clamp(start.h + delta, ReframeGeometry.MIN_SIZE, maxH);
+            if (aspect !== null) w = (h * aspect * vh) / vw;
+        }
+
+        // Com aspect travado, o eixo secundário cresce a partir do centro e não
+        // pode estourar as bordas — reclampa o par mantendo a proporção.
+        if (aspect !== null) {
+            const centerX = horizontal ? 0 : start.x + start.w / 2;
+            const centerY = horizontal ? start.y + start.h / 2 : 0;
+
+            if (horizontal) {
+                const maxSecondary = Math.min(centerY, 1 - centerY) * 2;
+                if (h > maxSecondary) {
+                    h = maxSecondary;
+                    w = (h * aspect * vh) / vw;
+                }
+            } else {
+                const maxSecondary = Math.min(centerX, 1 - centerX) * 2;
+                if (w > maxSecondary) {
+                    w = maxSecondary;
+                    h = (w * vw) / (aspect * vh);
+                }
+            }
+        }
+
+        const x = horizontal
+            ? handle === 'w'
+                ? anchorX - w
+                : anchorX
+            : ReframeGeometry.clamp(start.x + start.w / 2 - w / 2, 0, 1 - w);
+        const y = horizontal
+            ? ReframeGeometry.clamp(start.y + start.h / 2 - h / 2, 0, 1 - h)
+            : handle === 'n'
+              ? anchorY - h
+              : anchorY;
+
+        return { x, y, w, h };
     }
 }

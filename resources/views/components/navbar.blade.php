@@ -1,4 +1,4 @@
-<header x-data="{ menuOpen: false }" class="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 px-4 py-3">
+<header x-data="{ menuOpen: false }" class="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 px-4 py-2">
     <div class="flex items-center gap-x-4">
         <button
             type="button"
@@ -34,7 +34,7 @@
             <ul class="flex items-center gap-1 max-lg:flex-col max-lg:items-stretch lg:justify-center">
                 @foreach ([
                     ['label' => 'Dashboard', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*'],
-                    ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*'],
+//                    ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*'],
                     ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*'],
                 ] as $item)
                     <li class="shrink-0" x-on:click="menuOpen = false">

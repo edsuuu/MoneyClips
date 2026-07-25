@@ -1,3 +1,4 @@
+import { Filmstrip } from './Filmstrip';
 import { ReframeGeometry } from './ReframeGeometry';
 import { ReframeModes } from './ReframeModes';
 import { ReframeRenderer } from './ReframeRenderer';
@@ -11,6 +12,7 @@ import type {
     Slot,
 } from './ReframeTypes';
 import { ClientLogger } from '../Support/ClientLogger';
+import { Timecode } from '../Support/Timecode';
 
 export class ReframeEditor {
     public static readonly MAX_KEYFRAMES = 120;
@@ -36,6 +38,12 @@ export class ReframeEditor {
     public dirty = false;
 
     public saving = false;
+
+    public speed = 1;
+
+    public timelineZoom = 1;
+
+    public thumbs: string[] = [];
 
     public selectedKf: number | null = null;
 
@@ -72,12 +80,37 @@ export class ReframeEditor {
 
     private _onBeforeUnload!: (event: BeforeUnloadEvent) => void;
 
+    private _undoStack: string[] = [];
+
+    private _redoStack: string[] = [];
+
+    private _kfDrag: { index: number; pointerId: number; moved: boolean } | null = null;
+
+    private _timelineScrub: number | null = null;
+
+    private _recovering = false;
+
     public constructor(initial: ReframePayload) {
         this.editId = initial.editId;
         this.videoUrl = initial.videoUrl;
-        this.mode = initial.mode;
-        this.keyframes = initial.keyframes;
-        this.settings = initial.settings;
+        // Modos removidos do produto (ex.: spotlight) caem no vertical.
+        this.mode = ReframeModes.exists(initial.mode) ? initial.mode : 'vertical';
+        // Edits antigos não tinham modo por keyframe: herda o modo global.
+        this.keyframes = initial.keyframes.map((keyframe) => {
+            const mode = keyframe.mode ?? initial.mode;
+
+            return {
+                t: keyframe.t,
+                mode: ReframeModes.exists(mode) ? mode : this.mode,
+                regions: keyframe.regions,
+            };
+        });
+        this.settings = {
+            background: initial.settings.background,
+            captions: initial.settings.captions ?? false,
+            captionColor: initial.settings.captionColor ?? '#ffffff',
+            captionCase: initial.settings.captionCase ?? 'sentence',
+        };
     }
 
     public init(): void {
@@ -98,7 +131,11 @@ export class ReframeEditor {
         this._video.addEventListener('pause', () => {
             this.playing = false;
         });
-        this._video.addEventListener('error', () => void this.recoverVideoUrl());
+        // Só re-assina em erro FATAL de mídia (src morto). Um 'error' transitório
+        // durante o play não pode resetar o src, senão o vídeo pausa sozinho.
+        this._video.addEventListener('error', () => {
+            if (this._video.error !== null) void this.recoverVideoUrl();
+        });
 
         this._onVisibility = () => {
             this._needsDraw = true;
@@ -153,26 +190,146 @@ export class ReframeEditor {
         this._needsDraw = true;
     }
 
-    public seekFromRuler(event: PointerEvent): void {
-        const ruler = this.$refs.ruler;
-        if (!ruler) return;
-        const rect = ruler.getBoundingClientRect();
-        this.seek(((event.clientX - rect.left) / rect.width) * this.duration);
+    public timeLabel(): string {
+        const seconds = Math.floor(this.currentTime % 60);
+        const tenths = Math.floor((this.currentTime * 10) % 10);
+        const current = `${String(Math.floor(this.currentTime / 60))}:${String(seconds).padStart(2, '0')}.${String(tenths)}`;
+
+        return `${current} / ${ReframeEditor.fmtTime(this.duration)}`;
     }
 
-    public timeLabel(): string {
-        const fmt = (s: number): string =>
-            `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+    public zoomIn(): void {
+        this.timelineZoom = Math.min(4, this.timelineZoom + 1);
+    }
 
-        return `${fmt(this.currentTime)} / ${fmt(this.duration)}`;
+    public zoomOut(): void {
+        this.timelineZoom = Math.max(1, this.timelineZoom - 1);
+    }
+
+    public timelineTicks(): { pct: number; label: string | null }[] {
+        if (!this.duration) return [];
+
+        const minorStep = 2.5;
+        const ticks: { pct: number; label: string | null }[] = [];
+
+        for (let index = 0; index * minorStep <= this.duration; index += 1) {
+            const t = index * minorStep;
+            ticks.push({
+                pct: (t / this.duration) * 100,
+                label: index % 4 === 0 ? ReframeEditor.fmtTime(t) : null,
+            });
+        }
+
+        return ticks;
+    }
+
+    public startKeyframeDrag(index: number, event: PointerEvent): void {
+        if (!this.duration) return;
+        (event.target as Element).setPointerCapture(event.pointerId);
+        this.selectedKf = index;
+        this._kfDrag = { index, pointerId: event.pointerId, moved: false };
+    }
+
+    public onTimelinePointerDown(event: PointerEvent): void {
+        if (!this.duration || this._kfDrag) return;
+        (event.currentTarget as Element).setPointerCapture(event.pointerId);
+        this._timelineScrub = event.pointerId;
+        const t = this.timelineTime(event);
+        if (t !== null) this.seek(t);
+    }
+
+    public onTimelinePointerMove(event: PointerEvent): void {
+        if (this._kfDrag && event.pointerId === this._kfDrag.pointerId) {
+            const t = this.timelineTime(event);
+            const keyframe = this.keyframes[this._kfDrag.index];
+            if (t === null || !keyframe) return;
+
+            if (!this._kfDrag.moved) {
+                this.snapshot();
+                this._kfDrag.moved = true;
+            }
+
+            const previous = this.keyframes[this._kfDrag.index - 1]?.t;
+            const next = this.keyframes[this._kfDrag.index + 1]?.t ?? this.duration;
+            const min = previous === undefined ? 0 : previous + 0.1;
+            keyframe.t = ReframeGeometry.round3(
+                ReframeGeometry.clamp(t, min, Math.max(min, next - 0.1)),
+            );
+            this.dirty = true;
+            this._needsDraw = true;
+
+            return;
+        }
+
+        if (this._timelineScrub === event.pointerId) {
+            const t = this.timelineTime(event);
+            if (t !== null) this.seek(t);
+        }
+    }
+
+    public onTimelinePointerUp(event: PointerEvent): void {
+        if (this._kfDrag && event.pointerId === this._kfDrag.pointerId) {
+            this._kfDrag = null;
+
+            return;
+        }
+
+        if (this._timelineScrub === event.pointerId) {
+            this._timelineScrub = null;
+        }
+    }
+
+    private timelineTime(event: PointerEvent): number | null {
+        const timeline = this.$refs.timeline;
+        if (!timeline) return null;
+
+        const rect = timeline.getBoundingClientRect();
+
+        return (
+            ReframeGeometry.clamp((event.clientX - rect.left) / rect.width, 0, 1) * this.duration
+        );
     }
 
     public addKeyframeAtCurrentTime(): void {
-        const index = this.ensureKeyframeAtCurrentTime();
+        const before = this.keyframes.length;
+        const index = this.snapshotAndEnsureKeyframe();
         if (index === null) return;
+        if (this.keyframes.length === before) this._undoStack.pop();
         this.selectedKf = index;
         this.dirty = true;
         this._needsDraw = true;
+    }
+
+    public stepFrame(direction: number): void {
+        this.seek(this._video.currentTime + direction / 30);
+    }
+
+    public cycleSpeed(): void {
+        const speeds = [1, 1.5, 2, 0.5];
+        this.speed = speeds[(speeds.indexOf(this.speed) + 1) % speeds.length] ?? 1;
+        this._video.playbackRate = this.speed;
+    }
+
+    public canUndo(): boolean {
+        return this._undoStack.length > 0;
+    }
+
+    public canRedo(): boolean {
+        return this._redoStack.length > 0;
+    }
+
+    public undo(): void {
+        const previous = this._undoStack.pop();
+        if (previous === undefined) return;
+        this._redoStack.push(JSON.stringify(this.keyframes));
+        this.restoreKeyframes(previous);
+    }
+
+    public redo(): void {
+        const next = this._redoStack.pop();
+        if (next === undefined) return;
+        this._undoStack.push(JSON.stringify(this.keyframes));
+        this.restoreKeyframes(next);
     }
 
     public selectKeyframe(index: number): void {
@@ -181,30 +338,271 @@ export class ReframeEditor {
         if (keyframe) this.seek(keyframe.t);
     }
 
-    public deleteSelectedKeyframe(): void {
-        if (this.selectedKf === null || this.keyframes.length <= 1) return;
-        this.keyframes.splice(this.selectedKf, 1);
-        this.selectedKf = null;
-        this.dirty = true;
-        this._needsDraw = true;
-    }
+    public deleteKeyframeAt(index: number): void {
+        if (this.keyframes[index] === undefined) return;
+        this.snapshot();
 
-    public setMode(mode: string): void {
-        if (mode === this.mode || !ReframeModes.exists(mode)) return;
-        const discards = this.dirty || this.keyframes.length > 1;
-        if (discards && !confirm('Trocar o modo descarta os keyframes atuais. Continuar?')) return;
+        // Apagar a última posição não deixa o editor sem crop: volta ao padrão
+        // zerado (uma posição vertical em t=0).
+        if (this.keyframes.length === 1) {
+            this.mode = 'vertical';
+            this.keyframes = [this.defaultKeyframe()];
+            this.selectedKf = 0;
+        } else {
+            this.keyframes.splice(index, 1);
+            this.selectedKf = null;
+        }
 
-        this.mode = mode;
         this.activeRegion = 0;
-        this.keyframes = this.duration ? [this.defaultKeyframe()] : [];
-        this.selectedKf = this.keyframes.length ? 0 : null;
         this.dirty = true;
         this._boxes = null;
         this._needsDraw = true;
     }
 
+    /**
+     * Troca o modo NO TEMPO ATUAL: cria (ou reaproveita) o keyframe do playhead
+     * e grava o modo nele — cada trecho do vídeo pode ter um enquadramento.
+     * Os keyframes anteriores e posteriores ficam intactos.
+     */
+    public setMode(mode: string): void {
+        if (!ReframeModes.exists(mode) || !this.duration) return;
+
+        const current =
+            ReframeGeometry.modeAt(this.keyframes, this._video.currentTime) ?? this.mode;
+        if (current === mode) return;
+
+        const index = this.snapshotAndEnsureKeyframe();
+        if (index === null) return;
+
+        const keyframe = this.keyframes[index];
+        if (!keyframe) return;
+
+        keyframe.mode = mode;
+        keyframe.regions = ReframeModes.get(mode).slots.map((slot, index, slots) =>
+            ReframeGeometry.defaultRegion(
+                mode,
+                slot,
+                this._video.videoWidth,
+                this._video.videoHeight,
+                index,
+                slots.length,
+            ),
+        );
+
+        this.mode = mode;
+        this.activeRegion = 0;
+        this.selectedKf = index;
+        this.dirty = true;
+        this._boxes = null;
+        this._needsDraw = true;
+    }
+
+    private static readonly REGION_COLORS = [
+        {
+            active: 'cursor-move border-emerald-400 bg-emerald-400/10',
+            idle: 'cursor-pointer border-emerald-400/60',
+            handle: 'bg-emerald-400',
+            text: 'text-emerald-300',
+        },
+        {
+            active: 'cursor-move border-violet-400 bg-violet-400/10',
+            idle: 'cursor-pointer border-violet-400/60',
+            handle: 'bg-violet-400',
+            text: 'text-violet-300',
+        },
+        {
+            active: 'cursor-move border-amber-400 bg-amber-400/10',
+            idle: 'cursor-pointer border-amber-400/60',
+            handle: 'bg-amber-400',
+            text: 'text-amber-300',
+        },
+    ];
+
     public setActiveRegion(index: number): void {
         this.activeRegion = index;
+    }
+
+    public regionBoxClass(index: number): string {
+        const color = ReframeEditor.REGION_COLORS[index % ReframeEditor.REGION_COLORS.length]!;
+
+        return index === this.activeRegion ? `${color.active} z-10` : color.idle;
+    }
+
+    public regionHandleClass(index: number): string {
+        return ReframeEditor.REGION_COLORS[index % ReframeEditor.REGION_COLORS.length]!.handle;
+    }
+
+    public regionLabel(index: number): string {
+        const labels = ReframeModes.REGION_LABELS[ReframeModes.get(this.mode).slots.length] ?? [];
+
+        return labels.length > 1 ? (labels[index] ?? '') : '9:16';
+    }
+
+    public captionCaseText(text: string): string {
+        if (this.settings.captionCase === 'upper') return text.toUpperCase();
+        if (this.settings.captionCase === 'lower') return text.toLowerCase();
+
+        return text;
+    }
+
+    public regionTextClass(index: number): string {
+        return ReframeEditor.REGION_COLORS[index % ReframeEditor.REGION_COLORS.length]!.text;
+    }
+
+    /**
+     * Ampliação da região na saída: px do slot ÷ px da fonte recortada.
+     * O mesmo "1.5x" que o crop mostra no canto — 1x = pixel a pixel.
+     */
+    public regionScale(index: number): string {
+        const regions = this.regionsAt(this.currentTime);
+        const region = regions?.[index];
+        const slot = ReframeModes.get(this.mode).slots[index];
+
+        if (!region || !slot || !this._video.videoWidth) return '';
+
+        const scale = slot.w / (region.w * this._video.videoWidth);
+
+        return `${(Math.round(scale * 10) / 10).toFixed(1)}x`;
+    }
+
+    private static readonly SEGMENT_COLORS = [
+        {
+            dot: 'bg-green-500',
+            strip: 'bg-green-500/25 border-green-500/50',
+            tint: 'bg-green-500/15 border-green-500/30',
+            text: 'text-green-500',
+            ring: 'ring-[3px] ring-green-500/30',
+        },
+        {
+            dot: 'bg-blue-500',
+            strip: 'bg-blue-500/25 border-blue-500/50',
+            tint: 'bg-blue-500/15 border-blue-500/30',
+            text: 'text-blue-500',
+            ring: 'ring-[3px] ring-blue-500/30',
+        },
+        {
+            dot: 'bg-purple-500',
+            strip: 'bg-purple-500/25 border-purple-500/50',
+            tint: 'bg-purple-500/15 border-purple-500/30',
+            text: 'text-purple-500',
+            ring: 'ring-[3px] ring-purple-500/30',
+        },
+        {
+            dot: 'bg-orange-500',
+            strip: 'bg-orange-500/25 border-orange-500/50',
+            tint: 'bg-orange-500/15 border-orange-500/30',
+            text: 'text-orange-500',
+            ring: 'ring-[3px] ring-orange-500/30',
+        },
+        {
+            dot: 'bg-pink-500',
+            strip: 'bg-pink-500/25 border-pink-500/50',
+            tint: 'bg-pink-500/15 border-pink-500/30',
+            text: 'text-pink-500',
+            ring: 'ring-[3px] ring-pink-500/30',
+        },
+        {
+            dot: 'bg-teal-500',
+            strip: 'bg-teal-500/25 border-teal-500/50',
+            tint: 'bg-teal-500/15 border-teal-500/30',
+            text: 'text-teal-500',
+            ring: 'ring-[3px] ring-teal-500/30',
+        },
+        {
+            dot: 'bg-yellow-500',
+            strip: 'bg-yellow-500/25 border-yellow-500/50',
+            tint: 'bg-yellow-500/15 border-yellow-500/30',
+            text: 'text-yellow-500',
+            ring: 'ring-[3px] ring-yellow-500/30',
+        },
+    ];
+
+    /**
+     * Segmentos derivados dos keyframes pra lista "Posições do Crop": cada
+     * keyframe vale do seu tempo até o próximo (ou o fim do vídeo).
+     */
+    public cropSegments(): {
+        i: number;
+        startLabel: string;
+        endLabel: string;
+        modeLabel: string;
+        leftPct: number;
+        widthPct: number;
+        color: { dot: string; strip: string; tint: string; text: string; ring: string };
+    }[] {
+        if (!this.duration) return [];
+
+        return this.keyframes.map((keyframe, i) => {
+            const end = this.keyframes[i + 1]?.t ?? this.duration;
+
+            return {
+                i,
+                startLabel: ReframeEditor.fmtTime(keyframe.t),
+                endLabel: ReframeEditor.fmtTime(end),
+                modeLabel: ReframeModes.get(keyframe.mode).label,
+                leftPct: (keyframe.t / this.duration) * 100,
+                widthPct: Math.max(2, ((end - keyframe.t) / this.duration) * 100),
+                color: ReframeEditor.SEGMENT_COLORS[i % ReframeEditor.SEGMENT_COLORS.length]!,
+            };
+        });
+    }
+
+    public positionActiveRegion(event: MouseEvent): void {
+        if (!this.duration || this._drag) return;
+        const overlay = this.$refs.overlay;
+        if (!overlay) return;
+
+        const kfIndex = this.snapshotAndEnsureKeyframe();
+        if (kfIndex === null) return;
+        this.selectedKf = kfIndex;
+
+        const keyframe = this.keyframes[kfIndex];
+        const region = keyframe?.regions[this.activeRegion];
+        if (!keyframe || region === undefined) return;
+
+        const rect = overlay.getBoundingClientRect();
+        const centerX = (event.clientX - rect.left) / rect.width;
+        const centerY = (event.clientY - rect.top) / rect.height;
+
+        keyframe.regions[this.activeRegion] = {
+            x: ReframeGeometry.round4(
+                ReframeGeometry.clamp(centerX - region.w / 2, 0, 1 - region.w),
+            ),
+            y: ReframeGeometry.round4(
+                ReframeGeometry.clamp(centerY - region.h / 2, 0, 1 - region.h),
+            ),
+            w: region.w,
+            h: region.h,
+        };
+        this.dirty = true;
+        this._needsDraw = true;
+    }
+
+    private snapshotAndEnsureKeyframe(): number | null {
+        this.snapshot();
+        const index = this.ensureKeyframeAtCurrentTime();
+        if (index === null) this._undoStack.pop();
+
+        return index;
+    }
+
+    private snapshot(): void {
+        this._undoStack.push(JSON.stringify(this.keyframes));
+        if (this._undoStack.length > 50) this._undoStack.shift();
+        this._redoStack = [];
+    }
+
+    private restoreKeyframes(serialized: string): void {
+        this.keyframes = JSON.parse(serialized) as Keyframe[];
+        this.selectedKf = null;
+        this.activeRegion = 0;
+        this.dirty = true;
+        this._boxes = null;
+        this._needsDraw = true;
+    }
+
+    private static fmtTime(seconds: number): string {
+        return Timecode.format(seconds, false);
     }
 
     public modeOptions(): { value: string; label: string }[] {
@@ -235,28 +633,43 @@ export class ReframeEditor {
         event.preventDefault();
         (event.target as Element).setPointerCapture(event.pointerId);
 
-        const kfIndex = this.ensureKeyframeAtCurrentTime();
-        if (kfIndex === null) return;
-        this.selectedKf = kfIndex;
-
-        const region = this.keyframes[kfIndex]?.regions[this.activeRegion];
+        const region = this.regionsAt(this._video.currentTime)?.[this.activeRegion];
         if (region === undefined) return;
 
+        // kfIndex -1 = gesto ainda é clique: nada muta até o 1º movimento real.
         this._drag = {
             type,
             pointerId: event.pointerId,
             startX: event.clientX,
             startY: event.clientY,
             start: { ...region },
-            kfIndex,
+            kfIndex: -1,
         };
-        this._dragLive = { ...region };
     }
 
     public onPointerMove(event: PointerEvent): void {
         if (!this._drag || event.pointerId !== this._drag.pointerId) return;
         const overlay = this.$refs.overlay;
         if (!overlay) return;
+
+        if (this._drag.kfIndex === -1) {
+            const distance = Math.hypot(
+                event.clientX - this._drag.startX,
+                event.clientY - this._drag.startY,
+            );
+            if (distance < 3) return;
+
+            const kfIndex = this.snapshotAndEnsureKeyframe();
+            if (kfIndex === null) {
+                this._drag = null;
+
+                return;
+            }
+
+            this.selectedKf = kfIndex;
+            this._drag.kfIndex = kfIndex;
+            this._dragLive = { ...this._drag.start };
+        }
 
         const rect = overlay.getBoundingClientRect();
         const dx = (event.clientX - this._drag.startX) / rect.width;
@@ -293,6 +706,8 @@ export class ReframeEditor {
         const committed = this._dragLive;
         this._drag = null;
         this._dragLive = null;
+
+        if (kfIndex === -1) return;
 
         const keyframe = this.keyframes[kfIndex];
         if (!keyframe || committed === null) return;
@@ -342,6 +757,9 @@ export class ReframeEditor {
     }
 
     public async recoverVideoUrl(): Promise<void> {
+        if (this._recovering) return;
+        this._recovering = true;
+
         try {
             const url = await this.$wire.refreshUrl();
             if (!url) return;
@@ -360,6 +778,8 @@ export class ReframeEditor {
             );
         } catch {
             return;
+        } finally {
+            this._recovering = false;
         }
     }
 
@@ -380,6 +800,19 @@ export class ReframeEditor {
             this.selectedKf = 0;
         }
 
+        if (this.videoUrl && this.thumbs.length === 0) {
+            const count = Math.min(60, Math.max(10, Math.ceil(this.duration)));
+            void Filmstrip.generate(
+                this.videoUrl,
+                count,
+                (index, url) => {
+                    this.thumbs[index] = url;
+                    this.thumbs = [...this.thumbs];
+                },
+                () => this._video.paused,
+            ).catch(() => undefined);
+        }
+
         this._needsDraw = true;
     }
 
@@ -390,8 +823,16 @@ export class ReframeEditor {
         const t = this._video.currentTime;
         if (!this._needsDraw && t === this._lastDrawnT && !this._drag) return;
 
+        this.currentTime = t;
         this._lastDrawnT = t;
         this._needsDraw = false;
+
+        const activeMode = ReframeGeometry.modeAt(this.keyframes, t);
+        if (activeMode !== null && activeMode !== this.mode) {
+            this.mode = activeMode;
+            this.activeRegion = 0;
+            this._boxes = null;
+        }
 
         const regions = this.liveRegions(t);
         if (regions === null) return;
@@ -411,12 +852,6 @@ export class ReframeEditor {
         if (this._boxes.length !== regions.length) return;
 
         this._renderer.syncBoxes(this._boxes, regions);
-
-        const playhead = this.$refs.playhead;
-
-        if (playhead && this.duration) {
-            playhead.style.left = `${(t / this.duration) * 100}%`;
-        }
     }
 
     private liveRegions(t: number): Region[] | null {
@@ -449,7 +884,11 @@ export class ReframeEditor {
         const source = this.regionsAt(t);
         if (source === null) return null;
 
-        const keyframe: Keyframe = { t, regions: source.map((r) => ({ ...r })) };
+        const keyframe: Keyframe = {
+            t,
+            mode: ReframeGeometry.modeAt(this.keyframes, t) ?? this.mode,
+            regions: source.map((r) => ({ ...r })),
+        };
         const index = this.keyframes.findIndex((kf) => kf.t > t);
 
         if (index === -1) {
@@ -466,12 +905,15 @@ export class ReframeEditor {
     private defaultKeyframe(): Keyframe {
         return {
             t: 0,
-            regions: ReframeModes.get(this.mode).slots.map((slot) =>
+            mode: this.mode,
+            regions: ReframeModes.get(this.mode).slots.map((slot, index, slots) =>
                 ReframeGeometry.defaultRegion(
                     this.mode,
                     slot,
                     this._video.videoWidth,
                     this._video.videoHeight,
+                    index,
+                    slots.length,
                 ),
             ),
         };
