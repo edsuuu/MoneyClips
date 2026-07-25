@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property int $id
  * @property int $video_id
+ * @property int|null $video_cut_id
  * @property string $type
  * @property string $path
  * @property string|null $upload_id
@@ -21,6 +22,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $mime_type
  * @property array<string, mixed>|null $meta
  * @property-read Video $video
+ * @property-read VideoCut|null $videoCut
  */
 final class File extends Model
 {
@@ -39,13 +41,19 @@ final class File extends Model
     public const string TRANSCRIPT = 'transcript';
 
     protected $fillable = [
-        'video_id', 'type', 'path', 'upload_id', 'size', 'mime_type', 'meta',
+        'video_id', 'video_cut_id', 'type', 'path', 'upload_id', 'size', 'mime_type', 'meta',
     ];
 
     /** @return BelongsTo<Video, $this> */
     public function video(): BelongsTo
     {
         return $this->belongsTo(Video::class);
+    }
+
+    /** @return BelongsTo<VideoCut, $this> */
+    public function videoCut(): BelongsTo
+    {
+        return $this->belongsTo(VideoCut::class);
     }
 
     protected function casts(): array

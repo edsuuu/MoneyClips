@@ -26,7 +26,7 @@ final class ReframeEditFactory extends Factory
             'source_meta' => ['width' => 1920, 'height' => 1080, 'duration' => 60.0],
             'mode' => 'vertical',
             'keyframes' => [
-                ['t' => 0.0, 'regions' => [['x' => 0.3418, 'y' => 0.0, 'w' => 0.3164, 'h' => 1.0]]],
+                ['t' => 0.0, 'mode' => 'vertical', 'regions' => [['x' => 0.3418, 'y' => 0.0, 'w' => 0.3164, 'h' => 1.0]]],
             ],
             'settings' => ['version' => 1, 'background' => '#000000'],
         ];

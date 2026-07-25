@@ -126,6 +126,15 @@ return [
         'delivery' => env('HLS_DELIVERY', 'accel'),
     ],
 
+    // Corte de trechos (endpoint /cut do mesmo serviço :8790 — base_url e token
+    // vêm de `services.hls`; aqui só o retorno do webhook).
+    'cut' => [
+        'webhook_url' => env(
+            'CUT_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/cut',
+        ),
+    ],
+
     'observability' => [
         // Token compartilhado dos endpoints /api/observability/* (header
         // X-Observability-Token). Precisa bater com o OBSERVABILITY_TOKEN
