@@ -2,17 +2,20 @@
 
 declare(strict_types=1);
 
-namespace App\Livewire\Reframe;
+namespace App\Livewire\VideoEditor;
 
+use App\Enums\TranscriptionStatusEnum;
+use App\Enums\VideoCutStatusEnum;
+use App\Livewire\Concerns\EditsTranscript;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\ReframeEdit;
-use App\Models\YoutubeShort;
+use App\Models\VideoCut;
 use Illuminate\View\View;
-use Livewire\Attributes\Url;
 use Livewire\Component;
 
 final class Index extends Component
 {
+    use EditsTranscript;
     use WithToasts;
 
     public const string DEFAULT_MODE = 'vertical';
@@ -21,7 +24,6 @@ final class Index extends Component
         'vertical' => 1,
         'split' => 2,
         'trio' => 3,
-        'spotlight' => 1,
         'centered' => 1,
     ];
 
@@ -31,42 +33,23 @@ final class Index extends Component
 
     private const float MIN_REGION_SIZE = 0.01;
 
-    private const int PICKER_LIMIT = 24;
-
-    #[Url(as: 'video', except: null)]
-    public ?int $videoId = null;
+    public VideoCut $cut;
 
     public ?int $editId = null;
 
-    public function mount(): void
+    /**
+     * O dono é filtrado aqui (via vídeo pai) porque a rota é `Route::view`,
+     * que não dispara model binding. Só corte pronto tem arquivo pra editar.
+     */
+    public function mount(string $uuid): void
     {
-        $short = $this->currentShort();
-        if (! $short instanceof YoutubeShort) {
-            $this->videoId = null;
+        $cut = VideoCut::query()->with('video')->where('uuid', $uuid)->firstOrFail();
 
-            return;
-        }
+        abort_unless($cut->video->user_id === auth()->id(), 404);
+        abort_unless($cut->status === VideoCutStatusEnum::Ready, 404);
 
-        $this->editId = $this->latestEditId($short->id);
-    }
-
-    public function selectSource(int $videoId): void
-    {
-        $short = YoutubeShort::query()->whereNotNull('video_path')->find($videoId);
-        if (! $short instanceof YoutubeShort) {
-            $this->toast('Vídeo indisponível — atualize a página.', 'danger');
-
-            return;
-        }
-
-        $this->videoId = $short->id;
-        $this->editId = $this->latestEditId($short->id);
-    }
-
-    public function clearSource(): void
-    {
-        $this->videoId = null;
-        $this->editId = null;
+        $this->cut = $cut;
+        $this->editId = $this->latestEditId();
     }
 
     /**
@@ -78,13 +61,6 @@ final class Index extends Component
      */
     public function saveEdit(array $payload): ?int
     {
-        $short = $this->currentShort();
-        if (! $short instanceof YoutubeShort) {
-            $this->toast('Escolha um vídeo para editar.', 'danger');
-
-            return null;
-        }
-
         $data = $this->sanitizePayload($payload);
         if ($data === null) {
             $this->toast('Edição inválida — recarregue a página e tente de novo.', 'danger');
@@ -94,15 +70,15 @@ final class Index extends Component
 
         $editId = is_int($payload['editId'] ?? null) ? $payload['editId'] : $this->editId;
         $edit = $editId !== null
-            ? ReframeEdit::query()->where('youtube_short_id', $short->id)->find($editId)
+            ? ReframeEdit::query()->where('video_cut_id', $this->cut->id)->find($editId)
             : null;
 
         if (! $edit instanceof ReframeEdit) {
-            $edit = new ReframeEdit(['youtube_short_id' => $short->id]);
+            $edit = new ReframeEdit(['video_cut_id' => $this->cut->id]);
         }
 
         $edit->fill([
-            'source_path' => $short->postableVideoPath(),
+            'source_path' => $this->cut->clipPath(),
             'source_meta' => $data['sourceMeta'],
             'mode' => $data['mode'],
             'keyframes' => $data['keyframes'],
@@ -117,21 +93,24 @@ final class Index extends Component
 
     public function refreshUrl(): ?string
     {
-        $short = $this->currentShort();
-
-        return $short instanceof YoutubeShort ? $short->presignedUrl() : null;
+        return $this->cut->presignedUrl();
     }
 
-    private function currentShort(): ?YoutubeShort
+    /**
+     * Só o texto é editável — start/end vêm do transcriber (autoritativo) e
+     * nunca do cliente. Aplica text por índice, igual ao editor do vídeo longo.
+     *
+     * @param  list<array{i?: mixed, text?: mixed}>  $edits
+     */
+    /** @param  list<array{i?: mixed, text?: mixed}>  $edits */
+    public function saveTranscript(array $edits): bool
     {
-        return $this->videoId !== null
-            ? YoutubeShort::query()->whereNotNull('video_path')->find($this->videoId)
-            : null;
+        return $this->saveTranscriptText($this->cut->transcriptPath(), $edits);
     }
 
-    private function latestEditId(int $shortId): ?int
+    private function latestEditId(): ?int
     {
-        $id = ReframeEdit::query()->where('youtube_short_id', $shortId)->latest('id')->value('id');
+        $id = ReframeEdit::query()->where('video_cut_id', $this->cut->id)->latest('id')->value('id');
 
         return is_int($id) ? $id : null;
     }
@@ -143,22 +122,25 @@ final class Index extends Component
      *
      * @return array<string, mixed>
      */
-    private function editorPayload(YoutubeShort $short): array
+    private function editorPayload(): array
     {
         $edit = $this->editId !== null
-            ? ReframeEdit::query()->where('youtube_short_id', $short->id)->find($this->editId)
+            ? ReframeEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
             : null;
 
         $settings = $edit->settings ?? [];
 
         return [
             'editId' => $edit?->id,
-            'videoUrl' => $short->presignedUrl(),
+            'videoUrl' => $this->cut->presignedUrl(),
             'mode' => $edit->mode ?? self::DEFAULT_MODE,
             'keyframes' => $edit->keyframes ?? [],
             'settings' => [
                 'version' => 1,
                 'background' => (string) ($settings['background'] ?? '#000000'),
+                'captions' => (bool) ($settings['captions'] ?? false),
+                'captionColor' => (string) ($settings['captionColor'] ?? '#ffffff'),
+                'captionCase' => (string) ($settings['captionCase'] ?? 'sentence'),
             ],
             'sourceMeta' => $edit?->source_meta,
         ];
@@ -169,7 +151,7 @@ final class Index extends Component
      * client aplica as mesmas regras; aqui é defesa).
      *
      * @param  array<string, mixed>  $payload
-     * @return array{mode: string, keyframes: list<array{t: float, regions: list<array{x: float, y: float, w: float, h: float}>}>, settings: array{version: int, background: string}, sourceMeta: array{width: int, height: int, duration: float}}|null
+     * @return array{mode: string, keyframes: list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}>, settings: array{version: int, background: string, captions: bool, captionColor: string, captionCase: string}, sourceMeta: array{width: int, height: int, duration: float}}|null
      */
     private function sanitizePayload(array $payload): ?array
     {
@@ -195,15 +177,19 @@ final class Index extends Component
             return null;
         }
 
-        $regionCount = self::REGION_COUNTS[$mode];
         $keyframes = [];
         foreach ($rawKeyframes as $rawKeyframe) {
             if (! is_array($rawKeyframe) || ! is_numeric($rawKeyframe['t'] ?? null) || ! is_array($rawKeyframe['regions'] ?? null)) {
                 return null;
             }
 
+            $keyframeMode = $rawKeyframe['mode'] ?? null;
+            if (! is_string($keyframeMode) || ! array_key_exists($keyframeMode, self::REGION_COUNTS)) {
+                return null;
+            }
+
             $rawRegions = array_values($rawKeyframe['regions']);
-            if (count($rawRegions) !== $regionCount) {
+            if (count($rawRegions) !== self::REGION_COUNTS[$keyframeMode]) {
                 return null;
             }
 
@@ -219,6 +205,7 @@ final class Index extends Component
 
             $keyframes[] = [
                 't' => round(min(max((float) $rawKeyframe['t'], 0.0), $duration), 3),
+                'mode' => $keyframeMode,
                 'regions' => $regions,
             ];
         }
@@ -241,10 +228,26 @@ final class Index extends Component
             $background = '#000000';
         }
 
+        $captionColor = $settings['captionColor'] ?? null;
+        if (! is_string($captionColor) || preg_match('/^#[0-9a-fA-F]{6}$/', $captionColor) !== 1) {
+            $captionColor = '#ffffff';
+        }
+
+        $captionCase = $settings['captionCase'] ?? null;
+        if (! is_string($captionCase) || ! in_array($captionCase, ['sentence', 'upper', 'lower'], true)) {
+            $captionCase = 'sentence';
+        }
+
         return [
             'mode' => $mode,
             'keyframes' => $deduped,
-            'settings' => ['version' => 1, 'background' => mb_strtolower($background)],
+            'settings' => [
+                'version' => 1,
+                'background' => mb_strtolower($background),
+                'captions' => (bool) ($settings['captions'] ?? false),
+                'captionColor' => mb_strtolower($captionColor),
+                'captionCase' => $captionCase,
+            ],
             'sourceMeta' => ['width' => $width, 'height' => $height, 'duration' => round($duration, 3)],
         ];
     }
@@ -270,31 +273,15 @@ final class Index extends Component
         return ['x' => round($x, 4), 'y' => round($y, 4), 'w' => round($w, 4), 'h' => round($h, 4)];
     }
 
-    /** @return array<int, array{id: int, title: string}> */
-    private function sources(): array
-    {
-        return YoutubeShort::query()
-            ->whereNotNull('video_path')
-            ->latest('id')
-            ->limit(self::PICKER_LIMIT)
-            ->get(['id', 'title', 'youtube_id'])
-            ->map(fn (YoutubeShort $s): array => [
-                'id' => $s->id,
-                'title' => $s->title ?? $s->youtube_id,
-            ])
-            ->values()->all();
-    }
-
     public function render(): View
     {
-        $short = $this->currentShort();
-
-        return view('livewire.reframe.index', [
-            'video' => $short instanceof YoutubeShort
-                ? ['id' => $short->id, 'title' => $short->title ?? $short->youtube_id]
-                : null,
-            'editorPayload' => $short instanceof YoutubeShort ? $this->editorPayload($short) : null,
-            'sources' => $short instanceof YoutubeShort ? [] : $this->sources(),
+        return view('livewire.video-editor.index', [
+            'editorPayload' => $this->editorPayload(),
+            'backUrl' => route('uploads.show', $this->cut->video->uuid),
+            'transcriptSegments' => $this->transcriptSegmentsFrom(
+                $this->cut->transcriptPath(),
+                $this->cut->transcription_status === TranscriptionStatusEnum::Ready,
+            ),
         ]);
     }
 }
