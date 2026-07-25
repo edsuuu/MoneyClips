@@ -1,3 +1,4 @@
+import { CutRowEditor } from './Cut/CutRowEditor';
 import { VideoPlayer, type VideoPlayerConfig } from './Player/VideoPlayer';
 import { ReframeEditor } from './Reframe/ReframeEditor';
 import type { ReframePayload } from './Reframe/ReframeTypes';
@@ -52,4 +53,5 @@ document.addEventListener('alpine:init', () => {
         'trimEditor',
         (config) => new TrimEditor(config as unknown as TrimEditorConfig),
     );
+    window.Alpine.data('cutRow', () => new CutRowEditor());
 });

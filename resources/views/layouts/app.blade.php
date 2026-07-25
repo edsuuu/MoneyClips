@@ -30,9 +30,11 @@
         @livewireStyles
     </head>
     <body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
-        <x-navbar />
+        @if ($navbar)
+            <x-navbar />
+        @endif
 
-        <main class="px-4 py-6 lg:px-8">
+        <main @class(['px-4 lg:px-8', 'py-6' => $navbar, 'py-4' => ! $navbar])>
             {{ $slot }}
         </main>
 

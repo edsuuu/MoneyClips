@@ -1,4 +1,5 @@
 import type { StoryboardConfig } from '../Player/VideoPlayer';
+import { Timecode } from '../Support/Timecode.ts';
 
 export interface TrimEditorConfig {
     storyboard: StoryboardConfig;
@@ -10,6 +11,9 @@ interface CutWire {
 }
 
 export class TrimEditor {
+    // Espelha VideoCut::MAX_DURATION_SECONDS — o addCut do Livewire revalida.
+    private static readonly MAX_CUT_SECONDS = 180;
+
     // ponytail: contagem fixa de tiles; densidade por largura do container se precisar.
     private static readonly TILE_COUNT = 16;
 
@@ -17,9 +21,11 @@ export class TrimEditor {
 
     public b: number;
 
-    public dragging: 'a' | 'b' | null = null;
+    public dragging: 'a' | 'b' | 'window' | null = null;
 
     public saving = false;
+
+    public syncPlayer = true;
 
     public $refs!: Record<string, HTMLElement | undefined>;
 
@@ -31,10 +37,12 @@ export class TrimEditor {
 
     private readonly duration: number;
 
+    private windowAnchor: { time: number; a: number; width: number } | null = null;
+
     public constructor(config: TrimEditorConfig) {
         this.storyboard = config.storyboard;
         this.duration = config.duration;
-        this.b = config.duration;
+        this.b = Math.min(config.duration, TrimEditor.MAX_CUT_SECONDS);
     }
 
     public get tiles(): string[] {
@@ -59,9 +67,22 @@ export class TrimEditor {
         });
     }
 
-    public startDrag(which: 'a' | 'b', event: PointerEvent): void {
+    public startDrag(which: 'a' | 'b' | 'window', event: PointerEvent): void {
         this.dragging = which;
         (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
+
+        // Agarra a janela pelo meio: guarda o ponto do clique e a largura pra
+        // arrastar início+fim juntos sem saltar pro cursor.
+        if (which === 'window') {
+            this.windowAnchor = {
+                time: this.fraction(event) * this.duration,
+                a: this.a,
+                width: this.b - this.a,
+            };
+
+            return;
+        }
+
         this.onDrag(event);
     }
 
@@ -74,6 +95,13 @@ export class TrimEditor {
         // (pointer capture retargeta eventos e o pointermove chega de qualquer lugar).
         if (event.buttons === 0) {
             this.dragging = null;
+            this.windowAnchor = null;
+
+            return;
+        }
+
+        if (this.dragging === 'window') {
+            this.moveWindow(event);
 
             return;
         }
@@ -81,18 +109,55 @@ export class TrimEditor {
         const time = this.fraction(event) * this.duration;
 
         if (this.dragging === 'a') {
+            const previous = this.a;
             this.setStart(time);
+
+            if (this.syncPlayer && this.a !== previous) {
+                this.$dispatch('trim-scrub', { time: this.a });
+            }
         } else {
+            const previous = this.b;
             this.setEnd(time);
+
+            if (this.syncPlayer && this.b !== previous) {
+                this.$dispatch('trim-scrub', { time: this.b });
+            }
         }
     }
 
     public endDrag(): void {
         this.dragging = null;
+        this.windowAnchor = null;
+    }
+
+    private moveWindow(event: PointerEvent): void {
+        const anchor = this.windowAnchor;
+
+        if (anchor === null) {
+            return;
+        }
+
+        const delta = this.fraction(event) * this.duration - anchor.time;
+        const a = Math.min(Math.max(0, Math.round(anchor.a + delta)), this.duration - anchor.width);
+
+        if (a === this.a) {
+            return;
+        }
+
+        this.a = a;
+        this.b = a + anchor.width;
+
+        if (this.syncPlayer) {
+            this.$dispatch('trim-scrub', { time: this.a });
+        }
     }
 
     public seekFromClick(event: MouseEvent): void {
         this.$dispatch('trim-seek', { time: this.fraction(event) * this.duration });
+    }
+
+    public sanitizeTime(raw: string): string {
+        return raw.replace(/[^0-9:]/g, '');
     }
 
     public applyStart(raw: string): void {
@@ -108,6 +173,24 @@ export class TrimEditor {
 
         if (time !== null) {
             this.setEnd(time);
+        }
+    }
+
+    public step(which: 'a' | 'b', dir: number): void {
+        if (which === 'a') {
+            const previous = this.a;
+            this.setStart(this.a + dir);
+
+            if (this.syncPlayer && this.a !== previous) {
+                this.$dispatch('trim-scrub', { time: this.a });
+            }
+        } else {
+            const previous = this.b;
+            this.setEnd(this.b + dir);
+
+            if (this.syncPlayer && this.b !== previous) {
+                this.$dispatch('trim-scrub', { time: this.b });
+            }
         }
     }
 
@@ -146,25 +229,22 @@ export class TrimEditor {
     }
 
     public timecode(seconds: number): string {
-        const total = Math.max(0, Math.floor(seconds));
-        const h = Math.floor(total / 3600);
-        const m = Math.floor((total % 3600) / 60);
-        const s = total % 60;
-        const mm = String(m).padStart(2, '0');
-        const ss = String(s).padStart(2, '0');
-
-        return h > 0 ? `${String(h)}:${mm}:${ss}` : `${mm}:${ss}`;
+        return Timecode.format(seconds);
     }
 
+    // Pontas independentes: cada handle só mexe no seu extremo, travado no corte
+    // máximo (3 min) e sem cruzar o outro. Reposicionar a janela é no arraste do
+    // meio (moveWindow), que preserva a duração.
     private setStart(time: number): void {
-        this.a = Math.min(Math.max(0, Math.round(time)), Math.max(0, this.b - 1));
+        const floor = Math.max(0, this.b - TrimEditor.MAX_CUT_SECONDS);
+
+        this.a = Math.min(Math.max(floor, Math.round(time)), Math.max(0, this.b - 1));
     }
 
     private setEnd(time: number): void {
-        this.b = Math.max(
-            Math.min(this.duration, Math.round(time)),
-            Math.min(this.duration, this.a + 1),
-        );
+        const ceiling = Math.min(this.duration, this.a + TrimEditor.MAX_CUT_SECONDS);
+
+        this.b = Math.max(Math.min(ceiling, Math.round(time)), Math.min(this.duration, this.a + 1));
     }
 
     private parse(raw: string): number | null {

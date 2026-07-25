@@ -3,10 +3,12 @@ import { Router } from 'express';
 import { apiToken } from '@/Http/Middleware/ApiToken';
 import { captionUpload, videoUpload } from '@/Http/Middleware/VideoUpload';
 import { captionQueue, CaptionQueueService } from '@/Services/Caption/CaptionQueueService';
+import { cutQueue, CutQueueService } from '@/Services/CutQueueService';
 import { packageQueue, PackageQueueService } from '@/Services/PackageQueueService';
 import { reencodeQueue, ReencodeQueueService } from '@/Services/ReencodeQueueService';
 
 import { CaptionController } from '../Controllers/CaptionController';
+import { CutController } from '../Controllers/CutController';
 import { HealthController } from '../Controllers/HealthController';
 import { PackageController } from '../Controllers/PackageController';
 import { ReencodeController } from '../Controllers/ReencodeController';
@@ -17,16 +19,19 @@ export class Routers {
     private readonly packageController: PackageController;
     private readonly reencodeController: ReencodeController;
     private readonly captionController: CaptionController;
+    private readonly cutController: CutController;
 
     public constructor(
         queue: PackageQueueService = packageQueue,
         reencodes: ReencodeQueueService = reencodeQueue,
         captions: CaptionQueueService = captionQueue,
+        cuts: CutQueueService = cutQueue,
     ) {
         this.healthController = new HealthController(queue, reencodes, captions);
         this.packageController = new PackageController(queue);
         this.reencodeController = new ReencodeController(reencodes);
         this.captionController = new CaptionController(captions);
+        this.cutController = new CutController(cuts);
         this.initializeRoutes();
     }
 
@@ -39,6 +44,10 @@ export class Routers {
 
         this.router.post('/package', apiToken.handle, (req, res) =>
             this.packageController.create(req, res),
+        );
+
+        this.router.post('/cut', apiToken.handle, (req, res) =>
+            this.cutController.create(req, res),
         );
 
         this.router.post('/reencode', apiToken.handle, videoUpload.handle, (req, res, next) => {

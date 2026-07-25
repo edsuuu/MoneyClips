@@ -1,12 +1,13 @@
-<div @if ($isPackaging || $isTranscribing) wire:poll.5s @endif>
+<div @if ($isPackaging || $isTranscribing || $hasBusyCuts) wire:poll.5s @endif>
     @if ($isReady)
         <div
             x-data="videoPlayer(@js(['hlsSrc' => $hlsUrl, 'fallbackSrc' => $fallbackUrl ?? '', 'poster' => $posterUrl ?? '', 'storyboard' => $storyboard, 'captionsKey' => $captionsKey]))"
             x-on:captions-refresh.window="reloadCaptions()"
             x-on:trim-seek.window="seekTo($event.detail.time)"
-            class="grid gap-6 lg:h-[calc(100dvh-109px)] lg:grid-cols-[minmax(0,1fr)_340px]"
+            x-on:trim-scrub.window="scrubTo($event.detail.time)"
+            class="grid gap-6 lg:h-[calc(100dvh-109px)] lg:grid-cols-[minmax(0,1fr)_340px] lg:overflow-hidden"
         >
-            <div class="flex min-w-0 flex-col lg:min-h-0">
+            <div class="flex min-w-0 flex-col lg:min-h-0 lg:overflow-hidden">
                 <div
                     wire:ignore
                     x-ref="wrapper"
@@ -204,7 +205,8 @@
                                 </template>
 
                                 <div
-                                    class="pointer-events-none absolute inset-y-0 border-x-2 border-sky-600 bg-sky-500/20 dark:border-sky-400"
+                                    x-on:pointerdown.stop.prevent="startDrag('window', $event)"
+                                    class="absolute inset-y-0 cursor-grab touch-none border-x-2 border-sky-600 bg-sky-500/20 active:cursor-grabbing dark:border-sky-400"
                                     x-bind:style="`left: ${aPercent}%; width: ${bPercent - aPercent}%`"
                                 ></div>
 
@@ -235,7 +237,10 @@
                                         type="text"
                                         inputmode="numeric"
                                         x-bind:value="aInput"
+                                        x-on:input="$event.target.value = sanitizeTime($event.target.value)"
                                         x-on:change="applyStart($event.target.value); $event.target.value = aInput"
+                                        x-on:keydown.arrow-up.prevent="step('a', 1)"
+                                        x-on:keydown.arrow-down.prevent="step('a', -1)"
                                         class="w-20 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center text-sm tabular-nums text-slate-200 focus:border-sky-500 focus:outline-none"
                                     />
                                 </label>
@@ -245,11 +250,15 @@
                                         type="text"
                                         inputmode="numeric"
                                         x-bind:value="bInput"
+                                        x-on:input="$event.target.value = sanitizeTime($event.target.value)"
                                         x-on:change="applyEnd($event.target.value); $event.target.value = bInput"
+                                        x-on:keydown.arrow-up.prevent="step('b', 1)"
+                                        x-on:keydown.arrow-down.prevent="step('b', -1)"
                                         class="w-20 rounded-lg border border-slate-700 bg-slate-950 px-2 py-1.5 text-center text-sm tabular-nums text-slate-200 focus:border-sky-500 focus:outline-none"
                                     />
                                 </label>
                                 <span class="text-xs text-slate-500">Duração: <span class="font-semibold tabular-nums text-slate-300" x-text="rangeLabel"></span></span>
+                                <x-ui.checkbox x-model="syncPlayer" label="Vídeo segue o corte" />
                                 <button
                                     type="button"
                                     x-on:click="addCut()"
@@ -265,53 +274,193 @@
                 @endif
             </div>
 
-            <aside class="flex flex-col gap-3 lg:min-h-0">
-                <h2 class="text-sm font-semibold text-slate-200">Cortes</h2>
-
-                @if ($storyboard && $durationSeconds > 0)
-                    <button
-                        type="button"
-                        x-on:click="editing = !editing"
-                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-500"
-                    >
-                        <x-ui.icon name="scissors" class="size-4" />
-                        <span x-show="!editing">Criar cortes manuais</span>
-                        <span x-show="editing" x-cloak>Fechar editor</span>
-                    </button>
-                @endif
-
+            <aside class="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
                 @if ($subtitlesUrl)
-                    <button
-                        type="button"
-                        wire:click="suggestAiCuts"
-                        class="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-slate-800/60"
-                    >
-                        <x-ui.icon name="sparkles" class="size-4" />
-                        Pedir sugestão com IA
-                    </button>
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+                        <div class="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
+                            <x-ui.icon name="sparkles" class="size-4 text-violet-500 dark:text-violet-400" />
+                            Encontre um momento
+                        </div>
+                        <p class="mt-0.5 text-xs text-slate-500">Descreva o que você procura e a IA vai achar no vídeo</p>
+                        <div class="mt-2 flex gap-2">
+                            <input
+                                type="text"
+                                placeholder='"a parte mais engraçada", "quando ficam emocionados"'
+                                class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
+                            />
+                            <button
+                                type="button"
+                                wire:click="suggestAiCuts"
+                                class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500"
+                            >
+                                Buscar
+                            </button>
+                        </div>
+                    </div>
                 @endif
 
-                <div class="min-h-0 space-y-1.5 overflow-y-auto lg:flex-1">
-                    @foreach ($cutItems as $index => $cut)
-                        <div wire:key="cut-{{ $index }}" class="flex items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
-                            <button
-                                type="button"
-                                x-on:click="playRange({{ $cut['start'] }}, {{ $cut['end'] }})"
-                                class="shrink-0 cursor-pointer rounded-md p-1 text-slate-400 transition hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-300"
-                                aria-label="Tocar corte"
-                            >
-                                <x-ui.icon name="play" class="size-4" />
-                            </button>
-                            <span class="text-xs font-semibold tabular-nums text-slate-300">{{ $cut['rangeLabel'] }}</span>
-                            <span class="text-xs tabular-nums text-slate-500">{{ $cut['durationLabel'] }}</span>
-                            <button
-                                type="button"
-                                wire:click="removeCut({{ $index }})"
-                                class="ml-auto shrink-0 cursor-pointer rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-red-500 dark:hover:text-red-400"
-                                aria-label="Remover corte"
-                            >
-                                <x-ui.icon name="x-mark" class="size-4" />
-                            </button>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-bold text-slate-200">Clips</h2>
+                    <span class="text-sm text-slate-500">({{ count($cutItems) }})</span>
+
+                    @if ($storyboard && $durationSeconds > 0)
+                        <button
+                            type="button"
+                            x-on:click="editing = !editing"
+                            class="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-300 transition hover:bg-slate-800/60"
+                        >
+                            <x-ui.icon name="scissors" class="size-3.5" />
+                            <span x-show="!editing">Criar corte manual</span>
+                            <span x-show="editing" x-cloak>Fechar editor</span>
+                        </button>
+                    @endif
+                </div>
+
+                <div class="min-h-0 space-y-2 overflow-y-auto lg:flex-1">
+                    @foreach ($cutItems as $cut)
+                        <div
+                            wire:key="cut-{{ $cut['id'] }}"
+                            x-data="cutRow()"
+                            x-on:click.outside="confirmingDelete = false"
+                            class="rounded-xl border border-slate-800 bg-slate-900/60 p-3"
+                        >
+                            <div class="flex items-start gap-2">
+                                <span class="flex size-6 shrink-0 items-center justify-center rounded-md bg-slate-800 text-xs font-bold text-slate-300">{{ $cut['number'] }}</span>
+                                <span class="pt-0.5 text-sm font-semibold text-slate-200">{{ $cut['title'] }}</span>
+
+                                @if ($cut['isAi'])
+                                    <span class="mt-0.5 inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 dark:text-violet-300">
+                                        <x-ui.icon name="sparkles" class="size-2.5" />
+                                        IA
+                                    </span>
+                                @endif
+
+                                <button
+                                    type="button"
+                                    x-on:click="playRange({{ $cut['start'] }}, {{ $cut['end'] }})"
+                                    class="ml-auto shrink-0 cursor-pointer rounded-md p-1 text-slate-400 transition hover:bg-slate-800 hover:text-sky-600 dark:hover:text-sky-300"
+                                    aria-label="Tocar corte"
+                                >
+                                    <x-ui.icon name="play" class="size-4" />
+                                </button>
+                            </div>
+
+                            <div x-show="!editingRange" class="mt-2 flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    data-start="{{ $cut['startLabel'] }}"
+                                    data-end="{{ $cut['endLabel'] }}"
+                                    x-on:click="start = $el.dataset.start; end = $el.dataset.end; editingRange = true"
+                                    class="inline-flex cursor-pointer items-center gap-2 rounded-lg bg-slate-800/70 px-2.5 py-1 font-mono text-xs text-slate-300 transition hover:bg-slate-800"
+                                >
+                                    {{ $cut['startLabel'] }}
+                                    <span class="text-slate-500">→</span>
+                                    {{ $cut['endLabel'] }}
+                                    <span class="text-slate-500">({{ $cut['durationShort'] }})</span>
+                                </button>
+
+                                @if ($cut['isGenerating'])
+                                    <span @class(['inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', $cut['badgeClass'] => true])>
+                                        <x-ui.icon name="loading" class="size-2.5" />
+                                        {{ $cut['statusLabel'] }}
+                                    </span>
+                                @elseif ($cut['isFailed'])
+                                    <span @class(['inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', $cut['badgeClass'] => true])>{{ $cut['statusLabel'] }}</span>
+                                @endif
+                            </div>
+
+                            <div x-show="editingRange" x-cloak class="mt-2 flex items-center gap-2 rounded-lg border border-sky-500/50 bg-slate-950 px-2.5 py-1.5">
+                                <input
+                                    type="text"
+                                    inputmode="numeric"
+                                    x-model="start"
+                                    x-on:input="sanitize('start')"
+                                    x-on:keydown.arrow-up.prevent="step('start', 1)"
+                                    x-on:keydown.arrow-down.prevent="step('start', -1)"
+                                    class="w-12 border-b border-sky-500/40 bg-transparent text-center font-mono text-xs text-sky-600 focus:outline-none dark:text-sky-300"
+                                />
+                                <span class="text-slate-500">→</span>
+                                <input
+                                    type="text"
+                                    inputmode="numeric"
+                                    x-model="end"
+                                    x-on:input="sanitize('end')"
+                                    x-on:keydown.arrow-up.prevent="step('end', 1)"
+                                    x-on:keydown.arrow-down.prevent="step('end', -1)"
+                                    class="w-12 border-b border-sky-500/40 bg-transparent text-center font-mono text-xs text-sky-600 focus:outline-none dark:text-sky-300"
+                                />
+                                <span class="font-mono text-[11px] text-slate-500">{{ $cut['durationShort'] }}</span>
+                                <button
+                                    type="button"
+                                    x-on:click="$wire.updateCut({{ $cut['id'] }}, start, end); editingRange = false"
+                                    class="ml-auto cursor-pointer rounded-md bg-sky-600 px-2 py-1 text-xs font-bold text-white transition hover:bg-sky-500"
+                                >
+                                    Salvar
+                                </button>
+                            </div>
+
+                            <div class="mt-2 flex items-center gap-2">
+                                @if ($cut['isReady'])
+                                    <button
+                                        type="button"
+                                        x-on:click="playRange({{ $cut['start'] }}, {{ $cut['end'] }})"
+                                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700"
+                                    >
+                                        Clip Horizontal
+                                        <x-ui.icon name="computer-desktop" class="size-3.5" />
+                                    </button>
+                                @else
+                                    <button
+                                        type="button"
+                                        wire:click="generateCut({{ $cut['id'] }})"
+                                        @disabled($cut['isGenerating'])
+                                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        Clip Horizontal
+                                        <x-ui.icon name="computer-desktop" class="size-3.5" />
+                                    </button>
+                                @endif
+
+                                @if ($cut['editorUrl'] !== null)
+                                    <a
+                                        href="{{ $cut['editorUrl'] }}"
+                                        wire:navigate
+                                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700"
+                                    >
+                                        Clip Vertical
+                                        <x-ui.icon name="device-phone-mobile" class="size-3.5" />
+                                    </a>
+                                @else
+                                    <button
+                                        type="button"
+                                        wire:click="generateCut({{ $cut['id'] }})"
+                                        @disabled($cut['isGenerating'])
+                                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                        Clip Vertical
+                                        <x-ui.icon name="device-phone-mobile" class="size-3.5" />
+                                    </button>
+                                @endif
+
+                                <button
+                                    type="button"
+                                    x-show="!confirmingDelete"
+                                    x-on:click="confirmingDelete = true"
+                                    class="ml-auto shrink-0 cursor-pointer rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-red-500 dark:hover:text-red-400"
+                                    aria-label="Remover corte"
+                                >
+                                    <x-ui.icon name="x-mark" class="size-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    x-show="confirmingDelete"
+                                    x-cloak
+                                    wire:click="removeCut({{ $cut['id'] }})"
+                                    class="ml-auto shrink-0 cursor-pointer rounded-md bg-red-500/15 px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-500/25 dark:text-red-400"
+                                >
+                                    Apagar?
+                                </button>
+                            </div>
                         </div>
                     @endforeach
                 </div>

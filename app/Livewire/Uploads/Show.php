@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace App\Livewire\Uploads;
 
 use App\Enums\TranscriptionStatusEnum;
+use App\Enums\VideoCutStatusEnum;
 use App\Enums\VideoStatusEnum;
+use App\Jobs\StartCutRenderJob;
+use App\Livewire\Concerns\EditsTranscript;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\File;
 use App\Models\Video;
-use Illuminate\Support\Facades\Storage;
+use App\Models\VideoCut;
 use Illuminate\View\View;
 use Livewire\Component;
-use Throwable;
 
 use function in_array;
 use function route;
@@ -20,14 +22,12 @@ use function view;
 
 final class Show extends Component
 {
+    use EditsTranscript;
     use WithToasts;
-
-    private const int MAX_SEGMENT_CHARS = 1000;
 
     public Video $video;
 
-    /** @var list<array{start: float, end: float}> */
-    public array $cuts = [];
+    public ?string $fallbackUrl = null;
 
     /**
      * O dono e filtrado aqui, e nao no resolveRouteBinding do Video: a rota e
@@ -40,6 +40,11 @@ final class Show extends Component
             ->where('uuid', $uuid)
             ->where('user_id', auth()->id())
             ->firstOrFail();
+
+        // Assinada UMA vez: presigned muda a cada assinatura, e um fallbackUrl
+        // novo a cada wire:poll mudaria o x-data do player no morph — o Alpine
+        // re-inicializa o componente e o vídeo pisca pro poster.
+        $this->fallbackUrl = $this->video->presignedUrl();
     }
 
     /**
@@ -50,91 +55,151 @@ final class Show extends Component
      */
     public function saveTranscript(array $edits): bool
     {
-        $disk = Storage::disk('s3');
-        $key = $this->video->transcriptPath();
-
-        try {
-            if (! $this->video->file(File::TRANSCRIPT) instanceof File || ! $disk->exists($key)) {
-                $this->toast('Transcrição não encontrada.', 'danger');
-
-                return false;
-            }
-
-            $data = json_decode((string) $disk->get($key), true, 512, JSON_THROW_ON_ERROR);
-
-            if (! is_array($data)) {
-                $this->toast('Transcrição inválida.', 'danger');
-
-                return false;
-            }
-
-            $segments = is_array($data['segments'] ?? null) ? $data['segments'] : [];
-            $count = count($segments);
-
-            if ($count === 0 || count($edits) > $count) {
-                $this->toast('Edição inválida.', 'danger');
-
-                return false;
-            }
-
-            foreach ($edits as $edit) {
-                $index = (int) ($edit['i'] ?? -1);
-                $text = mb_trim((string) ($edit['text'] ?? ''));
-
-                if ($index < 0 || $index >= $count || ! is_array($segments[$index])) {
-                    $this->toast('Edição inválida.', 'danger');
-
-                    return false;
-                }
-
-                if ($text === '' || mb_strlen($text) > self::MAX_SEGMENT_CHARS) {
-                    $this->toast('Cada segmento precisa de um texto (não pode ficar vazio).', 'danger');
-
-                    return false;
-                }
-
-                $segments[$index]['text'] = $text;
-            }
-
-            $data['segments'] = $segments;
-            $disk->put($key, json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE));
-        } catch (Throwable $throwable) {
-            report($throwable);
-            $this->toast('Não foi possível salvar a legenda. Tente de novo.', 'danger');
-
-            return false;
-        }
-
-        $this->toast('Legenda salva.');
-
-        return true;
+        return $this->saveTranscriptText($this->video->transcriptPath(), $edits);
     }
 
     public function addCut(float $start, float $end): void
     {
-        $duration = (int) $this->video->duration_seconds;
+        $startSeconds = (int) $start;
+        $endSeconds = (int) $end;
 
-        if (! is_finite($start) || ! is_finite($end) || $start < 0 || $end <= $start || $end > $duration) {
-            $this->toast('Corte inválido.', 'danger');
+        if (! is_finite($start) || ! is_finite($end) || ! $this->validCutBounds($startSeconds, $endSeconds)) {
+            return;
+        }
+
+        if ($this->duplicateCutExists($startSeconds, $endSeconds)) {
+            $this->toast('Esse corte já existe.', 'danger');
 
             return;
         }
 
-        $this->cuts[] = ['start' => $start, 'end' => $end];
+        $this->video->cuts()->create([
+            'start_seconds' => $startSeconds,
+            'end_seconds' => $endSeconds,
+        ]);
     }
 
-    public function removeCut(int $index): void
+    public function updateCut(int $cutId, string $start, string $end): void
     {
-        $this->cuts = array_values(array_filter(
-            $this->cuts,
-            fn (int $cutIndex): bool => $cutIndex !== $index,
-            ARRAY_FILTER_USE_KEY,
-        ));
+        $startSeconds = $this->parseTimecode($start);
+        $endSeconds = $this->parseTimecode($end);
+
+        if ($startSeconds === null || $endSeconds === null) {
+            $this->toast('Tempo inválido — use o formato mm:ss.', 'danger');
+
+            return;
+        }
+
+        if (! $this->validCutBounds($startSeconds, $endSeconds)) {
+            return;
+        }
+
+        $cut = $this->video->cuts()->whereKey($cutId)->first();
+
+        if (! $cut instanceof VideoCut || $cut->status === VideoCutStatusEnum::Generating) {
+            $this->toast('Este corte não pode ser editado agora.', 'danger');
+
+            return;
+        }
+
+        if ($cut->start_seconds === $startSeconds && $cut->end_seconds === $endSeconds) {
+            return;
+        }
+
+        if ($this->duplicateCutExists($startSeconds, $endSeconds, $cutId)) {
+            $this->toast('Esse corte já existe.', 'danger');
+
+            return;
+        }
+
+        $cut->update([
+            'start_seconds' => $startSeconds,
+            'end_seconds' => $endSeconds,
+            'status' => VideoCutStatusEnum::Draft,
+            'transcription_status' => null,
+            'error' => null,
+        ]);
+
+        $this->toast('Corte atualizado — gere o clip de novo.');
+    }
+
+    public function removeCut(int $cutId): void
+    {
+        $this->video->cuts()->whereKey($cutId)->delete();
+    }
+
+    public function generateCut(int $cutId): void
+    {
+        $claimed = VideoCut::query()
+            ->whereKey($cutId)
+            ->where('video_id', $this->video->id)
+            ->whereIn('status', [VideoCutStatusEnum::Draft, VideoCutStatusEnum::Failed])
+            ->update([
+                'status' => VideoCutStatusEnum::Generating,
+                'transcription_status' => null,
+                'error' => null,
+            ]);
+
+        if ($claimed !== 1) {
+            $this->toast('Este corte já está em geração ou pronto.', 'danger');
+
+            return;
+        }
+
+        dispatch(new StartCutRenderJob($cutId));
     }
 
     public function suggestAiCuts(): never
     {
         dd('Implementar depois');
+    }
+
+    private function duplicateCutExists(int $start, int $end, ?int $ignoreId = null): bool
+    {
+        $query = $this->video->cuts()
+            ->where('start_seconds', $start)
+            ->where('end_seconds', $end);
+
+        if ($ignoreId !== null) {
+            $query->whereKeyNot($ignoreId);
+        }
+
+        return $query->exists();
+    }
+
+    private function validCutBounds(int $start, int $end): bool
+    {
+        $duration = (int) $this->video->duration_seconds;
+
+        if ($start < 0 || $end <= $start || $end > $duration) {
+            $this->toast('Corte inválido.', 'danger');
+
+            return false;
+        }
+
+        if ($end - $start > VideoCut::MAX_DURATION_SECONDS) {
+            $this->toast('O corte pode ter no máximo 3 minutos.', 'danger');
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private function parseTimecode(string $raw): ?int
+    {
+        $raw = mb_trim($raw);
+
+        if (preg_match('/^\d+(:\d{1,2}){0,2}$/', $raw) !== 1) {
+            return null;
+        }
+
+        $seconds = 0;
+        foreach (explode(':', $raw) as $part) {
+            $seconds = $seconds * 60 + (int) $part;
+        }
+
+        return $seconds;
     }
 
     private function timecode(int $seconds): string
@@ -143,43 +208,6 @@ final class Show extends Component
         $rest = sprintf('%02d:%02d', intdiv($seconds % 3600, 60), $seconds % 60);
 
         return $hours > 0 ? $hours.':'.$rest : $rest;
-    }
-
-    /** @return list<array{i: int, start: float, text: string}> */
-    private function transcriptSegments(Video $video): array
-    {
-        if ($video->transcription_status !== TranscriptionStatusEnum::Ready) {
-            return [];
-        }
-
-        $disk = Storage::disk('s3');
-        $key = $video->transcriptPath();
-
-        try {
-            if (! $disk->exists($key)) {
-                return [];
-            }
-
-            $data = json_decode((string) $disk->get($key), true, 512, JSON_THROW_ON_ERROR);
-        } catch (Throwable $throwable) {
-            report($throwable);
-
-            return [];
-        }
-
-        $segments = is_array($data) && is_array($data['segments'] ?? null) ? $data['segments'] : [];
-
-        $out = [];
-
-        foreach (array_values($segments) as $index => $segment) {
-            $out[] = [
-                'i' => $index,
-                'start' => is_array($segment) ? (float) ($segment['start'] ?? 0) : 0.0,
-                'text' => is_array($segment) ? (string) ($segment['text'] ?? '') : '',
-            ];
-        }
-
-        return $out;
     }
 
     /** @return array<string, float|int|string>|null */
@@ -203,7 +231,7 @@ final class Show extends Component
 
     public function render(): View
     {
-        $video = $this->video->fresh(['files']) ?? $this->video;
+        $video = $this->video->fresh(['files', 'cuts']) ?? $this->video;
         $isPackaging = in_array($video->status, [VideoStatusEnum::Uploaded, VideoStatusEnum::Packaging], true);
         $transcription = $video->transcription_status;
 
@@ -217,23 +245,46 @@ final class Show extends Component
             'subtitlesUrl' => $transcription === TranscriptionStatusEnum::Ready
                 ? route('uploads.subtitles', $video->uuid)
                 : null,
-            'transcriptSegments' => $this->transcriptSegments($video),
+            'transcriptSegments' => $this->transcriptSegmentsFrom(
+                $video->transcriptPath(),
+                $video->transcription_status === TranscriptionStatusEnum::Ready,
+            ),
             'captionsKey' => $video->uuid,
             'statusLabel' => $video->status->label(),
             'progress' => $video->progress,
             'error' => $video->error,
             'hlsUrl' => $video->isReady() ? route('hls.master', $video->uuid) : null,
-            'fallbackUrl' => $video->presignedUrl(),
+            'fallbackUrl' => $this->fallbackUrl,
             'posterUrl' => $video->file(File::POSTER) === null ? null : route('hls.segment', [$video->uuid, 'poster.jpg']),
             'renditions' => $video->renditions(),
             'storyboard' => $this->storyboard($video),
             'durationSeconds' => (int) $video->duration_seconds,
-            'cutItems' => array_map(fn (array $cut): array => [
-                'start' => $cut['start'],
-                'end' => $cut['end'],
-                'rangeLabel' => $this->timecode((int) $cut['start']).' – '.$this->timecode((int) $cut['end']),
-                'durationLabel' => $this->timecode(max(1, (int) $cut['end'] - (int) $cut['start'])),
-            ], $this->cuts),
+            'cutItems' => $video->cuts->values()->map(fn (VideoCut $cut, int $index): array => [
+                'id' => $cut->id,
+                'number' => $index + 1,
+                'title' => 'Corte '.($index + 1),
+                'start' => $cut->start_seconds,
+                'end' => $cut->end_seconds,
+                'startLabel' => $this->timecode($cut->start_seconds),
+                'endLabel' => $this->timecode($cut->end_seconds),
+                'durationShort' => $cut->end_seconds - $cut->start_seconds < 60
+                    ? ($cut->end_seconds - $cut->start_seconds).'s'
+                    : $this->timecode($cut->end_seconds - $cut->start_seconds),
+                'statusLabel' => $cut->status->label(),
+                'badgeClass' => $cut->status->badgeClass(),
+                'isAi' => $cut->is_ai_generated,
+                'isGenerating' => $cut->status === VideoCutStatusEnum::Generating,
+                'isFailed' => $cut->status === VideoCutStatusEnum::Failed,
+                'isReady' => $cut->status === VideoCutStatusEnum::Ready,
+                'canGenerate' => $cut->status->canGenerate(),
+                'editorUrl' => $cut->status === VideoCutStatusEnum::Ready
+                    ? route('video-editor.index', $cut->uuid)
+                    : null,
+            ])->all(),
+            'hasBusyCuts' => $video->cuts->contains(
+                fn (VideoCut $cut): bool => $cut->status === VideoCutStatusEnum::Generating
+                    || $cut->transcription_status === TranscriptionStatusEnum::Processing,
+            ),
         ]);
     }
 }
