@@ -26,9 +26,6 @@ export class HlsPlayer {
         try {
             const Hls = await HlsPlayer.library();
 
-            // hls.js (MSE) primeiro: Chrome/Firefox/Edge devolvem "maybe" no
-            // canPlayType de HLS mas NÃO tocam nativo — só o Safari toca. Checar
-            // canPlayType antes usaria src nativo e travaria fora do Safari.
             if (Hls.isSupported()) {
                 const hls = new Hls({
                     maxBufferLength: 20,

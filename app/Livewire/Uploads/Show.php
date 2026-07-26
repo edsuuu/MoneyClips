@@ -11,10 +11,14 @@ use App\Jobs\StartCutRenderJob;
 use App\Livewire\Concerns\EditsTranscript;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\File;
+use App\Models\ReframeEdit;
 use App\Models\Video;
 use App\Models\VideoCut;
+use App\Models\YoutubeShort;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Component;
+use Throwable;
 
 use function in_array;
 use function route;
@@ -125,7 +129,48 @@ final class Show extends Component
 
     public function removeCut(int $cutId): void
     {
-        $this->video->cuts()->whereKey($cutId)->delete();
+        $cut = $this->video->cuts()->whereKey($cutId)->first();
+
+        if (! $cut instanceof VideoCut) {
+            return;
+        }
+
+        if ($cut->status === VideoCutStatusEnum::Generating) {
+            $this->toast('Não dá pra apagar um corte enquanto ele está sendo gerado.', 'danger');
+
+            return;
+        }
+
+        $edits = ReframeEdit::query()
+            ->where('video_cut_id', $cut->id)
+            ->get(['id', 'uuid', 'render_status']);
+
+        if ($edits->contains(fn (ReframeEdit $edit): bool => $edit->render_status === VideoCutStatusEnum::Generating)) {
+            $this->toast('Não dá pra apagar um corte com edição sendo gerada.', 'danger');
+
+            return;
+        }
+
+        try {
+            Storage::disk('s3')->deleteDirectory($cut->prefix());
+        } catch (Throwable $throwable) {
+            report($throwable);
+            $this->toast('Não foi possível apagar os arquivos do corte. Tente de novo.', 'danger');
+
+            return;
+        }
+
+        // Os renders das edições moram dentro do prefixo apagado: shorts de
+        // reframe ainda não postados sairiam do estoque apontando pra arquivo
+        // morto — vão junto. Postados ficam como histórico.
+        YoutubeShort::query()
+            ->whereIn('youtube_id', $edits->map(fn (ReframeEdit $edit): string => 'reframe-'.$edit->uuid))
+            ->whereNull('posted_youtube_at')
+            ->whereNull('posted_tiktok_at')
+            ->delete();
+
+        $cut->files()->delete();
+        $cut->delete();
     }
 
     public function generateCut(int $cutId): void
@@ -275,7 +320,6 @@ final class Show extends Component
                 'isAi' => $cut->is_ai_generated,
                 'isGenerating' => $cut->status === VideoCutStatusEnum::Generating,
                 'isFailed' => $cut->status === VideoCutStatusEnum::Failed,
-                'isReady' => $cut->status === VideoCutStatusEnum::Ready,
                 'canGenerate' => $cut->status->canGenerate(),
                 'editorUrl' => $cut->status === VideoCutStatusEnum::Ready
                     ? route('video-editor.index', $cut->uuid)
