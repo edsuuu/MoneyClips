@@ -90,7 +90,18 @@ export class CutQueueService extends Logger {
                     String(duration),
                     '-i',
                     'source',
+                    // Fonte 4K vira H.264 level 6.0, que o decoder de hardware do
+                    // navegador não toca (MEDIA_ERR_DECODE logo no início). Cap em
+                    // 1080p (sai level 5.0 — o preset slower usa 8 ref frames) + teto
+                    // de bitrate = decodável em qualquer navegador; o reframe gera
+                    // 1080x1920, então 4K é desnecessário.
+                    '-vf',
+                    "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
                     ...encoderArgs,
+                    '-maxrate',
+                    '12M',
+                    '-bufsize',
+                    '24M',
                     '-c:a',
                     'aac',
                     '-b:a',
