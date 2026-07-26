@@ -49,7 +49,7 @@
                                     :class="regionTextClass(i)" x-text="regionLabel(i)"></span>
                                 <template x-if="i === activeRegion">
                                     <div>
-                                        <span class="absolute right-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[11px] text-slate-200"
+                                        <span class="absolute right-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[11px] text-white"
                                             x-text="regionScale(i)"></span>
 
                                         <div data-handle="n" style="touch-action: none" x-on:pointerdown.stop="onPointerDown($event, 'n')"
@@ -115,7 +115,7 @@
                         <template x-for="tab in regionTabs()" :key="tab.i">
                             <button type="button" x-on:click="setActiveRegion(tab.i)" x-text="tab.label"
                                 class="cursor-pointer rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition"
-                                :class="activeRegion === tab.i ? 'border-sky-400 bg-sky-400/10 text-sky-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"></button>
+                                :class="activeRegion === tab.i ? 'border-sky-400 bg-sky-400/10 text-sky-700 dark:text-sky-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"></button>
                         </template>
                     </div>
                 </div>
@@ -214,7 +214,7 @@
 
                 <div class="mt-2 max-h-56 space-y-0.5 overflow-y-auto">
                     <template x-for="segment in cropSegments()" :key="`crop-${segment.i}`">
-                        <div class="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-slate-800/60"
+                        <div class="group relative flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 pb-2.5 transition hover:bg-slate-800/60"
                             :class="selectedKf === segment.i ? 'bg-sky-500/10 ring-1 ring-inset ring-sky-500/60' : ''"
                             x-on:click="selectKeyframe(segment.i)">
                             <span class="size-2 shrink-0 rounded-full" :class="segment.color.dot"></span>
@@ -225,37 +225,15 @@
                                 class="ml-auto cursor-pointer rounded-md p-1 text-slate-500 opacity-0 transition hover:text-red-500 group-hover:opacity-100 dark:hover:text-red-400">
                                 <x-ui.icon name="trash" class="size-3.5" />
                             </button>
+                            <div class="pointer-events-none absolute inset-x-2 bottom-1 h-0.5 overflow-hidden rounded-full bg-slate-800">
+                                <div class="h-full rounded-full bg-sky-500"
+                                    :style="`width: ${Math.min(100, Math.max(0, ((currentTime - segment.startSec) / Math.max(0.001, segment.endSec - segment.startSec)) * 100))}%`"></div>
+                            </div>
                         </div>
                     </template>
                 </div>
             </div>
 
-            @if (count($transcriptSegments) > 0)
-                <div x-data="{ segs: @js($transcriptSegments), savingSegs: false, dirtySegs: false }"
-                    class="rounded-xl border border-slate-800 bg-slate-900 p-4">
-                    <div class="flex items-center justify-between">
-                        <div class="text-[13.5px] font-bold text-slate-200">Legendas</div>
-                        <button type="button"
-                            x-on:click="savingSegs = true; $wire.saveTranscript(segs.map((seg) => ({ i: seg.i, text: seg.text }))).then((ok) => { savingSegs = false; if (ok) dirtySegs = false })"
-                            x-bind:disabled="savingSegs || !dirtySegs"
-                            class="cursor-pointer rounded-lg bg-sky-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:pointer-events-none disabled:opacity-40">
-                            <span x-show="!savingSegs">Salvar legendas</span>
-                            <span x-show="savingSegs" x-cloak>Salvando…</span>
-                        </button>
-                    </div>
-
-                    <div class="mt-2 max-h-44 space-y-1 overflow-y-auto pr-1">
-                        <template x-for="seg in segs" :key="seg.i">
-                            <div class="flex items-center gap-2">
-                                <button type="button" x-on:click="seek(seg.start)" x-text="seg.label"
-                                    class="w-10 shrink-0 cursor-pointer rounded py-1 text-right font-mono text-[11px] text-slate-500 transition hover:text-sky-600 dark:hover:text-sky-400"></button>
-                                <input type="text" x-model="seg.text" x-on:input="dirtySegs = true"
-                                    class="min-w-0 flex-1 rounded-md border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 focus:border-sky-500 focus:outline-none" />
-                            </div>
-                        </template>
-                    </div>
-                </div>
-            @endif
         </div>
 
         <div class="flex flex-col gap-4 lg:sticky lg:top-4">
@@ -275,7 +253,7 @@
 
                 <div x-show="settings.captions" x-cloak>
                     <div class="pt-4">
-                        <div class="rounded-lg border border-slate-800/80 bg-slate-950/60 px-4 py-5">
+                        <div class="rounded-lg border border-slate-800/80 bg-black/85 px-4 py-5">
                             <p class="text-center text-base font-bold leading-relaxed tracking-wide" :style="`color: ${settings.captionColor}`">
                                 <span x-text="captionCaseText('suas legendas')"></span>
                                 <br />
@@ -305,7 +283,7 @@
                                 <template x-for="option in [{ v: 'sentence', label: 'Aa' }, { v: 'upper', label: 'AA' }, { v: 'lower', label: 'aa' }]" :key="option.v">
                                     <button type="button" x-on:click="settings.captionCase = option.v; markDirty()" x-text="option.label"
                                         class="cursor-pointer rounded-lg border px-3 py-1 text-xs font-semibold transition"
-                                        :class="settings.captionCase === option.v ? 'border-cyan-400 bg-cyan-400/10 text-cyan-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"></button>
+                                        :class="settings.captionCase === option.v ? 'border-cyan-400 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"></button>
                                 </template>
                             </div>
                         </div>
@@ -313,12 +291,20 @@
                 </div>
             </div>
 
-            <button type="button" x-on:click="save()" x-bind:disabled="saving || !dirty"
-                class="flex cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-sky-400 px-5 py-3 text-sm font-bold text-gray-950 transition hover:bg-sky-300 disabled:pointer-events-none disabled:opacity-50">
-                <x-ui.icon name="check" class="size-3.5" />
-                <span x-text="saving ? 'Salvando…' : 'Salvar edição'"></span>
-            </button>
-            <p class="text-center text-[11.5px] text-amber-400/80" x-show="dirty" x-cloak>Alterações não salvas</p>
+            <div class="flex gap-2">
+                <button type="button" x-on:click="save()" x-bind:disabled="saving || !dirty"
+                    class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-sky-400 px-4 py-3 text-sm font-bold text-gray-950 transition hover:bg-sky-300 disabled:pointer-events-none disabled:opacity-50">
+                    <x-ui.icon name="check" class="size-3.5" />
+                    <span x-text="saving ? 'Salvando…' : 'Salvar edição'"></span>
+                </button>
+                <button type="button" x-on:click="generate()"
+                    x-bind:disabled="generating || renderStatus === 'generating' || (editId === null && !dirty)"
+                    class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-emerald-400 px-4 py-3 text-sm font-bold text-gray-950 transition hover:bg-emerald-300 disabled:pointer-events-none disabled:opacity-50">
+                    <x-ui.icon name="scissors" class="size-3.5" />
+                    <span x-text="generating || renderStatus === 'generating' ? 'Gerando…' : (renderStatus === 'ready' ? 'Gerar novamente' : 'Gerar corte editado')"></span>
+                </button>
+            </div>
+            <p class="text-center text-[11.5px] text-amber-600 dark:text-amber-400/80" x-show="dirty" x-cloak>Alterações não salvas</p>
         </div>
     </div>
 </div>

@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\VideoCutStatusEnum;
 use Database\Factories\ReframeEditFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
  * Estado de uma edição de reframe/crop do /editor-de-video. Coordenadas
@@ -24,6 +26,9 @@ use Illuminate\Support\Str;
  * @property string $mode
  * @property list<array{t: float, regions: list<array{x: float, y: float, w: float, h: float}>}> $keyframes
  * @property array{version: int, background: string, captions?: bool, captionColor?: string, captionCase?: string}|null $settings
+ * @property VideoCutStatusEnum|null $render_status
+ * @property string|null $rendered_path
+ * @property string|null $render_error
  * @property-read YoutubeShort|null $youtubeShort
  * @property-read VideoCut|null $videoCut
  */
@@ -34,8 +39,17 @@ final class ReframeEdit extends Model
 
     protected $fillable = [
         'uuid', 'youtube_short_id', 'video_cut_id', 'source_path', 'source_meta',
-        'mode', 'keyframes', 'settings',
+        'mode', 'keyframes', 'settings', 'render_status', 'rendered_path', 'render_error',
     ];
+
+    public function renderOutputPath(): string
+    {
+        $cut = $this->videoCut;
+
+        throw_unless($cut instanceof VideoCut, RuntimeException::class, 'Edição sem corte pai não tem path de render.');
+
+        return $cut->prefix().'/edits/'.$this->uuid.'/vertical.mp4';
+    }
 
     /** @return BelongsTo<YoutubeShort, $this> */
     public function youtubeShort(): BelongsTo
@@ -62,6 +76,7 @@ final class ReframeEdit extends Model
             'source_meta' => 'array',
             'keyframes' => 'array',
             'settings' => 'array',
+            'render_status' => VideoCutStatusEnum::class,
         ];
     }
 }

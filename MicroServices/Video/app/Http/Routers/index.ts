@@ -6,12 +6,14 @@ import { captionQueue, CaptionQueueService } from '@/Services/Caption/CaptionQue
 import { cutQueue, CutQueueService } from '@/Services/CutQueueService';
 import { packageQueue, PackageQueueService } from '@/Services/PackageQueueService';
 import { reencodeQueue, ReencodeQueueService } from '@/Services/ReencodeQueueService';
+import { reframeQueue, ReframeQueueService } from '@/Services/Reframe/ReframeQueueService';
 
 import { CaptionController } from '../Controllers/CaptionController';
 import { CutController } from '../Controllers/CutController';
 import { HealthController } from '../Controllers/HealthController';
 import { PackageController } from '../Controllers/PackageController';
 import { ReencodeController } from '../Controllers/ReencodeController';
+import { ReframeController } from '../Controllers/ReframeController';
 
 export class Routers {
     private readonly router: Router = Router();
@@ -20,18 +22,21 @@ export class Routers {
     private readonly reencodeController: ReencodeController;
     private readonly captionController: CaptionController;
     private readonly cutController: CutController;
+    private readonly reframeController: ReframeController;
 
     public constructor(
         queue: PackageQueueService = packageQueue,
         reencodes: ReencodeQueueService = reencodeQueue,
         captions: CaptionQueueService = captionQueue,
         cuts: CutQueueService = cutQueue,
+        reframes: ReframeQueueService = reframeQueue,
     ) {
         this.healthController = new HealthController(queue, reencodes, captions);
         this.packageController = new PackageController(queue);
         this.reencodeController = new ReencodeController(reencodes);
         this.captionController = new CaptionController(captions);
         this.cutController = new CutController(cuts);
+        this.reframeController = new ReframeController(reframes);
         this.initializeRoutes();
     }
 
@@ -48,6 +53,10 @@ export class Routers {
 
         this.router.post('/cut', apiToken.handle, (req, res) =>
             this.cutController.create(req, res),
+        );
+
+        this.router.post('/reframe', apiToken.handle, (req, res) =>
+            this.reframeController.create(req, res),
         );
 
         this.router.post('/reencode', apiToken.handle, videoUpload.handle, (req, res, next) => {

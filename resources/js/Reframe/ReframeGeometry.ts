@@ -43,8 +43,6 @@ export class ReframeGeometry {
             return last.regions;
         }
 
-        // Modos diferentes não interpolam (contagem de regiões muda): o modo do
-        // keyframe anterior segura até o próximo keyframe — troca em degrau.
         if (a.mode !== b.mode) {
             return a.regions;
         }
@@ -103,8 +101,6 @@ export class ReframeGeometry {
         let x = (1 - w) / 2;
         let y = (1 - h) / 2;
 
-        // Com 2+ regiões, espalha os defaults pelo eixo livre — sobrepostas no
-        // mesmo retângulo, só a de cima recebia o clique.
         if (total > 1) {
             const spread = index / (total - 1);
 
@@ -203,10 +199,6 @@ export class ReframeGeometry {
         };
     }
 
-    /**
-     * Handle "↔ Ajustar": arrastar pra direita amplia, pra esquerda encolhe,
-     * sempre em torno do centro da região (o crop não "anda" enquanto escala).
-     */
     private static scaleFromCenter(
         start: Region,
         dx: number,
@@ -271,8 +263,6 @@ export class ReframeGeometry {
             if (aspect !== null) w = (h * aspect * vh) / vw;
         }
 
-        // Com aspect travado, o eixo secundário cresce a partir do centro e não
-        // pode estourar as bordas — reclampa o par mantendo a proporção.
         if (aspect !== null) {
             const centerX = horizontal ? 0 : start.x + start.w / 2;
             const centerY = horizontal ? start.y + start.h / 2 : 0;

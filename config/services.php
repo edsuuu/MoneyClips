@@ -135,6 +135,14 @@ return [
         ),
     ],
 
+    // Render do corte editado (endpoint /reframe do mesmo serviço :8790).
+    'reframe' => [
+        'webhook_url' => env(
+            'REFRAME_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/reframe',
+        ),
+    ],
+
     'observability' => [
         // Token compartilhado dos endpoints /api/observability/* (header
         // X-Observability-Token). Precisa bater com o OBSERVABILITY_TOKEN

@@ -11,10 +11,8 @@ interface CutWire {
 }
 
 export class TrimEditor {
-    // Espelha VideoCut::MAX_DURATION_SECONDS — o addCut do Livewire revalida.
     private static readonly MAX_CUT_SECONDS = 180;
 
-    // ponytail: contagem fixa de tiles; densidade por largura do container se precisar.
     private static readonly TILE_COUNT = 16;
 
     public a = 0;
@@ -71,8 +69,6 @@ export class TrimEditor {
         this.dragging = which;
         (event.target as HTMLElement).setPointerCapture?.(event.pointerId);
 
-        // Agarra a janela pelo meio: guarda o ponto do clique e a largura pra
-        // arrastar início+fim juntos sem saltar pro cursor.
         if (which === 'window') {
             this.windowAnchor = {
                 time: this.fraction(event) * this.duration,
@@ -91,8 +87,6 @@ export class TrimEditor {
             return;
         }
 
-        // Botão solto = drag acabou: mata estado preso caso o pointerup se perca
-        // (pointer capture retargeta eventos e o pointermove chega de qualquer lugar).
         if (event.buttons === 0) {
             this.dragging = null;
             this.windowAnchor = null;
@@ -232,9 +226,6 @@ export class TrimEditor {
         return Timecode.format(seconds);
     }
 
-    // Pontas independentes: cada handle só mexe no seu extremo, travado no corte
-    // máximo (3 min) e sem cruzar o outro. Reposicionar a janela é no arraste do
-    // meio (moveWindow), que preserva a duração.
     private setStart(time: number): void {
         const floor = Math.max(0, this.b - TrimEditor.MAX_CUT_SECONDS);
 

@@ -44,6 +44,7 @@ export interface ReframeSettings {
 
 export interface ReframePayload {
     editId: number | null;
+    renderStatus: string | null;
     videoUrl: string | null;
     mode: string;
     keyframes: RawKeyframe[];

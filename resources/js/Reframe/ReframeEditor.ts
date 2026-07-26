@@ -39,6 +39,10 @@ export class ReframeEditor {
 
     public saving = false;
 
+    public renderStatus: string | null = null;
+
+    public generating = false;
+
     public speed = 1;
 
     public timelineZoom = 1;
@@ -54,6 +58,7 @@ export class ReframeEditor {
     public $wire!: {
         saveEdit: (payload: unknown) => Promise<number | null>;
         refreshUrl: () => Promise<string | null>;
+        generateRender: () => Promise<string | null>;
     };
 
     public $dispatch!: (event: string, detail: unknown) => void;
@@ -90,12 +95,13 @@ export class ReframeEditor {
 
     private _recovering = false;
 
+    private _recoverAttempts = 0;
+
     public constructor(initial: ReframePayload) {
         this.editId = initial.editId;
+        this.renderStatus = initial.renderStatus;
         this.videoUrl = initial.videoUrl;
-        // Modos removidos do produto (ex.: spotlight) caem no vertical.
         this.mode = ReframeModes.exists(initial.mode) ? initial.mode : 'vertical';
-        // Edits antigos não tinham modo por keyframe: herda o modo global.
         this.keyframes = initial.keyframes.map((keyframe) => {
             const mode = keyframe.mode ?? initial.mode;
 
@@ -128,13 +134,24 @@ export class ReframeEditor {
         this._video.addEventListener('play', () => {
             this.playing = true;
         });
+        this._video.addEventListener('playing', () => {
+            this._recoverAttempts = 0;
+        });
         this._video.addEventListener('pause', () => {
             this.playing = false;
         });
-        // Só re-assina em erro FATAL de mídia (src morto). Um 'error' transitório
-        // durante o play não pode resetar o src, senão o vídeo pausa sozinho.
         this._video.addEventListener('error', () => {
-            if (this._video.error !== null) void this.recoverVideoUrl();
+            const code = this._video.error?.code;
+            const recoverable =
+                code === MediaError.MEDIA_ERR_NETWORK ||
+                code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED;
+
+            if (recoverable && this._recoverAttempts < 3) {
+                this._recoverAttempts += 1;
+                void this.recoverVideoUrl();
+            } else if (code !== undefined) {
+                ClientLogger.send('warning', `Vídeo do editor falhou (código ${String(code)}).`);
+            }
         });
 
         this._onVisibility = () => {
@@ -168,6 +185,12 @@ export class ReframeEditor {
 
     public togglePlay(): void {
         if (!this.duration) return;
+
+        if (this._video.error !== null) {
+            void this.recoverVideoUrl(true);
+
+            return;
+        }
 
         if (this._video.paused) {
             this._video
@@ -207,12 +230,13 @@ export class ReframeEditor {
     }
 
     public timelineTicks(): { pct: number; label: string | null }[] {
-        if (!this.duration) return [];
+        if (!this.duration || !Number.isFinite(this.duration)) return [];
 
         const minorStep = 2.5;
         const ticks: { pct: number; label: string | null }[] = [];
+        const count = Math.min(2000, Math.floor(this.duration / minorStep) + 1);
 
-        for (let index = 0; index * minorStep <= this.duration; index += 1) {
+        for (let index = 0; index < count; index += 1) {
             const t = index * minorStep;
             ticks.push({
                 pct: (t / this.duration) * 100,
@@ -342,8 +366,6 @@ export class ReframeEditor {
         if (this.keyframes[index] === undefined) return;
         this.snapshot();
 
-        // Apagar a última posição não deixa o editor sem crop: volta ao padrão
-        // zerado (uma posição vertical em t=0).
         if (this.keyframes.length === 1) {
             this.mode = 'vertical';
             this.keyframes = [this.defaultKeyframe()];
@@ -359,11 +381,6 @@ export class ReframeEditor {
         this._needsDraw = true;
     }
 
-    /**
-     * Troca o modo NO TEMPO ATUAL: cria (ou reaproveita) o keyframe do playhead
-     * e grava o modo nele — cada trecho do vídeo pode ter um enquadramento.
-     * Os keyframes anteriores e posteriores ficam intactos.
-     */
     public setMode(mode: string): void {
         if (!ReframeModes.exists(mode) || !this.duration) return;
 
@@ -449,10 +466,6 @@ export class ReframeEditor {
         return ReframeEditor.REGION_COLORS[index % ReframeEditor.REGION_COLORS.length]!.text;
     }
 
-    /**
-     * Ampliação da região na saída: px do slot ÷ px da fonte recortada.
-     * O mesmo "1.5x" que o crop mostra no canto — 1x = pixel a pixel.
-     */
     public regionScale(index: number): string {
         const regions = this.regionsAt(this.currentTime);
         const region = regions?.[index];
@@ -517,14 +530,12 @@ export class ReframeEditor {
         },
     ];
 
-    /**
-     * Segmentos derivados dos keyframes pra lista "Posições do Crop": cada
-     * keyframe vale do seu tempo até o próximo (ou o fim do vídeo).
-     */
     public cropSegments(): {
         i: number;
         startLabel: string;
         endLabel: string;
+        startSec: number;
+        endSec: number;
         modeLabel: string;
         leftPct: number;
         widthPct: number;
@@ -539,6 +550,8 @@ export class ReframeEditor {
                 i,
                 startLabel: ReframeEditor.fmtTime(keyframe.t),
                 endLabel: ReframeEditor.fmtTime(end),
+                startSec: keyframe.t,
+                endSec: end,
                 modeLabel: ReframeModes.get(keyframe.mode).label,
                 leftPct: (keyframe.t / this.duration) * 100,
                 widthPct: Math.max(2, ((end - keyframe.t) / this.duration) * 100),
@@ -636,7 +649,6 @@ export class ReframeEditor {
         const region = this.regionsAt(this._video.currentTime)?.[this.activeRegion];
         if (region === undefined) return;
 
-        // kfIndex -1 = gesto ainda é clique: nada muta até o 1º movimento real.
         this._drag = {
             type,
             pointerId: event.pointerId,
@@ -756,7 +768,32 @@ export class ReframeEditor {
         }
     }
 
-    public async recoverVideoUrl(): Promise<void> {
+    public async generate(): Promise<void> {
+        if (this.generating || this.renderStatus === 'generating' || !this.duration) return;
+        this.generating = true;
+
+        try {
+            if (this.dirty || this.editId === null) {
+                await this.save();
+                if (this.dirty || this.editId === null) return;
+            }
+
+            const status = await this.$wire.generateRender();
+            if (status !== null) this.renderStatus = status;
+        } catch (error) {
+            ClientLogger.send('error', `Falha ao gerar o corte editado: ${String(error)}`, {
+                editId: this.editId,
+            });
+            this.$dispatch('toast', {
+                message: 'Não foi possível gerar o corte. Tente de novo.',
+                variant: 'error',
+            });
+        } finally {
+            this.generating = false;
+        }
+    }
+
+    public async recoverVideoUrl(forcePlay = false): Promise<void> {
         if (this._recovering) return;
         this._recovering = true;
 
@@ -765,7 +802,7 @@ export class ReframeEditor {
             if (!url) return;
 
             const t = this._video.currentTime;
-            const wasPlaying = !this._video.paused;
+            const wasPlaying = forcePlay || !this._video.paused;
             this.videoUrl = url;
             this._video.src = url;
             this._video.addEventListener(
@@ -787,8 +824,21 @@ export class ReframeEditor {
         return ReframeGeometry.regionsAt(this.keyframes, t);
     }
 
+    private resolveDuration(): number {
+        const raw = this._video.duration;
+        if (Number.isFinite(raw) && raw > 0) return raw;
+
+        const seekable = this._video.seekable;
+        if (seekable.length > 0) {
+            const end = seekable.end(seekable.length - 1);
+            if (Number.isFinite(end) && end > 0) return end;
+        }
+
+        return 0;
+    }
+
     private handleMetadata(): void {
-        this.duration = this._video.duration;
+        this.duration = this.resolveDuration();
         const stage = this.$refs.stage;
 
         if (stage) {
