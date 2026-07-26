@@ -1,6 +1,5 @@
 import { TrimEditor } from './TrimEditor.ts';
 
-// Roda com `node resources/js/Trim/TrimEditor.check.ts` (type stripping nativo).
 function assert(condition: boolean, message: string): void {
     if (!condition) {
         throw new Error(`TrimEditor.check: ${message}`);

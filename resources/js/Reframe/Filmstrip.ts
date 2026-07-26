@@ -1,8 +1,3 @@
-/**
- * Gera as miniaturas da timeline a partir do próprio vídeo, no navegador:
- * um <video> clone (não interfere na reprodução do editor) faz seeks
- * sequenciais e cada frame vira um JPEG 9:16 via canvas.
- */
 export class Filmstrip {
     public static readonly THUMB_WIDTH = 36;
 
@@ -36,8 +31,6 @@ export class Filmstrip {
         if (!context) return;
 
         for (let index = 0; index < count; index += 1) {
-            // Um só decoder de vídeo ativo por vez: enquanto o player toca, o
-            // clone espera. Senão os dois disputam o decoder e o player trava.
             while (!canProceed()) {
                 await new Promise<void>((resolve) => setTimeout(resolve, 200));
             }

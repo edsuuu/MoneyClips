@@ -280,13 +280,10 @@ export class VideoPlayer {
 
         const video = this.video();
         this.switching = true;
-        // Pausa áudio+vídeo durante a troca: o hls.js troca "seamless" e o áudio
-        // continuaria tocando enquanto a imagem recarrega, dessincronizando.
         this.resumeAfterSwitch = !video.paused;
         video.pause();
 
         window.clearTimeout(this.switchTimer);
-        // teto: se LEVEL_SWITCHED não vier (troca já bufferada), destrava e retoma.
         this.switchTimer = window.setTimeout(() => this.finishSwitch(), 4000);
         this.hls.currentLevel = index;
     }
@@ -330,8 +327,6 @@ export class VideoPlayer {
         return (this.$refs.captions as HTMLTrackElement | undefined)?.track ?? null;
     }
 
-    // Após editar a legenda o transcript.json muda, mas o <track> já parseou as
-    // cues antigas. Trocar o src (cache-bust) força o re-fetch das novas sem F5.
     public reloadCaptions(): void {
         const element = this.$refs.captions as HTMLTrackElement | undefined;
 
@@ -359,9 +354,6 @@ export class VideoPlayer {
             : wrapper.requestFullscreen().catch(() => undefined));
     }
 
-    // Atalhos: só disparam com o player focado (o wrapper tem tabindex e recebe
-    // foco no clique). Enquanto o foco está num input — ex.: editor de legenda —
-    // eles não chegam aqui.
     public onKey(event: KeyboardEvent): void {
         const video = this.video();
         const STEP = 0.05;
