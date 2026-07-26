@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace App\Livewire\VideoEditor;
 
-use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
-use App\Livewire\Concerns\EditsTranscript;
+use App\Jobs\StartReframeRenderJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\ReframeEdit;
 use App\Models\VideoCut;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\View\View;
 use Livewire\Component;
 
 final class Index extends Component
 {
-    use EditsTranscript;
     use WithToasts;
 
     public const string DEFAULT_MODE = 'vertical';
@@ -97,15 +96,47 @@ final class Index extends Component
     }
 
     /**
-     * Só o texto é editável — start/end vêm do transcriber (autoritativo) e
-     * nunca do cliente. Aplica text por índice, igual ao editor do vídeo longo.
-     *
-     * @param  list<array{i?: mixed, text?: mixed}>  $edits
+     * Claim atômico do render: só uma geração por vez por edição. O desfecho
+     * chega pelo webhook /api/webhook/reframe. Retorna o status novo pro
+     * Alpine, ou null quando nada foi disparado.
      */
-    /** @param  list<array{i?: mixed, text?: mixed}>  $edits */
-    public function saveTranscript(array $edits): bool
+    public function generateRender(): ?string
     {
-        return $this->saveTranscriptText($this->cut->transcriptPath(), $edits);
+        $edit = $this->editId !== null
+            ? ReframeEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
+            : null;
+
+        if (! $edit instanceof ReframeEdit) {
+            $this->toast('Salve a edição antes de gerar o corte.', 'danger');
+
+            return null;
+        }
+
+        // ponytail: generating parado há 30 min é webhook perdido (serviço caiu
+        // depois do 202) — o re-claim manual destrava; watchdog em cron se doer.
+        $claimed = ReframeEdit::query()
+            ->whereKey($edit->id)
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('render_status')
+                ->orWhereIn('render_status', [VideoCutStatusEnum::Ready->value, VideoCutStatusEnum::Failed->value])
+                ->orWhere(fn (Builder $stale): Builder => $stale
+                    ->where('render_status', VideoCutStatusEnum::Generating->value)
+                    ->where('updated_at', '<', now()->subMinutes(30))))
+            ->update([
+                'render_status' => VideoCutStatusEnum::Generating,
+                'render_error' => null,
+            ]);
+
+        if ($claimed !== 1) {
+            $this->toast('Este corte editado já está em geração.', 'danger');
+
+            return null;
+        }
+
+        dispatch(new StartReframeRenderJob($edit->id));
+        $this->toast('Corte editado em geração — ele aparece em /meus-videos quando ficar pronto.');
+
+        return VideoCutStatusEnum::Generating->value;
     }
 
     private function latestEditId(): ?int
@@ -132,6 +163,7 @@ final class Index extends Component
 
         return [
             'editId' => $edit?->id,
+            'renderStatus' => $edit?->render_status?->value,
             'videoUrl' => $this->cut->presignedUrl(),
             'mode' => $edit->mode ?? self::DEFAULT_MODE,
             'keyframes' => $edit->keyframes ?? [],
@@ -278,10 +310,6 @@ final class Index extends Component
         return view('livewire.video-editor.index', [
             'editorPayload' => $this->editorPayload(),
             'backUrl' => route('uploads.show', $this->cut->video->uuid),
-            'transcriptSegments' => $this->transcriptSegmentsFrom(
-                $this->cut->transcriptPath(),
-                $this->cut->transcription_status === TranscriptionStatusEnum::Ready,
-            ),
         ]);
     }
 }

@@ -72,10 +72,19 @@ final class StartCutRenderJob implements ShouldQueue
     {
         $error = $exception?->getMessage() ?? 'Falha desconhecida ao iniciar a geração do corte.';
 
-        VideoCut::query()->whereKey($this->cutId)->update([
-            'status' => VideoCutStatusEnum::Failed,
-            'error' => $error,
-        ]);
+        // Guard simétrico ao claim do webhook: um "done" que chegou durante os
+        // retries não pode ser sobrescrito por failed.
+        $claimed = VideoCut::query()
+            ->whereKey($this->cutId)
+            ->where('status', VideoCutStatusEnum::Generating->value)
+            ->update([
+                'status' => VideoCutStatusEnum::Failed,
+                'error' => $error,
+            ]);
+
+        if ($claimed !== 1) {
+            return;
+        }
 
         resolve(DiscordNotifierService::class)->error(
             '❌ Geração de corte falhou ao iniciar',
