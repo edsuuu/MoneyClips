@@ -49,7 +49,7 @@
                                     :class="regionTextClass(i)" x-text="regionLabel(i)"></span>
                                 <template x-if="i === activeRegion">
                                     <div>
-                                        <span class="absolute right-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[11px] text-slate-200"
+                                        <span class="absolute right-1.5 top-1.5 rounded bg-black/70 px-1.5 py-0.5 font-mono text-[11px] text-white"
                                             x-text="regionScale(i)"></span>
 
                                         <div data-handle="n" style="touch-action: none" x-on:pointerdown.stop="onPointerDown($event, 'n')"
@@ -115,7 +115,7 @@
                         <template x-for="tab in regionTabs()" :key="tab.i">
                             <button type="button" x-on:click="setActiveRegion(tab.i)" x-text="tab.label"
                                 class="cursor-pointer rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition"
-                                :class="activeRegion === tab.i ? 'border-sky-400 bg-sky-400/10 text-sky-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"></button>
+                                :class="activeRegion === tab.i ? 'border-sky-400 bg-sky-400/10 text-sky-700 dark:text-sky-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"></button>
                         </template>
                     </div>
                 </div>
@@ -275,7 +275,7 @@
 
                 <div x-show="settings.captions" x-cloak>
                     <div class="pt-4">
-                        <div class="rounded-lg border border-slate-800/80 bg-slate-950/60 px-4 py-5">
+                        <div class="rounded-lg border border-slate-800/80 bg-black/85 px-4 py-5">
                             <p class="text-center text-base font-bold leading-relaxed tracking-wide" :style="`color: ${settings.captionColor}`">
                                 <span x-text="captionCaseText('suas legendas')"></span>
                                 <br />
@@ -305,7 +305,7 @@
                                 <template x-for="option in [{ v: 'sentence', label: 'Aa' }, { v: 'upper', label: 'AA' }, { v: 'lower', label: 'aa' }]" :key="option.v">
                                     <button type="button" x-on:click="settings.captionCase = option.v; markDirty()" x-text="option.label"
                                         class="cursor-pointer rounded-lg border px-3 py-1 text-xs font-semibold transition"
-                                        :class="settings.captionCase === option.v ? 'border-cyan-400 bg-cyan-400/10 text-cyan-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"></button>
+                                        :class="settings.captionCase === option.v ? 'border-cyan-400 bg-cyan-400/10 text-cyan-700 dark:text-cyan-300' : 'border-slate-700 text-slate-400 hover:border-slate-500'"></button>
                                 </template>
                             </div>
                         </div>
