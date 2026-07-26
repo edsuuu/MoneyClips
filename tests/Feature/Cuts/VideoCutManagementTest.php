@@ -6,8 +6,12 @@ use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
 use App\Jobs\StartCutRenderJob;
 use App\Livewire\Uploads\Show;
+use App\Models\File;
+use App\Models\ReframeEdit;
 use App\Models\Video;
+use App\Models\YoutubeShort;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 it('persists a cut with integer bounds and draft status', function (): void {
@@ -68,6 +72,7 @@ it('rejects a cut beyond the video duration', function (): void {
 });
 
 it('soft deletes a cut and ignores cuts of other videos', function (): void {
+    Storage::fake('s3');
     $video = Video::factory()->ready()->create();
     $other = Video::factory()->ready()->create();
     $cut = $video->cuts()->create(['start_seconds' => 1, 'end_seconds' => 10]);
@@ -80,6 +85,100 @@ it('soft deletes a cut and ignores cuts of other videos', function (): void {
 
     expect($cut->fresh()?->trashed())->toBeTrue()
         ->and($foreign->fresh()?->trashed())->toBeFalse();
+});
+
+it('does not delete a cut while it is generating', function (): void {
+    Storage::fake('s3');
+    $video = Video::factory()->ready()->create();
+    $cut = $video->cuts()->create([
+        'start_seconds' => 1,
+        'end_seconds' => 10,
+        'status' => VideoCutStatusEnum::Generating,
+    ]);
+
+    Livewire::actingAs($video->user)
+        ->test(Show::class, ['uuid' => $video->uuid])
+        ->call('removeCut', $cut->id);
+
+    expect($cut->fresh()?->trashed())->toBeFalse();
+});
+
+it('does not delete a cut while an edit render is generating', function (): void {
+    Storage::fake('s3');
+    $video = Video::factory()->ready()->create();
+    $cut = $video->cuts()->create([
+        'start_seconds' => 1,
+        'end_seconds' => 10,
+        'status' => VideoCutStatusEnum::Ready,
+    ]);
+    ReframeEdit::query()->create([
+        'video_cut_id' => $cut->id,
+        'source_path' => $cut->clipPath(),
+        'mode' => 'vertical',
+        'keyframes' => [],
+        'render_status' => VideoCutStatusEnum::Generating,
+    ]);
+
+    Livewire::actingAs($video->user)
+        ->test(Show::class, ['uuid' => $video->uuid])
+        ->call('removeCut', $cut->id);
+
+    expect($cut->fresh()?->trashed())->toBeFalse();
+});
+
+it('removes unposted reframe shorts together with the cut', function (): void {
+    Storage::fake('s3');
+    $video = Video::factory()->ready()->create();
+    $cut = $video->cuts()->create([
+        'start_seconds' => 1,
+        'end_seconds' => 10,
+        'status' => VideoCutStatusEnum::Ready,
+    ]);
+    $edit = ReframeEdit::query()->create([
+        'video_cut_id' => $cut->id,
+        'source_path' => $cut->clipPath(),
+        'mode' => 'vertical',
+        'keyframes' => [],
+        'render_status' => VideoCutStatusEnum::Ready,
+    ]);
+    $unposted = YoutubeShort::query()->create([
+        'youtube_id' => 'reframe-'.$edit->uuid,
+        'video_path' => 'videos/x/edits/y/vertical.mp4',
+        'downloaded_at' => now(),
+    ]);
+
+    Livewire::actingAs($video->user)
+        ->test(Show::class, ['uuid' => $video->uuid])
+        ->call('removeCut', $cut->id);
+
+    expect($cut->fresh()?->trashed())->toBeTrue()
+        ->and(YoutubeShort::query()->whereKey($unposted->id)->exists())->toBeFalse();
+});
+
+it('wipes the s3 artifacts and file rows when deleting a ready cut', function (): void {
+    Storage::fake('s3');
+    $video = Video::factory()->ready()->create();
+    $cut = $video->cuts()->create([
+        'start_seconds' => 1,
+        'end_seconds' => 10,
+        'status' => VideoCutStatusEnum::Ready,
+    ]);
+    Storage::disk('s3')->put($cut->clipPath(), 'clip');
+    Storage::disk('s3')->put($cut->transcriptPath(), '{}');
+    $file = $cut->files()->create([
+        'video_id' => $video->id,
+        'type' => File::CLIP,
+        'path' => $cut->clipPath(),
+    ]);
+
+    Livewire::actingAs($video->user)
+        ->test(Show::class, ['uuid' => $video->uuid])
+        ->call('removeCut', $cut->id);
+
+    expect($cut->fresh()?->trashed())->toBeTrue()
+        ->and(Storage::disk('s3')->exists($cut->clipPath()))->toBeFalse()
+        ->and(Storage::disk('s3')->exists($cut->transcriptPath()))->toBeFalse()
+        ->and(File::query()->whereKey($file->id)->exists())->toBeFalse();
 });
 
 it('claims the cut and dispatches the render job exactly once', function (): void {

@@ -1,12 +1,11 @@
-import { randomUUID } from 'node:crypto';
 import { mkdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { settings } from '@/Config/Env';
-import { Logger } from '@/Config/Logger';
 import { FfmpegRunner } from '@/Services/Caption/FfmpegRunner';
 import { S3Storage } from '@/Services/S3Storage';
+import { SerialQueueService } from '@/Services/SerialQueueService';
 import { Probe } from '@/Services/Video/Probe';
 import { WebhookService } from '@/Services/WebhookService';
 
@@ -27,10 +26,7 @@ interface CutJob {
  * mesma passada, pro Laravel mandar transcrever. Fila serial em promise-chain,
  * como as demais — ffmpeg monopoliza CPU/GPU.
  */
-export class CutQueueService extends Logger {
-    private chain: Promise<unknown> = Promise.resolve();
-    private pending = 0;
-
+export class CutQueueService extends SerialQueueService<CutJob> {
     public constructor(
         private readonly storage: S3Storage = new S3Storage(),
         private readonly probe: Probe = new Probe(),
@@ -40,32 +36,7 @@ export class CutQueueService extends Logger {
         super();
     }
 
-    public size(): number {
-        return this.pending;
-    }
-
-    public enqueue(input: Omit<CutJob, 'uuid'>): string {
-        const job: CutJob = { uuid: randomUUID(), ...input };
-        this.pending += 1;
-
-        const run = async (): Promise<void> => {
-            try {
-                await this.process(job);
-            } finally {
-                this.pending -= 1;
-            }
-        };
-
-        this.chain = this.chain.then(run, run).catch(() => undefined);
-
-        return job.uuid;
-    }
-
-    public async drain(): Promise<void> {
-        await this.chain;
-    }
-
-    private async process(job: CutJob): Promise<void> {
+    protected async process(job: CutJob): Promise<void> {
         const jobDir = join(this.workRoot(), job.uuid);
         const duration = job.endSeconds - job.startSeconds;
 
@@ -90,7 +61,18 @@ export class CutQueueService extends Logger {
                     String(duration),
                     '-i',
                     'source',
+                    // Fonte 4K vira H.264 level 6.0, que o decoder de hardware do
+                    // navegador não toca (MEDIA_ERR_DECODE logo no início). Cap em
+                    // 1080p (sai level 5.0 — o preset slower usa 8 ref frames) + teto
+                    // de bitrate = decodável em qualquer navegador; o reframe gera
+                    // 1080x1920, então 4K é desnecessário.
+                    '-vf',
+                    "scale='min(1920,iw)':'min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
                     ...encoderArgs,
+                    '-maxrate',
+                    '12M',
+                    '-bufsize',
+                    '24M',
                     '-c:a',
                     'aac',
                     '-b:a',

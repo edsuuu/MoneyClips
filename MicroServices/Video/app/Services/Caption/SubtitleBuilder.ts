@@ -47,6 +47,8 @@ export interface SubtitleGeometry {
     alignment?: number;
     marginVOverride?: number | null;
     offset?: number | null;
+    primaryColor?: string;
+    textTransform?: 'upper' | 'lower' | 'none';
 }
 
 interface Word {
@@ -190,7 +192,7 @@ export class SubtitleBuilder {
 
                 events.push(
                     `Dialogue: 0,${this.formatAssTime(start)},${this.formatAssTime(end)},` +
-                        `Default,,0,0,0,,${this.highlightLine(line, index)}`,
+                        `Default,,0,0,0,,${this.highlightLine(line, index, geometry)}`,
                 );
             }
         }
@@ -198,16 +200,16 @@ export class SubtitleBuilder {
         return `${this.assHeader(geometry) + events.join('\n')}\n`;
     }
 
-    private highlightLine(line: Line, activeIndex: number): string {
+    private highlightLine(line: Line, activeIndex: number, geometry: SubtitleGeometry): string {
         const highlight = this.colorTag(settings.highlightColor);
-        const white = this.colorTag(WHITE);
+        const primary = this.colorTag(geometry.primaryColor ?? WHITE);
 
         return line.words
             .map((word, index) => {
-                const token = word.text.toUpperCase();
+                const token = this.transformToken(word.text, geometry.textTransform ?? 'upper');
 
                 if (index === activeIndex) {
-                    return `{\\c${highlight}}${token}{\\c${white}}`;
+                    return `{\\c${highlight}}${token}{\\c${primary}}`;
                 }
 
                 if (settings.hideFutureWords && index > activeIndex) {
@@ -234,20 +236,52 @@ export class SubtitleBuilder {
         const marginLr = Math.max(10, Math.round(40 * scaleH));
         const highlight = settings.highlightColor.trim().replace(/&+$/u, '');
 
-        return `[Script Info]
-ScriptType: v4.00+
-PlayResX: ${String(width)}
-PlayResY: ${String(height)}
-WrapStyle: 0
-ScaledBorderAndShadow: yes
+        const style = [
+            'Default',
+            settings.fontName,
+            String(fontSize),
+            geometry.primaryColor ?? WHITE,
+            highlight,
+            '&H00000000',
+            '&H64000000',
+            '-1',
+            '-1',
+            '0',
+            '0',
+            '100',
+            '100',
+            '0',
+            '0',
+            '1',
+            String(outline),
+            String(shadow),
+            String(alignment),
+            String(marginLr),
+            String(marginLr),
+            String(marginV),
+            '1',
+        ];
 
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Default,${settings.fontName},${String(fontSize)},${WHITE},${highlight},&H00000000,&H64000000,-1,-1,0,0,100,100,0,0,1,${String(outline)},${String(shadow)},${String(alignment)},${String(marginLr)},${String(marginLr)},${String(marginV)},1
+        return [
+            '[Script Info]',
+            'ScriptType: v4.00+',
+            `PlayResX: ${String(width)}`,
+            `PlayResY: ${String(height)}`,
+            'WrapStyle: 0',
+            'ScaledBorderAndShadow: yes',
+            '',
+            '[V4+ Styles]',
+            'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
+            `Style: ${style.join(',')}`,
+            '',
+            '[Events]',
+            'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
+            '',
+        ].join('\n');
+    }
 
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-`;
+    private transformToken(text: string, transform: 'upper' | 'lower' | 'none'): string {
+        return { upper: text.toUpperCase(), lower: text.toLowerCase(), none: text }[transform];
     }
 
     private colorTag(color: string): string {
