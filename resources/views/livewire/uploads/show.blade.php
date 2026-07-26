@@ -400,35 +400,14 @@
                             </div>
 
                             <div class="mt-2 flex items-center gap-2">
-                                @if ($cut['isReady'])
-                                    <button
-                                        type="button"
-                                        x-on:click="playRange({{ $cut['start'] }}, {{ $cut['end'] }})"
-                                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700"
-                                    >
-                                        Clip Horizontal
-                                        <x-ui.icon name="computer-desktop" class="size-3.5" />
-                                    </button>
-                                @else
-                                    <button
-                                        type="button"
-                                        wire:click="generateCut({{ $cut['id'] }})"
-                                        @disabled($cut['isGenerating'])
-                                        class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        Clip Horizontal
-                                        <x-ui.icon name="computer-desktop" class="size-3.5" />
-                                    </button>
-                                @endif
-
                                 @if ($cut['editorUrl'] !== null)
                                     <a
                                         href="{{ $cut['editorUrl'] }}"
                                         wire:navigate
                                         class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700"
                                     >
-                                        Clip Vertical
-                                        <x-ui.icon name="device-phone-mobile" class="size-3.5" />
+                                        Editor
+                                        <x-ui.icon name="pencil-square" class="size-3.5" />
                                     </a>
                                 @else
                                     <button
@@ -437,29 +416,36 @@
                                         @disabled($cut['isGenerating'])
                                         class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
-                                        Clip Vertical
-                                        <x-ui.icon name="device-phone-mobile" class="size-3.5" />
+                                        @if ($cut['isGenerating'])
+                                            <x-ui.icon name="loading" class="size-3.5" />
+                                            Gerando…
+                                        @else
+                                            <x-ui.icon name="scissors" class="size-3.5" />
+                                            Gerar corte
+                                        @endif
                                     </button>
                                 @endif
 
-                                <button
-                                    type="button"
-                                    x-show="!confirmingDelete"
-                                    x-on:click="confirmingDelete = true"
-                                    class="ml-auto shrink-0 cursor-pointer rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-red-500 dark:hover:text-red-400"
-                                    aria-label="Remover corte"
-                                >
-                                    <x-ui.icon name="x-mark" class="size-4" />
-                                </button>
-                                <button
-                                    type="button"
-                                    x-show="confirmingDelete"
-                                    x-cloak
-                                    wire:click="removeCut({{ $cut['id'] }})"
-                                    class="ml-auto shrink-0 cursor-pointer rounded-md bg-red-500/15 px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-500/25 dark:text-red-400"
-                                >
-                                    Apagar?
-                                </button>
+                                @unless ($cut['isGenerating'])
+                                    <button
+                                        type="button"
+                                        x-show="!confirmingDelete"
+                                        x-on:click="confirmingDelete = true"
+                                        class="ml-auto shrink-0 cursor-pointer rounded-md p-1 text-slate-500 transition hover:bg-slate-800 hover:text-red-500 dark:hover:text-red-400"
+                                        aria-label="Remover corte"
+                                    >
+                                        <x-ui.icon name="x-mark" class="size-4" />
+                                    </button>
+                                    <button
+                                        type="button"
+                                        x-show="confirmingDelete"
+                                        x-cloak
+                                        wire:click="removeCut({{ $cut['id'] }})"
+                                        class="ml-auto shrink-0 cursor-pointer rounded-md bg-red-500/15 px-2 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-500/25 dark:text-red-400"
+                                    >
+                                        Apagar?
+                                    </button>
+                                @endunless
                             </div>
                         </div>
                     @endforeach
