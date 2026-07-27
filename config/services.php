@@ -140,10 +140,10 @@ return [
     ],
 
     // Render do corte editado (endpoint /reframe do mesmo serviço :8790).
-    'reframe' => [
+    'video_cut_edit' => [
         'webhook_url' => env(
-            'REFRAME_WEBHOOK_URL',
-            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/reframe',
+            'VIDEO_CUT_EDIT_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/video-cut-edit',
         ),
     ],
 

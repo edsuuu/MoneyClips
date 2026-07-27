@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\VideoCutStatusEnum;
-use Database\Factories\ReframeEditFactory;
+use Database\Factories\VideoCutEditFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,33 +13,34 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * Estado de uma edição de reframe/crop do /editor-de-video. Coordenadas
- * dos keyframes são normalizadas (0–1) em relação ao tamanho natural da
- * fonte — o render ffmpeg futuro multiplica por iw/ih reais.
+ * Estado de uma edição (crop 9:16 por keyframes) de um corte. Coordenadas dos
+ * keyframes são normalizadas (0–1) em relação ao tamanho natural da fonte — o
+ * render ffmpeg multiplica por iw/ih reais. A fonte é o clipe do corte pai; o
+ * resultado do render vira uma row em `files` (type `edit`).
  *
  * @property int $id
  * @property string $uuid
  * @property int|null $youtube_short_id
  * @property int|null $video_cut_id
- * @property string $source_path
  * @property array{width: int, height: int, duration: float}|null $source_meta
  * @property string $mode
  * @property list<array{t: float, regions: list<array{x: float, y: float, w: float, h: float}>}> $keyframes
  * @property array{version: int, background: string, captions?: bool, captionColor?: string, captionCase?: string}|null $settings
  * @property VideoCutStatusEnum|null $render_status
- * @property string|null $rendered_path
  * @property string|null $render_error
  * @property-read YoutubeShort|null $youtubeShort
  * @property-read VideoCut|null $videoCut
  */
-final class ReframeEdit extends Model
+final class VideoCutEdit extends Model
 {
-    /** @use HasFactory<ReframeEditFactory> */
+    /** @use HasFactory<VideoCutEditFactory> */
     use HasFactory;
 
+    protected $table = 'video_cuts_edits';
+
     protected $fillable = [
-        'uuid', 'youtube_short_id', 'video_cut_id', 'source_path', 'source_meta',
-        'mode', 'keyframes', 'settings', 'render_status', 'rendered_path', 'render_error',
+        'uuid', 'youtube_short_id', 'video_cut_id', 'source_meta',
+        'mode', 'keyframes', 'settings', 'render_status', 'render_error',
     ];
 
     public function renderOutputPath(): string

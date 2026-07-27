@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\AutoPost;
 
-use App\Models\PlatformSetting;
+use App\Helpers\Platforms;
 use App\Models\ScheduleSlot;
 use Carbon\CarbonImmutable;
 
@@ -71,7 +71,7 @@ final class SlotStatusService
 
             $platforms[] = [
                 'platform' => $post->platform,
-                'name' => PlatformSetting::displayName($post->platform),
+                'name' => Platforms::name($post->platform),
                 'ok' => $isSuccess,
                 'pending' => $isPending,
                 'reason' => $post->error,

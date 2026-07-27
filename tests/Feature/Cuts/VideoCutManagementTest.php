@@ -7,8 +7,8 @@ use App\Enums\VideoCutStatusEnum;
 use App\Jobs\StartCutRenderJob;
 use App\Livewire\Uploads\Show;
 use App\Models\File;
-use App\Models\ReframeEdit;
 use App\Models\Video;
+use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Storage;
@@ -111,9 +111,8 @@ it('does not delete a cut while an edit render is generating', function (): void
         'end_seconds' => 10,
         'status' => VideoCutStatusEnum::Ready,
     ]);
-    ReframeEdit::query()->create([
+    VideoCutEdit::query()->create([
         'video_cut_id' => $cut->id,
-        'source_path' => $cut->clipPath(),
         'mode' => 'vertical',
         'keyframes' => [],
         'render_status' => VideoCutStatusEnum::Generating,
@@ -134,9 +133,8 @@ it('removes unposted reframe shorts together with the cut', function (): void {
         'end_seconds' => 10,
         'status' => VideoCutStatusEnum::Ready,
     ]);
-    $edit = ReframeEdit::query()->create([
+    $edit = VideoCutEdit::query()->create([
         'video_cut_id' => $cut->id,
-        'source_path' => $cut->clipPath(),
         'mode' => 'vertical',
         'keyframes' => [],
         'render_status' => VideoCutStatusEnum::Ready,

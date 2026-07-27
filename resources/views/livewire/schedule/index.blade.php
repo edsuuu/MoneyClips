@@ -54,31 +54,6 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-2">
-        @foreach ($platforms as $platform)
-            <button
-                type="button"
-                wire:key="platform-{{ $platform['platform'] }}"
-                aria-pressed="{{ $platform['enabled'] ? 'true' : 'false' }}"
-                @if ($platform['implemented']) wire:click="togglePlatform('{{ $platform['platform'] }}')" @else title="Em breve" @endif
-                @class([
-                    'flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition',
-                    'cursor-pointer border-emerald-500/40 bg-emerald-950/30 text-emerald-300' => $platform['implemented'] && $platform['enabled'],
-                    'cursor-pointer border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200' => $platform['implemented'] && ! $platform['enabled'],
-                    'cursor-not-allowed border-slate-800 bg-slate-900/50 text-slate-600' => ! $platform['implemented'],
-                ])
-            >
-                <span @class([
-                    'size-1.5 rounded-full',
-                    'bg-emerald-400' => $platform['enabled'],
-                    'bg-slate-600' => ! $platform['enabled'],
-                ])></span>
-                {{ $platform['name'] }}
-                @unless ($platform['implemented'])
-                    <span class="font-mono text-[9px] uppercase tracking-wider text-slate-600">breve</span>
-                @endunless
-            </button>
-        @endforeach
-
         <button
             type="button"
             wire:click="toggleRandomMode"
