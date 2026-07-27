@@ -1,0 +1,12 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+python-multipart>=0.0.9
+yt-dlp>=2025.1.15
+boto3>=1.34.0
+httpx>=0.28.0
+# Transcricao. Em producao (Linux/NVIDIA), torch com CUDA e instalado A PARTE
+# antes deste arquivo (a build default do PyPI e CPU-only):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124
+faster-whisper>=1.1

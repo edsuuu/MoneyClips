@@ -203,7 +203,7 @@
             <div class="flex flex-col gap-4 p-6">
                 <div>
                     <div class="text-lg font-extrabold">Novo download</div>
-                    <div class="mt-1 text-[13px] text-slate-500">Baixa os Shorts de um canal do YouTube pro estoque (via microserviço download-shorts).</div>
+                    <div class="mt-1 text-[13px] text-slate-500">Baixa os Shorts de um canal do YouTube pro estoque (via microserviço media).</div>
                 </div>
                 <div>
                     <div class="mb-1.5 text-[12.5px] font-bold">URL do canal</div>

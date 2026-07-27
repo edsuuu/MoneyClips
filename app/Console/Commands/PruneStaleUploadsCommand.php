@@ -98,7 +98,7 @@ final class PruneStaleUploadsCommand extends Command
             $downloading = $video->status === VideoStatusEnum::Downloading;
             $error = $downloading
                 ? sprintf(
-                    'Download do YouTube sem sinal há mais de %dh. O serviço download-youtube pode ter caído antes do webhook.',
+                    'Download do YouTube sem sinal há mais de %dh. O serviço media pode ter caído antes do webhook.',
                     self::SILENT_HOURS,
                 )
                 : sprintf(
