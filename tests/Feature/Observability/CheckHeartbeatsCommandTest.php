@@ -32,7 +32,7 @@ it('alerts once per outage and announces recovery', function (): void {
 
 it('stays silent while services are healthy', function (): void {
     ServiceHeartbeat::query()->create([
-        'service' => 'download-shorts',
+        'service' => 'download-youtube',
         'uptime_seconds' => 100,
         'last_seen_at' => now()->subSeconds(30),
     ]);

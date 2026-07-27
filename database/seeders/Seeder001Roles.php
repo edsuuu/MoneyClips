@@ -14,7 +14,7 @@ final class Seeder001Roles extends Seeder
      */
     public function run(): void
     {
-        Role::query()->updateOrCreate(['name' => 'Administrador']);
+        Role::query()->updateOrCreate(['name' => 'Tecnologia']);
         Role::query()->updateOrCreate(['name' => 'Cliente']);
     }
 }

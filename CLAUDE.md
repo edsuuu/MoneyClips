@@ -26,7 +26,7 @@ o Laravel baixa o vídeo do MinIO, envia o binário por HTTP (multipart) e grava
 o resultado de volta. **Duas exceções**, ambas por inviabilidade de trafegar o
 volume por HTTP:
 
-1. `download-shorts` (produtor de vídeo) sobe direto pro MinIO.
+1. `download-youtube` (produtor de vídeo) sobe direto pro MinIO.
 2. os endpoints por chave de storage do serviço `video` (`/package`, `/cut`,
    `/reframe`) — HLS vira **milhares** de segmentos e cortes/renders trafegam
    GBs; o serviço lê a fonte e escreve a saída direto no MinIO com credencial
@@ -40,7 +40,7 @@ contorna `upload_max_filesize`/`post_max_size` e dá retomada em arquivos de GBs
 ## Domínio: agenda em banco + estoque
 
 ```
-download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
+download-youtube (FastAPI) → MinIO + youtube_shorts (estoque)
   → /meus-videos: revisão (título/hashtags) → ready_at
       → opcional: reencode (síncrono) OU template (assíncrono) — ambos no Video
   → /agenda: schedule_slots (data+hora+vídeo) → AutoPostDispatcherService (cron)
@@ -74,7 +74,7 @@ download-shorts (FastAPI) → MinIO + youtube_shorts (estoque)
   Posting API oficial, stub), `Api/Meta/{Instagram,Facebook}/`, `Api/Kwai/`,
   `Api/Discord/` (webhook).
 - **Clients de microserviço** espelham `MicroServices/` na raiz de Services:
-  `app/Services/{TikTokUploader,DownloadShorts,Reencode,AutoCaption,HLS}/` —
+  `app/Services/{TikTokUploader,DownloadYoutube,Reencode,AutoCaption,HLS}/` —
   `Reencode`, `AutoCaption` e `HLS` apontam todos pro serviço `Video` (:8790),
   em endpoints diferentes. (Os nomes `Reencode`/`AutoCaption` são herdados dos
   serviços que existiam antes da fusão; o alvo hoje é sempre o `Video`.)
@@ -156,8 +156,12 @@ Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
   YouTube Data API v3 (HTTP puro), chamado pelo `YoutubePosterService`.
   Credenciais em `social_accounts` (platform=`youtube`, OAuth Google, refresh
   via `YoutubeTokenRefresherService`). Connect em `/contas`. Download de
-  canal (client do microserviço): `App\Services\DownloadShorts\
-  {DownloadShortsService, DownloadYoutubeImportService}`.
+  canal (client do microserviço): `App\Services\DownloadYoutube\
+  {DownloadShortsService, DownloadYoutubeImportService}`. Import de vídeo
+  longo por URL (tela /upload): `App\Services\Upload\DownloadYoutubeService`
+  → `StartYoutubeDownloadJob` → webhook `/api/webhook/download-video`
+  (autenticado) fecha com claim `downloading → uploaded` e despacha o
+  `StartHLSPackagingJob` — dali em diante é o fluxo normal de upload.
 
 ### TikTok (não-oficial, Playwright)
 
@@ -208,7 +212,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | `platform_settings` | toggle global por plataforma (youtube, tiktok, tiktok_official, instagram, facebook, kwai) |
 | `schedule_slots` | agenda em banco: data+hora+vídeo, claim do dispatcher |
 | `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
-| `videos` | vídeos longos enviados em /upload: ciclo `awaiting_upload → uploaded → packaging → ready` + metadados do HLS |
+| `videos` | vídeos longos enviados em /upload (arquivo ou URL do YouTube): ciclo `awaiting_upload\|downloading → uploaded → packaging → ready` + metadados do HLS |
 | `youtube_shorts` | estoque; ciclo `ready_at` → `processed_video_path` → `posted_*_at` |
 | `social_posts` | ledger por (slot, plataforma) — status por plataforma na /agenda |
 | `processing_jobs` | estado do pipeline reencode/template |
@@ -220,7 +224,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | --- | --- | --- |
 | `/meus-videos` | `App\Livewire\Videos\Index` (+ `TemplateEditor`) | estoque com tabs Disponíveis (Baixados/Prontos), Editor de template, Com template, Postados; postagem instantânea; novo download |
 | `/agenda` | `App\Livewire\Schedule\Index` | kanban semanal de slots (rascunho + "Salvar agenda"), picker de vídeo, drag&drop, "Gerar semana", "Forçar agora", visão Mês, toggles por plataforma |
-| `/upload` | `App\Livewire\Uploads\Create` | envio de vídeo longo (multipart direto pro MinIO, com retomada) |
+| `/upload` | `App\Livewire\Uploads\Create` | envio de vídeo longo (multipart direto pro MinIO, com retomada) OU import por URL do YouTube (valida + preview → download no microserviço) |
 | `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo |
 | `/editor-de-video/{cut}` | `App\Livewire\VideoEditor\Index` | reframe do corte por keyframes (crop 9:16, modos, legendas) + "Gerar corte editado" → render no serviço `video` → estoque de `/meus-videos` |
 | `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok email/senha + status de sessão; YouTube OAuth) com toggle por conta |
@@ -233,7 +237,6 @@ final — nada de `Route::redirect` pra não mexer na navbar.
 
 | Comando | O que faz |
 | --- | --- |
-| `youtube:download-shorts <canal> [--limit=N]` | baixa Shorts do canal pra MinIO + banco |
 | `schedule:migrate-legacy` | one-shot do deploy: materializa `schedule_slots` da agenda legada |
 | `auto-post:check-missed` | alerta slots pulados/sem vídeo/falha total (10 min) |
 | `observability:check-heartbeats` | alerta serviço sem heartbeat > 90s (1 min) |
@@ -321,7 +324,7 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 
 | Serviço | Porta | Stack | Contrato |
 | --- | --- | --- | --- |
-| download-shorts | 8770 | FastAPI + yt-dlp | `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item; sobe direto pro MinIO (exceção da regra S3) |
+| download-youtube | 8770 | FastAPI + yt-dlp | `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item. `GET /videos/metadata?url=` → dados do vídeo (400 URL inválida/live, 404 indisponível). `POST /videos/download {url, video_uuid, video_key, webhook_url}` → 202; fila de 1 consumidor baixa em ≤1080p (fallback progressivo de formato), sobe na key EXATA e ecoa `{video_uuid, status: completed\|failed, size_bytes, ...}` com `X-Observability-Token`. Sobe direto pro MinIO (exceção da regra S3) |
 | tiktok-uploader | 8090 | Node 22 + Playwright | `POST /posts` multipart {video, cookies, title, hashtags, webhook_url} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status, session_status, refreshed_cookies?}`; `POST /session`, `POST /login`, `GET /health` |
 | video | 8790 | Node 22 + ffmpeg + sharp | **todo o ffmpeg da aplicação**: cinco endpoints, filas independentes. `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped` (síncrono, sem S3). `POST /package` JSON {video_key, output_prefix, webhook_url} → 202 {uuid}; HLS/ABR (360p/720p/1080p, fMP4, segmentos de 6s); lê/escreve MinIO direto (exceção da regra S3); webhook `{uuid, status: done\|failed\|rejected\|progress, ...}`. `POST /cut` JSON {cut_uuid, video_key, start_seconds, end_seconds, clip_key, audio_key, webhook_url} → 202 {uuid}; corte frame-exato (cap 1080p) + WAV pra transcrição; webhook `{uuid, cut_uuid, status: done\|failed, audio}`. `POST /reframe` JSON {edit_uuid, source_key, output_key, source, keyframes, settings, transcript?, webhook_url} → 202 {uuid}; render do corte editado em 1080x1920 (zoompan por keyframes + legenda opcional); webhook `{uuid, edit_uuid, status: done\|failed}`. `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; render de legenda karaokê + template; webhook `{uuid, status: done\|failed, files}`; output em `GET /videos/{uuid}/output/{variant}`. `API_TOKEN` opcional |
 | transcriber | 8780 | FastAPI + faster-whisper (CUDA) | **só transcreve**: `POST /transcribe` multipart {audio: wav mono 16kHz} → `{segments: [{start, end, text, words: [{word, start, end, score}]}], language}`. Chamado pelo `video`, não pelo Laravel |
@@ -334,7 +337,7 @@ Todos com observabilidade (logs + heartbeat → Laravel) quando
 
 ```bash
 make setup   # 1ª vez: deps + .env de tudo (Laravel + 4 serviços)
-make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
+make up      # sobe Laravel (serve/queue/pail/vite) + download-youtube +
              # tiktok-uploader + video + transcriber — sem docker
 ```
 
@@ -383,7 +386,7 @@ make up      # sobe Laravel (serve/queue/pail/vite) + download-shorts +
   por componente de classe com o mesmo nome quebra com o cache antigo.
 - **Automerge está ATIVO** (`gh workflow disable automerge.yml` desliga). Ele
   mergeia sozinho (squash) segundos após TODOS os CIs ficarem verdes —
-  `tests`, `tiktok-uploader`, `download-shorts` e `video` — então qualquer
+  `tests`, `tiktok-uploader`, `download-youtube` e `video` — então qualquer
   push vira merge sem revisão. Duas exceções que exigem merge manual: PR que
   altera `.github/workflows/` (o `GITHUB_TOKEN` não tem escopo `workflows`) e
   o próprio PR que reativa/edita o automerge (a versão que roda é a da `main`).

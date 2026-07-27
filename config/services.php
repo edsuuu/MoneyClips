@@ -60,6 +60,10 @@ return [
             'DOWNLOAD_YOUTUBE_WEBHOOK_URL',
             mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/download-youtube',
         ),
+        'video_webhook_url' => env(
+            'DOWNLOAD_YOUTUBE_VIDEO_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/download-video',
+        ),
     ],
 
     'tiktok_post' => [
