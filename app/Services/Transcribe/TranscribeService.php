@@ -10,7 +10,7 @@ use Illuminate\Support\Str;
 use RuntimeException;
 
 /**
- * Client do endpoint assíncrono /transcriptions do transcriber (:8780): o
+ * Client do endpoint assíncrono /transcriptions do serviço media (:8770): o
  * Laravel envia o wav por multipart, recebe 202 {job_id} na hora e o desfecho
  * (a transcrição) chega por webhook (/api/webhook/transcribe). O serviço só
  * transcreve — quem grava o resultado no MinIO é o Laravel.
@@ -37,14 +37,14 @@ final readonly class TranscribeService
 
         if (! $response->successful()) {
             throw new RuntimeException(sprintf(
-                'Transcriber respondeu %d: %s',
+                'Serviço media respondeu %d: %s',
                 $response->status(),
                 Str::limit($response->body(), 300),
             ));
         }
 
         $jobId = $response->json('job_id');
-        throw_unless(is_string($jobId) && $jobId !== '', RuntimeException::class, 'Transcriber não retornou o job_id.');
+        throw_unless(is_string($jobId) && $jobId !== '', RuntimeException::class, 'Serviço media não retornou o job_id.');
 
         return $jobId;
     }

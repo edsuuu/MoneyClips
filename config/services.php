@@ -167,11 +167,12 @@ return [
         'channel_handle' => env('AUTOCAPTION_CHANNEL_HANDLE', ''),
     ],
 
-    // Transcriber (MicroServices/transcriber, :8780) — o Laravel fala direto com
-    // ele: manda o wav, recebe 202 e o desfecho chega por webhook. Timeout curto
-    // porque a chamada só espera o 202 (a transcrição roda assíncrona no serviço).
+    // Transcrição (endpoint /transcriptions do serviço media, :8770) — o Laravel
+    // fala direto com ele: manda o wav, recebe 202 e o desfecho chega por webhook.
+    // Timeout curto porque a chamada só espera o 202 (a transcrição roda
+    // assíncrona no serviço).
     'transcribe' => [
-        'base_url' => env('TRANSCRIBE_URL', 'http://127.0.0.1:8780'),
+        'base_url' => env('TRANSCRIBE_URL', 'http://127.0.0.1:8770'),
         'timeout' => (int) env('TRANSCRIBE_TIMEOUT', 60),
         'webhook_url' => env(
             'TRANSCRIBE_WEBHOOK_URL',
