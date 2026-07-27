@@ -45,13 +45,13 @@ final class StartReframeRenderJob implements ShouldQueue
         $edit = ReframeEdit::query()->with('videoCut.video')->find($this->editId);
 
         if (! $edit instanceof ReframeEdit) {
-            Log::warning('[Reframe] Edição inexistente ao iniciar render.', ['id' => $this->editId]);
+            Log::channel('daily')->warning('[WARN][Reframe] Edição inexistente ao iniciar render.', ['id' => $this->editId]);
 
             return;
         }
 
         if ($edit->render_status !== VideoCutStatusEnum::Generating) {
-            Log::info('[Reframe] Edição fora do estado "generating" — ignorando.', [
+            Log::channel('daily')->info('[INFO][Reframe] Edição fora do estado "generating" — ignorando.', [
                 'id' => $edit->id,
                 'render_status' => $edit->render_status?->value,
             ]);
@@ -67,7 +67,7 @@ final class StartReframeRenderJob implements ShouldQueue
 
         $service->startRender($edit, $this->transcriptFor($edit));
 
-        Log::info('[Reframe] Render do corte editado iniciado.', ['edit_id' => $edit->id, 'uuid' => $edit->uuid]);
+        Log::channel('daily')->info('[INFO][Reframe] Render do corte editado iniciado.', ['edit_id' => $edit->id, 'uuid' => $edit->uuid]);
     }
 
     public function failed(?Throwable $exception): void

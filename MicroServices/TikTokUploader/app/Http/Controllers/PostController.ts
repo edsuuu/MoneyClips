@@ -79,7 +79,9 @@ function asArray(raw: unknown): unknown[] {
         const parsed = JSON.parse(raw) as unknown;
 
         return Array.isArray(parsed) ? parsed : [];
-    } catch {
+    } catch (error) {
+        console.warn('[WARN] payload não é JSON válido; usando lista vazia', error);
+
         return [];
     }
 }

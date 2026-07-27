@@ -39,7 +39,7 @@ final class StartTemplateRenderJob implements ShouldQueue
         $short = $job?->youtubeShort;
 
         if (! $job instanceof ProcessingJob || ! $short instanceof YoutubeShort) {
-            Log::warning('[Processing] Job de template sem registro/vídeo — ignorando.', ['id' => $this->processingJobId]);
+            Log::channel('daily')->warning('[WARN][Processing] Job de template sem registro/vídeo — ignorando.', ['id' => $this->processingJobId]);
 
             return;
         }
@@ -61,7 +61,7 @@ final class StartTemplateRenderJob implements ShouldQueue
             );
 
             $job->fill(['remote_id' => $remoteId])->save();
-            Log::info('[Processing] Render de template iniciado no AutoCaption.', [
+            Log::channel('daily')->info('[INFO][Processing] Render de template iniciado no AutoCaption.', [
                 'short_id' => $short->id,
                 'remote_id' => $remoteId,
                 'style' => $options->style->value,

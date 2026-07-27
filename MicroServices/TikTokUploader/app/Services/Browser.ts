@@ -89,7 +89,9 @@ async function largestVideo(dir: string): Promise<string | null> {
             }
         }
         return biggest?.path ?? null;
-    } catch {
+    } catch (error) {
+        console.warn(`[WARN] falha ao localizar o vídeo gravado em ${dir}`, error);
+
         return null;
     }
 }

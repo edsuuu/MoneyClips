@@ -43,7 +43,7 @@ final readonly class TiktokPosterService implements PosterInterface
         }
 
         if ($account->session_status === SocialAccount::SESSION_INVALID) {
-            Log::warning('[AutoPost][TikTok] Sessão inválida — pulando disparo.', ['short_id' => $task->short->id]);
+            Log::channel('daily')->warning('[WARN][AutoPost][TikTok] Sessão inválida — pulando disparo.', ['short_id' => $task->short->id]);
 
             return PosterResultData::failed($this->platform(), 'Sessão inválida — renove os cookies em /contas.');
         }
@@ -56,13 +56,19 @@ final readonly class TiktokPosterService implements PosterInterface
         try {
             $jobId = $this->uploader->queuePost($task->videoPath, $cookies, $task->title, $task->hashtags, $account->id);
         } catch (Throwable $throwable) {
-            Log::error('[AutoPost][TikTok] Falha ao enfileirar o post no uploader.', ['short_id' => $task->short->id, 'error' => $throwable->getMessage()]);
+            Log::channel('daily')->error('[ERRO][AutoPost][TikTok] Falha ao enfileirar o post no uploader.', [
+                'short_id' => $task->short->id,
+                'exception' => $throwable,
+                'message' => $throwable->getMessage(),
+                'file' => $throwable->getFile(),
+                'line' => $throwable->getLine(),
+            ]);
             $this->discord->error('❌ TikTok: uploader indisponível', ($task->title ?: $task->short->youtube_id).PHP_EOL.$throwable->getMessage());
 
             return PosterResultData::failed($this->platform(), $throwable->getMessage());
         }
 
-        Log::info('[AutoPost][TikTok] Post enfileirado no uploader.', ['short_id' => $task->short->id, 'job_id' => $jobId]);
+        Log::channel('daily')->info('[INFO][AutoPost][TikTok] Post enfileirado no uploader.', ['short_id' => $task->short->id, 'job_id' => $jobId]);
 
         return PosterResultData::queued($this->platform(), $jobId);
     }

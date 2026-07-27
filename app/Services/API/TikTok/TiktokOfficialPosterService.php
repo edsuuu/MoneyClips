@@ -24,7 +24,7 @@ final readonly class TiktokOfficialPosterService implements PosterInterface
 
     public function post(PostTaskData $task): PosterResultData
     {
-        Log::warning('[AutoPost][TikTokOficial] Poster ainda não implementado.', ['short_id' => $task->short->id]);
+        Log::channel('daily')->warning('[WARN][AutoPost][TikTokOficial] Poster ainda não implementado.', ['short_id' => $task->short->id]);
 
         return PosterResultData::failed($this->platform(), 'Poster não implementado.');
     }
