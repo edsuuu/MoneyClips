@@ -2,7 +2,7 @@ import { settings } from '@/Config/Env';
 import { logger } from '@/Config/Logger';
 import { sleep } from '@/Utils/Sleep';
 
-// Mesmo padrão do download-youtube: 3 re-tentativas com backoff; se o Laravel
+// Mesmo padrão do download-shorts: 3 re-tentativas com backoff; se o Laravel
 // estiver fora do ar, loga e desiste — o webhook nunca derruba a fila.
 const RETRY_DELAYS_MS = [0, 1_000, 5_000, 15_000];
 const TIMEOUT_MS = 30_000;
