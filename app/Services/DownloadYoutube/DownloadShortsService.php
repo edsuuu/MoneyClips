@@ -21,7 +21,7 @@ final class DownloadShortsService
             ->throw()
             ->json();
 
-        throw_unless(array_key_exists('count', $response), RuntimeException::class, 'Microserviço download-youtube não retornou count.');
+        throw_unless(array_key_exists('count', $response), RuntimeException::class, 'Microserviço media não retornou count.');
 
         return (int) ($response['count']);
     }

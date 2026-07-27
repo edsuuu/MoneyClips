@@ -37,8 +37,6 @@ yarn-error.log
 /MicroServices/*/.mypy_cache
 /MicroServices/*/.ruff_cache
 /MicroServices/*/.pytest_cache
-/MicroServices/GenerateClips/models
-/MicroServices/GenerateClips/output
 /MicroServices/*/*.log
 # Cookies de sessão do TikTok (credenciais) — versiona só o .gitkeep
 /MicroServices/TikTokAutoUploader/cookies/*

@@ -17,8 +17,8 @@ use RuntimeException;
  * (/api/webhook/autocaption); o output é baixado daqui e gravado no MinIO
  * pelo Laravel — o serviço não toca no S3.
  *
- * O contrato é o mesmo do antigo AutoCaption (FastAPI :8780), que hoje só
- * transcreve — quem chama a transcrição é o próprio serviço de vídeo.
+ * O contrato é o mesmo do antigo AutoCaption (FastAPI); a transcrição hoje
+ * vive no serviço media (:8770) — quem a chama é o próprio serviço de vídeo.
  */
 final readonly class AutoCaptionService
 {

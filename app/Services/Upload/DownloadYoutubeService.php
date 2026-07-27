@@ -28,7 +28,7 @@ final readonly class DownloadYoutubeService
 
         if (! $response->successful()) {
             throw new RuntimeException(sprintf(
-                'Serviço download-youtube respondeu %d: %s',
+                'Serviço media respondeu %d: %s',
                 $response->status(),
                 Str::limit($response->body(), 300),
             ));
@@ -59,7 +59,7 @@ final readonly class DownloadYoutubeService
 
         if (! $response->successful()) {
             throw new RuntimeException(sprintf(
-                'Serviço download-youtube respondeu %d: %s',
+                'Serviço media respondeu %d: %s',
                 $response->status(),
                 Str::limit($response->body(), 300),
             ));

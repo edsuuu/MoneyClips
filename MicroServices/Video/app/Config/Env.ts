@@ -55,7 +55,7 @@ export class Env {
         this.discordWebhookUrl = Env.asStr(env['DISCORD_WEBHOOK_URL']);
 
         this.captionStorageDir = Env.asStr(env['CAPTION_STORAGE_DIR'], './storage');
-        this.transcriberUrl = Env.asStr(env['TRANSCRIBER_URL'], 'http://127.0.0.1:8780');
+        this.transcriberUrl = Env.asStr(env['TRANSCRIBER_URL'], 'http://127.0.0.1:8770');
         this.transcriberTimeoutMs = Env.asInt(env['TRANSCRIBER_TIMEOUT_MS'], 1_800_000);
         this.selfBaseUrl = Env.asStr(env['VIDEO_BASE_URL'], 'http://127.0.0.1:8790');
         this.maxWordsPerLine = Env.asInt(env['MAX_WORDS_PER_LINE'], 3);
