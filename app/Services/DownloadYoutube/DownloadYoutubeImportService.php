@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\DownloadShorts;
+namespace App\Services\DownloadYoutube;
 
 use App\Models\YoutubeShort;
 use Illuminate\Support\Facades\Date;

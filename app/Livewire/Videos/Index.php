@@ -12,7 +12,7 @@ use App\Models\ProcessingJob;
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
-use App\Services\DownloadShorts\DownloadShortsService;
+use App\Services\DownloadYoutube\DownloadShortsService;
 use App\Services\Processing\VideoProcessingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
