@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use App\Jobs\PostSlotToPlatformJob;
 use App\Livewire\Videos\Index;
-use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
 use App\Models\User;
 use App\Models\YoutubeShort;
@@ -53,9 +52,8 @@ it('saves title and hashtags from the review modal', function (): void {
         ->and($short->hashtags)->toBe(['#shorts', '#podcast']);
 });
 
-it('queues instant posts only for enabled platforms without active posts', function (): void {
+it('queues instant posts for implemented platforms without active posts', function (): void {
     Queue::fake();
-    PlatformSetting::query()->where('platform', 'tiktok')->update(['enabled' => true]);
     $short = YoutubeShort::factory()->ready()->create();
 
     Livewire::test(Index::class)

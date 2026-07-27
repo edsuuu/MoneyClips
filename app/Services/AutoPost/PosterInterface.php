@@ -8,7 +8,5 @@ interface PosterInterface
 {
     public function platform(): string;
 
-    public function isEnabled(): bool;
-
     public function post(PostTaskData $task): PosterResultData;
 }

@@ -6,25 +6,26 @@ namespace App\Http\Controllers\Webhooks;
 
 use App\Enums\VideoCutStatusEnum;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Webhooks\ReframeWebhookRequest;
+use App\Http\Requests\Webhooks\VideoCutEditWebhookRequest;
 use App\Http\Resources\StatusResource;
-use App\Models\ReframeEdit;
+use App\Models\File;
+use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use App\Services\API\Discord\DiscordNotifierService;
 use Illuminate\Support\Facades\DB;
 
-final class ReframeWebhookController extends Controller
+final class VideoCutEditWebhookController extends Controller
 {
-    public function __invoke(ReframeWebhookRequest $request, DiscordNotifierService $discord): StatusResource
+    public function __invoke(VideoCutEditWebhookRequest $request, DiscordNotifierService $discord): StatusResource
     {
-        $edit = ReframeEdit::query()->with('videoCut.video')->where('uuid', $request->editUuid())->first();
+        $edit = VideoCutEdit::query()->with('videoCut.video')->where('uuid', $request->editUuid())->first();
 
-        if (! $edit instanceof ReframeEdit) {
+        if (! $edit instanceof VideoCutEdit) {
             return new StatusResource('unknown-job', 404);
         }
 
         if ($request->failed()) {
-            $claimed = ReframeEdit::query()
+            $claimed = VideoCutEdit::query()
                 ->whereKey($edit->id)
                 ->where('render_status', VideoCutStatusEnum::Generating->value)
                 ->update([
@@ -45,10 +46,11 @@ final class ReframeWebhookController extends Controller
         // Corte/vídeo pai são soft-deletáveis durante o render: sem eles não há
         // path de saída nem estoque — fecha como falha em vez de estourar 500 e
         // deixar a edição presa em "generating".
-        $video = $edit->videoCut?->video;
+        $cut = $edit->videoCut;
+        $video = $cut?->video;
 
-        if ($video === null) {
-            $claimed = ReframeEdit::query()
+        if ($cut === null || $video === null) {
+            $claimed = VideoCutEdit::query()
                 ->whereKey($edit->id)
                 ->where('render_status', VideoCutStatusEnum::Generating->value)
                 ->update([
@@ -70,19 +72,25 @@ final class ReframeWebhookController extends Controller
 
         // Transação: se a criação do short falhar, o claim desfaz e o retry do
         // webhook refaz o conjunto — sem edição "ready" com estoque faltando.
-        $status = DB::transaction(function () use ($edit, $video, $renderedPath): string {
-            $claimed = ReframeEdit::query()
+        // ponytail: o render virar YoutubeShort é o modelo de estoque atual;
+        // corrigir pra um artefato próprio é dívida conhecida.
+        $status = DB::transaction(function () use ($edit, $cut, $video, $renderedPath): string {
+            $claimed = VideoCutEdit::query()
                 ->whereKey($edit->id)
                 ->where('render_status', VideoCutStatusEnum::Generating->value)
                 ->update([
                     'render_status' => VideoCutStatusEnum::Ready,
-                    'rendered_path' => $renderedPath,
                     'render_error' => null,
                 ]);
 
             if ($claimed !== 1) {
                 return 'already-finished';
             }
+
+            File::query()->updateOrCreate(
+                ['video_cut_id' => $cut->id, 'type' => File::EDIT, 'path' => $renderedPath],
+                ['video_id' => $video->id, 'mime_type' => 'video/mp4'],
+            );
 
             $short = YoutubeShort::query()->updateOrCreate(
                 ['youtube_id' => 'reframe-'.$edit->uuid],
@@ -93,7 +101,7 @@ final class ReframeWebhookController extends Controller
                 ],
             );
 
-            ReframeEdit::query()->whereKey($edit->id)->update(['youtube_short_id' => $short->id]);
+            VideoCutEdit::query()->whereKey($edit->id)->update(['youtube_short_id' => $short->id]);
 
             return 'ready';
         });

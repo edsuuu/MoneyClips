@@ -40,6 +40,8 @@ final class File extends Model
 
     public const string TRANSCRIPT = 'transcript';
 
+    public const string EDIT = 'edit';
+
     protected $fillable = [
         'video_id', 'video_cut_id', 'type', 'path', 'upload_id', 'size', 'mime_type', 'meta',
     ];

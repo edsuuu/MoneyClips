@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Reframe;
+namespace App\Services\VideoCutEdit;
 
-use App\Models\ReframeEdit;
+use App\Models\VideoCutEdit;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 
-final readonly class ReframeRenderService
+final readonly class VideoCutEditRenderService
 {
     /**
      * O desfecho chega por webhook chaveado pelo uuid da edição (o serviço ecoa
@@ -23,17 +23,21 @@ final readonly class ReframeRenderService
      *
      * @throws ConnectionException
      */
-    public function startRender(ReframeEdit $edit, ?array $transcript): void
+    public function startRender(VideoCutEdit $edit, ?array $transcript): void
     {
+        $cut = $edit->videoCut;
+
+        throw_unless($cut !== null, RuntimeException::class, 'Edição sem corte pai não tem fonte pra render.');
+
         $response = $this->client()->post('/reframe', [
             'edit_uuid' => $edit->uuid,
-            'source_key' => $edit->source_path,
+            'source_key' => $cut->clipPath(),
             'output_key' => $edit->renderOutputPath(),
             'source' => $edit->source_meta,
             'keyframes' => $edit->keyframes,
             'settings' => $edit->settings ?? [],
             'transcript' => $transcript,
-            'webhook_url' => (string) config('services.reframe.webhook_url'),
+            'webhook_url' => (string) config('services.video_cut_edit.webhook_url'),
         ]);
 
         if (! $response->successful()) {

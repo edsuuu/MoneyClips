@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\API\Kwai;
 
-use App\Models\PlatformSetting;
 use App\Services\AutoPost\PosterInterface;
 use App\Services\AutoPost\PosterResultData;
 use App\Services\AutoPost\PostTaskData;
@@ -15,11 +14,6 @@ final readonly class KwaiPosterService implements PosterInterface
     public function platform(): string
     {
         return 'kwai';
-    }
-
-    public function isEnabled(): bool
-    {
-        return PlatformSetting::isEnabled($this->platform());
     }
 
     public function post(PostTaskData $task): PosterResultData

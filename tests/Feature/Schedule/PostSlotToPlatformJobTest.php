@@ -24,11 +24,6 @@ function fakePoster(string $platform, PosterResultData $result): PosterInterface
             return $this->name;
         }
 
-        public function isEnabled(): bool
-        {
-            return true;
-        }
-
         public function post(PostTaskData $task): PosterResultData
         {
             return $this->result;

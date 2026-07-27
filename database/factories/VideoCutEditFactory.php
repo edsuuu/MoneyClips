@@ -4,25 +4,23 @@ declare(strict_types=1);
 
 namespace Database\Factories;
 
-use App\Models\ReframeEdit;
-use App\Models\YoutubeShort;
+use App\Models\VideoCutEdit;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
 /**
- * @extends Factory<ReframeEdit>
+ * @extends Factory<VideoCutEdit>
  */
-final class ReframeEditFactory extends Factory
+final class VideoCutEditFactory extends Factory
 {
-    protected $model = ReframeEdit::class;
+    protected $model = VideoCutEdit::class;
 
     public function definition(): array
     {
-        // Crop 9:16 centrado numa fonte 1920x1080 (coords normalizadas).
+        // Crop 9:16 centrado numa fonte 1920x1080 (coords normalizadas). O corte
+        // pai (video_cut_id) é passado pelo teste — VideoCut não tem factory.
         return [
             'uuid' => (string) Str::uuid(),
-            'youtube_short_id' => YoutubeShort::factory(),
-            'source_path' => sprintf('shorts/%s.mp4', $this->faker->unique()->regexify('[A-Za-z0-9_-]{11}')),
             'source_meta' => ['width' => 1920, 'height' => 1080, 'duration' => 60.0],
             'mode' => 'vertical',
             'keyframes' => [

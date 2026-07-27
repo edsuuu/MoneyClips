@@ -19,12 +19,6 @@ final readonly class PosterRegistryService
         return $this->posters;
     }
 
-    /** @return list<PosterInterface> */
-    public function enabled(): array
-    {
-        return array_values(array_filter($this->posters, static fn (PosterInterface $p): bool => $p->isEnabled()));
-    }
-
     public function for(string $platform): PosterInterface
     {
         foreach ($this->posters as $poster) {
