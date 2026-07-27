@@ -38,7 +38,7 @@ final readonly class StockAlertService
         $this->discord->warning(
             '⚠️ Estoque de Shorts baixo',
             sprintf('Há %d slots vazios nos próximos 7 dias e só %d vídeos prontos para agendar.', $emptySlots, $ready).PHP_EOL.
-            'Baixe mais com: php artisan youtube:download-shorts "<url-do-canal>" ou revise o estoque em /meus-videos.',
+            'Baixe mais em /meus-videos (botão "Novo download") ou revise o estoque.',
         );
     }
 }

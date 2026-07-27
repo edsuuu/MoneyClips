@@ -25,7 +25,7 @@ export interface WebhookPayload {
 /**
  * Entrega do desfecho ao Laravel. O Laravel pode estar reiniciando quando um
  * job de horas termina, e perder o webhook deixaria o vídeo preso em
- * "packaging" — daí o backoff (0s/1s/5s/15s), igual ao download-shorts.
+ * "packaging" — daí o backoff (0s/1s/5s/15s), igual ao download-youtube.
  */
 export class WebhookService extends Logger {
     private static readonly RETRY_DELAYS_MS = [0, 1_000, 5_000, 15_000];

@@ -277,7 +277,7 @@ final class Show extends Component
     public function render(): View
     {
         $video = $this->video->fresh(['files', 'cuts']) ?? $this->video;
-        $isPackaging = in_array($video->status, [VideoStatusEnum::Uploaded, VideoStatusEnum::Packaging], true);
+        $isPackaging = in_array($video->status, [VideoStatusEnum::Downloading, VideoStatusEnum::Uploaded, VideoStatusEnum::Packaging], true);
         $transcription = $video->transcription_status;
 
         return view('livewire.uploads.show', [

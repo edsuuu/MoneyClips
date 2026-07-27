@@ -70,7 +70,7 @@ recusado e o vídeo trava em `packaging`**.
 ## Exceção à regra "só o Laravel toca o S3" (só o `/package`)
 
 Este é o segundo serviço com credencial de storage (o outro é o
-`download-shorts`). Um vídeo longo vira **milhares** de segmentos: trafegá-los
+`download-youtube`). Um vídeo longo vira **milhares** de segmentos: trafegá-los
 por HTTP até o Laravel para subir um a um prenderia um worker da fila por
 horas. Aqui o serviço lê `uploads/*` e escreve `hls/*` direto.
 

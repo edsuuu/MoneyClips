@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\DownloadShorts;
+namespace App\Services\DownloadYoutube;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
@@ -21,7 +21,7 @@ final class DownloadShortsService
             ->throw()
             ->json();
 
-        throw_unless(array_key_exists('count', $response), RuntimeException::class, 'Microserviço download-shorts não retornou count.');
+        throw_unless(array_key_exists('count', $response), RuntimeException::class, 'Microserviço download-youtube não retornou count.');
 
         return (int) ($response['count']);
     }
