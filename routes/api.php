@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Http\Controllers\ObservabilityController;
 use App\Http\Controllers\Webhooks\AutoCaptionWebhookController;
 use App\Http\Controllers\Webhooks\CutWebhookController;
+use App\Http\Controllers\Webhooks\DownloadVideoWebhookController;
 use App\Http\Controllers\Webhooks\DownloadYoutubeWebhookController;
 use App\Http\Controllers\Webhooks\HLSWebhookController;
 use App\Http\Controllers\Webhooks\ReframeWebhookController;
@@ -18,6 +19,7 @@ Route::prefix('webhook')->name('webhook.')->group(function (): void {
     Route::post('/autocaption', AutoCaptionWebhookController::class)->name('autocaption');
 
     Route::middleware(VerifyObservabilityToken::class)->group(function (): void {
+        Route::post('/download-video', DownloadVideoWebhookController::class)->name('download-video');
         Route::post('/hls', HLSWebhookController::class)->name('hls');
         Route::post('/cut', CutWebhookController::class)->name('cut');
         Route::post('/reframe', ReframeWebhookController::class)->name('reframe');

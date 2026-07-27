@@ -7,6 +7,7 @@ namespace App\Enums;
 enum VideoStatusEnum: string
 {
     case AwaitingUpload = 'awaiting_upload';
+    case Downloading = 'downloading';
     case Uploaded = 'uploaded';
     case Packaging = 'packaging';
     case Ready = 'ready';
@@ -16,7 +17,7 @@ enum VideoStatusEnum: string
     /** @return list<self> */
     public static function pending(): array
     {
-        return [self::AwaitingUpload, self::Uploaded, self::Packaging];
+        return [self::AwaitingUpload, self::Downloading, self::Uploaded, self::Packaging];
     }
 
     public function isTerminal(): bool
@@ -36,6 +37,7 @@ enum VideoStatusEnum: string
     {
         return match ($this) {
             self::AwaitingUpload => 'Enviando',
+            self::Downloading => 'Baixando do YouTube',
             self::Uploaded => 'Na fila',
             self::Packaging => 'Preparando reprodução',
             self::Ready => 'Pronto',
@@ -48,6 +50,7 @@ enum VideoStatusEnum: string
     {
         return match ($this) {
             self::AwaitingUpload => 'bg-slate-500/15 text-slate-600 dark:text-slate-300',
+            self::Downloading => 'bg-violet-500/15 text-violet-700 dark:text-violet-300',
             self::Uploaded => 'bg-sky-500/15 text-sky-700 dark:text-sky-300',
             self::Packaging => 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
             self::Ready => 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',

@@ -14,7 +14,7 @@ up:  ## Sobe Laravel + microserviços nativos, todos juntos
 		"php artisan queue:listen --queue=posting,processing,default --tries=1 --timeout=1800" \
 		"php artisan pail --timeout=0" \
 		"npm run dev" \
-		"cd $(MS)/DownloadShorts && .venv/bin/python -m app.main" \
+		"cd $(MS)/DownloadYoutube && .venv/bin/python -m app.main" \
 		"cd $(MS)/TikTokUploader && pnpm dev" \
 		"cd $(MS)/Video && pnpm dev" \
 		"cd $(MS)/Transcriber && .venv/bin/python -m app.main"
@@ -27,9 +27,9 @@ setup-laravel:           ## Laravel: composer + .env + key + pnpm
 	php artisan key:generate
 	pnpm install
 
-setup-download:          ## DownloadShorts: .env + venv + pip
-	@test -f $(MS)/DownloadShorts/.env || cp $(MS)/DownloadShorts/.env.example $(MS)/DownloadShorts/.env
-	cd $(MS)/DownloadShorts && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+setup-download:          ## DownloadYoutube: .env + venv + pip
+	@test -f $(MS)/DownloadYoutube/.env || cp $(MS)/DownloadYoutube/.env.example $(MS)/DownloadYoutube/.env
+	cd $(MS)/DownloadYoutube && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 setup-tiktok:            ## TikTokUploader: .env + pnpm (baixa o Chromium do Playwright)
 	@test -f $(MS)/TikTokUploader/.env || cp $(MS)/TikTokUploader/.env.example $(MS)/TikTokUploader/.env

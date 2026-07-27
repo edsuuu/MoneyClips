@@ -51,6 +51,17 @@ it('falha upload cujo job de empacotamento nunca rodou', function (): void {
     expect($orfao->refresh()->status)->toBe(VideoStatusEnum::Failed);
 });
 
+it('falha download do youtube que ficou sem webhook', function (): void {
+    $orfao = Video::factory()->downloading()->create(['updated_at' => now()->subHours(7)]);
+    $vivo = Video::factory()->downloading()->create(['updated_at' => now()->subMinutes(3)]);
+
+    $this->artisan('uploads:prune-stale')->assertSuccessful();
+
+    expect($orfao->refresh()->status)->toBe(VideoStatusEnum::Failed)
+        ->and($orfao->error)->toContain('Download do YouTube')
+        ->and($vivo->refresh()->status)->toBe(VideoStatusEnum::Downloading);
+});
+
 it('marca como falha em vez de apagar, porque o binário segue no storage', function (): void {
     $travado = Video::factory()->packaging()->create(['updated_at' => now()->subHours(7)]);
 

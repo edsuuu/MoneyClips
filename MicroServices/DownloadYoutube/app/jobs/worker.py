@@ -220,7 +220,11 @@ def _build_payload(
     return {"channel_url": channel_url, "items": [item]}
 
 
-def _send_webhook(webhook_url: str, payload: dict[str, Any]) -> None:
+def _send_webhook(
+    webhook_url: str,
+    payload: dict[str, Any],
+    headers: dict[str, str] | None = None,
+) -> None:
     delays = settings.webhook_retry_delays_seconds
     timeout = settings.webhook_timeout_seconds
 
@@ -228,7 +232,7 @@ def _send_webhook(webhook_url: str, payload: dict[str, Any]) -> None:
     for index, delay in enumerate(delays, start=1):
         try:
             with httpx.Client(timeout=timeout) as client:
-                response = client.post(webhook_url, json=payload)
+                response = client.post(webhook_url, json=payload, headers=headers)
                 response.raise_for_status()
             return
         except Exception as exc:

@@ -85,7 +85,7 @@ final class Index extends Component
     {
         return match ($service) {
             'tiktok-uploader' => 'text-sky-400',
-            'download-shorts' => 'text-violet-400',
+            'download-youtube' => 'text-violet-400',
             'reencode' => 'text-cyan-400',
             'autocaption' => 'text-amber-300',
             default => 'text-emerald-400',

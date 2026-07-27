@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     api_port: int
 
     log_level: str
+    observability_token: str = ""
 
     storage_endpoint: str
     storage_access_key: str

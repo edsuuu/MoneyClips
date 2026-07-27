@@ -32,6 +32,10 @@ final class VideoFactory extends Factory
     public function configure(): static
     {
         return $this->afterCreating(function (Video $video): void {
+            if ($video->status === VideoStatusEnum::Downloading) {
+                return;
+            }
+
             $video->files()->create([
                 'type' => File::ORIGINAL,
                 'path' => $video->originalPath(),
@@ -40,6 +44,11 @@ final class VideoFactory extends Factory
                 'mime_type' => 'video/mp4',
             ]);
         });
+    }
+
+    public function downloading(): self
+    {
+        return $this->state(fn (): array => ['status' => VideoStatusEnum::Downloading]);
     }
 
     public function uploaded(): self
