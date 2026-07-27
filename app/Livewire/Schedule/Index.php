@@ -6,7 +6,6 @@ namespace App\Livewire\Schedule;
 
 use App\Helpers\Hashtags;
 use App\Livewire\Concerns\WithToasts;
-use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
 use App\Models\YoutubeShort;
 use App\Services\AutoPost\AutoPostDispatcherService;
@@ -31,8 +30,6 @@ final class Index extends Component
     private const array MONTH_LABELS = [1 => 'JANEIRO', 2 => 'FEVEREIRO', 3 => 'MARÇO', 4 => 'ABRIL', 5 => 'MAIO', 6 => 'JUNHO', 7 => 'JULHO', 8 => 'AGOSTO', 9 => 'SETEMBRO', 10 => 'OUTUBRO', 11 => 'NOVEMBRO', 12 => 'DEZEMBRO'];
 
     private const array WEEK_OFFSETS = [-1, 0, 1, 2];
-
-    private const array IMPLEMENTED_PLATFORMS = ['youtube', 'tiktok'];
 
     public int $weekOffset = 0;
 
@@ -334,24 +331,6 @@ final class Index extends Component
         } catch (Throwable $throwable) {
             $this->toast('Falha ao forçar disparo: '.$throwable->getMessage(), 'danger');
         }
-    }
-
-    public function togglePlatform(string $platform): void
-    {
-        if (! in_array($platform, self::IMPLEMENTED_PLATFORMS, true)) {
-            $this->toast('Plataforma ainda não implementada.', 'danger');
-
-            return;
-        }
-
-        $setting = PlatformSetting::query()->where('platform', $platform)->first();
-        if (! $setting instanceof PlatformSetting) {
-            return;
-        }
-
-        $setting->enabled = ! $setting->enabled;
-        $setting->save();
-        $this->toast(sprintf('%s %s.', $setting->display_name, $setting->enabled ? 'ativado' : 'pausado'));
     }
 
     public function toggleRandomMode(): void
@@ -775,13 +754,6 @@ final class Index extends Component
             'weekdayLabels' => self::WEEKDAY_LABELS,
             'maxPerDay' => ScheduleSlot::MAX_PER_DAY,
             'nextDispatch' => $this->nextDispatch($now),
-            'platforms' => PlatformSetting::query()->orderBy('id')->get()
-                ->map(fn (PlatformSetting $p): array => [
-                    'platform' => $p->platform,
-                    'name' => $p->display_name,
-                    'enabled' => $p->enabled,
-                    'implemented' => in_array($p->platform, self::IMPLEMENTED_PLATFORMS, true),
-                ])->all(),
             'randomMode' => $this->randomModeEnabled(),
             'pickerVideos' => $this->pickerVideos(),
             'monthData' => $this->view === 'month' ? $this->monthData($monday, $now) : null,

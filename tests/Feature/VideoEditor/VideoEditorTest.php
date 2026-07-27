@@ -4,11 +4,10 @@ declare(strict_types=1);
 
 use App\Enums\VideoCutStatusEnum;
 use App\Livewire\VideoEditor\Index;
-use App\Models\ReframeEdit;
 use App\Models\User;
 use App\Models\Video;
 use App\Models\VideoCut;
-use App\Models\YoutubeShort;
+use App\Models\VideoCutEdit;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Livewire;
 
@@ -87,11 +86,10 @@ it('creates an edit on save and updates it in place on the next save', function 
         ->call('saveEdit', validSplitPayload())
         ->assertDispatched('toast');
 
-    $edit = ReframeEdit::query()->sole();
+    $edit = VideoCutEdit::query()->sole();
     expect($edit->uuid)->not->toBe('')
         ->and($edit->video_cut_id)->toBe($cut->id)
         ->and($edit->youtube_short_id)->toBeNull()
-        ->and($edit->source_path)->toBe($cut->clipPath())
         ->and($edit->mode)->toBe('split')
         ->and($edit->keyframes)->toHaveCount(2)
         ->and($edit->keyframes[0]['mode'])->toBe('split')
@@ -104,7 +102,7 @@ it('creates an edit on save and updates it in place on the next save', function 
     $payload['settings']['background'] = '#FFFFFF';
     $component->call('saveEdit', $payload);
 
-    expect(ReframeEdit::query()->count())->toBe(1)
+    expect(VideoCutEdit::query()->count())->toBe(1)
         ->and($edit->refresh()->settings)->toBe(['version' => 1, 'background' => '#ffffff', 'captions' => false, 'captionColor' => '#ffffff', 'captionCase' => 'sentence']);
 });
 
@@ -115,7 +113,7 @@ it('rejects structurally invalid payloads without persisting', function (array $
         ->call('saveEdit', array_replace(validSplitPayload(), $mutation))
         ->assertDispatched('toast', variant: 'danger');
 
-    expect(ReframeEdit::query()->count())->toBe(0);
+    expect(VideoCutEdit::query()->count())->toBe(0);
 })->with([
     'unknown mode' => [['mode' => 'diagonal']],
     'unknown keyframe mode' => [['keyframes' => [['t' => 0, 'mode' => 'diagonal', 'regions' => [['x' => 0, 'y' => 0, 'w' => 1, 'h' => 1]]]]]],
@@ -150,7 +148,7 @@ it('saves keyframes with mixed framing modes', function (): void {
         ])
         ->assertDispatched('toast');
 
-    $edit = ReframeEdit::query()->sole();
+    $edit = VideoCutEdit::query()->sole();
 
     expect($edit->keyframes)->toHaveCount(2)
         ->and($edit->keyframes[0]['mode'])->toBe('vertical')
@@ -175,7 +173,7 @@ it('clamps out-of-bounds values and re-sorts keyframes on save', function (): vo
             'sourceMeta' => ['width' => 1920, 'height' => 1080, 'duration' => 60.0],
         ]);
 
-    $edit = ReframeEdit::query()->sole();
+    $edit = VideoCutEdit::query()->sole();
     // (float): o round-trip pelo JSON do banco pode devolver 5.0 como int 5.
     expect((float) $edit->keyframes[0]['t'])->toBe(5.0)
         ->and((float) $edit->keyframes[1]['t'])->toBe(60.0)
@@ -185,8 +183,8 @@ it('clamps out-of-bounds values and re-sorts keyframes on save', function (): vo
 
 it('loads the latest edit of the cut', function (): void {
     $cut = makeReadyCut($this->user);
-    ReframeEdit::factory()->create(['youtube_short_id' => null, 'video_cut_id' => $cut->id]);
-    $latest = ReframeEdit::factory()->create(['youtube_short_id' => null, 'video_cut_id' => $cut->id, 'mode' => 'split']);
+    VideoCutEdit::factory()->create(['youtube_short_id' => null, 'video_cut_id' => $cut->id]);
+    $latest = VideoCutEdit::factory()->create(['youtube_short_id' => null, 'video_cut_id' => $cut->id, 'mode' => 'split']);
 
     Livewire::test(Index::class, ['uuid' => $cut->uuid])
         ->assertSet('editId', $latest->id)
@@ -195,10 +193,11 @@ it('loads the latest edit of the cut', function (): void {
 });
 
 it('creates a valid edit from the factory', function (): void {
-    $edit = ReframeEdit::factory()->create();
+    $cut = makeReadyCut($this->user);
+    $edit = VideoCutEdit::factory()->create(['video_cut_id' => $cut->id]);
 
     expect($edit->uuid)->not->toBe('')
         ->and($edit->mode)->toBe('vertical')
         ->and($edit->keyframes[0]['regions'])->toHaveCount(1)
-        ->and($edit->youtubeShort)->toBeInstanceOf(YoutubeShort::class);
+        ->and($edit->videoCut)->toBeInstanceOf(VideoCut::class);
 });
