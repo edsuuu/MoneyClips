@@ -11,9 +11,9 @@ use App\Jobs\StartCutRenderJob;
 use App\Livewire\Concerns\EditsTranscript;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\File;
-use App\Models\ReframeEdit;
 use App\Models\Video;
 use App\Models\VideoCut;
+use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
@@ -141,11 +141,11 @@ final class Show extends Component
             return;
         }
 
-        $edits = ReframeEdit::query()
+        $edits = VideoCutEdit::query()
             ->where('video_cut_id', $cut->id)
             ->get(['id', 'uuid', 'render_status']);
 
-        if ($edits->contains(fn (ReframeEdit $edit): bool => $edit->render_status === VideoCutStatusEnum::Generating)) {
+        if ($edits->contains(fn (VideoCutEdit $edit): bool => $edit->render_status === VideoCutStatusEnum::Generating)) {
             $this->toast('Não dá pra apagar um corte com edição sendo gerada.', 'danger');
 
             return;
@@ -161,10 +161,10 @@ final class Show extends Component
         }
 
         // Os renders das edições moram dentro do prefixo apagado: shorts de
-        // reframe ainda não postados sairiam do estoque apontando pra arquivo
-        // morto — vão junto. Postados ficam como histórico.
+        // corte editado ainda não postados sairiam do estoque apontando pra
+        // arquivo morto — vão junto. Postados ficam como histórico.
         YoutubeShort::query()
-            ->whereIn('youtube_id', $edits->map(fn (ReframeEdit $edit): string => 'reframe-'.$edit->uuid))
+            ->whereIn('youtube_id', $edits->map(fn (VideoCutEdit $edit): string => 'reframe-'.$edit->uuid))
             ->whereNull('posted_youtube_at')
             ->whereNull('posted_tiktok_at')
             ->delete();

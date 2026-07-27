@@ -34,8 +34,8 @@ final class AppServiceProvider extends ServiceProvider
         // Registro dos Posters por plataforma. Adicionar plataforma nova =
         // criar o *PosterService na pasta da integração (API oficial em
         // App\Services\API\<Plataforma>; microserviço em App\Services\<Nome>)
-        // implementando App\Services\AutoPost\PosterInterface e listar aqui
-        // (o toggle vive em platform_settings, editável na /agenda).
+        // implementando App\Services\AutoPost\PosterInterface e listar aqui.
+        // Todo poster listado dispara em todo slot — não há mais toggle global.
         $this->app->singleton(PosterRegistryService::class, fn (Application $app): PosterRegistryService => new PosterRegistryService([
             $app->make(YoutubePosterService::class),
             $app->make(TiktokPosterService::class),

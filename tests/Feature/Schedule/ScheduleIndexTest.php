@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Livewire\Schedule\Index;
-use App\Models\PlatformSetting;
 use App\Models\ScheduleSlot;
 use App\Models\User;
 use App\Models\YoutubeShort;
@@ -49,18 +48,11 @@ it('rejects duplicated times and enforces the per-day cap', function (): void {
     expect(ScheduleSlot::query()->count())->toBe(0);
 });
 
-it('marks dirty on edits and toggles platforms', function (): void {
+it('marks dirty on edits', function (): void {
     $component = Livewire::test(Index::class)
         ->call('addSlot', '2026-07-17');
 
     expect($component->get('dirty'))->toBeTrue();
-
-    $component->call('togglePlatform', 'youtube');
-    expect(PlatformSetting::query()->where('platform', 'youtube')->sole()->enabled)->toBeFalse();
-
-    // Stub não implementado não liga.
-    $component->call('togglePlatform', 'instagram');
-    expect(PlatformSetting::query()->where('platform', 'instagram')->sole()->enabled)->toBeFalse();
 });
 
 it('force dispatches a skipped slot', function (): void {

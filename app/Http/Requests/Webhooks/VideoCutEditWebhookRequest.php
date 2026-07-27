@@ -6,7 +6,7 @@ namespace App\Http\Requests\Webhooks;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-final class ReframeWebhookRequest extends FormRequest
+final class VideoCutEditWebhookRequest extends FormRequest
 {
     /** @return array<string, array<int, string>> */
     public function rules(): array
