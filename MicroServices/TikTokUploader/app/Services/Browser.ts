@@ -56,8 +56,12 @@ export async function runRecordedSession<T>(
             return result;
         }
 
-        await browser.close().catch(() => undefined);
-        await rm(videoDir, { recursive: true, force: true }).catch(() => undefined);
+        await browser
+            .close()
+            .catch((closeError) => console.warn('[WARN] falha ao fechar o browser', closeError));
+        await rm(videoDir, { recursive: true, force: true }).catch((rmError) =>
+            console.warn('[WARN] falha ao remover o diretório de vídeo', rmError),
+        );
 
         return result;
     } catch (error) {
@@ -67,11 +71,17 @@ export async function runRecordedSession<T>(
             throw error;
         }
 
-        await context.close().catch(() => undefined);
+        await context
+            .close()
+            .catch((closeError) => console.warn('[WARN] falha ao fechar o contexto', closeError));
         const video = await largestVideo(videoDir);
         await discord.notifyError(label, error, video);
-        await browser.close().catch(() => undefined);
-        await rm(videoDir, { recursive: true, force: true }).catch(() => undefined);
+        await browser
+            .close()
+            .catch((closeError) => console.warn('[WARN] falha ao fechar o browser', closeError));
+        await rm(videoDir, { recursive: true, force: true }).catch((rmError) =>
+            console.warn('[WARN] falha ao remover o diretório de vídeo', rmError),
+        );
 
         throw error;
     }

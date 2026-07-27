@@ -26,7 +26,9 @@ export abstract class SerialQueueService<TJob extends { uuid: string }> extends 
             }
         };
 
-        this.chain = this.chain.then(run, run).catch(() => undefined);
+        this.chain = this.chain.then(run, run).catch(() => {
+            // erro já logado dentro do job
+        });
 
         return job.uuid;
     }

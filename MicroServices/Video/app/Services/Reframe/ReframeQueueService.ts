@@ -115,7 +115,11 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                 error: message,
             });
         } finally {
-            await rm(jobDir, { recursive: true, force: true }).catch(() => undefined);
+            await rm(jobDir, { recursive: true, force: true }).catch((error) =>
+                this.warn(
+                    `Falha ao limpar o diretório do job ${job.uuid}: ${(error as Error).message}`,
+                ),
+            );
         }
     }
 

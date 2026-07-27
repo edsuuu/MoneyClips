@@ -66,12 +66,12 @@ def create_download(payload: DownloadRequest) -> AcceptedResponse:
             status_code=409,
             detail="channel already downloading",
         ) from None
-    except Exception as exc:
+    except Exception as exception:
         logger.exception("failed to start download for %s", channel_url)
         raise HTTPException(
             status_code=502,
-            detail=f"failed to start download: {exc}",
-        ) from exc
+            detail=f"failed to start download: {exception}",
+        ) from exception
 
     return AcceptedResponse(count=count, channel_url=channel_url)
 
