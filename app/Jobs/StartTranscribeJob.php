@@ -40,7 +40,7 @@ final class StartTranscribeJob implements ShouldQueue
         $video = Video::query()->find($this->videoId);
 
         if (! $video instanceof Video) {
-            Log::warning('[Transcribe] Vídeo não encontrado — ignorando.', ['id' => $this->videoId]);
+            Log::channel('daily')->warning('[WARN][Transcribe] Vídeo não encontrado — ignorando.', ['id' => $this->videoId]);
 
             return;
         }
@@ -53,7 +53,7 @@ final class StartTranscribeJob implements ShouldQueue
         try {
             $jobId = $client->createTranscription($tmpAudio, $video->uuid);
 
-            Log::info('[Transcribe] Transcrição iniciada no transcriber.', [
+            Log::channel('daily')->info('[INFO][Transcribe] Transcrição iniciada no transcriber.', [
                 'video_id' => $video->id,
                 'uuid' => $video->uuid,
                 'job_id' => $jobId,

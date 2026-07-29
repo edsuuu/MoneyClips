@@ -53,7 +53,7 @@ final class TiktokPostWebhookController extends Controller
 
         match ($request->status()) {
             'completed' => $this->markPosted($post, $title, $discord),
-            'dry-run' => Log::info('[AutoPost][TikTok] DRY_RUN — post simulado.', ['job_id' => $post->uuid]),
+            'dry-run' => Log::channel('daily')->info('[INFO][AutoPost][TikTok] DRY_RUN — post simulado.', ['job_id' => $post->uuid]),
             'restricted' => $discord->warning(
                 '⚠️ TikTok restringiu o post',
                 $title.PHP_EOL.
@@ -73,7 +73,7 @@ final class TiktokPostWebhookController extends Controller
             ->where('youtube_id', $post->youtube_id)
             ->update(['posted_tiktok_at' => now()]);
 
-        Log::info('[AutoPost][TikTok] Short postado.', ['job_id' => $post->uuid]);
+        Log::channel('daily')->info('[INFO][AutoPost][TikTok] Short postado.', ['job_id' => $post->uuid]);
         $discord->success('✅ Short postado no TikTok', $title);
     }
 

@@ -40,7 +40,7 @@ final class StartCutTranscribeJob implements ShouldQueue
         $cut = VideoCut::query()->with('video')->find($this->cutId);
 
         if (! $cut instanceof VideoCut) {
-            Log::warning('[Cut] Corte não encontrado ao transcrever — ignorando.', ['id' => $this->cutId]);
+            Log::channel('daily')->warning('[WARN][Cut] Corte não encontrado ao transcrever — ignorando.', ['id' => $this->cutId]);
 
             return;
         }
@@ -53,7 +53,7 @@ final class StartCutTranscribeJob implements ShouldQueue
         try {
             $jobId = $client->createTranscription($tmpAudio, $cut->uuid);
 
-            Log::info('[Cut] Transcrição do corte iniciada no transcriber.', [
+            Log::channel('daily')->info('[INFO][Cut] Transcrição do corte iniciada no transcriber.', [
                 'cut_id' => $cut->id,
                 'uuid' => $cut->uuid,
                 'job_id' => $jobId,

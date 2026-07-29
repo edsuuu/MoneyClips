@@ -38,7 +38,7 @@ final class PostShortToPlatformJob implements ShouldQueue
         $short = YoutubeShort::query()->find($this->shortId);
 
         if (! $short instanceof YoutubeShort) {
-            Log::warning('[AutoPost] Vídeo sumiu antes do post — ignorando.', ['short_id' => $this->shortId]);
+            Log::channel('daily')->warning('[WARN][AutoPost] Vídeo sumiu antes do post — ignorando.', ['short_id' => $this->shortId]);
 
             return;
         }
@@ -90,10 +90,13 @@ final class PostShortToPlatformJob implements ShouldQueue
             ->where('status', 'processing')
             ->update(['status' => 'failed', 'error' => $error]);
 
-        Log::error('[AutoPost] Job de postagem falhou.', [
+        Log::channel('daily')->error('[ERRO][AutoPost] Job de postagem falhou.', [
             'short_id' => $this->shortId,
             'platform' => $this->platform,
-            'error' => $error,
+            'exception' => $exception,
+            'message' => $error,
+            'file' => $exception?->getFile(),
+            'line' => $exception?->getLine(),
         ]);
 
         resolve(DiscordNotifierService::class)->error(

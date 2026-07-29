@@ -45,13 +45,13 @@ final class StartVideoCutEditRenderJob implements ShouldQueue
         $edit = VideoCutEdit::query()->with('videoCut.video')->find($this->editId);
 
         if (! $edit instanceof VideoCutEdit) {
-            Log::warning('[VideoCutEdit] Edição inexistente ao iniciar render.', ['id' => $this->editId]);
+            Log::channel('daily')->warning('[WARN][VideoCutEdit] Edição inexistente ao iniciar render.', ['id' => $this->editId]);
 
             return;
         }
 
         if ($edit->render_status !== VideoCutStatusEnum::Generating) {
-            Log::info('[VideoCutEdit] Edição fora do estado "generating" — ignorando.', [
+            Log::channel('daily')->info('[INFO][VideoCutEdit] Edição fora do estado "generating" — ignorando.', [
                 'id' => $edit->id,
                 'render_status' => $edit->render_status?->value,
             ]);
@@ -69,7 +69,7 @@ final class StartVideoCutEditRenderJob implements ShouldQueue
 
         $service->startRender($edit, $this->transcriptFor($edit));
 
-        Log::info('[VideoCutEdit] Render do corte editado iniciado.', ['edit_id' => $edit->id, 'uuid' => $edit->uuid]);
+        Log::channel('daily')->info('[INFO][VideoCutEdit] Render do corte editado iniciado.', ['edit_id' => $edit->id, 'uuid' => $edit->uuid]);
     }
 
     public function failed(?Throwable $exception): void

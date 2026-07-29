@@ -61,9 +61,9 @@ class TranscriptionWorker:
         try:
             with gpu_lock:
                 transcript = transcribe(job.audio_path, job.work_dir / "transcript.json")
-        except Exception as exc:
+        except Exception as exception:
             logger.exception("transcrição falhou (uuid=%s)", job.uuid)
-            self._notify(job, {"uuid": job.uuid, "status": "failed", "error": str(exc)})
+            self._notify(job, {"uuid": job.uuid, "status": "failed", "error": str(exception)})
             return
 
         self._notify(job, {"uuid": job.uuid, "status": "done", "transcript": transcript})

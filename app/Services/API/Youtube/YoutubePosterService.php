@@ -31,7 +31,7 @@ final readonly class YoutubePosterService implements PosterInterface
             $videoId = $this->poster->post($short);
             $link = 'https://www.youtube.com/shorts/'.$videoId;
 
-            Log::info('[AutoPost][YouTube] Short postado.', ['id' => $short->id, 'link' => $link]);
+            Log::channel('daily')->info('[INFO][AutoPost][YouTube] Short postado.', ['id' => $short->id, 'link' => $link]);
             $this->discord->success(
                 '✅ Short postado no YouTube',
                 ($task->title ?: $short->youtube_id).PHP_EOL.$link,
@@ -40,9 +40,12 @@ final readonly class YoutubePosterService implements PosterInterface
 
             return PosterResultData::ok($this->platform(), $link);
         } catch (Throwable $throwable) {
-            Log::error('[AutoPost][YouTube] Falha ao postar.', [
+            Log::channel('daily')->error('[ERRO][AutoPost][YouTube] Falha ao postar.', [
                 'id' => $short->id,
-                'error' => $throwable->getMessage(),
+                'exception' => $throwable,
+                'message' => $throwable->getMessage(),
+                'file' => $throwable->getFile(),
+                'line' => $throwable->getLine(),
             ]);
             $this->discord->error(
                 '❌ Falha ao postar Short no YouTube',

@@ -91,7 +91,12 @@ export class PostQueueService {
         } catch (error) {
             payload = this.failurePayload(job.jobId, title, error);
         } finally {
-            await rm(job.videoPath, { force: true }).catch(() => undefined);
+            await rm(job.videoPath, { force: true }).catch((error: unknown) =>
+                logger.warn(
+                    `[job ${job.jobId}] Falha ao remover o vídeo temporário: ` +
+                        `${error instanceof Error ? error.message : String(error)}`,
+                ),
+            );
         }
 
         if (job.accountId !== undefined) {

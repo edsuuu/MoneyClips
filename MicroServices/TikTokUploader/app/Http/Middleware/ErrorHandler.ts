@@ -25,7 +25,7 @@ function isBadRequest(error: unknown): boolean {
         message?: unknown;
     };
 
-    if (type === 'entity.parse.failed' || type === 'entity.too.large' || status === 400) {
+    if (['entity.parse.failed', 'entity.too.large'].includes(type as string) || status === 400) {
         return true;
     }
 
