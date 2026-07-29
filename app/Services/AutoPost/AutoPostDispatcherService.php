@@ -59,7 +59,7 @@ final readonly class AutoPostDispatcherService
                 ->first();
 
             if (! $short instanceof YoutubeShort) {
-                Log::warning('[AutoPost][Random] Sem vídeo pronto no estoque — slot vazio fica pulado.', ['slot_id' => $slot->id]);
+                Log::channel('daily')->warning('[WARN][AutoPost][Random] Sem vídeo pronto no estoque — slot vazio fica pulado.', ['slot_id' => $slot->id]);
 
                 break;
             }
@@ -74,7 +74,7 @@ final readonly class AutoPostDispatcherService
                 continue;
             }
 
-            Log::info('[AutoPost][Random] Vídeo sorteado pro slot vazio.', ['slot_id' => $slot->id, 'short_id' => $short->id]);
+            Log::channel('daily')->info('[INFO][AutoPost][Random] Vídeo sorteado pro slot vazio.', ['slot_id' => $slot->id, 'short_id' => $short->id]);
             dispatch(new ReencodeAndPostSlotJob($slot->id));
         }
     }
@@ -88,7 +88,7 @@ final readonly class AutoPostDispatcherService
             ->update(['dispatched_at' => now()]);
 
         if ($claimed !== 1) {
-            Log::info('[AutoPost] Slot já reivindicado ou sem vídeo — ignorando.', ['slot_id' => $slot->id]);
+            Log::channel('daily')->info('[INFO][AutoPost] Slot já reivindicado ou sem vídeo — ignorando.', ['slot_id' => $slot->id]);
 
             return false;
         }
@@ -102,7 +102,7 @@ final readonly class AutoPostDispatcherService
     {
         $posters = $this->posters->all();
 
-        Log::info('[AutoPost] Slot despachado.', [
+        Log::channel('daily')->info('[INFO][AutoPost] Slot despachado.', [
             'slot_id' => $slot->id,
             'platforms' => array_map(static fn (PosterInterface $p): string => $p->platform(), $posters),
         ]);

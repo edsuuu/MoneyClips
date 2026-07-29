@@ -13,6 +13,7 @@
  * fontconfig do host (o mesmo que o libass já exige pra FONT_NAME).
  */
 
+import { existsSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import sharp from 'sharp';
@@ -165,11 +166,19 @@ export class StaticLayerRenderer extends Logger {
     }
 
     private async exists(path: string): Promise<boolean> {
+        if (!existsSync(path)) {
+            return false;
+        }
+
         try {
             await sharp(path).metadata();
 
             return true;
-        } catch {
+        } catch (error) {
+            this.warn(
+                `[WARN] logo existe mas não é imagem válida (${path}): ${(error as Error).message}`,
+            );
+
             return false;
         }
     }

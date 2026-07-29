@@ -43,7 +43,9 @@ export class CaptionQueueService extends Logger {
 
         this.chain = this.chain
             .then(run, run)
-            .catch(() => undefined)
+            .catch(() => {
+                // erro já logado dentro do job
+            })
             .finally(() => {
                 this.queued -= 1;
             });
