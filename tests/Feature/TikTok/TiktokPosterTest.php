@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\ScheduleSlot;
 use App\Models\SocialAccount;
 use App\Models\YoutubeShort;
 use App\Services\AutoPost\PostTaskData;
@@ -28,7 +27,7 @@ function tiktokTask(): PostTaskData
     $short = YoutubeShort::factory()->ready()->create();
     Storage::disk('s3')->put($short->video_path, 'video-bytes');
 
-    return PostTaskData::fromShort($short, ScheduleSlot::factory()->dispatched()->create(['youtube_short_id' => $short->id]));
+    return PostTaskData::fromShort($short);
 }
 
 it('queues the post sending the binary, cookies, webhook_url and account_id via multipart', function (): void {

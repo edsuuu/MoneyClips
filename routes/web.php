@@ -60,7 +60,6 @@ Route::middleware(['auth'])->group(function (): void {
         });
 
     Route::view('/meus-videos', 'videos.index')->name('videos.index');
-    Route::view('/agenda', 'schedule.index')->name('agenda.index');
     Route::view('/editor-de-video/{cut}', 'video-editor.index')->name('video-editor.index');
     Route::view('/contas', 'accounts.index')->name('accounts.index');
     Route::view('/observabilidade', 'observability.index')->name('observability.index');

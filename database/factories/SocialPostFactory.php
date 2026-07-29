@@ -20,7 +20,6 @@ final class SocialPostFactory extends Factory
         return [
             'platform' => 'youtube',
             'uuid' => (string) Str::uuid(),
-            'schedule_slot_id' => null,
             'youtube_id' => fake()->regexify('[A-Za-z0-9_-]{11}'),
             'video_key' => 'shorts/'.fake()->uuid().'.mp4',
             'title' => fake()->sentence(4),

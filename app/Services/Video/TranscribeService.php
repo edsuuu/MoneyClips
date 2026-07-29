@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Transcribe;
+namespace App\Services\Video;
 
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
