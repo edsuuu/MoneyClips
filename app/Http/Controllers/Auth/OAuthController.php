@@ -27,11 +27,6 @@ final class OAuthController extends Controller
 
     private const array LOGIN_SCOPES = ['openid', 'profile', 'email'];
 
-    private const array YOUTUBE_SCOPES = [
-        'https://www.googleapis.com/auth/youtube.upload',
-        'https://www.googleapis.com/auth/youtube.readonly',
-    ];
-
     private const array YOUTUBE_CONSENT = [
         'access_type' => 'offline',
         'prompt' => 'consent',
@@ -105,7 +100,7 @@ final class OAuthController extends Controller
         }
 
         return $this->googleProvider(self::YOUTUBE)
-            ->scopes(self::YOUTUBE_SCOPES)
+            ->scopes(config()->array('services.google.youtube_scopes'))
             ->with(self::YOUTUBE_CONSENT)
             ->redirect();
     }
