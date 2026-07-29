@@ -34,7 +34,7 @@ final class RunReencodeJob implements ShouldQueue
         $short = $job?->youtubeShort;
 
         if (! $job instanceof ProcessingJob || ! $short instanceof YoutubeShort) {
-            Log::warning('[Processing] Job de reencode sem registro/vídeo — ignorando.', ['id' => $this->processingJobId]);
+            Log::channel('daily')->warning('[WARN][Processing] Job de reencode sem registro/vídeo — ignorando.', ['id' => $this->processingJobId]);
 
             return;
         }
@@ -52,7 +52,7 @@ final class RunReencodeJob implements ShouldQueue
         }
 
         $job->fill(['status' => 'completed', 'finished_at' => now()])->save();
-        Log::info('[Processing] Reencode concluído.', ['short_id' => $short->id, 'reencoded' => $reencoded]);
+        Log::channel('daily')->info('[INFO][Processing] Reencode concluído.', ['short_id' => $short->id, 'reencoded' => $reencoded]);
     }
 
     public function failed(?Throwable $exception): void

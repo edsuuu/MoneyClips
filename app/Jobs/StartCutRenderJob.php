@@ -42,13 +42,13 @@ final class StartCutRenderJob implements ShouldQueue
         $cut = VideoCut::query()->with('video')->find($this->cutId);
 
         if (! $cut instanceof VideoCut) {
-            Log::warning('[Cut] Corte inexistente ao iniciar geração.', ['id' => $this->cutId]);
+            Log::channel('daily')->warning('[WARN][Cut] Corte inexistente ao iniciar geração.', ['id' => $this->cutId]);
 
             return;
         }
 
         if ($cut->status !== VideoCutStatusEnum::Generating) {
-            Log::info('[Cut] Corte fora do estado "generating" — ignorando.', [
+            Log::channel('daily')->info('[INFO][Cut] Corte fora do estado "generating" — ignorando.', [
                 'id' => $cut->id,
                 'status' => $cut->status->value,
             ]);
@@ -65,7 +65,7 @@ final class StartCutRenderJob implements ShouldQueue
 
         $service->startRender($cut);
 
-        Log::info('[Cut] Geração do corte iniciada.', ['cut_id' => $cut->id, 'uuid' => $cut->uuid]);
+        Log::channel('daily')->info('[INFO][Cut] Geração do corte iniciada.', ['cut_id' => $cut->id, 'uuid' => $cut->uuid]);
     }
 
     public function failed(?Throwable $exception): void

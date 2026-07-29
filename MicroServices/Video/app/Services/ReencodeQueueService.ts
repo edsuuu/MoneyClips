@@ -43,7 +43,9 @@ export class ReencodeQueueService extends Logger {
         const next = this.chain.then(task, task).finally(() => {
             this.running -= 1;
         });
-        this.chain = next.catch(() => undefined);
+        this.chain = next.catch(() => {
+            // erro já logado dentro do job
+        });
 
         return next;
     }

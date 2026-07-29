@@ -49,7 +49,9 @@ export class ErrorHandler extends Logger {
 
         const { type, status } = error as { type?: unknown; status?: unknown };
 
-        return type === 'entity.parse.failed' || type === 'entity.too.large' || status === 400;
+        return (
+            ['entity.parse.failed', 'entity.too.large'].includes(type as string) || status === 400
+        );
     }
 }
 

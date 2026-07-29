@@ -37,7 +37,7 @@ final class FetchTemplateOutputJob implements ShouldQueue
         $short = $job?->youtubeShort;
 
         if (! $job instanceof ProcessingJob || ! $short instanceof YoutubeShort || $job->remote_id === null) {
-            Log::warning('[Processing] Fetch de template sem registro/remote_id — ignorando.', ['id' => $this->processingJobId]);
+            Log::channel('daily')->warning('[WARN][Processing] Fetch de template sem registro/remote_id — ignorando.', ['id' => $this->processingJobId]);
 
             return;
         }
