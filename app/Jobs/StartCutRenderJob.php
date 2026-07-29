@@ -7,7 +7,7 @@ namespace App\Jobs;
 use App\Enums\VideoCutStatusEnum;
 use App\Models\VideoCut;
 use App\Services\API\Discord\DiscordNotifierService;
-use App\Services\Cut\CutRenderService;
+use App\Services\Video\CutRenderService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;

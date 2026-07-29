@@ -1,9 +1,8 @@
 # MoneyClips
 
-Plataforma de **auto-postagem de Shorts** multi-plataforma (YouTube + TikTok
-hoje; TikTok oficial/Instagram/Facebook/Kwai com posters preparados). Laravel
-orquestra; microserviços fazem o trabalho pesado (download, upload via
-Playwright, reencode, render de template). **Tudo roda nativo — sem Docker**
+Plataforma de **postagem de Shorts** multi-plataforma (YouTube + TikTok).
+Laravel orquestra; microserviços fazem o trabalho pesado (download, upload via
+Playwright, corte/render de vídeo). **Tudo roda nativo — sem Docker**
 (`make up`).
 
 ## Stack
@@ -37,17 +36,14 @@ O **upload** também não passa pelo Laravel: o browser envia direto pro MinIO p
 multipart presigned (o Laravel só assina as partes e confere o resultado), o que
 contorna `upload_max_filesize`/`post_max_size` e dá retomada em arquivos de GBs.
 
-## Domínio: agenda em banco + estoque
+## Domínio: estoque + postagem direta
 
 ```
 media (FastAPI) → MinIO + youtube_shorts (estoque)
   → /meus-videos: revisão (título/hashtags) → ready_at
-      → opcional: reencode (síncrono) OU template (assíncrono) — ambos no Video
-  → /agenda: schedule_slots (data+hora+vídeo) → AutoPostDispatcherService (cron)
-      → claim atômico do slot → 1 job PostSlotToPlatformJob por plataforma habilitada
+      → "Postar agora": 1 job PostShortToPlatformJob por plataforma escolhida
           → YoutubePosterService (Data API, síncrono no job)
           → TiktokPosterService (202 {job_id} → webhook fecha o desfecho)
-          → stubs (TikTok oficial, Instagram, Facebook, Kwai)
 ```
 
 ## Organização de código (Services por integração)
@@ -58,10 +54,9 @@ media (FastAPI) → MinIO + youtube_shorts (estoque)
 - **A arquitetura é específica de cada serviço, não geral da aplicação**:
   interface/DTOs vivem NA PASTA do serviço dono (ex.:
   `PosterInterface`, `PostTaskData` e `PosterResultData` em
-  `app/Services/AutoPost/`; `TemplateRenderOptionsData`
-  em `app/Services/Processing/`). NÃO existem pastas gerais tipo
+  `app/Services/AutoPost/`). NÃO existem pastas gerais tipo
   `app/Contracts` ou `app/DataTransferObjects`.
-- **`*Enum` vive em `app/Enums/`** (`VideoStatusEnum`, `TemplateStyleEnum`),
+- **`*Enum` vive em `app/Enums/`** (`VideoStatusEnum`, `VideoCutStatusEnum`),
   não na pasta do serviço dono — mesma lógica das exceptions abaixo.
 - **Exceptions são a exceção da regra acima**: `*Exception` vive em
   `app/Exceptions/`, não na pasta do serviço dono. É a convenção histórica do
@@ -69,87 +64,44 @@ media (FastAPI) → MinIO + youtube_shorts (estoque)
   fecha uma request HTTP implementa o próprio `render(): JsonResponse` — o
   código de status mora nela, não espalhado em `response()->json([...], 4xx)`
   pelos controllers.
-- **`app/Services/Api/`** — cada integração externa por API (não-microserviço)
-  em sua pasta: `Api/Youtube/` (Data API v3 + OAuth), `Api/TikTok/` (Content
-  Posting API oficial, stub), `Api/Meta/{Instagram,Facebook}/`, `Api/Kwai/`,
-  `Api/Discord/` (webhook).
-- **Clients de microserviço** na raiz de Services, nomeados pela FUNÇÃO:
-  `app/Services/{TikTokUploader,DownloadYoutube,Transcribe,Reencode,AutoCaption,HLS}/` —
-  `Reencode`, `AutoCaption` e `HLS` apontam todos pro serviço `Video` (:8790),
-  em endpoints diferentes; `DownloadYoutube` e `Transcribe` apontam ambos pro
-  serviço `Media` (:8770). (Os nomes são herdados dos serviços que existiam
-  antes das fusões; o alvo é o serviço atual, não a pasta homônima.)
-- **Orquestração**: `app/Services/AutoPost/` (agenda/postagem) e
-  `app/Services/Processing/` (pipeline reencode/template).
+- **`app/Services/API/`** — cada integração externa por API (não-microserviço)
+  em sua pasta: `API/Youtube/` (Data API v3 + OAuth) e `API/Discord/` (webhook
+  de alertas).
+- **Clients de microserviço** na raiz de Services:
+  `app/Services/{TikTokUploader,DownloadYoutube,Video}/` — `Video` concentra os
+  clients do serviço `video` (:8790) e da transcrição (`CutRenderService`,
+  `VideoCutEditRenderService`, `TranscribeService` — este último aponta pro
+  `media`, :8770); `DownloadYoutube` aponta pro `Media` (:8770). O client de
+  HLS (`HLSPackagerService`) vive em `app/Services/Upload/HLS/`.
+- **Orquestração da postagem**: `app/Services/AutoPost/` (registry + DTOs dos
+  posters).
 - **Fuso horário**: `config/app.php` já define `America/Sao_Paulo` — NUNCA
   repita o timezone em código (`now()`/`CarbonImmutable::now()` já resolvem).
   `Date::use(CarbonImmutable::class)` é global (`AppServiceProvider`).
-- **Horários de postagem vêm SEMPRE do banco** (semana anterior →
-  `users.auto_post_schedule`) — não existe horário default em código.
 
 ### Agenda (`schedule_slots` + `App\Services\AutoPost\`)
 
-- `ScheduleSlot` — slot concreto: `slot_date` + `slot_time` (fuso da
-  aplicação), `youtube_short_id` (null = vazio), `is_active`, `dispatched_at`
-  (claim atômico). Máx. 5/dia. `scheduledAt()` é o único ponto que combina
-  data+hora.
-- `AutoPostDispatcherService` — a cada minuto busca slots devidos (tolerância
-  `GRACE_MINUTES = 5`), reivindica via `UPDATE ... WHERE dispatched_at IS NULL`
-  e enfileira `PostSlotToPlatformJob` (fila `posting`, `tries=1` — repost às
-  cegas arrisca duplicado). O tick nunca posta nada.
+### Postagem (`App\Services\AutoPost\` + `social_posts`)
+
 - `PosterRegistryService` (singleton no `AppServiceProvider`) — 1 Poster por
   plataforma implementando `App\Services\AutoPost\PosterInterface`
   (`post(PostTaskData): PosterResultData`; outcomes
   `ok|queued|dry-run|restricted|failed` — `queued` = desfecho chega por
-  webhook, `externalId` gravado como uuid do ledger). Toggles em
-  **`platform_settings`** (tela /agenda). Stubs prontos:
-  `TiktokOfficialPosterService`, `InstagramReelsPosterService`,
-  `FacebookReelsPosterService`, `KwaiPosterService` (docblocks apontam a API
-  alvo; credenciais irão em `social_accounts`).
-- `SlotStatusService` — status de exibição computado na leitura (nunca
-  persistido): `empty|paused|future|next|due|skipped` e, pós-despacho,
-  agregado das `social_posts` do slot: `posting|posted|partial|failed`.
-- `WeekGeneratorService` — "Gerar semana": copia horários da última semana com
-  slots (fallback: agenda legada `users.auto_post_schedule`) e auto-atribui
-  vídeos prontos (FIFO `ready_at`). Sem nada no banco, não cria slot — o
-  operador monta a primeira semana na /agenda.
-- `StockAlertService` — 1×/dia compara estoque pronto × slots vazios de 7 dias.
-- **Modo aleatório** (flag `random_mode` no cache — `AutoPostDispatcherService::RANDOM_MODE`, toggle na /agenda): com a
-  flag ligada, slot VAZIO que chega no horário recebe um vídeo pronto
-  sorteado (fora do sorteio: vídeo com social_post ativa ou preso em slot
-  despachado sem ledger) e roda o fluxo antigo à parte —
-  `ReencodeAndPostSlotJob` (pega o vídeo → reencoda via
-  `ReencodeShortService` → `fanOut()` normal). Atribuição + claim na MESMA
-  UPDATE (senão o tick seguinte postaria o original em paralelo ao reencode).
-  Reencode falhou = posta o original. Flag desligada = slot vazio fica
-  `skipped` (comportamento padrão).
-- Deploy da agenda: rodar `php artisan schedule:migrate-legacy` UMA vez após
-  `migrate` (materializa slots da agenda legada; sem isso nada posta).
+  webhook, `externalId` gravado como uuid do ledger). Registrados:
+  `YoutubePosterService` e `TiktokPosterService`.
+- `PostShortToPlatformJob` (fila `posting`, `tries=1` — repost às cegas
+  arrisca duplicado): cria a linha do ledger `social_posts`, valida o arquivo
+  no MinIO e chama o poster da plataforma. Disparado pela "Postagem
+  instantânea" da /meus-videos (1 job por plataforma escolhida; vídeo com
+  social_post ativa não re-enfileira).
 
 ### Estoque (`youtube_shorts` + `/meus-videos`)
 
-Ciclo: baixado (`video_path`) → revisado/pronto (`ready_at`) → opcionalmente
-processado (`processed_video_path` — os posters SEMPRE usam
-`postableVideoPath()`) → agendado (slot) → postado (`posted_youtube_at`/
-`posted_tiktok_at` + ledger `social_posts`). `template_rendered_at` alimenta a
-tab "Com template".
-
-### Pipeline de processamento (`App\Services\Processing\` + `processing_jobs`)
-
-Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
-
-- `VideoProcessingService::startReencode()` → `RunReencodeJob` (fila
-  `processing`): MinIO → multipart `POST /reencode` via
-  `App\Services\Reencode\ReencodeService` (síncrono, resposta = binário `_HQ`
-  ou JSON `skipped`) → MinIO → `processed_video_path`.
-- `VideoProcessingService::startTemplateRender()` → `StartTemplateRenderJob`:
-  MinIO → multipart `POST /videos` no serviço `Video`
-  (`App\Services\AutoCaption\AutoCaptionService`, com `webhook_url`) →
-  webhook `POST /api/autocaption/webhook` → `FetchTemplateOutputJob` baixa o
-  variant e grava no MinIO. Estilos: `TemplateStyleEnum` (Claro/Escuro/Vertical
-  → variants `template_white|template_black|vertical`). O `Video` monta o .ass
-  e roda o ffmpeg; a transcrição ele terceiriza pro `media` (:8770).
-- 1 job pendente por vídeo (guard em `processing_jobs`).
+Ciclo: baixado (`video_path`) → revisado/pronto (`ready_at`) → postado
+(`posted_youtube_at`/`posted_tiktok_at` + ledger `social_posts`). Os posters
+SEMPRE usam `postableVideoPath()` (prefere `processed_video_path` legado,
+quando existe). `template_rendered_at` alimenta a tab "Com template"
+(histórico — o pipeline de template foi removido).
 
 ### YouTube
 
@@ -171,14 +123,14 @@ Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
   `cookies` JSON + `title` + `hashtags` + `webhook_url`) e recebe
   `202 {job_id}` na hora — o job_id vira o `uuid` do ledger. O Playwright
   publica em background e o desfecho chega em
-  `POST /api/tiktok-posts/webhook` (`TiktokPostWebhookController`, autenticado
+  `POST /api/webhook/tiktok-posts` (`TiktokPostWebhookController`, autenticado
   pelo `X-Observability-Token` — o webhook escreve credenciais):
   `{job_id, status: completed|dry-run|restricted|failed, session_status,
   refreshed_cookies?, account_id?}` — fecha o ledger com claim atômico
   (`failed` prematuro do job é sobrescrevível pelo desfecho real), marca
   `posted_tiktok_at` e atualiza a conta identificada pelo `account_id`
   (`session_status=invalid` → Discord + `TiktokPosterService` curto-circuita
-  os próximos slots até renovar em /contas).
+  as próximas postagens até renovar em /contas).
 - Cookies vivem **criptografados no banco**: `social_accounts.cookies`
   (cast `encrypted:array`). O webhook devolve `refreshed_cookies` (capturados
   pós-upload) e o Laravel renova a sessão sozinho; fallback manual em
@@ -191,45 +143,38 @@ Fluxo 1 do estoque: o operador escolhe **só reencode** OU **template**.
 
 Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 
-- `POST /api/observability/logs` (lote) e `POST /api/observability/heartbeat`
-  (30s), autenticados por `X-Observability-Token` (`OBSERVABILITY_TOKEN`,
-  fail-closed). Tabelas `service_logs` (prune 14 dias) e `service_heartbeats`
-  (upsert por serviço).
-- `observability:check-heartbeats` (a cada minuto): sem heartbeat > 90s →
-  Discord 1×/queda + aviso de recuperação.
+- `POST /api/observability/logs` (lote), autenticado por
+  `X-Observability-Token` (`OBSERVABILITY_TOKEN`, fail-closed). Tabela
+  `service_logs` (prune 14 dias).
 - Tela `/observabilidade` (`App\Livewire\Observability\Index`): stream de
-  logs (filtros por serviço/level + busca, poll 3s) + cards de heartbeat +
-  drawer de detalhe. Substituiu `/microservices` e o `MicroserviceMonitor`.
+  logs (filtros por serviço/level + busca, poll 3s) + drawer de detalhe.
 - Lado dos serviços: `RemoteObservability.ts` (Node) / `observability.py`
   (Python) — decoram o logger local (buffer, flush 2s/20 linhas,
-  fire-and-forget) + heartbeat. Envs: `OBSERVABILITY_URL`,
-  `OBSERVABILITY_TOKEN`, `SERVICE_NAME`.
+  fire-and-forget). Ainda enviam heartbeat a cada 30s, mas o endpoint
+  `/api/observability/heartbeat` foi removido (o POST volta 404 inofensivo).
+  Envs: `OBSERVABILITY_URL`, `OBSERVABILITY_TOKEN`, `SERVICE_NAME`.
 
 ## Banco de dados (visão geral)
 
 | Tabela | Papel |
 | --- | --- |
-| `users` | login Google OAuth (`auto_post_schedule` legado — fonte do `schedule:migrate-legacy`) |
-| `platform_settings` | toggle global por plataforma (youtube, tiktok, tiktok_official, instagram, facebook, kwai) |
-| `schedule_slots` | agenda em banco: data+hora+vídeo, claim do dispatcher |
+| `users` | login Google OAuth |
 | `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
 | `videos` | vídeos longos enviados em /upload (arquivo ou URL do YouTube): ciclo `awaiting_upload\|downloading → uploaded → packaging → ready` + metadados do HLS |
-| `youtube_shorts` | estoque; ciclo `ready_at` → `processed_video_path` → `posted_*_at` |
-| `social_posts` | ledger por (slot, plataforma) — status por plataforma na /agenda |
-| `processing_jobs` | estado do pipeline reencode/template |
-| `service_logs` / `service_heartbeats` | observabilidade |
+| `youtube_shorts` | estoque; ciclo `ready_at` → `posted_*_at` |
+| `social_posts` | ledger de postagens (1 linha por disparo/plataforma) |
+| `service_logs` | observabilidade (logs dos microserviços) |
 
 ## Telas (layout navbar; design em docs/designs/)
 
 | Rota | Componente | Função |
 | --- | --- | --- |
-| `/meus-videos` | `App\Livewire\Videos\Index` (+ `TemplateEditor`) | estoque com tabs Disponíveis (Baixados/Prontos), Editor de template, Com template, Postados; postagem instantânea; novo download |
-| `/agenda` | `App\Livewire\Schedule\Index` | kanban semanal de slots (rascunho + "Salvar agenda"), picker de vídeo, drag&drop, "Gerar semana", "Forçar agora", visão Mês, toggles por plataforma |
+| `/meus-videos` | `App\Livewire\Videos\Index` | estoque com tabs Disponíveis (Baixados/Prontos), Com template, Postados; postagem instantânea; novo download |
 | `/upload` | `App\Livewire\Uploads\Create` | envio de vídeo longo (multipart direto pro MinIO, com retomada) OU import por URL do YouTube (valida + preview → download no microserviço) |
 | `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo |
 | `/editor-de-video/{cut}` | `App\Livewire\VideoEditor\Index` | reframe do corte por keyframes (crop 9:16, modos, legendas) + "Gerar corte editado" → render no serviço `video` → estoque de `/meus-videos` |
 | `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok email/senha + status de sessão; YouTube OAuth) com toggle por conta |
-| `/observabilidade` | `App\Livewire\Observability\Index` | logs + heartbeats dos microserviços |
+| `/observabilidade` | `App\Livewire\Observability\Index` | stream de logs dos microserviços |
 
 Não existe redirect legado: cada tela tem UMA rota. Link novo aponta pra rota
 final — nada de `Route::redirect` pra não mexer na navbar.
@@ -238,9 +183,6 @@ final — nada de `Route::redirect` pra não mexer na navbar.
 
 | Comando | O que faz |
 | --- | --- |
-| `schedule:migrate-legacy` | one-shot do deploy: materializa `schedule_slots` da agenda legada |
-| `auto-post:check-missed` | alerta slots pulados/sem vídeo/falha total (10 min) |
-| `observability:check-heartbeats` | alerta serviço sem heartbeat > 90s (1 min) |
 | `uploads:prune-stale` | aborta uploads multipart abandonados > 24h (diário) |
 | `tiktok:import-cookies-from-file` | fallback de emergência: importa cookies do filesystem |
 | `posts:migrate-tiktok` | one-shot histórico (tiktok_posts → social_posts) |
@@ -252,7 +194,7 @@ Cron: `* * * * * php artisan schedule:run` + worker de fila
 
 - Nomes de **pastas, namespaces, classes, métodos, propriedades, variáveis,
   funções, migrations, colunas de tabela, env vars, config keys** — tudo
-  em **inglês**. Ex.: `App\Livewire\Schedule\Index` (não `Agenda`).
+  em **inglês**. Ex.: `App\Livewire\Accounts\Index` (não `Contas`).
 - Permitido em pt-BR: paths de rotas (`/agenda`, `/meus-videos`), strings
   de UI (labels, mensagens, toasts), comentários no código.
 
@@ -329,7 +271,7 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 | tiktok-uploader | 8090 | Node 22 + Playwright | `POST /posts` multipart {video, cookies, title, hashtags, webhook_url} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status, session_status, refreshed_cookies?}`; `POST /session`, `POST /login`, `GET /health` |
 | video | 8790 | Node 22 + ffmpeg + sharp | **todo o ffmpeg da aplicação**: cinco endpoints, filas independentes. `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped` (síncrono, sem S3). `POST /package` JSON {video_key, output_prefix, webhook_url} → 202 {uuid}; HLS/ABR (360p/720p/1080p, fMP4, segmentos de 6s); lê/escreve MinIO direto (exceção da regra S3); webhook `{uuid, status: done\|failed\|rejected\|progress, ...}`. `POST /cut` JSON {cut_uuid, video_key, start_seconds, end_seconds, clip_key, audio_key, webhook_url} → 202 {uuid}; corte frame-exato (cap 1080p) + WAV pra transcrição; webhook `{uuid, cut_uuid, status: done\|failed, audio}`. `POST /reframe` JSON {edit_uuid, source_key, output_key, source, keyframes, settings, transcript?, webhook_url} → 202 {uuid}; render do corte editado em 1080x1920 (zoompan por keyframes + legenda opcional); webhook `{uuid, edit_uuid, status: done\|failed}`. `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; render de legenda karaokê + template; webhook `{uuid, status: done\|failed, files}`; output em `GET /videos/{uuid}/output/{variant}`. `API_TOKEN` opcional |
 
-Todos com observabilidade (logs + heartbeat → Laravel) quando
+Todos com observabilidade (logs → Laravel) quando
 `OBSERVABILITY_URL`/`OBSERVABILITY_TOKEN` configurados.
 
 ## Rodar tudo
@@ -342,23 +284,20 @@ make up      # sobe Laravel (serve/queue/pail/vite) + media +
 
 - Laravel → microserviço: `127.0.0.1:<porta>`; microserviço → Laravel:
   `127.0.0.1:8000` em dev, domínio real (nginx/HTTPS) em prod.
-- A transcrição (faster-whisper, no `media`) usa CUDA em prod; em macOS cai
-  pra cpu/int8 automaticamente. O render do template roda normal no `Video`
-  (ffmpeg/libx264) em qualquer S.O.
+- A transcrição (faster-whisper `large-v3`, no `media`) usa CUDA em prod; em
+  macOS cai pra cpu/int8 automaticamente.
 - Prod: pm2/systemd por serviço (só o TikTokUploader tem
   `ecosystem.config.cjs` por enquanto).
 
 ## Runbook de deploy desta refatoração
 
-1. `php artisan migrate`
-2. `php artisan schedule:migrate-legacy` (senão nada posta)
-3. Setar `OBSERVABILITY_TOKEN` no Laravel + nos `.env` dos 3 serviços (o
+1. `php artisan migrate` (dropa `schedule_slots`, `processing_jobs`,
+   `service_heartbeats` e colunas órfãs)
+2. Setar `OBSERVABILITY_TOKEN` no Laravel + nos `.env` dos 3 serviços (o
    webhook do TikTok também autentica por ele — sem token, post não fecha)
-4. Conferir `TIKTOK_POST_WEBHOOK_URL` (em prod: domínio real, não `:8000`) e
-   `TIKTOK_POST_API_TOKEN` = `API_TOKEN` do uploader. Worker SEMPRE
-   `queue:listen` (o `once()` dos toggles não é limpo em `queue:work` daemon)
-5. Revisar `/agenda` (atribuir vídeos aos slots) e toggles em `platform_settings`
-6. ⚠️ Rotacionar a chave Roboflow e o webhook Discord que estavam commitados
+3. Conferir `TIKTOK_POST_WEBHOOK_URL` (em prod: domínio real, não `:8000`) e
+   `TIKTOK_POST_API_TOKEN` = `API_TOKEN` do uploader
+4. ⚠️ Rotacionar a chave Roboflow e o webhook Discord que estavam commitados
    no `.env.example` antigo do TikTokUploader (continuam no histórico git)
 
 ## Armadilhas conhecidas (custaram tempo, não são óbvias)
@@ -375,9 +314,6 @@ make up      # sobe Laravel (serve/queue/pail/vite) + media +
   coluna específico ou cast de JSON pode passar no CI e quebrar em prod.
 - **`php artisan key:generate` precisa da linha `APP_KEY=`.** Em `.env` vazio
   ele não acha o que substituir, sai sem escrever e **sem erro**.
-- **`service_heartbeats` é upsert por NOME** e o `check-heartbeats` varre a
-  tabela inteira: renomear serviço deixa linha órfã alertando "fora do ar" pra
-  sempre. Apague a linha junto com o rename.
 - **`DateOnlyCast` existe por causa do sqlite dos testes**: o `immutable_date`
   nativo grava `Y-m-d H:i:s` e quebra comparação por data (MySQL trunca,
   sqlite não).
@@ -395,9 +331,11 @@ make up      # sobe Laravel (serve/queue/pail/vite) + media +
 - ⚠️ **Rotacionar a chave Roboflow e o webhook Discord** que estavam
   commitados no `.env.example` antigo do TikTokUploader — seguem no histórico
   do git.
-- Renomear as chaves `AUTOCAPTION_*`/`HLS_*` e a rota
-  `/api/autocaption/webhook`: apontam pro serviço `Video`, não mais pros
-  serviços que dão nome a elas.
+- Renomear as chaves `HLS_*`: apontam pro serviço `Video`, não mais pro
+  serviço que dá nome a elas.
+- Os microserviços ainda enviam heartbeat (30s) pra um endpoint que não existe
+  mais — remover o heartbeat de `RemoteObservability.ts`/`observability.py`
+  quando conveniente.
 
 ## Agentes e contexto
 
@@ -407,8 +345,23 @@ make up      # sobe Laravel (serve/queue/pail/vite) + media +
 - Histórico das refatorações vive no git (PRs #48, #61, #62, #63) — este
   arquivo descreve o estado ATUAL.
 
-## Histórico (apagados nesta refatoração)
+## Histórico (apagados nas refatorações)
 
+- **Agenda de auto-postagem** (`schedule_slots` + tela `/agenda` +
+  `AutoPostDispatcherService`/`SlotStatusService`/`WeekGeneratorService`/
+  `StockAlertService` + modo aleatório + `schedule:migrate-legacy`/
+  `auto-post:check-missed`) — ficou só a postagem direta
+  (`PostShortToPlatformJob`, ex-`PostSlotToPlatformJob`).
+- **Pipeline reencode/template** (`processing_jobs`,
+  `App\Services\{Processing,Reencode,AutoCaption}`, `TemplateEditor`,
+  `TemplateStyleEnum`, rota `/api/webhook/autocaption`).
+- **Heartbeats** (`service_heartbeats`, endpoint `/api/observability/heartbeat`,
+  `observability:check-heartbeats`, cards da /observabilidade).
+- **Stubs de posters** (`TiktokOfficialPosterService`,
+  `InstagramReelsPosterService`, `FacebookReelsPosterService`,
+  `KwaiPosterService`) e a tabela `platform_settings`.
+- Clients `App\Services\{Cut,Transcribe,VideoCutEdit}` → centralizados em
+  `App\Services\Video`.
 - Integração TikTok assíncrona antiga: `TiktokPostService`,
   `TIkTokUploaderClient`, `TikTokPostDispatcher`,
   `TiktokPostCallbackController` (+ rota `/api/tiktok-posts/callback`).

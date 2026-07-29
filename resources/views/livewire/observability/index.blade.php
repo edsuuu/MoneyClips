@@ -1,4 +1,4 @@
-<section class="grid w-full items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
+<section class="flex w-full flex-col gap-4">
     <div class="flex max-h-[calc(100vh-130px)] min-h-[480px] flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900">
         <div class="flex flex-col gap-3 border-b border-slate-800 px-4 py-3.5">
             <div class="flex items-center gap-2.5">
@@ -65,71 +65,6 @@
                 </div>
             @endforelse
         </div>
-    </div>
-
-    <div class="flex flex-col gap-3" wire:poll.10s>
-        @forelse ($services as $svc)
-            <button type="button" wire:click="setServiceFilter('{{ $svc['service'] }}')" wire:key="svc-{{ $svc['service'] }}"
-                @class([
-                    'flex cursor-pointer flex-col gap-3.5 rounded-2xl border bg-slate-900 p-5 text-left transition hover:border-slate-600',
-                    'border-red-500/50' => ! $svc['online'],
-                    'border-sky-500/50' => $svc['online'] && $svc['selected'],
-                    'border-slate-800' => $svc['online'] && ! $svc['selected'],
-                ])>
-                <div class="flex items-start justify-between gap-3">
-                    <div class="flex min-w-0 items-center gap-2.5">
-                        <span @class([
-                            'size-2 shrink-0 rounded-full',
-                            'bg-emerald-400' => $svc['online'],
-                            'bg-red-500' => ! $svc['online'],
-                        ])></span>
-                        <span class="truncate font-mono text-[14.5px] font-bold">{{ $svc['service'] }}</span>
-                    </div>
-                    <span @class([
-                        'flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-[11.5px] font-bold',
-                        'bg-emerald-500/15 text-emerald-400' => $svc['online'],
-                        'bg-red-500/15 text-red-400' => ! $svc['online'],
-                    ])>
-                        <span class="size-1.5 rounded-full bg-current"></span>
-                        {{ $svc['online'] ? 'Online' : 'Offline' }}
-                    </span>
-                </div>
-
-                <div class="grid grid-cols-2 gap-2.5">
-                    <div>
-                        <div class="mb-0.5 font-mono text-[10px] tracking-wide text-slate-500">UPTIME</div>
-                        <div class="text-sm font-bold">{{ $svc['uptime'] }}</div>
-                    </div>
-                    <div>
-                        <div class="mb-0.5 font-mono text-[10px] tracking-wide text-slate-500">MEMÓRIA</div>
-                        <div class="text-sm font-bold">{{ $svc['memory'] }}</div>
-                    </div>
-                </div>
-
-                <div class="flex items-center justify-between gap-2 border-t border-slate-800 pt-3">
-                    <span @class([
-                        'flex items-center gap-1.5 text-xs',
-                        'text-slate-400' => $svc['online'],
-                        'text-red-400' => ! $svc['online'],
-                    ])>
-                        <x-ui.icon name="activity" class="size-3" />
-                        Último heartbeat: <strong>{{ $svc['lastSeen'] }}</strong>
-                    </span>
-                    @unless ($svc['online'])
-                        <span class="font-mono text-[10.5px] text-red-400/80">{{ $svc['lastSeenExact'] }}</span>
-                    @endunless
-                </div>
-
-                @if ($svc['hostname'] || $svc['version'])
-                    <div class="font-mono text-[10.5px] text-slate-600">{{ $svc['hostname'] }}{{ $svc['version'] ? ' · '.$svc['version'] : '' }}</div>
-                @endif
-            </button>
-        @empty
-            <div class="rounded-2xl border border-dashed border-slate-800 p-8 text-center text-[13px] text-slate-500">
-                Nenhum heartbeat recebido ainda.
-                <div class="mt-2 text-xs text-slate-600">Configure OBSERVABILITY_URL + OBSERVABILITY_TOKEN nos microserviços e suba com <span class="font-mono">make up</span>.</div>
-            </div>
-        @endforelse
     </div>
 
     @if ($detail)
