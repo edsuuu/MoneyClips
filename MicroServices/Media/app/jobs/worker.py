@@ -150,14 +150,14 @@ def _process_one(
                     _build_payload(video, channel_url, "completed", stat),
                 )
                 return
-            except Exception as exc:
-                last_error = str(exc)
+            except Exception as exception:
+                last_error = str(exception)
                 logger.warning(
                     "%s: attempt %d/%d failed: %s",
                     label,
                     attempt,
                     settings.max_attempts,
-                    exc,
+                    exception,
                 )
                 if attempt < settings.max_attempts:
                     time.sleep(1)
@@ -168,11 +168,11 @@ def _process_one(
             webhook_url,
             _build_payload(video, channel_url, "failed", None, error=last_error),
         )
-    except Exception as exc:
+    except Exception as exception:
         logger.exception("%s: unexpected error", label)
         _send_webhook(
             webhook_url,
-            _build_payload(video, channel_url, "failed", None, error=str(exc)),
+            _build_payload(video, channel_url, "failed", None, error=str(exception)),
         )
 
 
@@ -235,13 +235,13 @@ def _send_webhook(
                 response = client.post(webhook_url, json=payload, headers=headers)
                 response.raise_for_status()
             return
-        except Exception as exc:
-            last_error = exc
+        except Exception as exception:
+            last_error = exception
             logger.warning(
                 "webhook attempt %d/%d failed (%s); retrying in %.1fs",
                 index,
                 len(delays),
-                exc,
+                exception,
                 delay,
             )
             if index < len(delays):

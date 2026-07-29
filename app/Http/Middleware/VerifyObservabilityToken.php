@@ -19,7 +19,7 @@ final class VerifyObservabilityToken
         $expected = (string) config('services.observability.token', '');
 
         if ($expected === '') {
-            Log::warning('[Observability] OBSERVABILITY_TOKEN não configurado — requisição rejeitada.');
+            Log::channel('daily')->warning('[WARN][Observability] OBSERVABILITY_TOKEN não configurado — requisição rejeitada.');
 
             return response()->json(['detail' => 'observability token não configurado'], 503);
         }

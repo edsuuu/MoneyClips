@@ -87,9 +87,15 @@ export class VideoStore {
     }
 
     public async readStatus(uuid: string): Promise<JobStatus | null> {
+        if (!existsSync(this.statusPath(uuid))) {
+            return null;
+        }
+
         try {
             return JSON.parse(await readFile(this.statusPath(uuid), 'utf8')) as JobStatus;
-        } catch {
+        } catch (error) {
+            console.warn(`[WARN] status.json ilegível para ${uuid}`, error);
+
             return null;
         }
     }
