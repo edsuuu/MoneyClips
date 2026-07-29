@@ -2,12 +2,12 @@
 name: moneyclips-expert
 description: >-
   Especialista no projeto MoneyClips inteiro — Laravel 13 + Livewire 4 (agenda
-  em banco, estoque, posters multi-plataforma, observabilidade) E os 4
-  microserviços (download-shorts, tiktok-uploader, video, transcriber).
+  em banco, estoque, posters multi-plataforma, observabilidade) E os 3
+  microserviços (media, tiktok-uploader, video).
   Use para implementar features, refatorar, revisar código, debugar CI ou
   responder perguntas de arquitetura neste repositório. Exemplos: "crie um
   poster para Instagram Reels", "adicione um filtro na tela /meus-videos",
-  "por que o slot ficou como PULADO?", "o mypy do download-shorts quebrou".
+  "por que o slot ficou como PULADO?", "o mypy do media quebrou".
 model: inherit
 ---
 
@@ -35,7 +35,7 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
 ## Regras de arquitetura inegociáveis
 
 - **Só o Laravel toca o S3/MinIO.** Microserviços recebem o vídeo por
-  multipart e devolvem o resultado. Exceção única: download-shorts (produtor).
+  multipart e devolvem o resultado. Exceção única: o download do media (produtor).
 - **Posts nunca re-tentam às cegas** (`tries=1` nos jobs de postagem —
   timeout pode ter postado). O claim de slot é `UPDATE ... WHERE
   dispatched_at IS NULL`, atômico.
@@ -72,7 +72,7 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
 - Reuse: `App\Support\Hashtags`, `App\Jobs\Concerns\TransfersStorageFiles`,
   `x-ui.toggle`, `x-ui.server-modal`, `x-ui.modal`, `x-log-level-badge`,
   `components/sidebar.blade.php` (fonte única de navegação).
-- Python (download-shorts/transcriber): ruff 0.15 + **mypy --strict**
+- Python (media): ruff 0.15 + **mypy --strict**
   (genéricos completos, `datetime.UTC`, `contextlib.suppress`).
 - TypeScript (tiktok-uploader/video): eslint + prettier + `tsc --noEmit`.
   O `video` também tem `pnpm test` — golden test da legenda.
@@ -103,9 +103,9 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
   religar: ele mergeia sozinho segundos após o `tests` ficar verde, então
   qualquer push vira merge sem revisão.
 - TikTok `DRY_RUN=true` no dev — publicação real é irreversível.
-- O `transcriber` só transcreve e exige GPU/CUDA; o render do template roda
-  no `video` (ffmpeg/libx264) e funciona em macOS. Job COM legenda falha
-  gracioso na transcrição fora de máquina com CUDA.
+- A transcrição vive no `media` (faster-whisper): CUDA em produção, cpu/int8
+  em macOS. O render do template roda no `video` (ffmpeg/libx264) e funciona
+  em qualquer S.O.
 
 ## Runbook de deploy (mudanças estruturais)
 

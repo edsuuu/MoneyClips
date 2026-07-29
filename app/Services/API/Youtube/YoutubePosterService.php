@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\API\Youtube;
 
-use App\Models\PlatformSetting;
 use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\AutoPost\PosterInterface;
 use App\Services\AutoPost\PosterResultData;
@@ -22,11 +21,6 @@ final readonly class YoutubePosterService implements PosterInterface
     public function platform(): string
     {
         return 'youtube';
-    }
-
-    public function isEnabled(): bool
-    {
-        return PlatformSetting::isEnabled($this->platform());
     }
 
     public function post(PostTaskData $task): PosterResultData

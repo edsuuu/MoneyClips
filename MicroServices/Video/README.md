@@ -69,8 +69,8 @@ recusado e o vídeo trava em `packaging`**.
 
 ## Exceção à regra "só o Laravel toca o S3" (só o `/package`)
 
-Este é o segundo serviço com credencial de storage (o outro é o
-`download-shorts`). Um vídeo longo vira **milhares** de segmentos: trafegá-los
+Este é o segundo serviço com credencial de storage (o outro é o download do
+`media`). Um vídeo longo vira **milhares** de segmentos: trafegá-los
 por HTTP até o Laravel para subir um a um prenderia um worker da fila por
 horas. Aqui o serviço lê `uploads/*` e escreve `hls/*` direto.
 
@@ -110,8 +110,8 @@ hls/{uuid}/
   `h264_nvenc` no Linux/Windows com GPU NVIDIA. A detecção é um encode de teste
   real (não só a lista do ffmpeg), e cai para `libx264` se o hardware recusar —
   inclusive em runtime, no meio de um job. `HLS_ENCODER=cpu` força libx264, útil
-  para liberar a GPU ao `transcriber` (faster-whisper/CUDA), que disputa o mesmo
-  hardware em máquinas NVIDIA.
+  para liberar a GPU à transcrição (faster-whisper/CUDA, no `media`), que
+  disputa o mesmo hardware em máquinas NVIDIA.
 - **VideoToolbox precisa de `-g` explícito**: ele ignora o `-force_key_frames`
   e emite keyframe a cada ~0,4s (medido num Mac: 75 num clipe de 30s, contra 5
   do libx264). As renditions ficam alinhadas mesmo assim, mas o encode
@@ -130,9 +130,9 @@ hls/{uuid}/
 
 ## Decisões da legenda/template
 
-- **A transcrição é o único passo que continua em Python** (`transcriber`,
-  :8780, faster-whisper/CUDA). Este serviço extrai o wav, faz `POST /transcribe`
-  e monta tudo o que vem depois.
+- **A transcrição roda no serviço `media`** (:8770, faster-whisper/CUDA).
+  Este serviço extrai o wav, faz `POST /transcriptions` (202 + webhook) e
+  monta tudo o que vem depois.
 - **Um evento ASS por palavra**, redesenhando a linha inteira — não usa tag
   `\k`. O fim de um evento é o início do próximo, então o destaque não pisca; as
   palavras futuras ficam com `\alpha&HFF&`, invisíveis mas ainda ocupando

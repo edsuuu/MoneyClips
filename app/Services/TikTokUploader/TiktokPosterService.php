@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\TikTokUploader;
 
-use App\Models\PlatformSetting;
 use App\Models\SocialAccount;
 use App\Services\API\Discord\DiscordNotifierService;
 use App\Services\AutoPost\PosterInterface;
@@ -23,11 +22,6 @@ final readonly class TiktokPosterService implements PosterInterface
     public function platform(): string
     {
         return 'tiktok';
-    }
-
-    public function isEnabled(): bool
-    {
-        return PlatformSetting::isEnabled($this->platform());
     }
 
     public function post(PostTaskData $task): PosterResultData

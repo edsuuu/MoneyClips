@@ -42,10 +42,6 @@ final readonly class AutoPostDispatcherService
 
     private function fillDueEmptySlots(CarbonImmutable $now): void
     {
-        if ($this->posters->enabled() === []) {
-            return;
-        }
-
         $empty = ScheduleSlot::query()
             ->dueEmpty($now, self::GRACE_MINUTES)
             ->orderBy('slot_time')
@@ -85,12 +81,6 @@ final readonly class AutoPostDispatcherService
 
     public function dispatchSlot(ScheduleSlot $slot): bool
     {
-        if ($this->posters->enabled() === []) {
-            Log::channel('daily')->warning('[WARN][AutoPost] Nenhuma plataforma habilitada — slot não despachado.', ['slot_id' => $slot->id]);
-
-            return false;
-        }
-
         $claimed = ScheduleSlot::query()
             ->whereKey($slot->id)
             ->whereNull('dispatched_at')
@@ -110,14 +100,14 @@ final readonly class AutoPostDispatcherService
 
     public function fanOut(ScheduleSlot $slot): void
     {
-        $enabled = $this->posters->enabled();
+        $posters = $this->posters->all();
 
         Log::channel('daily')->info('[INFO][AutoPost] Slot despachado.', [
             'slot_id' => $slot->id,
-            'platforms' => array_map(static fn (PosterInterface $p): string => $p->platform(), $enabled),
+            'platforms' => array_map(static fn (PosterInterface $p): string => $p->platform(), $posters),
         ]);
 
-        foreach ($enabled as $poster) {
+        foreach ($posters as $poster) {
             dispatch(new PostSlotToPlatformJob($slot->id, $poster->platform()));
         }
     }

@@ -1,25 +1,23 @@
-# MoneyClips — TUDO roda NATIVO (sem Docker): Laravel + 4 microserviços.
-# (GenerateClips fica de fora de propósito — não faz parte do fluxo atual.)
+# MoneyClips — TUDO roda NATIVO (sem Docker): Laravel + 3 microserviços.
 #   make setup   → configura o ambiente de dev uma vez (envs + deps + venv)
 #   make up      → sobe tudo junto num terminal só (ctrl-C derruba tudo)
-.PHONY: up setup check setup-laravel setup-download setup-tiktok setup-video setup-transcriber
+.PHONY: up setup check setup-laravel setup-media setup-tiktok setup-video
 
 MS := MicroServices
 
 up:  ## Sobe Laravel + microserviços nativos, todos juntos
 	npx concurrently -k \
-		-c "#93c5fd,#c4b5fd,#fb7185,#fdba74,#34d399,#f472b6,#facc15,#a3e635" \
-		-n serve,queue,pail,vite,download,tiktok,video,transcriber \
+		-c "#93c5fd,#c4b5fd,#fb7185,#fdba74,#34d399,#f472b6,#facc15" \
+		-n serve,queue,pail,vite,media,tiktok,video \
 		"PHP_CLI_SERVER_WORKERS=8 php artisan serve" \
 		"php artisan queue:listen --queue=posting,processing,default --tries=1 --timeout=1800" \
 		"php artisan pail --timeout=0" \
 		"npm run dev" \
-		"cd $(MS)/DownloadShorts && .venv/bin/python -m app.main" \
+		"cd $(MS)/Media && .venv/bin/python -m app.main" \
 		"cd $(MS)/TikTokUploader && pnpm dev" \
-		"cd $(MS)/Video && pnpm dev" \
-		"cd $(MS)/Transcriber && .venv/bin/python -m app.main"
+		"cd $(MS)/Video && pnpm dev"
 
-setup: setup-laravel setup-download setup-tiktok setup-video setup-transcriber  ## Instala deps + copia .env de tudo
+setup: setup-laravel setup-media setup-tiktok setup-video  ## Instala deps + copia .env de tudo
 
 setup-laravel:           ## Laravel: composer + .env + key + pnpm
 	composer install
@@ -27,9 +25,9 @@ setup-laravel:           ## Laravel: composer + .env + key + pnpm
 	php artisan key:generate
 	pnpm install
 
-setup-download:          ## DownloadShorts: .env + venv + pip
-	@test -f $(MS)/DownloadShorts/.env || cp $(MS)/DownloadShorts/.env.example $(MS)/DownloadShorts/.env
-	cd $(MS)/DownloadShorts && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+setup-media:             ## Media (download YouTube + transcrição): .env + venv + pip
+	@test -f $(MS)/Media/.env || cp $(MS)/Media/.env.example $(MS)/Media/.env
+	cd $(MS)/Media && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 setup-tiktok:            ## TikTokUploader: .env + pnpm (baixa o Chromium do Playwright)
 	@test -f $(MS)/TikTokUploader/.env || cp $(MS)/TikTokUploader/.env.example $(MS)/TikTokUploader/.env
@@ -38,10 +36,6 @@ setup-tiktok:            ## TikTokUploader: .env + pnpm (baixa o Chromium do Pla
 setup-video:             ## Video (HLS + reencode): .env + pnpm (precisa de ffmpeg no host)
 	@test -f $(MS)/Video/.env || cp $(MS)/Video/.env.example $(MS)/Video/.env
 	cd $(MS)/Video && pnpm install
-
-setup-transcriber:       ## Transcriber: .env + venv + pip (GPU/CUDA pra transcrição)
-	@test -f $(MS)/Transcriber/.env || cp $(MS)/Transcriber/.env.example $(MS)/Transcriber/.env
-	cd $(MS)/Transcriber && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 
 check:                   ## phpstan + pint + rector + pest (o que o CI roda)
 	composer check

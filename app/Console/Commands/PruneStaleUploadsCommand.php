@@ -84,7 +84,7 @@ final class PruneStaleUploadsCommand extends Command
     private function failStalledPackaging(DiscordNotifierService $discord): void
     {
         $stalled = Video::query()
-            ->whereIn('status', [VideoStatusEnum::Uploaded, VideoStatusEnum::Packaging])
+            ->whereIn('status', [VideoStatusEnum::Downloading, VideoStatusEnum::Uploaded, VideoStatusEnum::Packaging])
             ->where('updated_at', '<', now()->subHours(self::SILENT_HOURS))
             ->get();
 
@@ -95,11 +95,17 @@ final class PruneStaleUploadsCommand extends Command
         }
 
         foreach ($stalled as $video) {
-            $error = sprintf(
-                'Empacotamento sem sinal há mais de %dh (parou em %d%%). O serviço de vídeo pode ter caído antes do webhook.',
-                self::SILENT_HOURS,
-                $video->progress,
-            );
+            $downloading = $video->status === VideoStatusEnum::Downloading;
+            $error = $downloading
+                ? sprintf(
+                    'Download do YouTube sem sinal há mais de %dh. O serviço media pode ter caído antes do webhook.',
+                    self::SILENT_HOURS,
+                )
+                : sprintf(
+                    'Empacotamento sem sinal há mais de %dh (parou em %d%%). O serviço de vídeo pode ter caído antes do webhook.',
+                    self::SILENT_HOURS,
+                    $video->progress,
+                );
 
             $video->forceFill([
                 'status' => VideoStatusEnum::Failed,
@@ -109,7 +115,7 @@ final class PruneStaleUploadsCommand extends Command
             $this->warn(sprintf('Travado: %s', $video->uuid));
 
             $discord->error(
-                '❌ Empacotamento HLS travado',
+                $downloading ? '❌ Download do YouTube travado' : '❌ Empacotamento HLS travado',
                 sprintf('Vídeo %s%s%s', $video->uuid, PHP_EOL, $error),
             );
         }

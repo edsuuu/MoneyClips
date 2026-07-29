@@ -5,14 +5,14 @@ declare(strict_types=1);
 namespace App\Livewire\Videos;
 
 use App\Helpers\Hashtags;
+use App\Helpers\Platforms;
 use App\Jobs\PostSlotToPlatformJob;
 use App\Livewire\Concerns\WithToasts;
-use App\Models\PlatformSetting;
 use App\Models\ProcessingJob;
 use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
-use App\Services\DownloadShorts\DownloadShortsService;
+use App\Services\DownloadYoutube\DownloadShortsService;
 use App\Services\Processing\VideoProcessingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -305,10 +305,7 @@ final class Index extends Component
     /** @return list<string> */
     private function enabledPlatforms(): array
     {
-        return array_values(array_map(
-            static fn ($platform): string => (string) $platform,
-            PlatformSetting::query()->where('enabled', true)->pluck('platform')->all(),
-        ));
+        return Platforms::implemented();
     }
 
     /**
@@ -463,13 +460,11 @@ final class Index extends Component
             'editingVideo' => $editing,
             'editingUrl' => $editing instanceof YoutubeShort ? $editing->presignedUrl() : null,
             'instantCandidates' => $this->instantCandidates(),
-            'platforms' => PlatformSetting::query()->where('enabled', true)->get(['platform', 'display_name'])
-                ->map(fn (PlatformSetting $p): array => [
-                    'platform' => $p->platform,
-                    'name' => $p->display_name,
-                    'selected' => in_array($p->platform, $this->instantPlatforms, true),
-                ])
-                ->values()->all(),
+            'platforms' => array_map(fn (string $platform): array => [
+                'platform' => $platform,
+                'name' => Platforms::name($platform),
+                'selected' => in_array($platform, $this->instantPlatforms, true),
+            ], Platforms::implemented()),
             'emptySlots' => $this->schedulingId !== null ? $this->emptySlots() : [],
         ]);
     }

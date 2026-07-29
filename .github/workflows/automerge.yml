@@ -5,7 +5,7 @@ on:
     workflows:
       - tests
       - tiktok-uploader (CI)
-      - download-shorts (CI)
+      - media (CI)
       - video (CI)
     types: [completed]
 

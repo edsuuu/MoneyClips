@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Livewire\VideoEditor;
 
 use App\Enums\VideoCutStatusEnum;
-use App\Jobs\StartReframeRenderJob;
+use App\Jobs\StartVideoCutEditRenderJob;
 use App\Livewire\Concerns\WithToasts;
-use App\Models\ReframeEdit;
 use App\Models\VideoCut;
+use App\Models\VideoCutEdit;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -53,8 +53,8 @@ final class Index extends Component
 
     /**
      * Persiste o estado do editor. Fronteira de confiança: o payload vem do
-     * client (Alpine) e é validado/clampado aqui; source_path NUNCA vem do
-     * payload. Retorna o id do edit salvo, ou null quando rejeitado.
+     * client (Alpine) e é validado/clampado aqui. A fonte é sempre o clipe do
+     * corte pai — nunca vem do payload. Retorna o id do edit salvo, ou null.
      *
      * @param  array<string, mixed>  $payload
      */
@@ -69,15 +69,14 @@ final class Index extends Component
 
         $editId = is_int($payload['editId'] ?? null) ? $payload['editId'] : $this->editId;
         $edit = $editId !== null
-            ? ReframeEdit::query()->where('video_cut_id', $this->cut->id)->find($editId)
+            ? VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->find($editId)
             : null;
 
-        if (! $edit instanceof ReframeEdit) {
-            $edit = new ReframeEdit(['video_cut_id' => $this->cut->id]);
+        if (! $edit instanceof VideoCutEdit) {
+            $edit = new VideoCutEdit(['video_cut_id' => $this->cut->id]);
         }
 
         $edit->fill([
-            'source_path' => $this->cut->clipPath(),
             'source_meta' => $data['sourceMeta'],
             'mode' => $data['mode'],
             'keyframes' => $data['keyframes'],
@@ -103,10 +102,10 @@ final class Index extends Component
     public function generateRender(): ?string
     {
         $edit = $this->editId !== null
-            ? ReframeEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
+            ? VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
             : null;
 
-        if (! $edit instanceof ReframeEdit) {
+        if (! $edit instanceof VideoCutEdit) {
             $this->toast('Salve a edição antes de gerar o corte.', 'danger');
 
             return null;
@@ -114,7 +113,7 @@ final class Index extends Component
 
         // ponytail: generating parado há 30 min é webhook perdido (serviço caiu
         // depois do 202) — o re-claim manual destrava; watchdog em cron se doer.
-        $claimed = ReframeEdit::query()
+        $claimed = VideoCutEdit::query()
             ->whereKey($edit->id)
             ->where(fn (Builder $query): Builder => $query
                 ->whereNull('render_status')
@@ -133,7 +132,7 @@ final class Index extends Component
             return null;
         }
 
-        dispatch(new StartReframeRenderJob($edit->id));
+        dispatch(new StartVideoCutEditRenderJob($edit->id));
         $this->toast('Corte editado em geração — ele aparece em /meus-videos quando ficar pronto.');
 
         return VideoCutStatusEnum::Generating->value;
@@ -141,7 +140,7 @@ final class Index extends Component
 
     private function latestEditId(): ?int
     {
-        $id = ReframeEdit::query()->where('video_cut_id', $this->cut->id)->latest('id')->value('id');
+        $id = VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->latest('id')->value('id');
 
         return is_int($id) ? $id : null;
     }
@@ -156,7 +155,7 @@ final class Index extends Component
     private function editorPayload(): array
     {
         $edit = $this->editId !== null
-            ? ReframeEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
+            ? VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
             : null;
 
         $settings = $edit->settings ?? [];
