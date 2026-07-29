@@ -1,4 +1,4 @@
-<section class="flex w-full flex-col gap-6" @if ($renderingCount > 0) wire:poll.10s @endif>
+<section class="flex w-full flex-col gap-6">
     <div class="flex flex-wrap items-start justify-between gap-6">
         <div>
             <div class="mb-2 font-mono text-[11px] tracking-[0.1em] text-slate-500">MEUS VÍDEOS</div>
@@ -72,26 +72,15 @@
         </div>
     @endif
 
-    @if ($tab === 'editor')
-        <livewire:videos.template-editor />
-    @endif
-
     @if ($tab === 'templated')
         <div>
-            <div class="mb-4 text-[13px] text-slate-500">vídeos já renderizados com template, prontos para agendar</div>
-            @if ($templated === [] && $renderingCount === 0)
+            <div class="mb-4 text-[13px] text-slate-500">vídeos já renderizados com template, prontos para postar</div>
+            @if ($templated === [])
                 <div class="rounded-xl border border-dashed border-slate-800 py-10 text-center text-[13px] text-slate-500">
-                    Nenhum template ainda — use o Editor de template para criar o primeiro.
+                    Nenhum vídeo com template.
                 </div>
             @else
                 <div class="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                    @if ($renderingCount > 0)
-                        <div class="flex min-h-40 flex-col items-center justify-center gap-2 rounded-[14px] border border-dashed border-violet-500/40 bg-violet-950/10 p-4 text-violet-300">
-                            <x-ui.icon name="loading" class="size-5" />
-                            <span class="text-[12.5px] font-semibold">{{ $renderingCount }} render(s) em andamento…</span>
-                            <span class="text-[11px] text-slate-500">esta aba atualiza sozinha</span>
-                        </div>
-                    @endif
                     @foreach ($templated as $video)
                         @include('livewire.videos.partials.video-card', ['video' => $video, 'section' => 'templated'])
                     @endforeach
@@ -150,7 +139,7 @@
                 <div>
                     <div class="mb-2 font-mono text-[11px] tracking-[0.08em] text-slate-400">PLATAFORMAS</div>
                     <div class="flex flex-wrap gap-2">
-                        @forelse ($platforms as $platform)
+                        @foreach ($platforms as $platform)
                             <button type="button" wire:click="toggleInstantPlatform('{{ $platform['platform'] }}')" wire:key="instant-platform-{{ $platform['platform'] }}"
                                 @class([
                                     'flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition',
@@ -164,9 +153,7 @@
                                 ])></span>
                                 {{ $platform['name'] }}
                             </button>
-                        @empty
-                            <span class="text-[13px] text-slate-500">Nenhuma plataforma habilitada — ligue na /agenda.</span>
-                        @endforelse
+                        @endforeach
                     </div>
                 </div>
 
@@ -219,21 +206,4 @@
         </x-ui.server-modal>
     @endif
 
-    @if ($schedulingId !== null)
-        <x-ui.server-modal close="closeSchedule" title="Agendar vídeo" max-width="max-w-md">
-            <div class="flex flex-col gap-2 overflow-y-auto p-5">
-                @forelse ($emptySlots as $slot)
-                    <button type="button" wire:click="assignToSlot({{ $slot['id'] }})" wire:key="empty-slot-{{ $slot['id'] }}"
-                        class="flex cursor-pointer items-center gap-3 rounded-[10px] border border-slate-700 bg-slate-950/60 px-3.5 py-2.5 text-left text-[13.5px] font-semibold transition hover:border-sky-400 hover:text-sky-300">
-                        <x-ui.icon name="calendar-days" class="size-4 text-slate-500" />
-                        {{ $slot['label'] }}
-                    </button>
-                @empty
-                    <div class="rounded-xl border border-dashed border-slate-700 py-8 text-center text-[13px] text-slate-500">
-                        Nenhum slot vazio nas próximas semanas — crie horários na /agenda.
-                    </div>
-                @endforelse
-            </div>
-        </x-ui.server-modal>
-    @endif
 </section>

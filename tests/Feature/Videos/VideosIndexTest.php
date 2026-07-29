@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use App\Jobs\PostSlotToPlatformJob;
+use App\Jobs\PostShortToPlatformJob;
 use App\Livewire\Videos\Index;
-use App\Models\ScheduleSlot;
 use App\Models\User;
 use App\Models\YoutubeShort;
 use Illuminate\Support\Facades\Queue;
@@ -60,18 +59,6 @@ it('queues instant posts for implemented platforms without active posts', functi
         ->call('openInstant', $short->id)
         ->call('confirmInstant');
 
-    Queue::assertPushed(PostSlotToPlatformJob::class, 2);
-    Queue::assertPushed(fn (PostSlotToPlatformJob $job): bool => $job->slotId === null && $job->shortId === $short->id && $job->platform === 'youtube');
-});
-
-it('assigns a templated video to an empty slot', function (): void {
-    $short = YoutubeShort::factory()->create(['template_rendered_at' => now(), 'ready_at' => null]);
-    $slot = ScheduleSlot::factory()->create(['slot_date' => now()->addDays(2)->toDateString(), 'slot_time' => '12:00:00']);
-
-    Livewire::test(Index::class)
-        ->call('openSchedule', $short->id)
-        ->call('assignToSlot', $slot->id);
-
-    expect($slot->refresh()->youtube_short_id)->toBe($short->id)
-        ->and($short->refresh()->ready_at)->not->toBeNull();
+    Queue::assertPushed(PostShortToPlatformJob::class, 2);
+    Queue::assertPushed(fn (PostShortToPlatformJob $job): bool => $job->shortId === $short->id && $job->platform === 'youtube');
 });

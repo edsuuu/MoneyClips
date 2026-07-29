@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Livewire\Observability;
 
-use App\Models\ServiceHeartbeat;
 use App\Models\ServiceLog;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\View\View;
@@ -64,7 +63,7 @@ final class Index extends Component
     {
         return array_values(array_map(
             static fn ($service): string => (string) $service,
-            ServiceHeartbeat::query()->orderBy('service')->pluck('service')->all(),
+            ServiceLog::query()->distinct()->orderBy('service')->pluck('service')->all(),
         ));
     }
 
@@ -125,59 +124,8 @@ final class Index extends Component
         ];
     }
 
-    private function formatUptime(int $seconds): string
-    {
-        if ($seconds <= 0) {
-            return '—';
-        }
-
-        $days = intdiv($seconds, 86400);
-        $hours = intdiv($seconds % 86400, 3600);
-        $minutes = intdiv($seconds % 3600, 60);
-
-        $parts = [];
-        if ($days > 0) {
-            $parts[] = $days.'d';
-        }
-
-        if ($hours > 0 || $days > 0) {
-            $parts[] = $hours.'h';
-        }
-
-        $parts[] = $minutes.'m';
-
-        return implode(' ', $parts);
-    }
-
-    private function formatAgo(int $seconds): string
-    {
-        if ($seconds < 60) {
-            return 'há '.$seconds.'s';
-        }
-
-        $minutes = intdiv($seconds, 60);
-        if ($minutes < 60) {
-            return 'há '.$minutes.' min';
-        }
-
-        return 'há '.intdiv($minutes, 60).'h';
-    }
-
     public function render(): View
     {
-        $services = ServiceHeartbeat::query()->orderBy('service')->get()
-            ->map(fn (ServiceHeartbeat $hb): array => [
-                'service' => $hb->service,
-                'hostname' => $hb->hostname,
-                'version' => $hb->version,
-                'online' => $hb->isOnline(),
-                'uptime' => $hb->isOnline() ? $this->formatUptime($hb->uptime_seconds) : '—',
-                'memory' => $hb->memory_mb !== null && $hb->isOnline() ? $hb->memory_mb.' MB' : '—',
-                'lastSeen' => $this->formatAgo((int) abs($hb->last_seen_at->diffInSeconds(now()))),
-                'lastSeenExact' => 'às '.$hb->last_seen_at->format('H:i'),
-                'selected' => $this->serviceFilter === $hb->service,
-            ])->values()->all();
-
         $logs = $this->logsQuery()->get()
             ->map(fn (ServiceLog $log): array => [
                 'id' => $log->id,
@@ -197,8 +145,7 @@ final class Index extends Component
             ->count();
 
         return view('livewire.observability.index', [
-            'services' => $services,
-            'serviceOptions' => ['all', ...array_column($services, 'service')],
+            'serviceOptions' => ['all', ...$this->knownServices()],
             'logs' => $logs,
             'errorCount' => $errorCount,
             'detail' => $this->detailViewModel(),
