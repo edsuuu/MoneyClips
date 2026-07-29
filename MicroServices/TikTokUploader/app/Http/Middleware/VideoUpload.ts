@@ -19,8 +19,8 @@ for (const name of readdirSync(UPLOAD_DIR)) {
         if (Date.now() - statSync(path).mtimeMs > STALE_UPLOAD_MS) {
             rmSync(path, { force: true });
         }
-    } catch {
-        // arquivo sumiu no meio da varredura — ignora
+    } catch (error) {
+        console.warn(`[WARN] falha ao limpar upload obsoleto ${path}`, error);
     }
 }
 

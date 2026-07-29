@@ -42,7 +42,9 @@ export class PostController {
 
         if (Object.keys(errors).length > 0) {
             // Request recusado não processa nada — não deixa o vídeo órfão no tmp.
-            await rm(videoPath, { force: true }).catch(() => undefined);
+            await rm(videoPath, { force: true }).catch((error) =>
+                console.warn('[WARN] falha ao limpar vídeo órfão do tmp', error),
+            );
 
             throw new ValidationError(errors);
         }
@@ -79,7 +81,9 @@ function asArray(raw: unknown): unknown[] {
         const parsed = JSON.parse(raw) as unknown;
 
         return Array.isArray(parsed) ? parsed : [];
-    } catch {
+    } catch (error) {
+        console.warn('[WARN] payload não é JSON válido; usando lista vazia', error);
+
         return [];
     }
 }

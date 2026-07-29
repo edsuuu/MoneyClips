@@ -6,6 +6,7 @@ namespace App\Services\API\Youtube;
 
 use App\Models\SocialAccount;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Two\User as SocialiteUser;
 use Throwable;
 
@@ -33,8 +34,14 @@ final class YoutubeAccountConnectorService
                 $snippet = (array) ($item['snippet'] ?? []);
                 $channelTitle = (string) ($snippet['title'] ?? '') ?: $channelTitle;
             }
-        } catch (Throwable) {
-
+        } catch (Throwable $exception) {
+            Log::channel('daily')->warning('[WARN] falha ao buscar canal do YouTube — usando fallback', [
+                'exception' => $exception,
+                'message' => $exception->getMessage(),
+                'file' => $exception->getFile(),
+                'line' => $exception->getLine(),
+                'user_id' => $userId,
+            ]);
         }
 
         $account = $this->upsert($userId, 'youtube', $channelId ?: $user->getId(), $channelTitle, [

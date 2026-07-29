@@ -27,7 +27,7 @@ final class ObservabilityController extends Controller
             'hostname' => $hostname,
             'level' => $entry['level'],
             'message' => $entry['message'],
-            'context' => isset($entry['context']) ? json_encode($entry['context']) : null,
+            'context' => isset($entry['context']) ? json_encode($entry['context'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE) : null,
             'logged_at' => isset($entry['logged_at']) ? Date::parse($entry['logged_at']) : $now,
             'created_at' => $now,
         ], $request->entries());

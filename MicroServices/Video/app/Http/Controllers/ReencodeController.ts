@@ -51,8 +51,8 @@ export class ReencodeController extends Logger {
     private async removeQuietly(path: string): Promise<void> {
         try {
             await unlink(path);
-        } catch {
-            // arquivo já removido/ausente — nada a fazer
+        } catch (error) {
+            this.warn(`[Reencode] falha ao remover ${path} (${String(error)})`);
         }
     }
 }

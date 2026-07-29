@@ -42,8 +42,8 @@ class StorageClient:
     def _ensure_bucket(self) -> None:
         try:
             self.client.head_bucket(Bucket=self.bucket)
-        except ClientError as exc:
-            code = str(exc.response.get("Error", {}).get("Code", ""))
+        except ClientError as exception:
+            code = str(exception.response.get("Error", {}).get("Code", ""))
             if code not in {"404", "NoSuchBucket", "NotFound"}:
                 raise
             self.client.create_bucket(Bucket=self.bucket)
@@ -81,8 +81,8 @@ class StorageClient:
         try:
             info = self.client.head_object(Bucket=self.bucket, Key=object_path)
             return int(info.get("ContentLength") or 0) > 0
-        except ClientError as exc:
-            code = str(exc.response.get("Error", {}).get("Code", ""))
+        except ClientError as exception:
+            code = str(exception.response.get("Error", {}).get("Code", ""))
             if code in {"404", "NoSuchKey", "NoSuchBucket", "NotFound"}:
                 return False
             raise

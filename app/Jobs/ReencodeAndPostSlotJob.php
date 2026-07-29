@@ -35,7 +35,7 @@ final class ReencodeAndPostSlotJob implements ShouldQueue
         $short = $slot?->youtubeShort;
 
         if (! $slot instanceof ScheduleSlot || ! $short instanceof YoutubeShort) {
-            Log::warning('[AutoPost][Random] Slot/vídeo sumiu antes do fluxo aleatório — ignorando.', ['slot_id' => $this->slotId]);
+            Log::channel('daily')->warning('[WARN][AutoPost][Random] Slot/vídeo sumiu antes do fluxo aleatório — ignorando.', ['slot_id' => $this->slotId]);
 
             return;
         }
@@ -46,7 +46,13 @@ final class ReencodeAndPostSlotJob implements ShouldQueue
             } catch (Throwable $throwable) {
                 // Reencode é melhoria de qualidade, não pré-condição: falhou,
                 // posta o original mesmo (postableVideoPath cai no video_path).
-                Log::error('[AutoPost][Random] Reencode falhou — postando o vídeo original.', ['short_id' => $short->id, 'error' => $throwable->getMessage()]);
+                Log::channel('daily')->error('[ERRO][AutoPost][Random] Reencode falhou — postando o vídeo original.', [
+                    'short_id' => $short->id,
+                    'exception' => $throwable,
+                    'message' => $throwable->getMessage(),
+                    'file' => $throwable->getFile(),
+                    'line' => $throwable->getLine(),
+                ]);
                 resolve(DiscordNotifierService::class)->warning(
                     '⚠️ Modo aleatório: reencode falhou',
                     ($short->title ?? $short->youtube_id).PHP_EOL.'Postando o vídeo original sem reencode. Erro: '.$throwable->getMessage(),
@@ -61,7 +67,13 @@ final class ReencodeAndPostSlotJob implements ShouldQueue
     {
         $error = $exception?->getMessage() ?? 'Falha desconhecida no fluxo aleatório.';
 
-        Log::error('[AutoPost][Random] Fluxo aleatório falhou.', ['slot_id' => $this->slotId, 'error' => $error]);
+        Log::channel('daily')->error('[ERRO][AutoPost][Random] Fluxo aleatório falhou.', [
+            'slot_id' => $this->slotId,
+            'exception' => $exception,
+            'message' => $error,
+            'file' => $exception?->getFile(),
+            'line' => $exception?->getLine(),
+        ]);
 
         resolve(DiscordNotifierService::class)->error(
             '❌ Modo aleatório falhou',
