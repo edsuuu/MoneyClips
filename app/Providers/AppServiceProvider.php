@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
-use App\Services\API\Kwai\KwaiPosterService;
-use App\Services\API\Meta\Facebook\FacebookReelsPosterService;
-use App\Services\API\Meta\Instagram\InstagramReelsPosterService;
-use App\Services\API\TikTok\TiktokOfficialPosterService;
 use App\Services\API\Youtube\YoutubePosterService;
 use App\Services\AutoPost\PosterRegistryService;
 use App\Services\TikTokUploader\TiktokPosterService;
@@ -35,14 +31,9 @@ final class AppServiceProvider extends ServiceProvider
         // criar o *PosterService na pasta da integração (API oficial em
         // App\Services\API\<Plataforma>; microserviço em App\Services\<Nome>)
         // implementando App\Services\AutoPost\PosterInterface e listar aqui.
-        // Todo poster listado dispara em todo slot — não há mais toggle global.
         $this->app->singleton(PosterRegistryService::class, fn (Application $app): PosterRegistryService => new PosterRegistryService([
             $app->make(YoutubePosterService::class),
             $app->make(TiktokPosterService::class),
-            $app->make(TiktokOfficialPosterService::class),
-            $app->make(InstagramReelsPosterService::class),
-            $app->make(FacebookReelsPosterService::class),
-            $app->make(KwaiPosterService::class),
         ]));
 
         $this->app->bind(MultipartUploadInterface::class, MultipartUploadService::class);

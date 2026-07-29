@@ -23,9 +23,6 @@
                 'flex items-center gap-1 rounded-full px-2.5 py-1 font-mono text-[11px] font-bold',
                 $video['statusBadge']['class'] => true,
             ])>
-                @if ($video['statusBadge']['loading'])
-                    <x-ui.icon name="loading" class="size-2.5" />
-                @endif
                 {{ $video['statusBadge']['label'] }}
             </span>
 
@@ -53,7 +50,7 @@
         </div>
     </div>
 
-    @if ($video['processing'] === null && in_array($section, ['downloaded', 'ready', 'templated'], true))
+    @if (in_array($section, ['downloaded', 'ready', 'templated'], true))
         <div class="flex gap-2">
             @if ($section === 'downloaded')
                 <button type="button" wire:click="markReady({{ $video['id'] }})"
@@ -61,30 +58,11 @@
                     <x-ui.icon name="plus" class="size-3" />
                     Adicionar à fila
                 </button>
-            @elseif ($section === 'ready')
+            @else
                 <button type="button" wire:click="openInstant({{ $video['id'] }})"
                     class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] border border-slate-700 bg-slate-800 px-3 py-2 text-[12.5px] font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-400">
                     <x-ui.icon name="bolt" class="size-3" />
                     Postar agora
-                </button>
-            @else
-                <button type="button" wire:click="openSchedule({{ $video['id'] }})"
-                    class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-gray-950 transition hover:bg-sky-300">
-                    <x-ui.icon name="calendar-days" class="size-3" />
-                    Agendar
-                </button>
-            @endif
-
-            @if ($section === 'templated')
-                <button type="button" wire:click="editInTemplateEditor({{ $video['id'] }})" title="Editar template"
-                    class="flex w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] border border-slate-700 bg-slate-800 text-slate-300 transition hover:border-sky-400 hover:text-sky-400">
-                    <x-ui.icon name="pencil-square" class="size-3.5" />
-                </button>
-            @else
-                <button type="button" wire:click="startReencode({{ $video['id'] }})" wire:confirm="Reencodar este vídeo em alta qualidade?"
-                    title="Reencodar (HQ)"
-                    class="flex w-9 shrink-0 cursor-pointer items-center justify-center rounded-[9px] border border-slate-700 bg-slate-800 text-slate-300 transition hover:border-sky-400 hover:text-sky-400">
-                    <x-ui.icon name="arrow-path" class="size-3.5" />
                 </button>
             @endif
         </div>
