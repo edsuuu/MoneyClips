@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\API\Discord\DiscordNotifierService;
@@ -18,7 +17,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
 
-final class PostSlotToPlatformJob implements ShouldQueue
+final class PostShortToPlatformJob implements ShouldQueue
 {
     use Dispatchable;
     use Queueable;
@@ -28,29 +27,24 @@ final class PostSlotToPlatformJob implements ShouldQueue
     public int $timeout = 1800;
 
     public function __construct(
-        public ?int $slotId,
         public string $platform,
-        public ?int $shortId = null,
+        public int $shortId,
     ) {
         $this->onQueue('posting');
     }
 
     public function handle(PosterRegistryService $registry, DiscordNotifierService $discord): void
     {
-        $slot = $this->slotId !== null
-            ? ScheduleSlot::query()->with('youtubeShort')->find($this->slotId)
-            : null;
-        $short = $slot->youtubeShort
-            ?? ($this->shortId !== null ? YoutubeShort::query()->find($this->shortId) : null);
+        $short = YoutubeShort::query()->find($this->shortId);
 
         if (! $short instanceof YoutubeShort) {
-            Log::warning('[AutoPost] Slot/vídeo sumiu antes do post — ignorando.', ['slot_id' => $this->slotId, 'short_id' => $this->shortId]);
+            Log::warning('[AutoPost] Vídeo sumiu antes do post — ignorando.', ['short_id' => $this->shortId]);
 
             return;
         }
 
-        $task = PostTaskData::fromShort($short, $slot);
-        $ledger = $this->ledger($slot, $task);
+        $task = PostTaskData::fromShort($short);
+        $ledger = $this->ledger($task);
 
         // Guarda: linha "fantasma" (video_path sem objeto no MinIO) falha
         // com erro claro em vez de estourar dentro do poster.
@@ -92,57 +86,34 @@ final class PostSlotToPlatformJob implements ShouldQueue
 
         SocialPost::query()
             ->where('platform', $this->platform)
-            ->when($this->slotId !== null, fn ($q) => $q->where('schedule_slot_id', $this->slotId))
-            ->when($this->slotId === null, fn ($q) => $q
-                ->whereIn('youtube_id', YoutubeShort::query()->whereKey($this->shortId)->select('youtube_id'))
-                ->where('status', 'processing'))
+            ->whereIn('youtube_id', YoutubeShort::query()->whereKey($this->shortId)->select('youtube_id'))
+            ->where('status', 'processing')
             ->update(['status' => 'failed', 'error' => $error]);
 
         Log::error('[AutoPost] Job de postagem falhou.', [
-            'slot_id' => $this->slotId,
+            'short_id' => $this->shortId,
             'platform' => $this->platform,
             'error' => $error,
         ]);
 
         resolve(DiscordNotifierService::class)->error(
             '❌ Job de postagem falhou',
-            sprintf(
-                '%s · %s%s%s',
-                $this->slotId !== null ? 'Slot #'.$this->slotId : 'Post instantâneo',
-                $this->platform,
-                PHP_EOL,
-                $error,
-            ),
+            sprintf('Short #%d · %s%s%s', $this->shortId, $this->platform, PHP_EOL, $error),
         );
     }
 
-    private function ledger(?ScheduleSlot $slot, PostTaskData $task): SocialPost
+    private function ledger(PostTaskData $task): SocialPost
     {
-        $ledger = $slot instanceof ScheduleSlot
-            ? SocialPost::query()->firstOrCreate(
-                ['schedule_slot_id' => $slot->id, 'platform' => $this->platform],
-                [
-                    'uuid' => (string) Str::uuid(),
-                    'youtube_id' => $task->short->youtube_id,
-                    'requested_at' => now(),
-                ],
-            )
-            : SocialPost::query()->create([
-                'platform' => $this->platform,
-                'uuid' => (string) Str::uuid(),
-                'youtube_id' => $task->short->youtube_id,
-                'requested_at' => now(),
-            ]);
-
-        $ledger->fill([
+        return SocialPost::query()->create([
+            'platform' => $this->platform,
+            'uuid' => (string) Str::uuid(),
+            'youtube_id' => $task->short->youtube_id,
+            'requested_at' => now(),
             'status' => 'processing',
-            'error' => null,
             'title' => $task->title,
             'hashtags' => $task->hashtags,
             'video_key' => $task->videoPath,
             'started_at' => now(),
-        ])->save();
-
-        return $ledger;
+        ]);
     }
 }

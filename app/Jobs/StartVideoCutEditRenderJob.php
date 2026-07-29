@@ -9,7 +9,7 @@ use App\Enums\VideoCutStatusEnum;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use App\Services\API\Discord\DiscordNotifierService;
-use App\Services\VideoCutEdit\VideoCutEditRenderService;
+use App\Services\Video\VideoCutEditRenderService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;

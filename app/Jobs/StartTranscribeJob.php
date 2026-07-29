@@ -8,7 +8,7 @@ use App\Enums\TranscriptionStatusEnum;
 use App\Jobs\Concerns\TransfersStorageFiles;
 use App\Models\Video;
 use App\Services\API\Discord\DiscordNotifierService;
-use App\Services\Transcribe\TranscribeService;
+use App\Services\Video\TranscribeService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;

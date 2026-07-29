@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace App\Services\Cut;
+namespace App\Services\Video;
 
 use App\Models\VideoCut;
 use Illuminate\Http\Client\ConnectionException;

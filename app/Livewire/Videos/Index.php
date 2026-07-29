@@ -6,18 +6,14 @@ namespace App\Livewire\Videos;
 
 use App\Helpers\Hashtags;
 use App\Helpers\Platforms;
-use App\Jobs\PostSlotToPlatformJob;
+use App\Jobs\PostShortToPlatformJob;
 use App\Livewire\Concerns\WithToasts;
-use App\Models\ProcessingJob;
-use App\Models\ScheduleSlot;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\DownloadYoutube\DownloadShortsService;
-use App\Services\Processing\VideoProcessingService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
-use Livewire\Attributes\On;
 use Livewire\Attributes\Url;
 use Livewire\Component;
 use Throwable;
@@ -28,13 +24,11 @@ final class Index extends Component
 
     public const string TAB_AVAILABLE = 'available';
 
-    public const string TAB_EDITOR = 'editor';
-
     public const string TAB_TEMPLATED = 'templated';
 
     public const string TAB_POSTED = 'posted';
 
-    private const array TABS = [self::TAB_AVAILABLE, self::TAB_EDITOR, self::TAB_TEMPLATED, self::TAB_POSTED];
+    private const array TABS = [self::TAB_AVAILABLE, self::TAB_TEMPLATED, self::TAB_POSTED];
 
     private const int SECTION_LIMIT = 60;
 
@@ -60,23 +54,9 @@ final class Index extends Component
 
     public string $channelUrl = '';
 
-    public ?int $schedulingId = null;
-
     public function setTab(string $tab): void
     {
         $this->tab = in_array($tab, self::TABS, true) ? $tab : self::TAB_AVAILABLE;
-    }
-
-    #[On('template-queued')]
-    public function onTemplateQueued(): void
-    {
-        $this->tab = self::TAB_TEMPLATED;
-    }
-
-    public function editInTemplateEditor(int $shortId): void
-    {
-        $this->tab = self::TAB_EDITOR;
-        $this->dispatch('template-editor-select', shortId: $shortId);
     }
 
     public function openEdit(int $shortId): void
@@ -127,21 +107,6 @@ final class Index extends Component
 
         $short->forceFill(['ready_at' => now()])->save();
         $this->toast('Vídeo pronto para entrar na agenda.');
-    }
-
-    public function startReencode(int $shortId): void
-    {
-        $short = YoutubeShort::query()->find($shortId);
-        if (! $short instanceof YoutubeShort) {
-            return;
-        }
-
-        try {
-            resolve(VideoProcessingService::class)->startReencode($short);
-            $this->toast('Reencode enfileirado — acompanhe o selo HQ no card.');
-        } catch (Throwable $throwable) {
-            $this->toast($throwable->getMessage(), 'danger');
-        }
     }
 
     public function openInstant(?int $shortId = null): void
@@ -197,7 +162,7 @@ final class Index extends Component
                 continue;
             }
 
-            dispatch(new PostSlotToPlatformJob(null, $platform, $short->id));
+            dispatch(new PostShortToPlatformJob($platform, $short->id));
             $queued[] = $platform;
         }
 
@@ -230,38 +195,6 @@ final class Index extends Component
             report($throwable);
             $this->toast('Não foi possível iniciar o download: '.$throwable->getMessage(), 'danger');
         }
-    }
-
-    public function openSchedule(int $shortId): void
-    {
-        $this->schedulingId = $shortId;
-    }
-
-    public function closeSchedule(): void
-    {
-        $this->schedulingId = null;
-    }
-
-    public function assignToSlot(int $slotId): void
-    {
-        $short = $this->schedulingId !== null ? YoutubeShort::query()->find($this->schedulingId) : null;
-        $slot = ScheduleSlot::query()->find($slotId);
-
-        if (! $short instanceof YoutubeShort || ! $slot instanceof ScheduleSlot || $slot->dispatched_at !== null || $slot->youtube_short_id !== null) {
-            $this->toast('Slot indisponível — atualize a página.', 'danger');
-
-            return;
-        }
-
-        if ($short->ready_at === null) {
-            $short->forceFill(['ready_at' => now()]);
-        }
-
-        $short->save();
-        $slot->forceFill(['youtube_short_id' => $short->id])->save();
-
-        $this->schedulingId = null;
-        $this->toast(sprintf('Agendado para %s às %s.', $slot->slot_date->format('d/m'), $slot->timeLabel()));
     }
 
     /** @return Builder<YoutubeShort> */
@@ -312,30 +245,25 @@ final class Index extends Component
      * Badge de estado do card (label + classes prontas pro @class da view).
      *
      * @param  array<string, mixed>  $video
-     * @return array{label: string, class: string, loading: bool}
+     * @return array{label: string, class: string}
      */
     private function statusBadge(array $video, string $section): array
     {
         return match (true) {
-            $video['processing'] === ProcessingJob::TYPE_REENCODE => ['label' => 'Reencodando', 'class' => 'bg-sky-950/60 text-sky-400', 'loading' => true],
-            $video['processing'] === ProcessingJob::TYPE_TEMPLATE => ['label' => 'Renderizando', 'class' => 'bg-violet-950/60 text-violet-300', 'loading' => true],
-            $section === self::TAB_POSTED => ['label' => 'Postado', 'class' => 'bg-emerald-400/15 text-emerald-400', 'loading' => false],
-            $video['templated'] => ['label' => 'Template', 'class' => 'bg-violet-400/15 text-violet-300', 'loading' => false],
-            $video['ready'] => ['label' => 'Pronto', 'class' => 'bg-emerald-400/15 text-emerald-400', 'loading' => false],
-            default => ['label' => 'Baixado', 'class' => 'bg-slate-800 text-slate-300', 'loading' => false],
+            $section === self::TAB_POSTED => ['label' => 'Postado', 'class' => 'bg-emerald-400/15 text-emerald-400'],
+            $video['templated'] => ['label' => 'Template', 'class' => 'bg-violet-400/15 text-violet-300'],
+            $video['ready'] => ['label' => 'Pronto', 'class' => 'bg-emerald-400/15 text-emerald-400'],
+            default => ['label' => 'Baixado', 'class' => 'bg-slate-800 text-slate-300'],
         };
     }
 
     /**
      * @param  Collection<int, YoutubeShort>  $shorts
-     * @param  \Illuminate\Support\Collection<int|string, ProcessingJob>  $pendingJobs
      * @return array<int, array<string, mixed>>
      */
-    private function decorate(Collection $shorts, \Illuminate\Support\Collection $pendingJobs, string $section): array
+    private function decorate(Collection $shorts, string $section): array
     {
-        return $shorts->map(function (YoutubeShort $short) use ($pendingJobs, $section): array {
-            $pending = $pendingJobs->get($short->id);
-
+        return $shorts->map(function (YoutubeShort $short) use ($section): array {
             $video = [
                 'id' => $short->id,
                 'youtube_id' => $short->youtube_id,
@@ -347,7 +275,6 @@ final class Index extends Component
                 'posted_youtube' => $short->posted_youtube_at !== null,
                 'posted_tiktok' => $short->posted_tiktok_at !== null,
                 'youtube_link' => $short->youtube_video_id !== null ? 'https://www.youtube.com/shorts/'.$short->youtube_video_id : null,
-                'processing' => $pending instanceof ProcessingJob ? $pending->type : null,
             ];
 
             $video['statusBadge'] = $this->statusBadge($video, $section);
@@ -374,24 +301,6 @@ final class Index extends Component
                 'id' => $s->id,
                 'title' => $s->title ?? $s->youtube_id,
                 'selected' => $this->instantShortId === $s->id,
-            ])
-            ->values()->all();
-    }
-
-    /** @return array<int, array{id: int, label: string}> */
-    private function emptySlots(): array
-    {
-        return ScheduleSlot::query()
-            ->pending()
-            ->whereNull('youtube_short_id')
-            ->where('is_active', true)
-            ->orderBy('slot_date')
-            ->orderBy('slot_time')
-            ->limit(21)
-            ->get()
-            ->map(fn (ScheduleSlot $slot): array => [
-                'id' => $slot->id,
-                'label' => $slot->slot_date->format('d/m').' às '.$slot->timeLabel(),
             ])
             ->values()->all();
     }
@@ -425,13 +334,6 @@ final class Index extends Component
             $this->tab = self::TAB_AVAILABLE;
         }
 
-        $pendingJobs = ProcessingJob::query()
-            ->pending()
-            ->get(['id', 'youtube_short_id', 'type', 'status'])
-            ->keyBy('youtube_short_id');
-
-        $renderingCount = $pendingJobs->where('type', ProcessingJob::TYPE_TEMPLATE)->count();
-
         $downloaded = $this->downloadedQuery()->latest('id')->limit(self::SECTION_LIMIT)->get();
         $ready = $this->readyQuery()->latest('ready_at')->limit(self::SECTION_LIMIT)->get();
         $templated = $this->templatedQuery()->latest('template_rendered_at')->limit(self::SECTION_LIMIT)->get();
@@ -439,24 +341,22 @@ final class Index extends Component
 
         $counts = [
             'available' => $this->downloadedQuery()->count() + $this->readyQuery()->count(),
-            'templated' => $this->templatedQuery()->count() + $renderingCount,
+            'templated' => $this->templatedQuery()->count(),
             'posted' => $this->postedQuery()->count(),
         ];
 
         $editing = $this->editingId !== null ? YoutubeShort::query()->find($this->editingId) : null;
 
         return view('livewire.videos.index', [
-            'downloaded' => $this->decorate($downloaded, $pendingJobs, self::TAB_AVAILABLE),
-            'ready' => $this->decorate($ready, $pendingJobs, self::TAB_AVAILABLE),
-            'templated' => $this->decorate($templated, $pendingJobs, self::TAB_TEMPLATED),
-            'posted' => $this->decorate($posted, $pendingJobs, self::TAB_POSTED),
+            'downloaded' => $this->decorate($downloaded, self::TAB_AVAILABLE),
+            'ready' => $this->decorate($ready, self::TAB_AVAILABLE),
+            'templated' => $this->decorate($templated, self::TAB_TEMPLATED),
+            'posted' => $this->decorate($posted, self::TAB_POSTED),
             'tabs' => [
                 ['key' => self::TAB_AVAILABLE, 'label' => 'Disponíveis', 'count' => $counts['available']],
-                ['key' => self::TAB_EDITOR, 'label' => 'Editor de template', 'count' => '✎'],
                 ['key' => self::TAB_TEMPLATED, 'label' => 'Com template', 'count' => $counts['templated']],
                 ['key' => self::TAB_POSTED, 'label' => 'Postados', 'count' => $counts['posted']],
             ],
-            'renderingCount' => $renderingCount,
             'editingVideo' => $editing,
             'editingUrl' => $editing instanceof YoutubeShort ? $editing->presignedUrl() : null,
             'instantCandidates' => $this->instantCandidates(),
@@ -465,7 +365,6 @@ final class Index extends Component
                 'name' => Platforms::name($platform),
                 'selected' => in_array($platform, $this->instantPlatforms, true),
             ], Platforms::implemented()),
-            'emptySlots' => $this->schedulingId !== null ? $this->emptySlots() : [],
         ]);
     }
 }

@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use App\Models\ServiceHeartbeat;
 use App\Models\ServiceLog;
 use App\Models\User;
 
@@ -11,35 +10,13 @@ beforeEach(function (): void {
 });
 
 it('rejects requests without a valid token and fails closed without config', function (): void {
-    $payload = ['service' => 'reencode', 'uptime_seconds' => 10];
+    $payload = ['service' => 'reencode', 'entries' => [['level' => 'info', 'message' => 'oi']]];
 
-    $this->postJson('/api/observability/heartbeat', $payload)->assertUnauthorized();
-    $this->postJson('/api/observability/heartbeat', $payload, ['X-Observability-Token' => 'wrong'])->assertUnauthorized();
+    $this->postJson('/api/observability/logs', $payload)->assertUnauthorized();
+    $this->postJson('/api/observability/logs', $payload, ['X-Observability-Token' => 'wrong'])->assertUnauthorized();
 
     config()->set('services.observability.token', '');
-    $this->postJson('/api/observability/heartbeat', $payload, ['X-Observability-Token' => ''])->assertServiceUnavailable();
-});
-
-it('upserts one heartbeat row per service', function (): void {
-    $headers = ['X-Observability-Token' => 'secret-token'];
-
-    $this->postJson('/api/observability/heartbeat', [
-        'service' => 'tiktok-uploader',
-        'hostname' => 'vps-b',
-        'version' => '1.0.0',
-        'uptime_seconds' => 120,
-        'memory_mb' => 245,
-    ], $headers)->assertOk();
-
-    $this->postJson('/api/observability/heartbeat', [
-        'service' => 'tiktok-uploader',
-        'uptime_seconds' => 150,
-    ], $headers)->assertOk();
-
-    $heartbeat = ServiceHeartbeat::query()->sole();
-    expect($heartbeat->service)->toBe('tiktok-uploader')
-        ->and($heartbeat->uptime_seconds)->toBe(150)
-        ->and($heartbeat->isOnline())->toBeTrue();
+    $this->postJson('/api/observability/logs', $payload, ['X-Observability-Token' => ''])->assertServiceUnavailable();
 });
 
 it('stores log batches in a single insert', function (): void {

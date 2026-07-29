@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Observability\StoreBrowserLogRequest;
-use App\Http\Requests\Observability\StoreHeartbeatRequest;
 use App\Http\Requests\Observability\StoreServiceLogsRequest;
 use App\Http\Resources\StatusResource;
-use App\Models\ServiceHeartbeat;
 use App\Models\ServiceLog;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
@@ -35,22 +33,6 @@ final class ObservabilityController extends Controller
         ServiceLog::query()->insert($rows);
 
         return new StatusResource('ok', extra: ['stored' => count($rows)]);
-    }
-
-    public function heartbeat(StoreHeartbeatRequest $request): StatusResource
-    {
-        ServiceHeartbeat::query()->updateOrCreate(
-            ['service' => $request->service()],
-            [
-                'hostname' => $request->hostname(),
-                'version' => $request->version(),
-                'uptime_seconds' => $request->uptimeSeconds(),
-                'memory_mb' => $request->memoryMb(),
-                'last_seen_at' => now(),
-            ],
-        );
-
-        return new StatusResource('ok');
     }
 
     /**
