@@ -34,12 +34,12 @@ final class YoutubeAccountConnectorService
                 $snippet = (array) ($item['snippet'] ?? []);
                 $channelTitle = (string) ($snippet['title'] ?? '') ?: $channelTitle;
             }
-        } catch (Throwable $exception) {
+        } catch (Throwable $throwable) {
             Log::channel('daily')->warning('[WARN] falha ao buscar canal do YouTube — usando fallback', [
-                'exception' => $exception,
-                'message' => $exception->getMessage(),
-                'file' => $exception->getFile(),
-                'line' => $exception->getLine(),
+                'exception' => $throwable,
+                'message' => $throwable->getMessage(),
+                'file' => $throwable->getFile(),
+                'line' => $throwable->getLine(),
                 'user_id' => $userId,
             ]);
         }

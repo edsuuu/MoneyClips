@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-use App\Jobs\PostShortToPlatformJob;
 use App\Livewire\Videos\Index;
 use App\Models\User;
 use App\Models\YoutubeShort;
-use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
@@ -49,16 +47,4 @@ it('saves title and hashtags from the review modal', function (): void {
     $short->refresh();
     expect($short->title)->toBe('Novo título')
         ->and($short->hashtags)->toBe(['#shorts', '#podcast']);
-});
-
-it('queues instant posts for implemented platforms without active posts', function (): void {
-    Queue::fake();
-    $short = YoutubeShort::factory()->ready()->create();
-
-    Livewire::test(Index::class)
-        ->call('openInstant', $short->id)
-        ->call('confirmInstant');
-
-    Queue::assertPushed(PostShortToPlatformJob::class, 2);
-    Queue::assertPushed(fn (PostShortToPlatformJob $job): bool => $job->shortId === $short->id && $job->platform === 'youtube');
 });

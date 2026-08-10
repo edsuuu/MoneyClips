@@ -5,11 +5,6 @@
             <h1 class="text-3xl font-extrabold tracking-tight text-slate-50">Estoque e postagens</h1>
         </div>
         <div class="flex flex-wrap justify-end gap-2.5">
-            <button type="button" wire:click="openInstant"
-                class="flex cursor-pointer items-center gap-2 rounded-[10px] bg-sky-400 px-4 py-2.5 text-[13.5px] font-bold text-gray-950 transition hover:bg-sky-300">
-                <x-ui.icon name="bolt" class="size-3.5" />
-                Postagem instantânea
-            </button>
             <button type="button" wire:click="openUpload"
                 class="flex cursor-pointer items-center gap-2 rounded-[10px] border border-slate-700 bg-slate-800 px-4 py-2.5 text-[13.5px] font-semibold text-slate-100 transition hover:bg-slate-700">
                 <x-ui.icon name="plus" class="size-3.5" />
@@ -130,58 +125,6 @@
                     <x-ui.button wire:click="saveEdit">Salvar</x-ui.button>
                 </div>
             </div>
-        </x-ui.server-modal>
-    @endif
-
-    @if ($showInstant)
-        <x-ui.server-modal close="closeInstant" title="Postagem instantânea" max-width="max-w-xl">
-            <div class="flex flex-col gap-4 overflow-y-auto p-5">
-                <div>
-                    <div class="mb-2 font-mono text-[11px] tracking-[0.08em] text-slate-400">PLATAFORMAS</div>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach ($platforms as $platform)
-                            <button type="button" wire:click="toggleInstantPlatform('{{ $platform['platform'] }}')" wire:key="instant-platform-{{ $platform['platform'] }}"
-                                @class([
-                                    'flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-semibold transition',
-                                    'border-emerald-500/50 bg-emerald-950/30 text-emerald-300' => $platform['selected'],
-                                    'border-slate-700 bg-slate-900 text-slate-400' => ! $platform['selected'],
-                                ])>
-                                <span @class([
-                                    'size-1.5 rounded-full',
-                                    'bg-emerald-400' => $platform['selected'],
-                                    'bg-slate-600' => ! $platform['selected'],
-                                ])></span>
-                                {{ $platform['name'] }}
-                            </button>
-                        @endforeach
-                    </div>
-                </div>
-
-                <div>
-                    <div class="mb-2 font-mono text-[11px] tracking-[0.08em] text-slate-400">VÍDEO</div>
-                    <div class="grid max-h-72 grid-cols-1 gap-2 overflow-y-auto pr-1">
-                        @foreach ($instantCandidates as $candidate)
-                            <button type="button" wire:click="selectInstantVideo({{ $candidate['id'] }})" wire:key="instant-candidate-{{ $candidate['id'] }}"
-                                @class([
-                                    'flex cursor-pointer items-center gap-3 rounded-[10px] border px-3.5 py-2.5 text-left transition',
-                                    'border-emerald-500 bg-emerald-950/20' => $candidate['selected'],
-                                    'border-slate-700 bg-slate-950/60 hover:border-sky-400' => ! $candidate['selected'],
-                                ])>
-                                <x-ui.icon name="play" class="size-3.5 shrink-0 text-slate-500" />
-                                <span class="line-clamp-1 text-[13px] font-semibold">{{ $candidate['title'] }}</span>
-                                @if ($candidate['selected'])
-                                    <x-ui.icon name="check-circle" class="ml-auto size-4 shrink-0 text-emerald-400" />
-                                @endif
-                            </button>
-                        @endforeach
-                    </div>
-                </div>
-            </div>
-
-            <x-slot:footer>
-                <x-ui.button variant="outline" wire:click="closeInstant">Cancelar</x-ui.button>
-                <x-ui.button wire:click="confirmInstant" wire:confirm="Postar este vídeo AGORA nas plataformas selecionadas?">Postar agora</x-ui.button>
-            </x-slot:footer>
         </x-ui.server-modal>
     @endif
 
