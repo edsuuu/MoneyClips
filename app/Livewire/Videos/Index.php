@@ -5,10 +5,7 @@ declare(strict_types=1);
 namespace App\Livewire\Videos;
 
 use App\Helpers\Hashtags;
-use App\Helpers\Platforms;
-use App\Jobs\PostShortToPlatformJob;
 use App\Livewire\Concerns\WithToasts;
-use App\Models\SocialPost;
 use App\Models\YoutubeShort;
 use App\Services\DownloadYoutube\DownloadShortsService;
 use Illuminate\Database\Eloquent\Builder;
@@ -42,13 +39,6 @@ final class Index extends Component
     public string $editTitle = '';
 
     public string $editHashtags = '';
-
-    public bool $showInstant = false;
-
-    public ?int $instantShortId = null;
-
-    /** @var list<string> */
-    public array $instantPlatforms = [];
 
     public bool $showUpload = false;
 
@@ -106,70 +96,7 @@ final class Index extends Component
         }
 
         $short->forceFill(['ready_at' => now()])->save();
-        $this->toast('Vídeo pronto para entrar na agenda.');
-    }
-
-    public function openInstant(?int $shortId = null): void
-    {
-        $this->instantShortId = $shortId;
-        $this->instantPlatforms = $this->enabledPlatforms();
-        $this->showInstant = true;
-    }
-
-    public function closeInstant(): void
-    {
-        $this->showInstant = false;
-        $this->instantShortId = null;
-    }
-
-    public function selectInstantVideo(int $shortId): void
-    {
-        $this->instantShortId = $shortId;
-    }
-
-    public function toggleInstantPlatform(string $platform): void
-    {
-        $this->instantPlatforms = in_array($platform, $this->instantPlatforms, true)
-            ? array_values(array_diff($this->instantPlatforms, [$platform]))
-            : [...$this->instantPlatforms, $platform];
-    }
-
-    public function confirmInstant(): void
-    {
-        $short = $this->instantShortId !== null ? YoutubeShort::query()->find($this->instantShortId) : null;
-        if (! $short instanceof YoutubeShort) {
-            $this->toast('Escolha um vídeo para postar.', 'danger');
-
-            return;
-        }
-
-        $platforms = array_values(array_intersect($this->instantPlatforms, $this->enabledPlatforms()));
-        if ($platforms === []) {
-            $this->toast('Escolha ao menos uma plataforma habilitada.', 'danger');
-
-            return;
-        }
-
-        $queued = [];
-        foreach ($platforms as $platform) {
-            $active = SocialPost::query()
-                ->where('platform', $platform)
-                ->where('youtube_id', $short->youtube_id)
-                ->active()
-                ->exists();
-
-            if ($active) {
-                continue;
-            }
-
-            dispatch(new PostShortToPlatformJob($platform, $short->id));
-            $queued[] = $platform;
-        }
-
-        $this->closeInstant();
-        $this->toast($queued === []
-            ? 'Este vídeo já está em fila ou postado nas plataformas escolhidas.'
-            : sprintf('Postagem enviada para: %s.', implode(', ', $queued)), $queued === [] ? 'danger' : 'success');
+        $this->toast('Vídeo marcado como pronto.');
     }
 
     public function openUpload(): void
@@ -235,12 +162,6 @@ final class Index extends Component
             ->orWhereNotNull('posted_tiktok_at'));
     }
 
-    /** @return list<string> */
-    private function enabledPlatforms(): array
-    {
-        return Platforms::implemented();
-    }
-
     /**
      * Badge de estado do card (label + classes prontas pro @class da view).
      *
@@ -281,28 +202,6 @@ final class Index extends Component
 
             return $video;
         })->values()->all();
-    }
-
-    /** @return array<int, array{id: int, title: string, selected: bool}> */
-    private function instantCandidates(): array
-    {
-        if (! $this->showInstant) {
-            return [];
-        }
-
-        return YoutubeShort::query()
-            ->whereNotNull('video_path')
-            ->whereNull('posted_youtube_at')
-            ->whereNull('posted_tiktok_at')
-            ->latest('id')
-            ->limit(24)
-            ->get(['id', 'title', 'youtube_id'])
-            ->map(fn (YoutubeShort $s): array => [
-                'id' => $s->id,
-                'title' => $s->title ?? $s->youtube_id,
-                'selected' => $this->instantShortId === $s->id,
-            ])
-            ->values()->all();
     }
 
     /** @return array<string, list<string>> */
@@ -359,12 +258,6 @@ final class Index extends Component
             ],
             'editingVideo' => $editing,
             'editingUrl' => $editing instanceof YoutubeShort ? $editing->presignedUrl() : null,
-            'instantCandidates' => $this->instantCandidates(),
-            'platforms' => array_map(fn (string $platform): array => [
-                'platform' => $platform,
-                'name' => Platforms::name($platform),
-                'selected' => in_array($platform, $this->instantPlatforms, true),
-            ], Platforms::implemented()),
         ]);
     }
 }

@@ -52,7 +52,7 @@ return [
             'youtube' => env('GOOGLE_YOUTUBE_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback'),
         ],
         'youtube_scopes' => array_values(array_filter(array_map(
-            'mb_trim',
+            mb_trim(...),
             explode(',', (string) env(
                 'GOOGLE_YOUTUBE_SCOPES',
                 'https://www.googleapis.com/auth/youtube.upload,https://www.googleapis.com/auth/youtube.readonly',
@@ -71,21 +71,6 @@ return [
             'DOWNLOAD_YOUTUBE_VIDEO_WEBHOOK_URL',
             mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/download-video',
         ),
-    ],
-
-    'tiktok_post' => [
-        'base_url' => env('TIKTOK_POST_URL', 'http://127.0.0.1:8090'),
-        // Só cobre o envio do binário + 202 {job_id} — a publicação roda em
-        // background no uploader e o desfecho volta pela webhook_url.
-        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 120),
-        'api_token' => env('TIKTOK_POST_API_TOKEN', ''),
-        'webhook_url' => env(
-            'TIKTOK_POST_WEBHOOK_URL',
-            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/tiktok-posts',
-        ),
-        // Conta TikTok ativa (handle público sem @). Usada em mensagens do
-        // Discord pra rotular o destino. A autenticação real vive em cookies.
-        'account_name' => env('TIKTOK_ACCOUNT_NAME', ''),
     ],
 
     'hls' => [
@@ -139,16 +124,8 @@ return [
         ),
     ],
 
-    'youtube_shorts' => [
-        'posting' => [
-            'privacy_status' => 'public',
-            'category_id' => '22',
-            'posts_per_run' => 1,
-            'low_stock_threshold' => 0.20,
-            'youtube_enabled' => filter_var(env('YOUTUBE_POSTING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
-            'tiktok_enabled' => filter_var(env('TIKTOK_POSTING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
-        ],
-        'discord_webhook' => env('DISCORD_WEBHOOK_URL', ''),
+    'discord' => [
+        'webhook' => env('DISCORD_WEBHOOK_URL', ''),
     ],
 
 ];
