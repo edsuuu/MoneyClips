@@ -277,6 +277,21 @@
                             </div>
                         </div>
 
+                        <div class="space-y-1.5" x-show="speakerIds().length > 0" x-cloak>
+                            <span class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Cor por locutor</span>
+                            <div class="flex flex-wrap items-center gap-3">
+                                <template x-for="speaker in speakerIds()" :key="speaker">
+                                    <label class="flex cursor-pointer items-center gap-2">
+                                        <span class="text-xs text-slate-400" x-text="`Pessoa ${speaker}`"></span>
+                                        <input type="color" :value="settings.speakerColors[speaker]"
+                                            x-on:input="setSpeakerColor(speaker, $event.target.value)"
+                                            class="h-6 w-9 cursor-pointer rounded-md border border-slate-700 bg-slate-950" />
+                                    </label>
+                                </template>
+                            </div>
+                            <p class="text-[11px] text-slate-500">Detectado pelo tracking — quem fala fora de quadro fica com a cor padrão.</p>
+                        </div>
+
                         <div class="space-y-1.5">
                             <span class="block text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Capitalização</span>
                             <div class="flex items-center gap-2">
@@ -289,6 +304,18 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <button type="button" x-on:click="track()"
+                    x-bind:disabled="tracking || trackingStatus === 'processing' || (editId === null && !dirty)"
+                    class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-violet-400/40 bg-violet-400/10 px-4 py-2.5 text-sm font-bold text-violet-700 transition hover:bg-violet-400/20 disabled:pointer-events-none disabled:opacity-50 dark:text-violet-300">
+                    <x-ui.icon name="sparkles" class="size-3.5" />
+                    <span x-text="tracking || trackingStatus === 'processing' ? 'Rastreando…' : (trackingStatus === 'ready' ? 'Refazer tracking automático' : 'Gerar tracking automático')"></span>
+                </button>
+                <p class="mt-2 text-center text-[11.5px] text-slate-500">Segue o rosto de quem fala e cria os keyframes — dá pra ajustar tudo depois.</p>
+                <p class="mt-1 text-center text-[11.5px] text-sky-600 dark:text-sky-400/80" x-show="trackingStatus === 'processing'" x-cloak>Rodando em segundo plano — recarregue a página em instantes.</p>
+                <p class="mt-1 text-center text-[11.5px] text-amber-600 dark:text-amber-400/80" x-show="trackingStatus === 'failed'" x-cloak>O tracking falhou. Marque os keyframes à mão ou tente de novo.</p>
             </div>
 
             <div class="flex gap-2">

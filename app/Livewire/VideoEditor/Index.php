@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Livewire\VideoEditor;
 
+use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
+use App\Jobs\StartFaceTrackingJob;
 use App\Jobs\StartVideoCutEditRenderJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\VideoCut;
@@ -138,6 +140,51 @@ final class Index extends Component
         return VideoCutStatusEnum::Generating->value;
     }
 
+    /**
+     * Claim atômico do face tracking. O desfecho chega pelo webhook
+     * /api/webhook/face-tracking, que SOBRESCREVE os keyframes da edição — o
+     * client confirma com o operador antes de chamar, senão ajuste manual
+     * some sem aviso.
+     */
+    public function generateTracking(): ?string
+    {
+        $edit = $this->editId !== null
+            ? VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
+            : null;
+
+        if (! $edit instanceof VideoCutEdit) {
+            $this->toast('Salve a edição antes de gerar o tracking.', 'danger');
+
+            return null;
+        }
+
+        // ponytail: mesmo destravamento do render — processing parado há 30 min
+        // é webhook perdido; watchdog em cron se isso passar a doer.
+        $claimed = VideoCutEdit::query()
+            ->whereKey($edit->id)
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('tracking_status')
+                ->orWhereIn('tracking_status', [TranscriptionStatusEnum::Ready->value, TranscriptionStatusEnum::Failed->value])
+                ->orWhere(fn (Builder $stale): Builder => $stale
+                    ->where('tracking_status', TranscriptionStatusEnum::Processing->value)
+                    ->where('updated_at', '<', now()->subMinutes(30))))
+            ->update([
+                'tracking_status' => TranscriptionStatusEnum::Processing,
+                'tracking_error' => null,
+            ]);
+
+        if ($claimed !== 1) {
+            $this->toast('O tracking desta edição já está rodando.', 'danger');
+
+            return null;
+        }
+
+        dispatch(new StartFaceTrackingJob($edit->id));
+        $this->toast('Tracking em andamento — recarregue em instantes pra ver os keyframes.');
+
+        return TranscriptionStatusEnum::Processing->value;
+    }
+
     private function latestEditId(): ?int
     {
         $id = VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->latest('id')->value('id');
@@ -159,20 +206,24 @@ final class Index extends Component
             : null;
 
         $settings = $edit->settings ?? [];
+        $speakerColors = $this->sanitizeSpeakerColors($settings['speakerColors'] ?? null);
+
+        $baseSettings = [
+            'version' => 1,
+            'background' => (string) ($settings['background'] ?? '#000000'),
+            'captions' => (bool) ($settings['captions'] ?? false),
+            'captionColor' => (string) ($settings['captionColor'] ?? '#ffffff'),
+            'captionCase' => (string) ($settings['captionCase'] ?? 'sentence'),
+        ];
 
         return [
             'editId' => $edit?->id,
             'renderStatus' => $edit?->render_status?->value,
+            'trackingStatus' => $edit?->tracking_status?->value,
             'videoUrl' => $this->cut->presignedUrl(),
             'mode' => $edit->mode ?? self::DEFAULT_MODE,
             'keyframes' => $edit->keyframes ?? [],
-            'settings' => [
-                'version' => 1,
-                'background' => (string) ($settings['background'] ?? '#000000'),
-                'captions' => (bool) ($settings['captions'] ?? false),
-                'captionColor' => (string) ($settings['captionColor'] ?? '#ffffff'),
-                'captionCase' => (string) ($settings['captionCase'] ?? 'sentence'),
-            ],
+            'settings' => $speakerColors === [] ? $baseSettings : $baseSettings + ['speakerColors' => $speakerColors],
             'sourceMeta' => $edit?->source_meta,
         ];
     }
@@ -182,7 +233,7 @@ final class Index extends Component
      * client aplica as mesmas regras; aqui é defesa).
      *
      * @param  array<string, mixed>  $payload
-     * @return array{mode: string, keyframes: list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}>, settings: array{version: int, background: string, captions: bool, captionColor: string, captionCase: string}, sourceMeta: array{width: int, height: int, duration: float}}|null
+     * @return array{mode: string, keyframes: list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}>, settings: array{version: int, background: string, captions: bool, captionColor: string, captionCase: string, speakerColors?: array<int, string>}, sourceMeta: array{width: int, height: int, duration: float}}|null
      */
     private function sanitizePayload(array $payload): ?array
     {
@@ -269,18 +320,65 @@ final class Index extends Component
             $captionCase = 'sentence';
         }
 
+        $sanitized = [
+            'version' => 1,
+            'background' => mb_strtolower($background),
+            'captions' => (bool) ($settings['captions'] ?? false),
+            'captionColor' => mb_strtolower($captionColor),
+            'captionCase' => $captionCase,
+        ];
+
+        // Só entra quando há locutor detectado: edição sem tracking mantém o
+        // settings idêntico ao que sempre foi gravado.
+        $speakerColors = $this->sanitizeSpeakerColors($settings['speakerColors'] ?? null);
+        if ($speakerColors !== []) {
+            $sanitized['speakerColors'] = $speakerColors;
+        }
+
         return [
             'mode' => $mode,
             'keyframes' => $deduped,
-            'settings' => [
-                'version' => 1,
-                'background' => mb_strtolower($background),
-                'captions' => (bool) ($settings['captions'] ?? false),
-                'captionColor' => mb_strtolower($captionColor),
-                'captionCase' => $captionCase,
-            ],
+            'settings' => $sanitized,
             'sourceMeta' => ['width' => $width, 'height' => $height, 'duration' => round($duration, 3)],
         ];
+    }
+
+    /**
+     * Mapa id do locutor -> hex da legenda. A chave é int porque PHP converte
+     * chave string numérica em int; o JSON ainda sai como objeto porque o id
+     * começa em 1, e é assim que o serviço de render faz o lookup.
+     *
+     * @return array<int, string>
+     */
+    private function sanitizeSpeakerColors(mixed $rawColors): array
+    {
+        if (! is_array($rawColors)) {
+            return [];
+        }
+
+        $colors = [];
+
+        foreach ($rawColors as $speaker => $color) {
+            if (! is_numeric($speaker)) {
+                continue;
+            }
+
+            if ((int) $speaker < 1) {
+                continue;
+            }
+
+            if (! is_string($color)) {
+                continue;
+            }
+
+            if (preg_match('/^#[0-9a-fA-F]{6}$/', $color) !== 1) {
+                continue;
+            }
+
+            $colors[(int) $speaker] = mb_strtolower($color);
+        }
+
+        return $colors;
     }
 
     /** @return array{x: float, y: float, w: float, h: float}|null */

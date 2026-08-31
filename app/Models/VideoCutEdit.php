@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
 use Database\Factories\VideoCutEditFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -24,10 +25,12 @@ use RuntimeException;
  * @property int|null $video_cut_id
  * @property array{width: int, height: int, duration: float}|null $source_meta
  * @property string $mode
- * @property list<array{t: float, regions: list<array{x: float, y: float, w: float, h: float}>}> $keyframes
- * @property array{version: int, background: string, captions?: bool, captionColor?: string, captionCase?: string}|null $settings
+ * @property list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}> $keyframes
+ * @property array{version: int, background: string, captions?: bool, captionColor?: string, captionCase?: string, speakerColors?: array<int, string>}|null $settings
  * @property VideoCutStatusEnum|null $render_status
  * @property string|null $render_error
+ * @property TranscriptionStatusEnum|null $tracking_status
+ * @property string|null $tracking_error
  * @property-read YoutubeShort|null $youtubeShort
  * @property-read VideoCut|null $videoCut
  */
@@ -41,6 +44,7 @@ final class VideoCutEdit extends Model
     protected $fillable = [
         'uuid', 'youtube_short_id', 'video_cut_id', 'source_meta',
         'mode', 'keyframes', 'settings', 'render_status', 'render_error',
+        'tracking_status', 'tracking_error',
     ];
 
     public function renderOutputPath(): string
@@ -78,6 +82,7 @@ final class VideoCutEdit extends Model
             'keyframes' => 'array',
             'settings' => 'array',
             'render_status' => VideoCutStatusEnum::class,
+            'tracking_status' => TranscriptionStatusEnum::class,
         ];
     }
 }

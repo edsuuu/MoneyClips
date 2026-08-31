@@ -40,11 +40,13 @@ export interface ReframeSettings {
     captions?: boolean;
     captionColor?: string;
     captionCase?: string;
+    speakerColors?: Record<string, string>;
 }
 
 export interface ReframePayload {
     editId: number | null;
     renderStatus: string | null;
+    trackingStatus: string | null;
     videoUrl: string | null;
     mode: string;
     keyframes: RawKeyframe[];

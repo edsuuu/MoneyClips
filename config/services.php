@@ -124,6 +124,30 @@ return [
         ),
     ],
 
+    // Face tracking (endpoint /face-tracking do serviço media, :8770). Mesmo
+    // desenho da transcrição: manda o clip por multipart, recebe 202 e os
+    // keyframes + timeline de locutor chegam por webhook. O teto de keyframes
+    // é o que mantém o filtergraph do /reframe editável e barato — o serviço
+    // simplifica a curva até caber nele.
+    'face_tracking' => [
+        'base_url' => env('FACE_TRACKING_URL', 'http://127.0.0.1:8770'),
+        'timeout' => (int) env('FACE_TRACKING_TIMEOUT', 120),
+        'max_keyframes' => (int) env('FACE_TRACKING_MAX_KEYFRAMES', 40),
+        'webhook_url' => env(
+            'FACE_TRACKING_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/face-tracking',
+        ),
+    ],
+
+    // Sugestão de cortes por LLM. As travas abaixo não confiam na resposta do
+    // modelo: duração, gap e ordem são reimpostos no Laravel depois.
+    'cut_suggestion' => [
+        'min_duration' => (int) env('CUT_SUGGESTION_MIN_DURATION', 60),
+        'max_duration' => (int) env('CUT_SUGGESTION_MAX_DURATION', 80),
+        'min_gap' => (float) env('CUT_SUGGESTION_MIN_GAP', 1.0),
+        'max_cuts' => (int) env('CUT_SUGGESTION_MAX_CUTS', 20),
+    ],
+
     'discord' => [
         'webhook' => env('DISCORD_WEBHOOK_URL', ''),
     ],

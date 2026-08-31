@@ -43,6 +43,10 @@ export class ReframeEditor {
 
     public generating = false;
 
+    public trackingStatus: string | null = null;
+
+    public tracking = false;
+
     public speed = 1;
 
     public timelineZoom = 1;
@@ -59,6 +63,7 @@ export class ReframeEditor {
         saveEdit: (payload: unknown) => Promise<number | null>;
         refreshUrl: () => Promise<string | null>;
         generateRender: () => Promise<string | null>;
+        generateTracking: () => Promise<string | null>;
     };
 
     public $dispatch!: (event: string, detail: unknown) => void;
@@ -100,6 +105,7 @@ export class ReframeEditor {
     public constructor(initial: ReframePayload) {
         this.editId = initial.editId;
         this.renderStatus = initial.renderStatus;
+        this.trackingStatus = initial.trackingStatus;
         this.videoUrl = initial.videoUrl;
         this.mode = ReframeModes.exists(initial.mode) ? initial.mode : 'vertical';
         this.keyframes = initial.keyframes.map((keyframe) => {
@@ -116,6 +122,7 @@ export class ReframeEditor {
             captions: initial.settings.captions ?? false,
             captionColor: initial.settings.captionColor ?? '#ffffff',
             captionCase: initial.settings.captionCase ?? 'sentence',
+            speakerColors: initial.settings.speakerColors ?? {},
         };
     }
 
@@ -791,6 +798,47 @@ export class ReframeEditor {
         } finally {
             this.generating = false;
         }
+    }
+
+    public async track(): Promise<void> {
+        if (this.tracking || this.trackingStatus === 'processing' || !this.duration) return;
+
+        if (this.keyframes.length > 1 && !window.confirm('O tracking substitui todos os keyframes atuais. Continuar?')) {
+            return;
+        }
+
+        this.tracking = true;
+
+        try {
+            if (this.dirty || this.editId === null) {
+                await this.save();
+                if (this.dirty || this.editId === null) return;
+            }
+
+            const status = await this.$wire.generateTracking();
+            if (status !== null) this.trackingStatus = status;
+        } catch (error) {
+            ClientLogger.send('error', `Falha ao gerar o tracking: ${String(error)}`, {
+                editId: this.editId,
+            });
+            this.$dispatch('toast', {
+                message: 'Não foi possível gerar o tracking. Tente de novo.',
+                variant: 'error',
+            });
+        } finally {
+            this.tracking = false;
+        }
+    }
+
+    public speakerIds(): string[] {
+        return Object.keys(this.settings.speakerColors ?? {}).sort(
+            (first, second) => Number(first) - Number(second),
+        );
+    }
+
+    public setSpeakerColor(speaker: string, color: string): void {
+        this.settings.speakerColors = { ...(this.settings.speakerColors ?? {}), [speaker]: color };
+        this.markDirty();
     }
 
     public async recoverVideoUrl(forcePlay = false): Promise<void> {

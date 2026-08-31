@@ -81,6 +81,16 @@ final class VideoCut extends Model
         return $this->prefix().'/original/transcript.json';
     }
 
+    /**
+     * Timeline de locutor do face tracking, guardada fora do transcript porque
+     * as duas coisas chegam por webhooks independentes: quem terminar por
+     * último não pode sobrescrever o artefato do outro.
+     */
+    public function speakersPath(): string
+    {
+        return $this->prefix().'/original/speakers.json';
+    }
+
     public function presignedUrl(): ?string
     {
         try {
