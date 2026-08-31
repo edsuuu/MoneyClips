@@ -285,13 +285,18 @@
                         <div class="mt-2 flex gap-2">
                             <input
                                 type="text"
+                                wire:model="cutSearch"
+                                maxlength="300"
+                                wire:keydown.enter="suggestAiCuts"
                                 placeholder='"a parte mais engraçada", "quando ficam emocionados"'
                                 class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
                             />
                             <button
                                 type="button"
                                 wire:click="suggestAiCuts"
-                                class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500"
+                                wire:loading.attr="disabled"
+                                wire:target="suggestAiCuts"
+                                class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500 disabled:pointer-events-none disabled:opacity-50"
                             >
                                 Buscar
                             </button>
