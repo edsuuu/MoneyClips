@@ -10,3 +10,18 @@ httpx>=0.28.0
 # antes deste arquivo (a build default do PyPI e CPU-only):
 #   pip install torch --index-url https://download.pytorch.org/whl/cu124
 faster-whisper>=1.1
+
+# Face tracking + active speaker detection. O mediapipe e pesado (~100MB, traz
+# TFLite/protobuf) e sensivel a pin de numpy/protobuf:
+#   - < 0.10.30 fixa numpy<2 e derruba o numpy 2.x do faster-whisper;
+#   - 1.x aborta o processo no macOS (Metal: "graph_service.h Check failed:
+#     service_") mesmo com delegate=cpu — crash C++ nao capturavel.
+# O cv2 vem do opencv-contrib-python que o proprio mediapipe instala. NAO
+# adicione opencv-python aqui: as duas distribuicoes servem o MESMO modulo cv2
+# e uma sobrescreve os arquivos da outra na instalacao — e a origem classica de
+# "cv2 quebrou do nada". Se um dia o mediapipe parar de trazer opencv, o import
+# falha alto no primeiro job e ai sim se escolhe UMA distribuicao.
+# O modelo .task nao vem no pacote: e baixado sob demanda no primeiro job
+# (ver .env.example).
+mediapipe>=0.10.30,<1.0
+numpy>=1.26

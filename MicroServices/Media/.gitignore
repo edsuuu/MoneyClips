@@ -8,3 +8,6 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .DS_Store
+
+# Modelos MediaPipe baixados sob demanda (face_landmarker.task).
+models/

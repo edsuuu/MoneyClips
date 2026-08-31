@@ -14,6 +14,7 @@ from fastapi import FastAPI, Form, HTTPException, UploadFile, status
 from pydantic import BaseModel, HttpUrl
 
 from app.config.settings import settings
+from app.facetracking.worker import FaceTrackingJob, face_tracking_worker
 from app.jobs.video_worker import VideoDownloadJob, video_worker
 from app.jobs.worker import ChannelAlreadyDownloadingError, start_download
 from app.logging_config import configure_logging
@@ -69,6 +70,7 @@ async def lifespan(_app: FastAPI) -> AsyncGenerator[None, None]:
     )
     video_worker.start()
     transcription_worker.start()
+    face_tracking_worker.start()
     logger.info("starting media on %s:%s", settings.api_host, settings.api_port)
     yield
 
@@ -79,8 +81,9 @@ app = FastAPI(
     description=(
         "Serviços Python de mídia: baixa do YouTube direto pro MinIO — Shorts "
         "de um canal em lote (um webhook por item) ou um vídeo longo por URL "
-        "(fila + webhook) — e transcreve áudio com faster-whisper (fila "
-        "própria + webhook). Sem banco — estado vive no processo."
+        "(fila + webhook) —, transcreve áudio com faster-whisper e roda face "
+        "tracking + active speaker detection com MediaPipe (cada um na sua "
+        "fila, com webhook). Sem banco — estado vive no processo."
     ),
     lifespan=lifespan,
 )
@@ -192,6 +195,41 @@ def create_transcription(
     )
 
     return {"job_id": job_id, "status": "queued"}
+
+
+@app.post("/face-tracking", status_code=status.HTTP_202_ACCEPTED)
+def create_face_tracking(
+    video: UploadFile,
+    uuid: Annotated[str, Form()],
+    webhook_url: Annotated[str, Form()],
+    max_keyframes: Annotated[str, Form()] = "40",
+) -> dict[str, str]:
+    job_id = uuid4().hex
+    work_dir = Path(tempfile.mkdtemp(prefix="facetracking-"))
+    source = work_dir / "video.mp4"
+    with source.open("wb") as out:
+        shutil.copyfileobj(video.file, out)
+
+    face_tracking_worker.submit(
+        FaceTrackingJob(
+            job_id=job_id,
+            uuid=uuid,
+            work_dir=work_dir,
+            video_path=source,
+            webhook_url=webhook_url,
+            max_keyframes=_parse_max_keyframes(max_keyframes),
+        )
+    )
+
+    return {"job_id": job_id, "status": "queued"}
+
+
+def _parse_max_keyframes(raw: str) -> int:
+    try:
+        value = int(raw)
+    except ValueError:
+        value = settings.face_tracking_max_keyframes
+    return max(1, min(value, 200))
 
 
 def run() -> None:
