@@ -157,7 +157,6 @@ pra `FACE_TRACKING_MODELS_DIR` (fora do git). Self-check das funcoes puras
 
 ```text
 app/
-  main.py                    # /health + /shorts/download + /videos/metadata + /videos/download + /transcriptions + /face-tracking
   jobs/worker.py             # pool de shorts + webhook por item
   jobs/video_worker.py       # fila de video longo + webhook de desfecho
   transcription/worker.py    # fila de transcricao + webhook de desfecho

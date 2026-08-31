@@ -294,9 +294,6 @@
                             <button
                                 type="button"
                                 wire:click="suggestAiCuts"
-                                wire:loading.attr="disabled"
-                                wire:target="suggestAiCuts"
-                                class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500 disabled:pointer-events-none disabled:opacity-50"
                             >
                                 Buscar
                             </button>

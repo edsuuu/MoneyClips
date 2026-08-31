@@ -199,25 +199,7 @@ final class Show extends Component
         dispatch(new StartCutRenderJob($cutId));
     }
 
-    public function suggestAiCuts(): void
     {
-        $prompt = mb_trim($this->cutSearch);
-
-        if (mb_strlen($prompt) > self::MAX_PROMPT_LENGTH) {
-            $this->toast('Descreva o momento em menos palavras.', 'danger');
-
-            return;
-        }
-
-        if ($this->video->transcription_status !== TranscriptionStatusEnum::Ready) {
-            $this->toast('A transcrição precisa estar pronta antes de buscar momentos.', 'danger');
-
-            return;
-        }
-
-        dispatch(new SuggestCutsJob($this->video->id, $prompt));
-
-        $this->toast('Procurando os melhores momentos — os cortes aparecem aqui quando ficarem prontos.');
     }
 
     private function duplicateCutExists(int $start, int $end, ?int $ignoreId = null): bool

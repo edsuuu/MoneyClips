@@ -112,12 +112,6 @@ export class SubtitleBuilder {
     }
 
     private collectWords(transcript: Transcript): Word[] {
-        const raw: {
-            word: TranscriptWord;
-            segStart: number;
-            segEnd: number;
-            speaker: string | null;
-        }[] = [];
 
         for (const segment of transcript.segments ?? []) {
             const segStart = Number(segment.start ?? 0);
@@ -125,7 +119,6 @@ export class SubtitleBuilder {
             const speaker = this.speakerKey(segment);
 
             for (const word of segment.words ?? []) {
-                raw.push({ word, segStart, segEnd, speaker });
             }
         }
 
@@ -140,7 +133,6 @@ export class SubtitleBuilder {
             const start = this.resolveStart(item.word, result, item.segStart);
             const end = this.resolveEnd(item.word, raw, index, item.segEnd);
 
-            result.push({ text, start, end: Math.max(end, start + 0.05), speaker: item.speaker });
         }
 
         return result;
@@ -227,44 +219,15 @@ export class SubtitleBuilder {
 
     private highlightLine(line: Line, activeIndex: number, geometry: SubtitleGeometry): string {
         const highlight = this.colorTag(settings.highlightColor);
-        const tokens: string[] = [];
-        let inherited = this.colorTag(geometry.primaryColor ?? WHITE);
 
-        for (const [index, word] of line.words.entries()) {
             const token = this.transformToken(word.text, geometry.textTransform ?? 'upper');
-            const primary = this.colorTag(this.wordColor(word, geometry));
-            const prefix = primary === inherited ? '' : `{\\c${primary}}`;
-
-            inherited = primary;
 
             if (index === activeIndex) {
-                tokens.push(`{\\c${highlight}}${token}{\\c${primary}}`);
-
-                continue;
             }
 
             if (settings.hideFutureWords && index > activeIndex) {
-                tokens.push(`${prefix}{\\alpha&HFF&}${token}{\\alpha&H00&}`);
-
-                continue;
             }
 
-            tokens.push(`${prefix}${token}`);
-        }
-
-        return tokens.join(' ');
-    }
-
-    private wordColor(word: Word, geometry: SubtitleGeometry): string {
-        const fallback = geometry.primaryColor ?? WHITE;
-
-        if (word.speaker === null) {
-            return fallback;
-        }
-
-        const color = geometry.speakerColors?.[word.speaker];
-
-        return typeof color === 'string' ? color : fallback;
     }
 
     private assHeader(geometry: SubtitleGeometry): string {

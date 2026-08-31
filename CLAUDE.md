@@ -44,8 +44,6 @@ contorna `upload_max_filesize`/`post_max_size` e dá retomada em arquivos de GBs
 ```
 /upload (arquivo ou URL do YouTube) → videos + HLS → transcrição (media)
   → /meus-uploads/{video}: cortes (video_cuts) → clip frame-exato (video /cut)
-      → /editor-de-video/{cut}: crop 9:16 por keyframes (à mão OU gerados pelo
-        face tracking do media) → render (video /reframe)
           → youtube_shorts (estoque em /meus-videos, revisão título/hashtags)
 media /shorts/download → youtube_shorts direto (Shorts prontos de um canal)
 ```
@@ -135,8 +133,6 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | --- | --- | --- |
 | `/meus-videos` | `App\Livewire\Videos\Index` | estoque com tabs Disponíveis (Baixados/Prontos), Com template, Postados (histórico); novo download |
 | `/upload` | `App\Livewire\Uploads\Create` | envio de vídeo longo (multipart direto pro MinIO, com retomada) OU import por URL do YouTube (valida + preview → download no microserviço) |
-| `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo; corte manual e busca de momentos por IA (`SuggestCutsJob` → cortes com `is_ai_generated`) |
-| `/editor-de-video/{cut}` | `App\Livewire\VideoEditor\Index` | reframe do corte por keyframes (crop 9:16, modos, legendas) + "Gerar tracking automático" (face tracking no `media`, sobrescreve os keyframes) + "Gerar corte editado" → render no serviço `video` → estoque de `/meus-videos` |
 | `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok email/senha + status de sessão; YouTube OAuth) com toggle por conta — credenciais guardadas pra postagem futura |
 | `/observabilidade` | `App\Livewire\Observability\Index` | stream de logs dos microserviços |
 
@@ -229,9 +225,7 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 
 | Serviço | Porta | Stack | Contrato |
 | --- | --- | --- | --- |
-| media | 8770 | FastAPI + yt-dlp + faster-whisper | **único serviço Python** (download + transcrição, filas separadas). `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item. `GET /videos/metadata?url=` → dados do vídeo (400 URL inválida/live, 404 indisponível). `POST /videos/download {url, video_uuid, video_key, webhook_url}` → 202; fila de 1 consumidor baixa em ≤1080p (fallback progressivo de formato), sobe na key EXATA e ecoa `{video_uuid, status: completed\|failed, size_bytes, ...}` com `X-Observability-Token`. Sobe direto pro MinIO (exceção da regra S3). `POST /transcriptions` multipart {audio, uuid, webhook_url} → 202 {job_id}; fila própria + `gpu_lock` (faster-whisper, CUDA em prod, cpu/int8 no macOS); webhook `{uuid, status: done\|failed, transcript: {segments: [{start, end, text, words: [{word, start, end, score}]}], language}}`. Chamado pelo `video` (template) E pelo Laravel (vídeo longo e cortes). `POST /face-tracking` multipart {video, uuid, webhook_url, max_keyframes} → 202 {job_id}; fila própria + o MESMO `gpu_lock` da transcrição (MediaPipe e faster-whisper não dividem GPU); webhook `{uuid, status: done\|failed, keyframes: [{t, mode: vertical, regions: [{x,y,w,h}]}], speakers: [{start, end, speaker}], source: {width, height, duration}}` |
 | tiktok-uploader | 8090 | Node 22 + Playwright | **SEM consumidor no Laravel** (a postagem foi removida e será refeita — o serviço fica como base). `POST /posts` multipart {video, cookies, title, hashtags, webhook_url} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status, session_status, refreshed_cookies?}`; `POST /session`, `POST /login`, `GET /health` |
-| video | 8790 | Node 22 + ffmpeg + sharp | **todo o ffmpeg da aplicação**: cinco endpoints, filas independentes. `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped` (síncrono, sem S3). `POST /package` JSON {video_key, output_prefix, webhook_url} → 202 {uuid}; HLS/ABR (360p/720p/1080p, fMP4, segmentos de 6s); lê/escreve MinIO direto (exceção da regra S3); webhook `{uuid, status: done\|failed\|rejected\|progress, ...}`. `POST /cut` JSON {cut_uuid, video_key, start_seconds, end_seconds, clip_key, audio_key, webhook_url} → 202 {uuid}; corte frame-exato (cap 1080p) + WAV pra transcrição; webhook `{uuid, cut_uuid, status: done\|failed, audio}`. `POST /reframe` JSON {edit_uuid, source_key, output_key, source, keyframes, settings, transcript?, webhook_url} → 202 {uuid}; render do corte editado em 1080x1920 (zoompan por keyframes + legenda opcional); `settings.speakerColors` ({id: hex}) + `transcript.segments[].speaker` pintam a legenda por locutor via tag inline do `.ass` — sem os dois, saída byte a byte igual à antiga; webhook `{uuid, edit_uuid, status: done\|failed}`. `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; render de legenda karaokê + template; webhook `{uuid, status: done\|failed, files}`; output em `GET /videos/{uuid}/output/{variant}`. `API_TOKEN` opcional |
 
 Todos com observabilidade (logs → Laravel) quando
 `OBSERVABILITY_URL`/`OBSERVABILITY_TOKEN` configurados.

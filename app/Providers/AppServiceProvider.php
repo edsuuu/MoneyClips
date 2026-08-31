@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Models\User;
-use App\Services\CutSuggestion\CutSuggestionInterface;
-use App\Services\CutSuggestion\UnconfiguredCutSuggestionService;
-use App\Services\Upload\MultipartUploadInterface;
-use App\Services\Upload\MultipartUploadService;
+use App\Services\VideoProcessor\Contracts\VideoProcessorProviderInterface;
+use App\Services\VideoProcessor\Providers\HttpVideoProcessorProvider;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -25,10 +23,8 @@ final class AppServiceProvider extends ServiceProvider
     #[Override]
     public function register(): void
     {
-        $this->app->bind(MultipartUploadInterface::class, MultipartUploadService::class);
-
-        // Troque por uma implementação real quando a integração com a IA existir.
-        $this->app->bind(CutSuggestionInterface::class, UnconfiguredCutSuggestionService::class);
+        // Contrato -> implementação HTTP. Trocar o provider aqui (ex: fake nos testes).
+        $this->app->bind(VideoProcessorProviderInterface::class, HttpVideoProcessorProvider::class);
     }
 
     public function boot(): void
