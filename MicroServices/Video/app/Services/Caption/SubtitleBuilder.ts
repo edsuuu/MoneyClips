@@ -14,6 +14,11 @@
  * linha inteira, e o fim de um evento é o início do próximo (destaque sem
  * buraco). As palavras futuras ficam com alpha FF — invisíveis, mas ainda
  * ocupando largura, que é o que impede a linha de "pular" ao trocar de palavra.
+ *
+ * A cor por locutor (`speakerColors`, chaveado pelo `speaker` do segmento) só
+ * emite a tag `{\c}` quando a cor MUDA em relação à palavra anterior — sem
+ * locutor a saída fica byte a byte igual à de antes do recurso. O destaque do
+ * karaokê é o mesmo pra todo mundo.
  */
 
 import { writeFile } from 'node:fs/promises';
@@ -33,6 +38,7 @@ export interface TranscriptWord {
 export interface TranscriptSegment {
     start?: number | null;
     end?: number | null;
+    speaker?: number | string | null;
     words?: TranscriptWord[] | null;
 }
 
@@ -48,6 +54,7 @@ export interface SubtitleGeometry {
     marginVOverride?: number | null;
     offset?: number | null;
     primaryColor?: string;
+    speakerColors?: Record<string, string>;
     textTransform?: 'upper' | 'lower' | 'none';
 }
 
@@ -55,6 +62,7 @@ interface Word {
     text: string;
     start: number;
     end: number;
+    speaker: string | null;
 }
 
 interface Line {
@@ -104,14 +112,20 @@ export class SubtitleBuilder {
     }
 
     private collectWords(transcript: Transcript): Word[] {
-        const raw: { word: TranscriptWord; segStart: number; segEnd: number }[] = [];
+        const raw: {
+            word: TranscriptWord;
+            segStart: number;
+            segEnd: number;
+            speaker: string | null;
+        }[] = [];
 
         for (const segment of transcript.segments ?? []) {
             const segStart = Number(segment.start ?? 0);
             const segEnd = Number(segment.end ?? segStart);
+            const speaker = this.speakerKey(segment);
 
             for (const word of segment.words ?? []) {
-                raw.push({ word, segStart, segEnd });
+                raw.push({ word, segStart, segEnd, speaker });
             }
         }
 
@@ -126,10 +140,21 @@ export class SubtitleBuilder {
             const start = this.resolveStart(item.word, result, item.segStart);
             const end = this.resolveEnd(item.word, raw, index, item.segEnd);
 
-            result.push({ text, start, end: Math.max(end, start + 0.05) });
+            result.push({ text, start, end: Math.max(end, start + 0.05), speaker: item.speaker });
         }
 
         return result;
+    }
+
+    /** O rótulo vem do transcript (dado externo): o que não for number|string é descartado. */
+    private speakerKey(segment: TranscriptSegment): string | null {
+        const speaker = segment.speaker;
+
+        if (typeof speaker === 'number') {
+            return String(speaker);
+        }
+
+        return typeof speaker === 'string' ? speaker : null;
     }
 
     private normalizeToken(word: string): string {
@@ -202,23 +227,44 @@ export class SubtitleBuilder {
 
     private highlightLine(line: Line, activeIndex: number, geometry: SubtitleGeometry): string {
         const highlight = this.colorTag(settings.highlightColor);
-        const primary = this.colorTag(geometry.primaryColor ?? WHITE);
+        const tokens: string[] = [];
+        let inherited = this.colorTag(geometry.primaryColor ?? WHITE);
 
-        return line.words
-            .map((word, index) => {
-                const token = this.transformToken(word.text, geometry.textTransform ?? 'upper');
+        for (const [index, word] of line.words.entries()) {
+            const token = this.transformToken(word.text, geometry.textTransform ?? 'upper');
+            const primary = this.colorTag(this.wordColor(word, geometry));
+            const prefix = primary === inherited ? '' : `{\\c${primary}}`;
 
-                if (index === activeIndex) {
-                    return `{\\c${highlight}}${token}{\\c${primary}}`;
-                }
+            inherited = primary;
 
-                if (settings.hideFutureWords && index > activeIndex) {
-                    return `{\\alpha&HFF&}${token}{\\alpha&H00&}`;
-                }
+            if (index === activeIndex) {
+                tokens.push(`{\\c${highlight}}${token}{\\c${primary}}`);
 
-                return token;
-            })
-            .join(' ');
+                continue;
+            }
+
+            if (settings.hideFutureWords && index > activeIndex) {
+                tokens.push(`${prefix}{\\alpha&HFF&}${token}{\\alpha&H00&}`);
+
+                continue;
+            }
+
+            tokens.push(`${prefix}${token}`);
+        }
+
+        return tokens.join(' ');
+    }
+
+    private wordColor(word: Word, geometry: SubtitleGeometry): string {
+        const fallback = geometry.primaryColor ?? WHITE;
+
+        if (word.speaker === null) {
+            return fallback;
+        }
+
+        const color = geometry.speakerColors?.[word.speaker];
+
+        return typeof color === 'string' ? color : fallback;
     }
 
     private assHeader(geometry: SubtitleGeometry): string {
