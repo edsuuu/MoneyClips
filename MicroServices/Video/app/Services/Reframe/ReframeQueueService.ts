@@ -137,6 +137,7 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                 height: 1920,
                 fontScale: VERTICAL_FONT_SCALE,
                 primaryColor: this.assColor(job.settings.captionColor),
+                speakerColors: this.assSpeakerColors(job.settings.speakerColors),
                 textTransform: this.assTransform(job.settings.captionCase),
             },
         );
@@ -153,6 +154,12 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
         }
 
         return `&H00${match[3]!.toUpperCase()}${match[2]!.toUpperCase()}${match[1]!.toUpperCase()}`;
+    }
+
+    private assSpeakerColors(colors: Record<string, string>): Record<string, string> {
+        return Object.fromEntries(
+            Object.entries(colors).map(([speaker, hex]) => [speaker, this.assColor(hex)]),
+        );
     }
 
     private assTransform(captionCase: string): 'upper' | 'lower' | 'none' {

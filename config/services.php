@@ -52,7 +52,7 @@ return [
             'youtube' => env('GOOGLE_YOUTUBE_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback'),
         ],
         'youtube_scopes' => array_values(array_filter(array_map(
-            'mb_trim',
+            mb_trim(...),
             explode(',', (string) env(
                 'GOOGLE_YOUTUBE_SCOPES',
                 'https://www.googleapis.com/auth/youtube.upload,https://www.googleapis.com/auth/youtube.readonly',
@@ -71,21 +71,6 @@ return [
             'DOWNLOAD_YOUTUBE_VIDEO_WEBHOOK_URL',
             mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/download-video',
         ),
-    ],
-
-    'tiktok_post' => [
-        'base_url' => env('TIKTOK_POST_URL', 'http://127.0.0.1:8090'),
-        // Só cobre o envio do binário + 202 {job_id} — a publicação roda em
-        // background no uploader e o desfecho volta pela webhook_url.
-        'timeout' => (int) env('TIKTOK_POST_TIMEOUT', 120),
-        'api_token' => env('TIKTOK_POST_API_TOKEN', ''),
-        'webhook_url' => env(
-            'TIKTOK_POST_WEBHOOK_URL',
-            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/tiktok-posts',
-        ),
-        // Conta TikTok ativa (handle público sem @). Usada em mensagens do
-        // Discord pra rotular o destino. A autenticação real vive em cookies.
-        'account_name' => env('TIKTOK_ACCOUNT_NAME', ''),
     ],
 
     'hls' => [
@@ -139,16 +124,32 @@ return [
         ),
     ],
 
-    'youtube_shorts' => [
-        'posting' => [
-            'privacy_status' => 'public',
-            'category_id' => '22',
-            'posts_per_run' => 1,
-            'low_stock_threshold' => 0.20,
-            'youtube_enabled' => filter_var(env('YOUTUBE_POSTING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
-            'tiktok_enabled' => filter_var(env('TIKTOK_POSTING_ENABLED', true), FILTER_VALIDATE_BOOLEAN),
-        ],
-        'discord_webhook' => env('DISCORD_WEBHOOK_URL', ''),
+    // Face tracking (endpoint /face-tracking do serviço media, :8770). Mesmo
+    // desenho da transcrição: manda o clip por multipart, recebe 202 e os
+    // keyframes + timeline de locutor chegam por webhook. O teto de keyframes
+    // é o que mantém o filtergraph do /reframe editável e barato — o serviço
+    // simplifica a curva até caber nele.
+    'face_tracking' => [
+        'base_url' => env('FACE_TRACKING_URL', 'http://127.0.0.1:8770'),
+        'timeout' => (int) env('FACE_TRACKING_TIMEOUT', 120),
+        'max_keyframes' => (int) env('FACE_TRACKING_MAX_KEYFRAMES', 40),
+        'webhook_url' => env(
+            'FACE_TRACKING_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/face-tracking',
+        ),
+    ],
+
+    // Sugestão de cortes por LLM. As travas abaixo não confiam na resposta do
+    // modelo: duração, gap e ordem são reimpostos no Laravel depois.
+    'cut_suggestion' => [
+        'min_duration' => (int) env('CUT_SUGGESTION_MIN_DURATION', 60),
+        'max_duration' => (int) env('CUT_SUGGESTION_MAX_DURATION', 80),
+        'min_gap' => (float) env('CUT_SUGGESTION_MIN_GAP', 1.0),
+        'max_cuts' => (int) env('CUT_SUGGESTION_MAX_CUTS', 20),
+    ],
+
+    'discord' => [
+        'webhook' => env('DISCORD_WEBHOOK_URL', ''),
     ],
 
 ];

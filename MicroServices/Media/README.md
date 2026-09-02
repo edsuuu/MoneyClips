@@ -8,6 +8,8 @@ cada um na sua propria fila (um download longo nunca segura uma transcricao):
    pelo import da tela /upload do Laravel).
 3. **Transcricao de audio** (faster-whisper) — fila propria + webhook com o
    transcript por palavra (chamado pelo servico Video e pelo Laravel).
+4. **Face tracking + active speaker detection** (MediaPipe) — fila propria +
+   webhook com os keyframes de crop 9:16 e quem fala em cada trecho.
 
 Sem banco, sem migrations, sem polling. Tudo vive no processo.
 
@@ -111,16 +113,59 @@ de desfecho (com header `X-Observability-Token`):
 
 Para falhas, `{"uuid": "...", "status": "failed", "error": "..."}`.
 
+## Face tracking + active speaker detection
+
+```bash
+curl -X POST http://127.0.0.1:8770/face-tracking \
+  -F 'video=@corte.mp4' \
+  -F 'uuid=uuid-do-video-cut-edit' \
+  -F 'webhook_url=https://app.com/api/webhook/face-tracking' \
+  -F 'max_keyframes=40'
+# 202 {"job_id":"...","status":"queued"}
+```
+
+Fila de 1 consumidor, com o MESMO `gpu_lock` da transcricao (MediaPipe e
+faster-whisper disputam a mesma GPU). Amostra o video a `FACE_TRACKING_SAMPLE_FPS`,
+identifica cada rosto por IoU entre frames (id estavel, sobrevive a reordenacao
+do MediaPipe), escolhe quem fala pela atividade labial x energia do audio e
+simplifica a trajetoria com Ramer-Douglas-Peucker ate caber em `max_keyframes`
+(cada keyframe vira um nivel de `if()` no filtro do `/reframe`). Webhook de
+desfecho (com header `X-Observability-Token`):
+
+```json
+{
+  "uuid": "...",
+  "status": "done",
+  "keyframes": [{"t": 0.0, "mode": "vertical", "regions": [{"x": 0.3418, "y": 0.0, "w": 0.3164, "h": 1.0}]}],
+  "speakers": [{"start": 0.0, "end": 3.2, "speaker": 1}],
+  "source": {"width": 1920, "height": 1080, "duration": 62.4},
+  "error": null
+}
+```
+
+Para falhas, `{"uuid": "...", "status": "failed", "error": "...", "keyframes": [], "speakers": [], "source": null}`.
+
+O modelo `face_landmarker.task` (~3.7MB) e baixado sob demanda no primeiro job
+pra `FACE_TRACKING_MODELS_DIR` (fora do git). Self-check das funcoes puras
+(RDP, regiao, IoU) sem baixar modelo nenhum:
+
+```bash
+.venv/bin/python -m app.facetracking.check
+```
+
 ## Estrutura
 
 ```text
 app/
-  main.py                    # /health + /shorts/download + /videos/metadata + /videos/download + /transcriptions
+  main.py                    # /health + /shorts/download + /videos/metadata + /videos/download + /transcriptions + /face-tracking
   jobs/worker.py             # pool de shorts + webhook por item
   jobs/video_worker.py       # fila de video longo + webhook de desfecho
   transcription/worker.py    # fila de transcricao + webhook de desfecho
   transcription/transcribe.py # faster-whisper (modelo lazy, word timestamps)
   transcription/device.py    # device por S.O. (macOS → cpu/int8)
+  facetracking/worker.py     # fila de face tracking + webhook (mesmo gpu_lock)
+  facetracking/tracker.py    # MediaPipe + IoU + ASD + RDP (funcoes puras isoladas)
+  facetracking/check.py      # self-check sem mediapipe/modelo
   youtube/client.py          # wrappers yt_dlp (listagem, metadata, downloads)
   storage/client.py          # wrapper boto3 S3
   config/settings.py
@@ -137,4 +182,8 @@ app/
 | `GPU_ENCODER` | transcode dos shorts: none/nvenc/videotoolbox |
 | `WHISPER_MODEL`/`WHISPER_LANGUAGE` | modelo e idioma do faster-whisper |
 | `WHISPER_DEVICE`/`WHISPER_COMPUTE_TYPE` | cuda/float16 em producao (macOS ignora e usa cpu/int8) |
+| `FACE_TRACKING_SAMPLE_FPS` | frames por segundo amostrados no face tracking |
+| `FACE_TRACKING_MAX_KEYFRAMES` | teto de keyframes quando o caller nao manda `max_keyframes` |
+| `FACE_TRACKING_MODELS_DIR` | onde o `face_landmarker.task` e baixado (fora do git) |
+| `FACE_TRACKING_DELEGATE` | `auto` (GPU so em Linux/NVIDIA), `gpu` ou `cpu`; macOS sempre cpu |
 | `OBSERVABILITY_URL`/`OBSERVABILITY_TOKEN`/`SERVICE_NAME` | logs+heartbeat pro Laravel; o token tambem assina os webhooks de video longo e transcricao |

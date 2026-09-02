@@ -43,6 +43,11 @@ class Settings(BaseSettings):
     whisper_device: str = "cuda"
     whisper_compute_type: str = "float16"
 
+    face_tracking_sample_fps: int = 6
+    face_tracking_max_keyframes: int = 40
+    face_tracking_models_dir: Path = Path("./models")
+    face_tracking_delegate: str = "auto"
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -34,7 +34,7 @@ final class DiscordNotifierService
 
     private function send(string $title, string $message, int $color, ?string $url = null): void
     {
-        $webhook = (string) (config('services.youtube_shorts.discord_webhook'));
+        $webhook = (string) (config('services.discord.webhook'));
         if ($webhook === '') {
             return;
         }

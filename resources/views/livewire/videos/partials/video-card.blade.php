@@ -50,21 +50,13 @@
         </div>
     </div>
 
-    @if (in_array($section, ['downloaded', 'ready', 'templated'], true))
+    @if ($section === 'downloaded')
         <div class="flex gap-2">
-            @if ($section === 'downloaded')
-                <button type="button" wire:click="markReady({{ $video['id'] }})"
-                    class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-gray-950 transition hover:bg-sky-300">
-                    <x-ui.icon name="plus" class="size-3" />
-                    Adicionar à fila
-                </button>
-            @else
-                <button type="button" wire:click="openInstant({{ $video['id'] }})"
-                    class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] border border-slate-700 bg-slate-800 px-3 py-2 text-[12.5px] font-semibold text-slate-200 transition hover:border-sky-400 hover:text-sky-400">
-                    <x-ui.icon name="bolt" class="size-3" />
-                    Postar agora
-                </button>
-            @endif
+            <button type="button" wire:click="markReady({{ $video['id'] }})"
+                class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-gray-950 transition hover:bg-sky-300">
+                <x-ui.icon name="plus" class="size-3" />
+                Marcar como pronto
+            </button>
         </div>
     @endif
 </div>

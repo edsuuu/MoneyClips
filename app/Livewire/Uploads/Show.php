@@ -8,6 +8,7 @@ use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
 use App\Enums\VideoStatusEnum;
 use App\Jobs\StartCutRenderJob;
+use App\Jobs\SuggestCutsJob;
 use App\Livewire\Concerns\EditsTranscript;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\File;
@@ -29,9 +30,13 @@ final class Show extends Component
     use EditsTranscript;
     use WithToasts;
 
+    private const int MAX_PROMPT_LENGTH = 300;
+
     public Video $video;
 
     public ?string $fallbackUrl = null;
+
+    public string $cutSearch = '';
 
     /**
      * O dono e filtrado aqui, e nao no resolveRouteBinding do Video: a rota e
@@ -194,9 +199,25 @@ final class Show extends Component
         dispatch(new StartCutRenderJob($cutId));
     }
 
-    public function suggestAiCuts(): never
+    public function suggestAiCuts(): void
     {
-        dd('Implementar depois');
+        $prompt = mb_trim($this->cutSearch);
+
+        if (mb_strlen($prompt) > self::MAX_PROMPT_LENGTH) {
+            $this->toast('Descreva o momento em menos palavras.', 'danger');
+
+            return;
+        }
+
+        if ($this->video->transcription_status !== TranscriptionStatusEnum::Ready) {
+            $this->toast('A transcrição precisa estar pronta antes de buscar momentos.', 'danger');
+
+            return;
+        }
+
+        dispatch(new SuggestCutsJob($this->video->id, $prompt));
+
+        $this->toast('Procurando os melhores momentos — os cortes aparecem aqui quando ficarem prontos.');
     }
 
     private function duplicateCutExists(int $start, int $end, ?int $ignoreId = null): bool

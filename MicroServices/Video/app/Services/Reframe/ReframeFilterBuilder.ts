@@ -30,6 +30,7 @@ export interface ReframeRenderSettings {
     captions: boolean;
     captionColor: string;
     captionCase: string;
+    speakerColors: Record<string, string>;
 }
 
 interface Slot {

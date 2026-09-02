@@ -18,10 +18,23 @@ O que segue abaixo **só existia no `GenerateClips`** e ainda não tem equivalen
 
 ---
 
-## 1. Seleção de cortes por LLM
+## 1. Seleção de cortes por LLM — ESTRUTURA PRONTA, FALTA O PROVEDOR
 
 Escolher automaticamente os melhores momentos de um vídeo longo em vez de o
 operador marcar tudo à mão no `/editor-de-video`.
+
+**Já existe** (`app/Services/CutSuggestion/`): `CutSuggestionInterface` (o único
+ponto de contato com a IA), `CutSuggestionData`, `CutSuggestionValidatorService`
+(as travas do `_validate_and_clean` portadas: duração 60–80s, gap mínimo de 1s,
+ordem temporal, desempate por score, teto de cortes — tudo configurável em
+`services.cut_suggestion`), `SuggestCutsJob` e o botão "Buscar" da
+`/meus-uploads/{video}` ligado ao input de busca. Os cortes nascem como
+`video_cuts` em rascunho com `is_ai_generated = true`.
+
+**Falta**: implementar `CutSuggestionInterface` de verdade e trocar o bind no
+`AppServiceProvider` (hoje aponta pro `UnconfiguredCutSuggestionService`, que
+lança exceção). A cascata Gemini + rate limiter do serviço antigo continua no
+histórico do git, em `git show 5d7c150^:MicroServices/GenerateClips/app/llm/`.
 
 - Fonte: `app/pipeline/analyzer.py` + `app/llm/`.
 - LLM primário Gemini com fallback local Ollama (`gemma2:9b`), atrás da
@@ -32,10 +45,25 @@ operador marcar tudo à mão no `/editor-de-video`.
   (cascata separada, só modelos que aceitam áudio) — `app/pipeline/validator.py`.
 - Saída: N cortes (60–80s) com ordem temporal validada, gap mínimo e score.
 
-## 2. Face tracking + active speaker detection (crop automático)
+## 2. Face tracking + active speaker detection (crop automático) — FEITO
 
 Gerar a trajetória do crop 9:16 seguindo o rosto de quem fala, em vez dos
 keyframes manuais que o operador marca hoje.
+
+**Implementado** como `POST /face-tracking` no serviço `media`, com botão
+"Gerar tracking automático" no `/editor-de-video/{cut}`. Os keyframes caem na
+mesma coluna `video_cuts_edits.keyframes` que o editor já carregava, então
+timeline, drag, undo/redo e preview funcionam sem UI nova — é isso que torna o
+tracking editável. A curva é simplificada por RDP até caber em
+`FACE_TRACKING_MAX_KEYFRAMES` (40), porque o `/reframe` monta uma cadeia de
+`if()` aninhada no filtro do ffmpeg, um nível por keyframe.
+
+Dois defeitos do código original foram corrigidos no porte, não copiados:
+identidade de rosto agora é por IoU (era índice do array, que trocava a boca de
+uma pessoa pela da outra) e o score do locutor normaliza os três sinais em vez
+de multiplicar por `1e6`. O `librosa` não voltou — era dependência morta.
+
+Referência original abaixo.
 
 - Fonte: `app/pipeline/face_tracker.py`.
 - MediaPipe Tasks (detecção de face + landmarks dos lábios) + `librosa`
@@ -50,6 +78,11 @@ keyframes manuais que o operador marca hoje.
 ---
 
 ## Opcional — diarização na transcrição (detectar quem está falando)
+
+**Nota**: a cor de legenda por locutor JÁ funciona sem isto, usando o locutor
+visual do face tracking (`speakers.json` ao lado do transcript → campo
+`speaker` no segmento → tag de cor no `.ass`). A diarização por áudio só passa
+a valer a pena pra quem fala fora de quadro.
 
 Rotular o texto por locutor (Speaker 1 / Speaker 2 / …) durante a transcrição.
 

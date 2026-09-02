@@ -117,6 +117,125 @@ final class StartVideoCutEditRenderJob implements ShouldQueue
 
         $decoded = is_string($raw) ? json_decode($raw, true, 512, JSON_THROW_ON_ERROR) : null;
 
-        return is_array($decoded) ? $decoded : null;
+        return is_array($decoded) ? $this->withSpeakers($decoded, $cut) : null;
+    }
+
+    /**
+     * Casa cada segmento com o locutor que mais o cobre no tempo. A timeline
+     * vem do face tracking e é opcional: sem ela o transcript segue igual e a
+     * legenda usa uma cor só, como sempre.
+     *
+     * @param  array<mixed>  $transcript
+     * @return array<mixed>
+     *
+     * @throws JsonException
+     */
+    private function withSpeakers(array $transcript, VideoCut $cut): array
+    {
+        $segments = $transcript['segments'] ?? null;
+
+        if (! is_array($segments)) {
+            return $transcript;
+        }
+
+        $speakers = $this->speakersFor($cut);
+
+        if ($speakers === []) {
+            return $transcript;
+        }
+
+        $annotated = [];
+
+        foreach ($segments as $segment) {
+            if (! is_array($segment) || ! is_numeric($segment['start'] ?? null) || ! is_numeric($segment['end'] ?? null)) {
+                $annotated[] = $segment;
+
+                continue;
+            }
+
+            $speaker = $this->dominantSpeaker((float) $segment['start'], (float) $segment['end'], $speakers);
+
+            if (! is_null($speaker)) {
+                $segment['speaker'] = $speaker;
+            }
+
+            $annotated[] = $segment;
+        }
+
+        $transcript['segments'] = $annotated;
+
+        return $transcript;
+    }
+
+    /**
+     * @return list<array{start: float, end: float, speaker: int}>
+     *
+     * @throws JsonException
+     */
+    private function speakersFor(VideoCut $cut): array
+    {
+        $key = $cut->speakersPath();
+
+        if (! Storage::disk('s3')->exists($key)) {
+            return [];
+        }
+
+        $raw = Storage::disk('s3')->get($key);
+        $decoded = is_string($raw) ? json_decode($raw, true, 512, JSON_THROW_ON_ERROR) : null;
+        $speakers = is_array($decoded) ? ($decoded['speakers'] ?? null) : null;
+
+        if (! is_array($speakers)) {
+            return [];
+        }
+
+        $list = [];
+
+        foreach ($speakers as $speaker) {
+            if (! is_array($speaker)) {
+                continue;
+            }
+
+            if (! is_numeric($speaker['start'] ?? null)) {
+                continue;
+            }
+
+            if (! is_numeric($speaker['end'] ?? null)) {
+                continue;
+            }
+
+            if (! is_numeric($speaker['speaker'] ?? null)) {
+                continue;
+            }
+
+            $list[] = [
+                'start' => (float) $speaker['start'],
+                'end' => (float) $speaker['end'],
+                'speaker' => (int) $speaker['speaker'],
+            ];
+        }
+
+        return $list;
+    }
+
+    /**
+     * @param  list<array{start: float, end: float, speaker: int}>  $speakers
+     */
+    private function dominantSpeaker(float $start, float $end, array $speakers): ?int
+    {
+        $dominant = null;
+        $longestOverlap = 0.0;
+
+        foreach ($speakers as $speaker) {
+            $overlap = min($end, $speaker['end']) - max($start, $speaker['start']);
+
+            if ($overlap <= $longestOverlap) {
+                continue;
+            }
+
+            $longestOverlap = $overlap;
+            $dominant = $speaker['speaker'];
+        }
+
+        return $dominant;
     }
 }
