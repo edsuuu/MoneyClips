@@ -81,6 +81,9 @@ app = FastAPI(
     description=(
         "Serviços Python de mídia: baixa do YouTube direto pro MinIO — Shorts "
         "de um canal em lote (um webhook por item) ou um vídeo longo por URL "
+        "(fila + webhook) —, transcreve áudio com faster-whisper e roda face "
+        "tracking + active speaker detection com MediaPipe (cada um na sua "
+        "fila, com webhook). Sem banco — estado vive no processo."
     ),
     lifespan=lifespan,
 )

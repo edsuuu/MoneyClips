@@ -18,6 +18,7 @@ O que segue abaixo **só existia no `GenerateClips`** e ainda não tem equivalen
 
 ---
 
+## 1. Seleção de cortes por LLM — ESTRUTURA PRONTA, FALTA O PROVEDOR
 
 Escolher automaticamente os melhores momentos de um vídeo longo em vez de o
 operador marcar tudo à mão no `/editor-de-video`.
@@ -44,6 +45,7 @@ histórico do git, em `git show 5d7c150^:MicroServices/GenerateClips/app/llm/`.
   (cascata separada, só modelos que aceitam áudio) — `app/pipeline/validator.py`.
 - Saída: N cortes (60–80s) com ordem temporal validada, gap mínimo e score.
 
+## 2. Face tracking + active speaker detection (crop automático) — FEITO
 
 Gerar a trajetória do crop 9:16 seguindo o rosto de quem fala, em vez dos
 keyframes manuais que o operador marca hoje.

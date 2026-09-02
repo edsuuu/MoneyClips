@@ -25,6 +25,8 @@ use RuntimeException;
  * @property int|null $video_cut_id
  * @property array{width: int, height: int, duration: float}|null $source_meta
  * @property string $mode
+ * @property list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}> $keyframes
+ * @property array{version: int, background: string, captions?: bool, captionColor?: string, captionCase?: string, speakerColors?: array<int, string>}|null $settings
  * @property VideoCutStatusEnum|null $render_status
  * @property string|null $render_error
  * @property TranscriptionStatusEnum|null $tracking_status

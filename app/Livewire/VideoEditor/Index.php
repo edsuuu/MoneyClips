@@ -223,6 +223,7 @@ final class Index extends Component
             'videoUrl' => $this->cut->presignedUrl(),
             'mode' => $edit->mode ?? self::DEFAULT_MODE,
             'keyframes' => $edit->keyframes ?? [],
+            'settings' => $speakerColors === [] ? $baseSettings : $baseSettings + ['speakerColors' => $speakerColors],
             'sourceMeta' => $edit?->source_meta,
         ];
     }
@@ -232,6 +233,7 @@ final class Index extends Component
      * client aplica as mesmas regras; aqui é defesa).
      *
      * @param  array<string, mixed>  $payload
+     * @return array{mode: string, keyframes: list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}>, settings: array{version: int, background: string, captions: bool, captionColor: string, captionCase: string, speakerColors?: array<int, string>}, sourceMeta: array{width: int, height: int, duration: float}}|null
      */
     private function sanitizePayload(array $payload): ?array
     {
@@ -318,11 +320,25 @@ final class Index extends Component
             $captionCase = 'sentence';
         }
 
+        $sanitized = [
             'version' => 1,
             'background' => mb_strtolower($background),
             'captions' => (bool) ($settings['captions'] ?? false),
             'captionColor' => mb_strtolower($captionColor),
             'captionCase' => $captionCase,
+        ];
+
+        // Só entra quando há locutor detectado: edição sem tracking mantém o
+        // settings idêntico ao que sempre foi gravado.
+        $speakerColors = $this->sanitizeSpeakerColors($settings['speakerColors'] ?? null);
+        if ($speakerColors !== []) {
+            $sanitized['speakerColors'] = $speakerColors;
+        }
+
+        return [
+            'mode' => $mode,
+            'keyframes' => $deduped,
+            'settings' => $sanitized,
             'sourceMeta' => ['width' => $width, 'height' => $height, 'duration' => round($duration, 3)],
         ];
     }
