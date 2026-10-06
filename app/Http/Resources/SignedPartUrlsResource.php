@@ -11,6 +11,8 @@ final class SignedPartUrlsResource extends JsonResource
 {
     public static $wrap = 'urls';
 
+    public bool $preserveKeys = true;
+
     /** @param  array<int, string>  $urls */
     public function __construct(private readonly array $urls)
     {

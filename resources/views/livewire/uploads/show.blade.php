@@ -1,6 +1,7 @@
 <div @if ($isPackaging || $isTranscribing || $hasBusyCuts) wire:poll.5s @endif>
     @if ($isReady)
         <div
+            wire:key="player"
             x-data="videoPlayer(@js(['hlsSrc' => $hlsUrl, 'fallbackSrc' => $fallbackUrl ?? '', 'poster' => $posterUrl ?? '', 'storyboard' => $storyboard, 'captionsKey' => $captionsKey]))"
             x-on:captions-refresh.window="reloadCaptions()"
             x-on:trim-seek.window="seekTo($event.detail.time)"
@@ -515,7 +516,7 @@
             </x-ui.modal>
         @endif
     @elseif ($isPackaging)
-        <div class="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-8 py-16 text-center">
+        <div wire:key="packaging" class="rounded-2xl border border-amber-500/30 bg-amber-500/5 px-8 py-16 text-center">
             <x-ui.icon name="cog-6-tooth" class="mx-auto size-9 animate-spin text-amber-500 dark:text-amber-400" />
             <div class="mt-4 text-sm font-semibold text-amber-700 dark:text-amber-200">Preparando reprodução — {{ $progress }}%</div>
             <div class="mt-1 text-xs text-amber-600/90 dark:text-amber-400/70">Vídeos longos podem levar horas. Pode fechar a página.</div>
@@ -525,7 +526,7 @@
             </div>
         </div>
     @else
-        <div class="rounded-2xl border border-red-500/30 bg-red-500/5 px-8 py-16 text-center">
+        <div wire:key="failed" class="rounded-2xl border border-red-500/30 bg-red-500/5 px-8 py-16 text-center">
             <x-ui.icon name="exclamation-triangle" class="mx-auto size-9 text-red-500 dark:text-red-400" />
             <div class="mt-4 text-sm font-semibold text-red-700 dark:text-red-200">{{ $statusLabel }}</div>
             @if ($error)

@@ -78,6 +78,20 @@ it('does not let one user sign parts for another users upload', function (): voi
     $this->getJson(sprintf('/uploads/%s/parts', $foreign->uuid))->assertNotFound();
 });
 
+it('keys each signed url by its part number', function (): void {
+    $video = Video::factory()->for($this->user)->create();
+    $file = $video->file(File::ORIGINAL);
+    $file?->update(['upload_id' => 'upload-123']);
+
+    $this->mock(MultipartUploadInterface::class, function (MockInterface $mock): void {
+        $mock->shouldReceive('signParts')->once()->andReturn([3 => 'https://s3/3', 4 => 'https://s3/4']);
+    });
+
+    $this->postJson(sprintf('/uploads/%s/parts', $video->uuid), ['part_numbers' => [3, 4]])
+        ->assertOk()
+        ->assertExactJson(['urls' => ['3' => 'https://s3/3', '4' => 'https://s3/4']]);
+});
+
 it('caps how many parts can be signed at once', function (): void {
     $video = Video::factory()->for($this->user)->create();
 
