@@ -25,7 +25,7 @@ final class FaceTrackingWebhookRequest extends FormRequest
             'status' => ['required', 'in:done,failed'],
             'error' => ['nullable', 'string'],
 
-            'keyframes' => ['required_if:status,done', 'array', 'min:1', 'max:'.self::MAX_KEYFRAMES],
+            'keyframes' => ['exclude_if:status,failed', 'required_if:status,done', 'array', 'min:1', 'max:'.self::MAX_KEYFRAMES],
             'keyframes.*.t' => ['required', 'numeric', 'min:0'],
             'keyframes.*.mode' => ['required', 'string', 'in:vertical'],
             'keyframes.*.regions' => ['required', 'array', 'min:1', 'max:3'],

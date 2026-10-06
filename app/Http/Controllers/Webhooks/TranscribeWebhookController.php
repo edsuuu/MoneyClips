@@ -50,6 +50,18 @@ final class TranscribeWebhookController extends Controller
             return new StatusResource('already-finished');
         }
 
+        if (! $request->failed()) {
+            Storage::disk('s3')->put(
+                $video->transcriptPath(),
+                json_encode($request->transcript(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            );
+
+            $video->files()->updateOrCreate(['type' => File::TRANSCRIPT, 'video_cut_id' => null], [
+                'path' => $video->transcriptPath(),
+                'mime_type' => 'application/json',
+            ]);
+        }
+
         $claimed = Video::query()
             ->whereKey($video->id)
             ->where('transcription_status', TranscriptionStatusEnum::Processing->value)
@@ -68,16 +80,6 @@ final class TranscribeWebhookController extends Controller
             return new StatusResource('failure-recorded');
         }
 
-        Storage::disk('s3')->put(
-            $video->transcriptPath(),
-            json_encode($request->transcript(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-        );
-
-        $video->files()->updateOrCreate(['type' => File::TRANSCRIPT, 'video_cut_id' => null], [
-            'path' => $video->transcriptPath(),
-            'mime_type' => 'application/json',
-        ]);
-
         return new StatusResource('ready');
     }
 
@@ -88,6 +90,18 @@ final class TranscribeWebhookController extends Controller
     {
         if ($cut->transcription_status?->isTerminal()) {
             return new StatusResource('already-finished');
+        }
+
+        if (! $request->failed()) {
+            Storage::disk('s3')->put(
+                $cut->transcriptPath(),
+                json_encode($request->transcript(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            );
+
+            $cut->video->files()->updateOrCreate(['type' => File::TRANSCRIPT, 'video_cut_id' => $cut->id], [
+                'path' => $cut->transcriptPath(),
+                'mime_type' => 'application/json',
+            ]);
         }
 
         $claimed = VideoCut::query()
@@ -107,16 +121,6 @@ final class TranscribeWebhookController extends Controller
 
             return new StatusResource('failure-recorded');
         }
-
-        Storage::disk('s3')->put(
-            $cut->transcriptPath(),
-            json_encode($request->transcript(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
-        );
-
-        $cut->video->files()->updateOrCreate(['type' => File::TRANSCRIPT, 'video_cut_id' => $cut->id], [
-            'path' => $cut->transcriptPath(),
-            'mime_type' => 'application/json',
-        ]);
 
         return new StatusResource('ready');
     }

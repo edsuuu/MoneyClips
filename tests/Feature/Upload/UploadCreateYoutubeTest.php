@@ -136,3 +136,14 @@ it('clears the field and the preview on cancel', function (): void {
         ->assertSet('youtubeUrl', '')
         ->assertSet('youtubePreview', null);
 });
+
+it('revalidates the url on confirm because the public property is client-editable', function (): void {
+    Livewire::test(Create::class)
+        ->set('youtubeUrl', 'https://evil.example/video.mp4')
+        ->set('youtubePreview', ['title' => 'x', 'durationLabel' => '0:01', 'resolutionLabel' => '1p', 'thumbnailUrl' => null])
+        ->call('confirmYoutubeImport')
+        ->assertHasErrors('youtubeUrl');
+
+    expect(Video::query()->count())->toBe(0);
+    Bus::assertNotDispatched(StartYoutubeDownloadJob::class);
+});

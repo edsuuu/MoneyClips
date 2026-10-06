@@ -63,12 +63,25 @@ final class StartHLSPackagingJob implements ShouldQueue
             sprintf('Vídeo não encontrado no s3: "%s".', $sourceKey),
         );
 
-        $packager->startPackaging($video);
-
         $video->fill([
             'status' => VideoStatusEnum::Packaging,
             'progress' => 0,
         ])->save();
+
+        try {
+            $packager->startPackaging($video);
+        } catch (Throwable $throwable) {
+            Video::query()->whereKey($video->id)
+                ->where('status', VideoStatusEnum::Packaging->value)
+                ->update(['status' => VideoStatusEnum::Uploaded]);
+
+            Log::channel('hls')->error('[ERRO] Falha ao disparar o empacotamento.', [
+                'video_id' => $video->id,
+                'exception' => $throwable,
+            ]);
+
+            throw $throwable;
+        }
 
         Log::channel('hls')->info('[HLS] Empacotamento iniciado.', ['video_id' => $video->id]);
     }

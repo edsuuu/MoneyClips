@@ -57,3 +57,7 @@ it('keeps the browser log endpoint on session auth, not the service token', func
     $this->postJson('/client-logs', $payload)->assertOk()->assertExactJson(['status' => 'logged']);
     $this->postJson('/client-logs', ['level' => 'debug', 'message' => 'x'])->assertJsonValidationErrors('level');
 });
+
+it('keeps the shorts download webhook behind the service token', function (): void {
+    $this->postJson('/api/webhook/download-youtube', [])->assertUnauthorized();
+});

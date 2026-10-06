@@ -129,6 +129,7 @@ def _process_one(
             _send_webhook(
                 webhook_url,
                 _build_payload(video, channel_url, "completed", stat),
+                headers={"X-Observability-Token": settings.observability_token},
             )
             return
 
@@ -148,6 +149,7 @@ def _process_one(
                 _send_webhook(
                     webhook_url,
                     _build_payload(video, channel_url, "completed", stat),
+                    headers={"X-Observability-Token": settings.observability_token},
                 )
                 return
             except Exception as exception:
@@ -167,12 +169,14 @@ def _process_one(
         _send_webhook(
             webhook_url,
             _build_payload(video, channel_url, "failed", None, error=last_error),
+            headers={"X-Observability-Token": settings.observability_token},
         )
     except Exception as exception:
         logger.exception("%s: unexpected error", label)
         _send_webhook(
             webhook_url,
             _build_payload(video, channel_url, "failed", None, error=str(exception)),
+            headers={"X-Observability-Token": settings.observability_token},
         )
 
 

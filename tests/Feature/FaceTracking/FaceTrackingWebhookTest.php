@@ -160,3 +160,16 @@ it('records the error when the service reports a failure', function (): void {
     expect($edit->fresh()?->tracking_status)->toBe(TranscriptionStatusEnum::Failed)
         ->and($edit->fresh()?->tracking_error)->toBe('nenhum rosto detectado');
 });
+
+it('accepts the failure payload the media sends, with empty keyframes', function (): void {
+    $edit = makeTrackingEdit();
+
+    $this->postJson('/api/webhook/face-tracking', [
+        'uuid' => $edit->uuid,
+        'status' => 'failed',
+        'error' => 'sem rosto',
+        'keyframes' => [],
+    ], $this->headers)->assertOk();
+
+    expect($edit->fresh()?->tracking_status)->toBe(TranscriptionStatusEnum::Failed);
+});

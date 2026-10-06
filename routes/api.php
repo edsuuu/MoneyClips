@@ -14,9 +14,8 @@ use App\Http\Middleware\VerifyObservabilityToken;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('webhook')->name('webhook.')->group(function (): void {
-    Route::post('/download-youtube', DownloadYoutubeWebhookController::class)->name('download-youtube');
-
     Route::middleware(VerifyObservabilityToken::class)->group(function (): void {
+        Route::post('/download-youtube', DownloadYoutubeWebhookController::class)->name('download-youtube');
         Route::post('/download-video', DownloadVideoWebhookController::class)->name('download-video');
         Route::post('/hls', HLSWebhookController::class)->name('hls');
         Route::post('/cut', CutWebhookController::class)->name('cut');

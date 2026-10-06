@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoStatusEnum;
+use App\Jobs\StartHLSPackagingJob;
 use App\Jobs\StartTranscribeJob;
 use App\Models\File;
 use App\Models\Video;
+use App\Services\Upload\HLS\HLSPackagerService;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 
 beforeEach(function (): void {
@@ -130,4 +133,50 @@ it('drops the source when the file was not a video', function (): void {
 
     expect($video->fresh()?->status)->toBe(VideoStatusEnum::Rejected);
     Storage::disk('s3')->assertMissing($video->originalPath());
+});
+
+it('marks packaging before calling the service so an early done webhook is not overwritten', function (): void {
+    Storage::fake('s3');
+    $video = Video::factory()->uploaded()->create();
+    Storage::disk('s3')->put($video->originalPath(), 'x');
+
+    $statusDuringCall = null;
+    Http::fake(function () use ($video, &$statusDuringCall) {
+        $statusDuringCall = $video->fresh()?->status;
+
+        return Http::response([], 202);
+    });
+
+    new StartHLSPackagingJob($video->id)->handle(resolve(HLSPackagerService::class));
+
+    expect($statusDuringCall)->toBe(VideoStatusEnum::Packaging)
+        ->and($video->fresh()?->status)->toBe(VideoStatusEnum::Packaging);
+});
+
+it('puts the video back to uploaded when the packaging call fails', function (): void {
+    Storage::fake('s3');
+    $video = Video::factory()->uploaded()->create();
+    Storage::disk('s3')->put($video->originalPath(), 'x');
+    Http::fake(['*' => Http::response('boom', 500)]);
+
+    expect(fn () => new StartHLSPackagingJob($video->id)->handle(resolve(HLSPackagerService::class)))
+        ->toThrow(RuntimeException::class);
+
+    expect($video->fresh()?->status)->toBe(VideoStatusEnum::Uploaded);
+});
+
+it('keeps the status a webhook wrote while the packaging call was failing', function (): void {
+    Storage::fake('s3');
+    $video = Video::factory()->uploaded()->create();
+    Storage::disk('s3')->put($video->originalPath(), 'x');
+    Http::fake(function () use ($video) {
+        Video::query()->whereKey($video->id)->update(['status' => VideoStatusEnum::Failed]);
+
+        return Http::response('boom', 500);
+    });
+
+    expect(fn () => new StartHLSPackagingJob($video->id)->handle(resolve(HLSPackagerService::class)))
+        ->toThrow(RuntimeException::class);
+
+    expect($video->fresh()?->status)->toBe(VideoStatusEnum::Failed);
 });
