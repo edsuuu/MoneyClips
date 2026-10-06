@@ -12,7 +12,7 @@
     @if ($video['displayTags'] !== [])
         <div class="flex flex-wrap gap-1.5">
             @foreach ($video['displayTags'] as $tag)
-                <span class="rounded-full bg-sky-400/10 px-2 py-0.5 font-mono text-[11px] text-sky-300">{{ $tag }}</span>
+                <span class="rounded-full bg-sky-400/10 px-2 py-0.5 font-mono text-[11px] text-sky-700 dark:text-sky-300">{{ $tag }}</span>
             @endforeach
         </div>
     @endif
@@ -27,22 +27,22 @@
             </span>
 
             @if ($video['reencoded'])
-                <span title="Reencodado em alta qualidade" class="rounded-full bg-sky-400/15 px-2 py-1 font-mono text-[10px] font-bold text-sky-400">HQ</span>
+                <span title="Reencodado em alta qualidade" class="rounded-full bg-sky-400/15 px-2 py-1 font-mono text-[10px] font-bold text-sky-700 dark:text-sky-400">HQ</span>
             @endif
         </div>
 
         <div class="flex items-center gap-2">
             @if ($section === 'posted')
-                @if ($video['posted_youtube'])<span class="font-mono text-[10px] font-bold text-red-400">YT</span>@endif
+                @if ($video['posted_youtube'])<span class="font-mono text-[10px] font-bold text-red-600 dark:text-red-400">YT</span>@endif
                 @if ($video['posted_tiktok'])<span class="font-mono text-[10px] font-bold text-slate-200">TT</span>@endif
                 @if ($video['youtube_link'])
-                    <a href="{{ $video['youtube_link'] }}" target="_blank" class="flex items-center gap-1 text-xs font-semibold text-sky-400 hover:text-sky-300">
+                    <a href="{{ $video['youtube_link'] }}" target="_blank" class="flex items-center gap-1 text-xs font-semibold text-sky-700 hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300">
                         Abrir <x-ui.icon name="arrow-top-right-on-square" class="size-3" />
                     </a>
                 @endif
             @else
                 <button type="button" wire:click="openEdit({{ $video['id'] }})"
-                    class="flex cursor-pointer items-center gap-1 text-xs font-semibold text-sky-400 transition hover:text-sky-300">
+                    class="flex cursor-pointer items-center gap-1 text-xs font-semibold text-sky-700 transition hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300">
                     Visualizar
                     <x-ui.icon name="arrow-top-right-on-square" class="size-3" />
                 </button>

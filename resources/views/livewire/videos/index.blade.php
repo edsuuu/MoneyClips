@@ -24,7 +24,7 @@
                 {{ $meta['label'] }}
                 <span @class([
                     'rounded-full px-2 py-0.5 font-mono text-[11px] font-bold',
-                    'bg-sky-400/15 text-sky-300' => $tab === $meta['key'],
+                    'bg-sky-400/15 text-sky-700 dark:text-sky-300' => $tab === $meta['key'],
                     'bg-slate-800 text-slate-300' => $tab !== $meta['key'],
                 ])>{{ $meta['count'] }}</span>
             </button>
@@ -118,7 +118,7 @@
                 <div>
                     <div class="mb-1.5 font-mono text-[10.5px] tracking-[0.08em] text-slate-500">LEGENDA / HASHTAGS</div>
                     <input type="text" wire:model="editHashtags" placeholder="#shorts #podcast"
-                        class="w-full rounded-[9px] border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-[13px] text-sky-300 outline-none focus:border-sky-500" />
+                        class="w-full rounded-[9px] border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-[13px] text-sky-700 dark:text-sky-300 outline-none focus:border-sky-500" />
                 </div>
                 <div class="mt-1 flex justify-end gap-2">
                     <x-ui.button variant="outline" wire:click="closeEdit">Fechar</x-ui.button>
@@ -139,7 +139,7 @@
                     <div class="mb-1.5 text-[12.5px] font-bold">URL do canal</div>
                     <input type="url" wire:model="channelUrl" placeholder="https://www.youtube.com/@canal"
                         class="w-full rounded-[10px] border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-sm text-slate-100 outline-none focus:border-sky-500" />
-                    @error('channelUrl') <span class="mt-1 block text-xs text-red-400">{{ $message }}</span> @enderror
+                    @error('channelUrl') <span class="mt-1 block text-xs text-red-600 dark:text-red-400">{{ $message }}</span> @enderror
                 </div>
                 <div class="flex justify-end gap-2">
                     <x-ui.button variant="outline" wire:click="closeUpload">Cancelar</x-ui.button>

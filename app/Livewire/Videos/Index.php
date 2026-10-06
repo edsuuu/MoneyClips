@@ -171,9 +171,9 @@ final class Index extends Component
     private function statusBadge(array $video, string $section): array
     {
         return match (true) {
-            $section === self::TAB_POSTED => ['label' => 'Postado', 'class' => 'bg-emerald-400/15 text-emerald-400'],
-            $video['templated'] => ['label' => 'Template', 'class' => 'bg-violet-400/15 text-violet-300'],
-            $video['ready'] => ['label' => 'Pronto', 'class' => 'bg-emerald-400/15 text-emerald-400'],
+            $section === self::TAB_POSTED => ['label' => 'Postado', 'class' => 'bg-emerald-400/15 text-emerald-800 dark:text-emerald-400'],
+            $video['templated'] => ['label' => 'Template', 'class' => 'bg-violet-400/15 text-violet-700 dark:text-violet-300'],
+            $video['ready'] => ['label' => 'Pronto', 'class' => 'bg-emerald-400/15 text-emerald-800 dark:text-emerald-400'],
             default => ['label' => 'Baixado', 'class' => 'bg-slate-800 text-slate-300'],
         };
     }

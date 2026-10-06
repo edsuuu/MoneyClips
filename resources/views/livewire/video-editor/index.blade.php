@@ -16,10 +16,10 @@
                         <p class="mt-0.5 text-xs text-slate-500">Clique ou arraste pra posicionar. Arraste as bordas pra redimensionar.</p>
                     </div>
 
-                    <div class="ml-auto flex items-center gap-1 rounded-lg bg-slate-950 p-1">
+                    <div class="flex w-full items-center gap-1 rounded-lg bg-slate-950 p-1 sm:ml-auto sm:w-auto">
                         <template x-for="option in modeOptions()" :key="option.value">
                             <button type="button" x-on:click="setMode(option.value)" x-text="option.label"
-                                class="cursor-pointer rounded-md px-2.5 py-1 text-[12px] font-semibold transition"
+                                class="flex-1 cursor-pointer rounded-md px-2.5 py-1 text-[12px] font-semibold transition"
                                 :class="mode === option.value ? 'bg-sky-600 text-white' : 'text-slate-400 hover:text-slate-200'"></button>
                         </template>
                     </div>
