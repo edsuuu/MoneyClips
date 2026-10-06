@@ -70,8 +70,9 @@ A publicação em si é manual por enquanto (a postagem automática será refeit
   código de status mora nela, não espalhado em `response()->json([...], 4xx)`
   pelos controllers.
 - **`app/Services/API/`** — cada integração externa por API (não-microserviço)
-  em sua pasta: `API/Youtube/` (Data API v3 + OAuth) e `API/Discord/` (webhook
-  de alertas).
+  em sua pasta: `API/Youtube/` (Data API v3 + OAuth), `API/Discord/` (webhook
+  de alertas) e `API/Claude/` (`claude -p` na assinatura Max, saída
+  estruturada; `CLAUDE_CLI_BIN` com caminho absoluto, log no canal `claude`).
 - **Clients de microserviço** na raiz de Services:
   `app/Services/{DownloadYoutube,Video}/` — `Video` concentra os
   clients do serviço `video` (:8790) e da transcrição (`CutRenderService`,
@@ -290,10 +291,6 @@ make up      # sobe Laravel (serve/queue/pail/vite) + media +
 
 ## Pendências
 
-- **Sugestão de cortes por LLM: falta só o provedor.** UI, job, travas de
-  validação e persistência estão prontos; `CutSuggestionInterface` está bindado
-  no `AppServiceProvider` pro `UnconfiguredCutSuggestionService`, que só lança
-  exceção. Implementar a classe real e trocar o bind.
 - ⚠️ **Rotacionar a chave Roboflow e o webhook Discord** que estavam
   commitados no `.env.example` antigo do TikTokUploader — seguem no histórico
   do git.

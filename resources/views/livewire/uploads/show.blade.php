@@ -1,4 +1,4 @@
-<div @if ($isPackaging || $isTranscribing || $hasBusyCuts) wire:poll.5s @endif>
+<div @if ($isPackaging || $isTranscribing || $hasBusyCuts || $isSuggesting) wire:poll.5s @endif>
     @if ($isReady)
         <div
             wire:key="player"
@@ -295,10 +295,21 @@
                             <button
                                 type="button"
                                 wire:click="suggestAiCuts"
+                                @disabled($isSuggesting)
+                                class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 Buscar
                             </button>
                         </div>
+
+                        @if ($isSuggesting)
+                            <div class="mt-2 flex items-center gap-1.5 text-xs text-violet-700 dark:text-violet-300">
+                                <x-ui.icon name="loading" class="size-3.5" />
+                                Procurando momentos com a IA — pode levar alguns minutos.
+                            </div>
+                        @elseif ($suggestionError)
+                            <div class="mt-2 text-xs text-red-600 dark:text-red-400">{{ $suggestionError }}</div>
+                        @endif
                     </div>
                 @endif
 

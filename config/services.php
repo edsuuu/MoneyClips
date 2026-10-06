@@ -139,12 +139,25 @@ return [
         ),
     ],
 
+    // Claude via `claude -p` (CLI headless na assinatura Max). O bin vem com
+    // caminho absoluto: o worker da fila (pm2/systemd) pode não ter o PATH do
+    // usuário. Em servidor sem Keychain, CLAUDE_CODE_OAUTH_TOKEN no env do worker.
+    // Prefixo CLAUDE_CLI_ e não CLAUDE_: o próprio Claude Code exporta CLAUDE_*
+    // (ex.: CLAUDE_EFFORT), e env do processo vence o .env no Dotenv.
+    'claude' => [
+        'bin' => env('CLAUDE_CLI_BIN', 'claude'),
+        'model' => env('CLAUDE_CLI_MODEL', 'opus'),
+        'effort' => env('CLAUDE_CLI_EFFORT', 'medium'),
+        'timeout' => (int) env('CLAUDE_CLI_TIMEOUT', 540),
+    ],
+
     // Sugestão de cortes por LLM. As travas abaixo não confiam na resposta do
-    // modelo: duração, gap e ordem são reimpostos no Laravel depois.
+    // modelo: duração, gap e ordem são reimpostos no Laravel depois. Trecho
+    // bruto acima do máximo é DESCARTADO (truncar cortaria a punchline).
     'cut_suggestion' => [
-        'min_duration' => (int) env('CUT_SUGGESTION_MIN_DURATION', 60),
-        'max_duration' => (int) env('CUT_SUGGESTION_MAX_DURATION', 80),
-        'min_gap' => (float) env('CUT_SUGGESTION_MIN_GAP', 1.0),
+        'min_duration' => (int) env('CUT_SUGGESTION_MIN_DURATION', 70),
+        'max_duration' => (int) env('CUT_SUGGESTION_MAX_DURATION', 170),
+        'min_gap' => (float) env('CUT_SUGGESTION_MIN_GAP', 0.0),
         'max_cuts' => (int) env('CUT_SUGGESTION_MAX_CUTS', 20),
     ],
 

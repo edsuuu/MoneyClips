@@ -57,6 +57,11 @@ final class SuggestCutsJob implements ShouldQueue
                 'transcription_status' => $video->transcription_status?->value,
             ]);
 
+            $video->update([
+                'cut_suggestion_status' => TranscriptionStatusEnum::Failed,
+                'cut_suggestion_error' => 'A transcrição precisa estar pronta antes de buscar momentos.',
+            ]);
+
             return;
         }
 
@@ -66,12 +71,10 @@ final class SuggestCutsJob implements ShouldQueue
         // timestamp fora do vídeo geraria corte que o ffmpeg não corta.
         throw_if($duration <= 0.0, RuntimeException::class, sprintf('Vídeo #%d não tem duração conhecida.', $video->id));
 
-        $suggestions = $validator->validate(
-            $provider->suggest($video, $this->transcriptFor($video), $this->prompt),
-            $duration,
-        );
+        $raw = $provider->suggest($video, $this->transcriptFor($video), $this->prompt);
+        $suggestions = $validator->validate($raw, $duration);
 
-        $created = DB::transaction(function () use ($video, $suggestions): int {
+        $created = DB::transaction(function () use ($video, $raw, $suggestions): int {
             $created = 0;
 
             foreach ($suggestions as $suggestion) {
@@ -85,12 +88,15 @@ final class SuggestCutsJob implements ShouldQueue
                     continue;
                 }
 
-                $exists = $video->cuts()
-                    ->where('start_seconds', $start)
-                    ->where('end_seconds', $end)
+                // ponytail: 1s de folga = o floor/ceil da coluna inteira — dois cortes
+                // que se encostam (509.7) viram 395–510 e 509–614. Some quando os
+                // segundos forem decimais.
+                $overlaps = $video->cuts()
+                    ->where('start_seconds', '<', $end - 1)
+                    ->where('end_seconds', '>', $start + 1)
                     ->exists();
 
-                if ($exists) {
+                if ($overlaps) {
                     continue;
                 }
 
@@ -103,11 +109,37 @@ final class SuggestCutsJob implements ShouldQueue
                 $created++;
             }
 
+            if ($created === 0) {
+                $error = sprintf('Nenhum momento novo: os %d trecho(s) que passaram nas regras já existem como corte.', count($suggestions));
+
+                if ($suggestions === []) {
+                    $error = sprintf(
+                        'Nenhum momento novo: dos %d trecho(s) que a IA sugeriu, nenhum fechou entre %d e %ds sem sobreposição.',
+                        count($raw),
+                        (int) config('services.cut_suggestion.min_duration'),
+                        (int) config('services.cut_suggestion.max_duration'),
+                    );
+                }
+
+                $video->update([
+                    'cut_suggestion_status' => TranscriptionStatusEnum::Failed,
+                    'cut_suggestion_error' => $error,
+                ]);
+
+                return 0;
+            }
+
+            $video->update([
+                'cut_suggestion_status' => TranscriptionStatusEnum::Ready,
+                'cut_suggestion_error' => null,
+            ]);
+
             return $created;
         });
 
         Log::channel('daily')->info('[INFO][CutSuggestion] Cortes sugeridos gravados.', [
             'video_id' => $video->id,
+            'raw' => count($raw),
             'suggested' => count($suggestions),
             'created' => $created,
         ]);
@@ -116,6 +148,14 @@ final class SuggestCutsJob implements ShouldQueue
     public function failed(?Throwable $exception): void
     {
         $error = $exception?->getMessage() ?? 'Falha desconhecida ao sugerir cortes.';
+
+        Video::query()
+            ->whereKey($this->videoId)
+            ->where('cut_suggestion_status', TranscriptionStatusEnum::Processing->value)
+            ->update([
+                'cut_suggestion_status' => TranscriptionStatusEnum::Failed,
+                'cut_suggestion_error' => $error,
+            ]);
 
         Log::channel('daily')->error('[ERRO][CutSuggestion] Sugestão de cortes falhou.', [
             'video_id' => $this->videoId,

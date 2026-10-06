@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["candidates"],
+  "properties": {
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["start", "end", "title", "first_line", "last_line", "arc", "laughs", "score"],
+        "properties": {
+          "start": { "type": "number", "description": "segundo da 1ª palavra do assunto" },
+          "end": { "type": "number", "description": "segundo do fim da risada final, antes do próximo assunto" },
+          "title": { "type": "string", "description": "fala literal da piada, com CAIXA ALTA parcial" },
+          "first_line": { "type": "string" },
+          "last_line": { "type": "string" },
+          "arc": { "type": "string", "description": "setup -> escalada -> punchline(s) -> risada, com tempos" },
+          "laughs": { "type": "integer" },
+          "score": { "type": "integer", "description": "0-10 potencial viral" }
+        }
+      }
+    }
+  }
+}

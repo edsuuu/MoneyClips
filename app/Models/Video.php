@@ -41,6 +41,8 @@ use Throwable;
  * @property string|null $error
  * @property Carbon|null $ready_at
  * @property TranscriptionStatusEnum|null $transcription_status
+ * @property TranscriptionStatusEnum|null $cut_suggestion_status
+ * @property string|null $cut_suggestion_error
  * @property Carbon|null $deleted_at
  * @property Carbon|null $created_at
  * @property-read User $user
@@ -67,7 +69,7 @@ final class Video extends Model
     protected $fillable = [
         'user_id', 'uuid', 'hash', 'name', 'status', 'progress',
         'duration_seconds', 'width', 'height', 'error', 'ready_at',
-        'transcription_status',
+        'transcription_status', 'cut_suggestion_status', 'cut_suggestion_error',
     ];
 
     /** @return BelongsTo<User, $this> */
@@ -189,6 +191,7 @@ final class Video extends Model
         return [
             'status' => VideoStatusEnum::class,
             'transcription_status' => TranscriptionStatusEnum::class,
+            'cut_suggestion_status' => TranscriptionStatusEnum::class,
             'progress' => 'integer',
             'duration_seconds' => 'integer',
             'width' => 'integer',
