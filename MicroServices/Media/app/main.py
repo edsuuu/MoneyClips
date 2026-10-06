@@ -7,7 +7,7 @@ import tempfile
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from fastapi import FastAPI, Form, HTTPException, UploadFile, status
@@ -206,6 +206,7 @@ def create_face_tracking(
     uuid: Annotated[str, Form()],
     webhook_url: Annotated[str, Form()],
     max_keyframes: Annotated[str, Form()] = "40",
+    style: Annotated[Literal["smooth", "cuts"], Form()] = "smooth",
 ) -> dict[str, str]:
     job_id = uuid4().hex
     work_dir = Path(tempfile.mkdtemp(prefix="facetracking-"))
@@ -221,6 +222,7 @@ def create_face_tracking(
             video_path=source,
             webhook_url=webhook_url,
             max_keyframes=_parse_max_keyframes(max_keyframes),
+            style=style,
         )
     )
 

@@ -21,15 +21,23 @@ use RuntimeException;
  */
 final readonly class FaceTrackingService
 {
-    public function createTracking(string $sourcePath, VideoCutEdit $edit): string
+    // Cada troca seca do estilo cortes custa 2 keyframes; 120 é o teto do webhook e do editor.
+    private const int CUTS_MAX_KEYFRAMES = 120;
+
+    public function createTracking(string $sourcePath, VideoCutEdit $edit, string $style = 'smooth'): string
     {
         $stream = fopen($sourcePath, 'rb');
         throw_unless(is_resource($stream), RuntimeException::class, sprintf('Clip local não encontrado: %s', $sourcePath));
 
+        $maxKeyframes = $style === 'cuts'
+            ? self::CUTS_MAX_KEYFRAMES
+            : (int) config('services.face_tracking.max_keyframes', 40);
+
         $payload = [
             'uuid' => $edit->uuid,
             'webhook_url' => (string) config('services.face_tracking.webhook_url'),
-            'max_keyframes' => (string) config('services.face_tracking.max_keyframes', 40),
+            'max_keyframes' => (string) $maxKeyframes,
+            'style' => $style,
         ];
 
         Log::channel('daily')->info('[INFO][FaceTracking] POST /face-tracking', [

@@ -9,5 +9,5 @@ __pycache__/
 .ruff_cache/
 .DS_Store
 
-# Modelos MediaPipe baixados sob demanda (face_landmarker.task).
+# Modelos baixados sob demanda (face_landmarker.task, YuNet, SFace).
 models/
