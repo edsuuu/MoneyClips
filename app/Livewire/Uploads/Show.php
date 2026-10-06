@@ -16,6 +16,7 @@ use App\Models\Video;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
+use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -215,6 +216,27 @@ final class Show extends Component
             return;
         }
 
+        // ponytail: processing parado há 30 min é job perdido (worker caiu) — o
+        // re-claim manual destrava; watchdog em cron se isso passar a doer.
+        $claimed = Video::query()
+            ->whereKey($this->video->id)
+            ->where(fn (Builder $query): Builder => $query
+                ->whereNull('cut_suggestion_status')
+                ->orWhereIn('cut_suggestion_status', [TranscriptionStatusEnum::Ready->value, TranscriptionStatusEnum::Failed->value])
+                ->orWhere(fn (Builder $stale): Builder => $stale
+                    ->where('cut_suggestion_status', TranscriptionStatusEnum::Processing->value)
+                    ->where('updated_at', '<', now()->subMinutes(30))))
+            ->update([
+                'cut_suggestion_status' => TranscriptionStatusEnum::Processing,
+                'cut_suggestion_error' => null,
+            ]);
+
+        if ($claimed !== 1) {
+            $this->toast('A busca de momentos já está rodando.', 'danger');
+
+            return;
+        }
+
         dispatch(new SuggestCutsJob($this->video->id, $prompt));
 
         $this->toast('Procurando os melhores momentos — os cortes aparecem aqui quando ficarem prontos.');
@@ -306,6 +328,8 @@ final class Show extends Component
             'isReady' => $video->isReady(),
             'isPackaging' => $isPackaging,
             'isTranscribing' => $transcription === TranscriptionStatusEnum::Processing,
+            'isSuggesting' => $video->cut_suggestion_status === TranscriptionStatusEnum::Processing,
+            'suggestionError' => $video->cut_suggestion_status === TranscriptionStatusEnum::Failed ? $video->cut_suggestion_error : null,
             'transcriptionLabel' => $transcription?->label(),
             'transcriptionBadgeClass' => $transcription?->badgeClass() ?? '',
             'subtitlesUrl' => $transcription === TranscriptionStatusEnum::Ready

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Process;
 use Tests\TestCase;
 
 /*
@@ -19,7 +20,10 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
-    ->beforeEach(fn () => Http::preventStrayRequests())
+    ->beforeEach(function (): void {
+        Http::preventStrayRequests();
+        Process::fake([])->preventStrayProcesses();
+    })
     ->in('Feature');
 
 /*

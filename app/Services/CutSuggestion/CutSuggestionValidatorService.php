@@ -9,8 +9,8 @@ namespace App\Services\CutSuggestion;
  * inventa timestamp fora do vídeo e devolve trecho sobreposto. Nada do que sai
  * daqui depende de o modelo ter obedecido ao prompt.
  *
- * Entre dois cortes que se encostam, sobrevive o de maior score — é o critério
- * do pipeline antigo, mantido de propósito.
+ * Guloso por score: o teto fica com os melhores (não com os primeiros no
+ * tempo) e, entre dois cortes que se encostam, sobrevive o de maior score.
  */
 final readonly class CutSuggestionValidatorService
 {
@@ -22,9 +22,13 @@ final readonly class CutSuggestionValidatorService
     {
         $bounded = $this->applyBounds($suggestions, $videoDuration);
 
-        usort($bounded, static fn (CutSuggestionData $a, CutSuggestionData $b): int => $a->start <=> $b->start);
+        usort($bounded, static fn (CutSuggestionData $a, CutSuggestionData $b): int => [$b->score, $a->start] <=> [$a->score, $b->start]);
 
-        return array_slice($this->applyGap($bounded), 0, $this->maxCuts());
+        $accepted = $this->pickBest($bounded);
+
+        usort($accepted, static fn (CutSuggestionData $a, CutSuggestionData $b): int => $a->start <=> $b->start);
+
+        return $accepted;
     }
 
     /**
@@ -33,8 +37,8 @@ final readonly class CutSuggestionValidatorService
      */
     private function applyBounds(array $suggestions, float $videoDuration): array
     {
-        $minDuration = (float) config('services.cut_suggestion.min_duration', 60);
-        $maxDuration = (float) config('services.cut_suggestion.max_duration', 80);
+        $minDuration = (float) config('services.cut_suggestion.min_duration', 70);
+        $maxDuration = (float) config('services.cut_suggestion.max_duration', 170);
 
         $bounded = [];
 
@@ -47,7 +51,7 @@ final readonly class CutSuggestionValidatorService
             }
 
             if ($end - $start > $maxDuration) {
-                $end = $start + $maxDuration;
+                continue;
             }
 
             $bounded[] = $suggestion->withBounds($start, $end);
@@ -57,34 +61,30 @@ final readonly class CutSuggestionValidatorService
     }
 
     /**
-     * @param  list<CutSuggestionData>  $suggestions
+     * @param  list<CutSuggestionData>  $byScore
      * @return list<CutSuggestionData>
      */
-    private function applyGap(array $suggestions): array
+    private function pickBest(array $byScore): array
     {
-        $minGap = (float) config('services.cut_suggestion.min_gap', 1.0);
+        $minGap = (float) config('services.cut_suggestion.min_gap', 0.0);
+        $maxCuts = (int) config('services.cut_suggestion.max_cuts', 20);
 
-        $ordered = [];
+        $accepted = [];
 
-        foreach ($suggestions as $suggestion) {
-            $last = $ordered === [] ? null : $ordered[count($ordered) - 1];
-
-            if ($last instanceof CutSuggestionData && $suggestion->start < $last->end + $minGap) {
-                if ($suggestion->score > $last->score) {
-                    $ordered[count($ordered) - 1] = $suggestion;
-                }
-
-                continue;
+        foreach ($byScore as $suggestion) {
+            if (count($accepted) >= $maxCuts) {
+                break;
             }
 
-            $ordered[] = $suggestion;
+            foreach ($accepted as $kept) {
+                if ($suggestion->start < $kept->end + $minGap && $kept->start < $suggestion->end + $minGap) {
+                    continue 2;
+                }
+            }
+
+            $accepted[] = $suggestion;
         }
 
-        return $ordered;
-    }
-
-    private function maxCuts(): int
-    {
-        return (int) config('services.cut_suggestion.max_cuts', 20);
+        return $accepted;
     }
 }
