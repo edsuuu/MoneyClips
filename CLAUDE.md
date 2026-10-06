@@ -33,7 +33,8 @@ volume por HTTP:
    `/reframe`) — HLS vira **milhares** de segmentos e cortes/renders trafegam
    GBs; o serviço lê a fonte e escreve a saída direto no MinIO com credencial
    dedicada (a policy do usuário MinIO deve cobrir os prefixos `uploads/*`,
-   `hls/*` e `videos/*`, mais leitura em `assets/*` para overlays/SFX do `/reframe`).
+   `hls/*`, `videos/*` e `assets/*` — este último só leitura: o `/reframe` lê
+   figurinhas/sons/memes do estoque (overlays/SFX); só o Laravel grava).
 
 O **upload** também não passa pelo Laravel: o browser envia direto pro MinIO por
 multipart presigned (o Laravel só assina as partes e confere o resultado), o que
@@ -128,6 +129,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
 | `videos` | vídeos longos enviados em /upload (arquivo ou URL do YouTube): ciclo `awaiting_upload\|downloading → uploaded → packaging → ready` + metadados do HLS |
 | `youtube_shorts` | estoque; ciclo `ready_at` → `posted_*_at` |
+| `stock_assets` | banco curado de sfx/emoji/imagem/meme (uuid, `kind`, `license`, `status` pending→approved\|disabled; `duration_ms`/`width`/`height` lidos no add via ffprobe/getimagesize, nullable; `author` = crédito CC BY); binário em `assets/<kind>/<uuid>.<ext>` no MinIO, nunca no git; memes exigem `own_risk` |
 | `service_logs` | observabilidade (logs dos microserviços) |
 
 ## Telas (layout navbar; design em docs/designs/)
@@ -149,6 +151,9 @@ final — nada de `Route::redirect` pra não mexer na navbar.
 | Comando | O que faz |
 | --- | --- |
 | `uploads:prune-stale` | aborta uploads multipart abandonados > 24h (diário) |
+| `assets:add-file {path}` / `assets:add-dir {path}` | sobe pro MinIO e cria `stock_assets` pending (`--kind --license --tags --emotion --source-url --author --real-person --has-audio --risk-note`) |
+| `assets:review` | aprova/recusa os pending um a um, com aviso de risco (pessoa real/áudio) |
+| `assets:disable {id}` | tira o asset de circulação |
 
 Cron: `* * * * * php artisan schedule:run` + worker de fila
 (`queue:listen --queue=posting,processing,default --tries=1 --timeout=1800`).
