@@ -179,7 +179,7 @@ export class CaptionController extends Logger {
     private authorized(req: Request): boolean {
         const expected = settings.observabilityToken;
 
-        return expected === '' || req.header('X-Observability-Token') === expected;
+        return expected !== '' && req.header('X-Observability-Token') === expected;
     }
 
     private asString(raw: unknown): string {

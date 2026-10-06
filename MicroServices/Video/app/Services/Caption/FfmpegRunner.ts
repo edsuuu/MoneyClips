@@ -9,6 +9,7 @@
 
 import { spawn } from 'node:child_process';
 
+import { settings } from '@/Config/Env';
 import { Logger } from '@/Config/Logger';
 import { EncoderArgs } from '@/Services/Caption/EncoderArgs';
 
@@ -50,7 +51,11 @@ export class FfmpegRunner extends Logger {
 
     public run(args: string[], cwd: string): Promise<RunResult> {
         return new Promise((resolve, reject) => {
-            const proc = spawn('ffmpeg', args, { cwd, stdio: ['ignore', 'ignore', 'pipe'] });
+            const proc = spawn('ffmpeg', args, {
+                cwd,
+                stdio: ['ignore', 'ignore', 'pipe'],
+                signal: AbortSignal.timeout(settings.ffmpegTimeoutMs),
+            });
             let stderr = '';
 
             proc.stderr.on('data', (chunk: Buffer) => {
@@ -64,7 +69,13 @@ export class FfmpegRunner extends Logger {
             proc.on('close', (code) => {
                 resolve({ code: code ?? 1, stderr });
             });
-            proc.on('error', reject);
+            proc.on('error', (error) =>
+                reject(
+                    error.name === 'AbortError' || error.name === 'TimeoutError'
+                        ? new Error(`ffmpeg passou de ${String(settings.ffmpegTimeoutMs / 1000)}s`)
+                        : error,
+                ),
+            );
         });
     }
 }

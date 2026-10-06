@@ -20,7 +20,6 @@ export interface ReframeJob {
     editUuid: string;
     sourceKey: string;
     outputKey: string;
-    duration: number;
     keyframes: ReframeKeyframe[];
     settings: ReframeRenderSettings;
     transcript: Transcript | null;
@@ -59,7 +58,11 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
             await this.storage.download(job.sourceKey, join(jobDir, 'source'));
 
             const meta = await this.probe.read(join(jobDir, 'source'));
-            const duration = job.duration > 0 ? job.duration : meta.durationSeconds;
+
+            if (!(meta.exactDurationSeconds > 0)) {
+                throw new Error('ffprobe não retornou a duração do clip.');
+            }
+
             const ass = await this.buildSubtitles(job, jobDir);
 
             const filter = this.filters.build(
@@ -67,7 +70,7 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                 job.settings.background,
                 meta.width,
                 meta.height,
-                duration,
+                meta.exactDurationSeconds,
                 meta.fps,
                 ass,
             );
