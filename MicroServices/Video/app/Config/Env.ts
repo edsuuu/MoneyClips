@@ -14,6 +14,7 @@ export class Env {
     public readonly storageForcePathStyle: boolean;
     public readonly apiPort: number;
     public readonly apiToken: string;
+    public readonly ffmpegTimeoutMs: number;
     public readonly observabilityToken: string;
     public readonly reencodeEnabled: boolean;
     public readonly reencodeBitrateThresholdKbps: number;
@@ -49,7 +50,13 @@ export class Env {
         this.storageForcePathStyle = Env.asBool(env['STORAGE_FORCE_PATH_STYLE'], true);
         this.apiPort = Env.asInt(env['API_PORT'], 8790);
         this.apiToken = Env.asStr(env['API_TOKEN']);
+        this.ffmpegTimeoutMs = Env.asInt(env['FFMPEG_TIMEOUT_SECONDS'], 1800) * 1000;
         this.observabilityToken = Env.asStr(env['OBSERVABILITY_TOKEN']);
+
+        if (env['NODE_ENV'] === 'production' && this.apiToken === '') {
+            throw new Error('API_TOKEN é obrigatório quando NODE_ENV=production.');
+        }
+
         this.reencodeEnabled = Env.asBool(env['REENCODE_ENABLED'], true);
         this.reencodeBitrateThresholdKbps = Env.asInt(env['REENCODE_BITRATE_THRESHOLD_KBPS'], 4000);
         this.discordWebhookUrl = Env.asStr(env['DISCORD_WEBHOOK_URL']);

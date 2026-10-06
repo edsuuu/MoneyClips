@@ -11,7 +11,6 @@ interface CreateReframeRequest {
     edit_uuid?: unknown;
     source_key?: unknown;
     output_key?: unknown;
-    source?: unknown;
     keyframes?: unknown;
     settings?: unknown;
     transcript?: unknown;
@@ -35,8 +34,6 @@ export class ReframeController {
         const sourceKey = ReframeController.str(body.source_key);
         const outputKey = ReframeController.str(body.output_key);
         const webhookUrl = ReframeController.str(body.webhook_url);
-        const source = (body.source ?? {}) as Record<string, unknown>;
-        const duration = Number(source['duration'] ?? 0);
         const keyframes = Array.isArray(body.keyframes)
             ? (body.keyframes as ReframeKeyframe[])
             : [];
@@ -72,7 +69,6 @@ export class ReframeController {
             editUuid,
             sourceKey,
             outputKey,
-            duration: Number.isFinite(duration) ? duration : 0,
             keyframes,
             settings: {
                 background: ReframeController.str(settings['background']) || '#000000',

@@ -4,6 +4,7 @@ import { NotAVideoError } from '@/Exceptions/NotAVideoError';
 
 export interface VideoMeta {
     durationSeconds: number;
+    exactDurationSeconds: number;
     width: number;
     height: number;
     videoCodec: string;
@@ -59,6 +60,7 @@ export class Probe {
 
         return {
             durationSeconds: Math.round(Number(parsed.format?.duration ?? 0)),
+            exactDurationSeconds: Number(parsed.format?.duration ?? 0),
             width: video.width,
             height: video.height,
             videoCodec: video.codec_name ?? '',

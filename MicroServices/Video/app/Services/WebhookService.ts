@@ -61,7 +61,7 @@ export class WebhookService extends Logger {
         }
 
         this.error(
-            `Webhook desistiu após ${String(WebhookService.RETRY_DELAYS_MS.length)} tentativas: ${url}`,
+            `Webhook desistiu após ${String(WebhookService.RETRY_DELAYS_MS.length)} tentativas (uuid ${payload.edit_uuid ?? payload.cut_uuid ?? payload.video_uuid ?? payload.uuid}, ${payload.status}): ${url}`,
         );
 
         return false;

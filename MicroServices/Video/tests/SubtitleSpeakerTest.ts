@@ -81,7 +81,6 @@ async function buildReframeAss(
         editUuid: 'edit-uuid',
         sourceKey: 'videos/source.mp4',
         outputKey: 'videos/out.mp4',
-        duration: 2,
         keyframes: [],
         settings: {
             background: '#000000',
