@@ -3,7 +3,8 @@ uvicorn[standard]>=0.30.0
 pydantic>=2.10.0
 pydantic-settings>=2.7.0
 python-multipart>=0.0.9
-yt-dlp>=2025.1.15
+# nightly: a estável 2026.07.04 dá 403 no YouTube; voltar pro estável quando sair >= 2026.9.27
+yt-dlp>=2026.9.27.dev0
 boto3>=1.34.0
 httpx>=0.28.0
 # Transcricao. Em producao (Linux/NVIDIA), torch com CUDA e instalado A PARTE

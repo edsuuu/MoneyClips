@@ -248,8 +248,10 @@ def _send_webhook(
                 time.sleep(delay)
 
     logger.error(
-        "webhook gave up after %d attempts: %s (payload=%s)",
+        "webhook gave up after %d attempts: %s (url=%s uuid=%s status=%s)",
         len(delays),
         last_error,
-        payload,
+        webhook_url,
+        payload.get("uuid") or payload.get("video_uuid"),
+        payload.get("status"),
     )
