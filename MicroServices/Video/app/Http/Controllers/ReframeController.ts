@@ -8,10 +8,27 @@ import {
     CAPTION_STYLES,
     type ReframeCaption,
 } from '@/Services/Reframe/LiteralSubtitleBuilder';
-import type { ReframeKeyframe } from '@/Services/Reframe/ReframeFilterBuilder';
+import type {
+    ReframeKeyframe,
+    ReframeOverlay,
+    ReframeOverlayKind,
+    ReframeSfx,
+} from '@/Services/Reframe/ReframeFilterBuilder';
 import { ReframeQueueService } from '@/Services/Reframe/ReframeQueueService';
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/iu;
+
+const ASSET_KEY = /^assets(?:\/[\w-][\w.-]*)+$/u;
+
+const VIDEO_KEY = /\.(mp4|mov|webm)$/iu;
+
+const IMAGE_KEY = /\.(png|jpe?g|webp|gif|apng)$/iu;
+
+const OVERLAY_KINDS: ReframeOverlayKind[] = ['card', 'small', 'emoji', 'meme', 'meme_clip'];
+
+const MAX_OVERLAYS = 40;
+
+const MAX_SFX = 40;
 
 interface CreateReframeRequest {
     edit_uuid?: unknown;
@@ -24,6 +41,8 @@ interface CreateReframeRequest {
     caption_preset?: unknown;
     watermark?: unknown;
     webhook_url?: unknown;
+    overlays?: unknown;
+    sfx?: unknown;
 }
 
 export class ReframeController {
@@ -84,6 +103,9 @@ export class ReframeController {
                 'caption_preset e watermark só valem com captions[] (legenda literal).';
         }
 
+        const overlays = ReframeController.overlays(body.overlays, errors);
+        const sfx = ReframeController.sfx(body.sfx, errors);
+
         if (Object.keys(errors).length > 0) {
             throw new ValidationError(errors);
         }
@@ -108,6 +130,8 @@ export class ReframeController {
             captionPreset: preset,
             watermark,
             webhookUrl,
+            overlays,
+            sfx,
         });
 
         res.status(202).json({ uuid });
@@ -199,5 +223,116 @@ export class ReframeController {
         }
 
         return colors;
+    }
+
+    /**
+     * Figurinhas lidas do MinIO: key só em assets/ (a credencial do serviço não
+     * deve ler outro prefixo) e kind casando com o arquivo — meme_clip é vídeo,
+     * os demais são imagem. Qualquer item fora disso é 422 no enqueue, não
+     * falha no meio do render.
+     */
+    private static overlays(value: unknown, errors: Record<string, string>): ReframeOverlay[] {
+        const overlays: ReframeOverlay[] = [];
+
+        ReframeController.items(value, 'overlays', MAX_OVERLAYS, errors).forEach((item, index) => {
+            const field = `overlays.${String(index)}`;
+            const key = ReframeController.str(item['key']);
+            const kind = OVERLAY_KINDS.find((candidate) => candidate === item['kind']);
+            const [start, end] = Array.isArray(item['t']) ? (item['t'] as unknown[]) : [];
+            const pos = (item['pos'] ?? null) as Record<string, unknown> | null;
+
+            if (!ASSET_KEY.test(key)) {
+                errors[`${field}.key`] = 'key fora de assets/: o serviço só lê assets do MinIO.';
+                return;
+            }
+
+            if (kind === undefined || !(kind === 'meme_clip' ? VIDEO_KEY : IMAGE_KEY).test(key)) {
+                errors[`${field}.kind`] =
+                    'kind card|small|emoji|meme pede imagem (png, jpg, webp, gif, apng); meme_clip pede vídeo (mp4, mov, webm).';
+                return;
+            }
+
+            if (
+                typeof start !== 'number' ||
+                typeof end !== 'number' ||
+                !Number.isFinite(end) ||
+                start < 0 ||
+                end <= start
+            ) {
+                errors[`${field}.t`] = 't é [a, b] em segundos, com 0 ≤ a < b.';
+                return;
+            }
+
+            if (
+                pos !== null &&
+                (!ReframeController.unit(pos['x']) || !ReframeController.unit(pos['y']))
+            ) {
+                errors[`${field}.pos`] = 'pos é {x, y} normalizado entre 0 e 1.';
+                return;
+            }
+
+            overlays.push({
+                key,
+                t: [start, end],
+                kind,
+                pos: pos === null ? null : { x: pos['x'] as number, y: pos['y'] as number },
+            });
+        });
+
+        return overlays;
+    }
+
+    private static sfx(value: unknown, errors: Record<string, string>): ReframeSfx[] {
+        const sfx: ReframeSfx[] = [];
+
+        ReframeController.items(value, 'sfx', MAX_SFX, errors).forEach((item, index) => {
+            const field = `sfx.${String(index)}`;
+            const key = ReframeController.str(item['key']);
+            const t = item['t'];
+            const gainDb = item['gain_db'] ?? 0;
+
+            if (!ASSET_KEY.test(key)) {
+                errors[`${field}.key`] = 'key fora de assets/: o serviço só lê assets do MinIO.';
+                return;
+            }
+
+            if (typeof t !== 'number' || !Number.isFinite(t) || t < 0) {
+                errors[`${field}.t`] = 't em segundos, ≥ 0.';
+                return;
+            }
+
+            if (typeof gainDb !== 'number' || gainDb < -60 || gainDb > 20) {
+                errors[`${field}.gain_db`] = 'gain_db em dB, entre -60 e 20.';
+                return;
+            }
+
+            sfx.push({ key, t, gainDb });
+        });
+
+        return sfx;
+    }
+
+    private static items(
+        value: unknown,
+        field: string,
+        max: number,
+        errors: Record<string, string>,
+    ): Record<string, unknown>[] {
+        if (value === undefined || value === null) {
+            return [];
+        }
+
+        if (!Array.isArray(value) || value.length > max) {
+            errors[field] = `${field}: lista de no máximo ${String(max)} itens.`;
+            return [];
+        }
+
+        return value.map((item: unknown) =>
+            typeof item === 'object' && item !== null ? (item as Record<string, unknown>) : {},
+        );
+    }
+
+    private static unit(value: unknown): boolean {
+        return typeof value === 'number' && value >= 0 && value <= 1;
     }
 }

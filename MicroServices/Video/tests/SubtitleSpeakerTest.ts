@@ -94,6 +94,8 @@ async function buildReframeAss(
         captionPreset: null,
         watermark: '',
         webhookUrl: 'http://127.0.0.1:8000/api/webhook/reframe',
+        overlays: [],
+        sfx: [],
     };
 
     await queue['buildSubtitles'](job, workDir);
