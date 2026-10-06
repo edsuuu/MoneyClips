@@ -1,0 +1,16 @@
+{
+    "duration": 85.5,
+    "watermark": "@unkvoid_clips",
+    "captions": [
+        { "t": [0.2, 1.1], "text": "qual a comida, favorita?", "style": "speech", "pos": "bottom" },
+        { "t": [1.1, 1.8], "text": "EU ME ENJOEI!", "style": "shout" },
+        { "t": [1.8, 2.6], "text": "24H", "style": "punch" },
+        { "t": [2.6, 3.9], "text": "(little cup of pingado)", "style": "aside" },
+        { "t": [3.9, 5.2], "text": "*afirmações cariocas, né*", "style": "note" },
+        { "t": [4.0, 6.4], "text": "QUE ISSO ACF KKKKK!", "style": "art" },
+        { "t": [6.4, 7.2], "text": "ah vai se... sério", "pos": "top" },
+        { "t": [7.2, 7.22], "text": "some antes de 0.05s" },
+        { "t": [7.3, 8.1], "text": "chave {\\fnArial} escapada" },
+        { "t": [8.1, 9.0], "text": "quebra\nmanual" }
+    ]
+}

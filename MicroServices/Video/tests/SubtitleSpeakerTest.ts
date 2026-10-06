@@ -90,6 +90,9 @@ async function buildReframeAss(
             speakerColors,
         },
         transcript: transcript(1, 2),
+        captions: null,
+        captionPreset: null,
+        watermark: '',
         webhookUrl: 'http://127.0.0.1:8000/api/webhook/reframe',
     };
 
