@@ -11,7 +11,10 @@ use App\Models\Video;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
+use App\Services\Video\VideoCutEditRenderService;
+use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
 
 beforeEach(function (): void {
@@ -149,4 +152,85 @@ it('refuses the video cut edit webhook without the shared token', function (): v
     ])->assertUnauthorized();
 
     expect($edit->fresh()?->render_status)->toBe(VideoCutStatusEnum::Generating);
+});
+
+function editSpec(array $changes = []): array
+{
+    return [
+        'version' => 1,
+        'caption_preset' => 'verde',
+        'cuts' => [[0.1, 0.62]],
+        'captions' => [['t' => [0.58, 1.3], 'text' => 'qual a comida', 'style' => 'speech', 'pos' => 'bottom']],
+        'punches' => [['t' => [11.2, 11.8], 'kind' => 'punch']],
+        'title' => 'ele meteu o MICHAEL JACKSON pra trás 😂😂😂 @podpah',
+        'hashtags' => ['#cortes', '#podpah', '#bateouregaca', '#cocielo'],
+        ...$changes,
+    ];
+}
+
+it('sends the spec to /reframe as literal captions with empty overlays and sfx', function (): void {
+    config(['services.video_cut_edit.watermark' => '@unkvoid_clips']);
+    Http::fake(['*/reframe' => Http::response(['uuid' => 'job'], 202)]);
+    $edit = makeEditForRender($this->user);
+    $edit->update(['spec' => editSpec()]);
+
+    resolve(VideoCutEditRenderService::class)->startRender($edit->fresh(), null);
+
+    Http::assertSent(fn (Request $request): bool => $request['cuts'] === editSpec()['cuts']
+        && $request['captions'] === editSpec()['captions']
+        && $request['caption_preset'] === 'verde'
+        && $request['watermark'] === '@unkvoid_clips'
+        && $request['overlays'] === []
+        && $request['sfx'] === []);
+});
+
+it('sends no literal caption field without a spec', function (): void {
+    Http::fake(['*/reframe' => Http::response(['uuid' => 'job'], 202)]);
+    $edit = makeEditForRender($this->user);
+
+    resolve(VideoCutEditRenderService::class)->startRender($edit, null);
+
+    Http::assertSent(fn (Request $request): bool => array_intersect_key($request->data(), array_flip(['cuts', 'captions', 'caption_preset', 'watermark', 'overlays', 'sfx'])) === []);
+});
+
+it('stocks the short with the spec title and keeps an edited title on re-render', function (): void {
+    config(['services.observability.token' => 'test-token']);
+    $edit = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);
+    $edit->update(['spec' => editSpec()]);
+
+    $this->postJson('/api/webhook/video-cut-edit', ['edit_uuid' => $edit->uuid, 'status' => 'done'], ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    $short = YoutubeShort::query()->where('youtube_id', 'reframe-'.$edit->uuid)->firstOrFail();
+
+    expect($short->title)->toBe(editSpec()['title'])
+        ->and($short->hashtags)->toBe(editSpec()['hashtags']);
+
+    $short->update(['title' => 'título do dono', 'hashtags' => ['#dono']]);
+    $edit->update(['render_status' => VideoCutStatusEnum::Generating, 'spec' => editSpec(['title' => 'outro título'])]);
+
+    $this->postJson('/api/webhook/video-cut-edit', ['edit_uuid' => $edit->uuid, 'status' => 'done'], ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    expect($short->fresh()?->title)->toBe('título do dono')
+        ->and($short->fresh()?->hashtags)->toBe(['#dono'])
+        ->and(YoutubeShort::query()->where('youtube_id', 'reframe-'.$edit->uuid)->count())->toBe(1);
+});
+
+it('composes the punches at render time and reapplies them after the framing is adjusted', function (): void {
+    Http::fake(['*/reframe' => Http::response(['uuid' => 'job'], 202)]);
+    $edit = makeEditForRender($this->user);
+    $edit->update(['spec' => editSpec()]);
+
+    $punchKeyframe = fn (Request $request): array => collect($request['keyframes'])->firstWhere('t', 11.2)['regions'][0];
+
+    resolve(VideoCutEditRenderService::class)->startRender($edit->fresh(), null);
+
+    $edit->update(['keyframes' => [['t' => 0.0, 'mode' => 'vertical', 'regions' => [['x' => 0.6, 'y' => 0.0, 'w' => 0.3164, 'h' => 1.0]]]]]);
+    resolve(VideoCutEditRenderService::class)->startRender($edit->fresh(), null);
+
+    $sent = Http::recorded()->map(fn (array $pair): array => $punchKeyframe($pair[0]))->all();
+
+    expect($sent[0])->toBe(['x' => 0.2703, 'y' => 0.2389, 'w' => 0.1758, 'h' => 0.5556])
+        ->and($sent[1]['x'])->toBe(0.6703)
+        ->and($sent[1]['h'])->toBe(0.5556)
+        ->and($edit->fresh()?->keyframes)->toHaveCount(1);
 });

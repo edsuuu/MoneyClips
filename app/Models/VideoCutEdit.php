@@ -27,6 +27,7 @@ use RuntimeException;
  * @property string $mode
  * @property list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}> $keyframes
  * @property array{version: int, background: string, captions?: bool, captionColor?: string, captionCase?: string, speakerColors?: array<int, string>}|null $settings
+ * @property array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>}|null $spec
  * @property VideoCutStatusEnum|null $render_status
  * @property string|null $render_error
  * @property TranscriptionStatusEnum|null $tracking_status
@@ -43,7 +44,7 @@ final class VideoCutEdit extends Model
 
     protected $fillable = [
         'uuid', 'youtube_short_id', 'video_cut_id', 'source_meta',
-        'mode', 'keyframes', 'settings', 'render_status', 'render_error',
+        'mode', 'keyframes', 'settings', 'spec', 'render_status', 'render_error',
         'tracking_status', 'tracking_error',
     ];
 
@@ -81,6 +82,7 @@ final class VideoCutEdit extends Model
             'source_meta' => 'array',
             'keyframes' => 'array',
             'settings' => 'array',
+            'spec' => 'array',
             'render_status' => VideoCutStatusEnum::class,
             'tracking_status' => TranscriptionStatusEnum::class,
         ];
