@@ -96,7 +96,10 @@ final class VideoCutEditWebhookController extends Controller
             // pode já ter editado os dois em /meus-videos.
             $short = YoutubeShort::query()->firstOrNew(
                 ['youtube_id' => 'reframe-'.$edit->uuid],
-                ['title' => mb_trim((string) ($edit->spec['title'] ?? '')) ?: $video->name, 'hashtags' => $edit->spec['hashtags'] ?? null],
+                [
+                    'title' => mb_trim((string) ($edit->spec['title'] ?? '')) ?: $cut->title ?: $video->name,
+                    'hashtags' => ($edit->spec['hashtags'] ?? null) ?: $cut->hashtags,
+                ],
             );
             $short->fill(['video_path' => $renderedPath, 'downloaded_at' => now()])->save();
 

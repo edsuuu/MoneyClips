@@ -112,7 +112,7 @@ final class Show extends Component
             return;
         }
 
-        if ($cut->start_seconds === $startSeconds && $cut->end_seconds === $endSeconds) {
+        if ((int) $cut->start_seconds === $startSeconds && (int) $cut->end_seconds === $endSeconds) {
             return;
         }
 
@@ -352,14 +352,16 @@ final class Show extends Component
             'cutItems' => $video->cuts->values()->map(fn (VideoCut $cut, int $index): array => [
                 'id' => $cut->id,
                 'number' => $index + 1,
-                'title' => 'Corte '.($index + 1),
+                'title' => $cut->title ?? 'Corte '.($index + 1),
+                'reason' => $cut->reason,
+                'score' => $cut->score,
                 'start' => $cut->start_seconds,
                 'end' => $cut->end_seconds,
-                'startLabel' => $this->timecode($cut->start_seconds),
-                'endLabel' => $this->timecode($cut->end_seconds),
+                'startLabel' => $this->timecode((int) $cut->start_seconds),
+                'endLabel' => $this->timecode((int) $cut->end_seconds),
                 'durationShort' => $cut->end_seconds - $cut->start_seconds < 60
-                    ? ($cut->end_seconds - $cut->start_seconds).'s'
-                    : $this->timecode($cut->end_seconds - $cut->start_seconds),
+                    ? (int) round($cut->end_seconds - $cut->start_seconds).'s'
+                    : $this->timecode((int) round($cut->end_seconds - $cut->start_seconds)),
                 'statusLabel' => $cut->status->label(),
                 'badgeClass' => $cut->status->badgeClass(),
                 'isAi' => $cut->is_ai_generated,

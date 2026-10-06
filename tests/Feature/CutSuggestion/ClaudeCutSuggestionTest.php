@@ -52,7 +52,7 @@ it('fails loud when claude does not deliver', function (string $output, int $exi
 
 it('maps the candidates and sends the transcript as timed lines', function (): void {
     Process::fake(['*' => Process::result(claudeResponse(['structured_output' => ['candidates' => [
-        ['start' => 846.6, 'end' => 969.7, 'title' => 'MICHAEL JACKSON', 'first_line' => 'a', 'last_line' => 'b', 'arc' => 'setup -> soco', 'laughs' => 3, 'score' => 14],
+        ['start' => 846.6, 'end' => 969.7, 'title' => 'MICHAEL JACKSON', 'first_line' => 'a', 'last_line' => 'b', 'arc' => 'setup -> soco', 'laughs' => 3, 'score' => 14, 'hashtags' => ['humor', '#podcast', 5]],
     ]]]))]);
 
     $suggestions = resolve(ClaudeCutSuggestionService::class)->suggest(
@@ -65,7 +65,9 @@ it('maps the candidates and sends the transcript as timed lines', function (): v
         ->and($suggestions[0]->start)->toBe(846.6)
         ->and($suggestions[0]->end)->toBe(969.7)
         ->and($suggestions[0]->score)->toBe(10)
-        ->and($suggestions[0]->reason)->toBe('MICHAEL JACKSON — setup -> soco');
+        ->and($suggestions[0]->reason)->toBe('setup -> soco')
+        ->and($suggestions[0]->title)->toBe('MICHAEL JACKSON')
+        ->and($suggestions[0]->hashtags)->toBe(['#humor', '#podcast']);
 
     Process::assertRan(fn (PendingProcess $process): bool => str_contains((string) $process->input, '[846.6-848.7] qual a comida favorita do Haaland?')
         && str_contains((string) $process->input, 'Pedido do dono: os momentos mais engraçados'));

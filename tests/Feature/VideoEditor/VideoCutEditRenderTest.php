@@ -234,3 +234,22 @@ it('composes the punches at render time and reapplies them after the framing is 
         ->and($sent[1]['h'])->toBe(0.5556)
         ->and($edit->fresh()?->keyframes)->toHaveCount(1);
 });
+
+it('falls back to the cut title and hashtags, then to the video name, when the spec has none', function (): void {
+    config(['services.observability.token' => 'test-token']);
+    $edit = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);
+    $edit->videoCut->update(['title' => 'título do corte', 'hashtags' => ['#corte']]);
+
+    $this->postJson('/api/webhook/video-cut-edit', ['edit_uuid' => $edit->uuid, 'status' => 'done'], ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    $short = YoutubeShort::query()->where('youtube_id', 'reframe-'.$edit->uuid)->firstOrFail();
+
+    expect($short->title)->toBe('título do corte')
+        ->and($short->hashtags)->toBe(['#corte']);
+
+    $other = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);
+
+    $this->postJson('/api/webhook/video-cut-edit', ['edit_uuid' => $other->uuid, 'status' => 'done'], ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    expect(YoutubeShort::query()->where('youtube_id', 'reframe-'.$other->uuid)->firstOrFail()->title)->toBe($other->videoCut->video->name);
+});

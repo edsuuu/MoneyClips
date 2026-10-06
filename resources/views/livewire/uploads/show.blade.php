@@ -359,6 +359,14 @@
                                 </button>
                             </div>
 
+                            @if (! is_null($cut['score']))
+                                <span class="mt-2 inline-flex items-center rounded-full bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300">Nota {{ $cut['score'] }}/10</span>
+                            @endif
+
+                            @if (! is_null($cut['reason']))
+                                <p class="mt-1 text-xs text-slate-400">{{ $cut['reason'] }}</p>
+                            @endif
+
                             <div x-show="!editingRange" class="mt-2 flex items-center gap-2">
                                 <button
                                     type="button"
