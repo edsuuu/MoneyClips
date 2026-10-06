@@ -1,0 +1,144 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Fala,Montserrat ExtraBold,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,-1,0,0,0,100,100,-1,0,1,3,4,2,90,90,0,1
+Style: Nota,Montserrat SemiBold,46,&H00FFFFFF,&H00FFFFFF,&H00000000,&H00000000,0,-1,0,0,100,100,0,0,1,2,3,2,140,140,0,1
+Style: Marca,Montserrat Bold,32,&H8CFFFFFF,&H8CFFFFFF,&H8C000000,&H00000000,-1,-1,0,0,100,100,0,0,1,1.5,0,5,0,0,0,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:05.00,Marca,,0,0,0,,{\pos(540,1490)}@unkvoid_clips
+Dialogue: 0,0:00:40.00,0:00:45.00,Marca,,0,0,0,,{\pos(540,1000)}@unkvoid_clips
+Dialogue: 0,0:01:20.00,0:01:25.00,Marca,,0,0,0,,{\pos(540,1490)}@unkvoid_clips
+Dialogue: 0,0:02:00.00,0:02:03.01,Marca,,0,0,0,,{\pos(540,1000)}@unkvoid_clips
+Dialogue: 2,0:00:00.00,0:00:00.64,Fala,,0,0,0,,{\pos(540,1360)}qual a comida
+Dialogue: 2,0:00:00.64,0:00:01.29,Fala,,0,0,0,,{\pos(540,1360)}favorita
+Dialogue: 2,0:00:01.29,0:00:02.09,Fala,,0,0,0,,{\pos(540,1360)}do Haaland?
+Dialogue: 2,0:00:03.49,0:00:04.39,Fala,,0,0,0,,{\pos(540,1360)}ah vai se...
+Dialogue: 2,0:00:05.46,0:00:06.56,Fala,,0,0,0,,{\pos(540,1360)}opa deu\Nazar hein
+Dialogue: 2,0:00:06.56,0:00:07.14,Fala,,0,0,0,,{\pos(540,1360)}falei
+Dialogue: 2,0:00:07.74,0:00:08.79,Fala,,0,0,0,,{\pos(540,1360)}eu posso pedir
+Dialogue: 2,0:00:08.79,0:00:09.34,Fala,,0,0,0,,{\pos(540,1360)}uma dica
+Dialogue: 2,0:00:09.34,0:00:10.29,Fala,,0,0,0,,{\pos(540,1360)}dos\Nuniversitários?
+Dialogue: 2,0:00:10.56,0:00:11.29,Fala,,0,0,0,,{\pos(540,1360)}Michael Jackson
+Dialogue: 2,0:00:11.29,0:00:11.79,Fala,,0,0,0,,{\pos(540,1360)}mas aí você
+Dialogue: 2,0:00:11.79,0:00:12.74,Fala,,0,0,0,,{\pos(540,1360)}vai errar muito
+Dialogue: 2,0:00:13.00,0:00:13.94,Fala,,0,0,0,,{\pos(540,1360)}qual a comida
+Dialogue: 2,0:00:13.94,0:00:14.56,Fala,,0,0,0,,{\pos(540,1360)}preferida
+Dialogue: 2,0:00:14.56,0:00:15.16,Fala,,0,0,0,,{\pos(540,1360)}do Haaland?
+Dialogue: 2,0:00:15.16,0:00:15.82,Fala,,0,0,0,,{\pos(540,1360)}você sabe?
+Dialogue: 2,0:00:15.84,0:00:16.36,Fala,,0,0,0,,{\pos(540,1360)}não sabe nem
+Dialogue: 2,0:00:16.36,0:00:16.69,Fala,,0,0,0,,{\pos(540,1360)}quem é Haaland
+Dialogue: 2,0:00:16.69,0:00:17.59,Fala,,0,0,0,,{\pos(540,1360)}sabe quem\Né Haaland?
+Dialogue: 2,0:00:18.12,0:00:19.14,Fala,,0,0,0,,{\pos(540,1360)}opa aqui ó
+Dialogue: 2,0:00:19.14,0:00:19.76,Fala,,0,0,0,,{\pos(540,1360)}olha o\NCastanhari
+Dialogue: 2,0:00:19.76,0:00:20.59,Fala,,0,0,0,,{\pos(540,1360)}colando aqui
+Dialogue: 2,0:00:21.08,0:00:22.16,Fala,,0,0,0,,{\pos(540,1360)}pesquisando\Npesquisando
+Dialogue: 2,0:00:22.16,0:00:22.66,Fala,,0,0,0,,{\pos(540,1360)}vem vem vem
+Dialogue: 2,0:00:22.66,0:00:23.59,Fala,,0,0,0,,{\pos(540,1360)}pesquisando aqui
+Dialogue: 2,0:00:23.64,0:00:24.38,Fala,,0,0,0,,{\pos(540,1360)}tá pesquisando\Naqui
+Dialogue: 2,0:00:24.38,0:00:24.72,Fala,,0,0,0,,{\pos(540,1360)}sabe por que
+Dialogue: 2,0:00:24.72,0:00:25.32,Fala,,0,0,0,,{\pos(540,1360)}eu peguei\No celular
+Dialogue: 2,0:00:25.32,0:00:25.64,Fala,,0,0,0,,{\pos(540,1360)}e falei
+Dialogue: 2,0:00:25.64,0:00:26.00,Fala,,0,0,0,,{\pos(540,1360)}qual a comida...
+Dialogue: 2,0:00:26.00,0:00:26.70,Fala,,0,0,0,,{\pos(540,1360)}tá pesquisando\Naqui
+Dialogue: 2,0:00:26.70,0:00:27.16,Fala,,0,0,0,,{\pos(540,1360)}você falou
+Dialogue: 2,0:00:27.16,0:00:27.90,Fala,,0,0,0,,{\pos(540,1360)}do meu\Nlado rapaz
+Dialogue: 2,0:00:27.90,0:00:28.72,Fala,,0,0,0,,{\pos(540,1360)}mas eu falei
+Dialogue: 2,0:00:28.72,0:00:29.20,Fala,,0,0,0,,{\pos(540,1360)}Haaland
+Dialogue: 2,0:00:29.20,0:00:29.74,Fala,,0,0,0,,{\pos(540,1360)}eu queria saber
+Dialogue: 2,0:00:29.74,0:00:30.52,Fala,,0,0,0,,{\pos(540,1360)}a comida\Npreferida
+Dialogue: 2,0:00:30.52,0:00:31.26,Fala,,0,0,0,,{\pos(540,1360)}da Xuxa
+Dialogue: 2,0:00:31.26,0:00:32.06,Fala,,0,0,0,,{\pos(540,1360)}eu vou chutar...
+Dialogue: 1,0:00:32.12,0:00:33.24,Nota,,0,0,0,,{\pos(540,1360)}*a cola saiu cara*
+Dialogue: 2,0:00:33.28,0:00:34.22,Fala,,0,0,0,,{\pos(540,1360)}monta nele\NMichael
+Dialogue: 2,0:00:34.78,0:00:35.36,Fala,,0,0,0,,{\pos(540,1360)}pode
+Dialogue: 2,0:00:35.38,0:00:36.56,Fala,,0,0,0,,{\pos(540,1360)}eu mato você
+Dialogue: 2,0:00:36.64,0:00:37.44,Fala,,0,0,0,,{\pos(540,1360)}a comida\Npreferida
+Dialogue: 2,0:00:37.44,0:00:38.06,Fala,,0,0,0,,{\pos(540,1360)}do Haaland
+Dialogue: 2,0:00:38.08,0:00:39.20,Fala,,0,0,0,,{\pos(540,1360)}ele tem cara
+Dialogue: 2,0:00:39.20,0:00:40.20,Fala,,0,0,0,,{\pos(540,1360)}que gosta muito
+Dialogue: 2,0:00:40.20,0:00:41.86,Fala,,0,0,0,,{\pos(540,1360)}de uma lasanha
+Dialogue: 2,0:00:41.90,0:00:42.59,Fala,,0,0,0,,{\pos(540,1360)}não é possível
+Dialogue: 2,0:00:42.94,0:00:43.59,Fala,,0,0,0,,{\pos(540,1360)}rodamos
+Dialogue: 2,0:00:44.94,0:00:45.72,Fala,,0,0,0,,{\pos(540,1360)}vamos ver
+Dialogue: 2,0:00:45.72,0:00:46.44,Fala,,0,0,0,,{\pos(540,1360)}o que vai cair
+Dialogue: 2,0:00:47.88,0:00:48.54,Fala,,0,0,0,,{\pos(540,1360)}soquinho
+Dialogue: 2,0:00:50.14,0:00:51.04,Fala,,0,0,0,,{\pos(540,1360)}oloco meteram
+Dialogue: 2,0:00:51.04,0:00:51.90,Fala,,0,0,0,,{\pos(540,1360)}um soco mútuo
+Dialogue: 2,0:00:51.90,0:00:52.44,Fala,,0,0,0,,{\pos(540,1360)}é novidade
+Dialogue: 2,0:00:52.44,0:00:53.18,Fala,,0,0,0,,{\pos(540,1360)}ah então é eu
+Dialogue: 2,0:00:53.18,0:00:53.50,Fala,,0,0,0,,{\pos(540,1360)}e o Michael
+Dialogue: 2,0:00:53.50,0:00:53.96,Fala,,0,0,0,,{\pos(540,1360)}é verdade
+Dialogue: 2,0:00:54.60,0:00:55.22,Fala,,0,0,0,,{\pos(540,1360)}ah nós dois?
+Dialogue: 2,0:00:55.28,0:00:55.78,Fala,,0,0,0,,{\pos(540,1360)}nós dois
+Dialogue: 2,0:00:55.78,0:00:56.84,Fala,,0,0,0,,{\pos(540,1360)}quer dividir
+Dialogue: 2,0:00:56.84,0:00:57.46,Fala,,0,0,0,,{\pos(540,1360)}um soco comigo?
+Dialogue: 2,0:00:57.74,0:00:58.20,Fala,,0,0,0,,{\pos(540,1360)}quero
+Dialogue: 2,0:00:58.24,0:00:59.16,Fala,,0,0,0,,{\pos(540,1360)}vamos lá?\Nvamos lá?
+Dialogue: 2,0:00:59.18,0:00:59.66,Fala,,0,0,0,,{\pos(540,1360)}bora
+Dialogue: 2,0:01:00.14,0:01:01.22,Fala,,0,0,0,,{\pos(540,1360)}no três hein ó
+Dialogue: 2,0:01:01.36,0:01:01.82,Fala,,0,0,0,,{\pos(540,1360)}um
+Dialogue: 2,0:01:02.00,0:01:02.86,Fala,,0,0,0,,{\pos(540,1360)}peraí no três
+Dialogue: 2,0:01:02.86,0:01:03.54,Fala,,0,0,0,,{\pos(540,1360)}no três mesmo?
+Dialogue: 2,0:01:03.58,0:01:04.34,Fala,,0,0,0,,{\pos(540,1360)}não no três
+Dialogue: 2,0:01:04.34,0:01:05.42,Fala,,0,0,0,,{\pos(540,1360)}três dois
+Dialogue: 2,0:01:05.42,0:01:05.92,Fala,,0,0,0,,{\pos(540,1360)}um vai
+Dialogue: 2,0:01:05.92,0:01:06.38,Fala,,0,0,0,,{\pos(540,1360)}tá bom?
+Dialogue: 2,0:01:06.40,0:01:07.32,Fala,,0,0,0,,{\pos(540,1360)}só pra explicar
+Dialogue: 2,0:01:07.70,0:01:08.44,Fala,,0,0,0,,{\pos(540,1360)}três dois
+Dialogue: 2,0:01:08.44,0:01:08.90,Fala,,0,0,0,,{\pos(540,1360)}um vai
+Dialogue: 2,0:01:08.90,0:01:09.34,Fala,,0,0,0,,{\pos(540,1360)}é no vai
+Dialogue: 2,0:01:09.34,0:01:09.98,Fala,,0,0,0,,{\pos(540,1360)}é no vai
+Dialogue: 2,0:01:09.98,0:01:10.46,Fala,,0,0,0,,{\pos(540,1360)}três dois
+Dialogue: 2,0:01:10.46,0:01:10.92,Fala,,0,0,0,,{\pos(540,1360)}um vai
+Dialogue: 2,0:01:10.92,0:01:11.38,Fala,,0,0,0,,{\pos(540,1360)}é no vai
+Dialogue: 2,0:01:11.44,0:01:12.24,Fala,,0,0,0,,{\pos(540,1360)}é no vai
+Dialogue: 2,0:01:12.30,0:01:12.90,Fala,,0,0,0,,{\pos(540,1360)}baixa mais
+Dialogue: 2,0:01:12.90,0:01:13.46,Fala,,0,0,0,,{\pos(540,1360)}um pouco
+Dialogue: 2,0:01:13.88,0:01:14.28,Fala,,0,0,0,,{\pos(540,1360)}então vai
+Dialogue: 2,0:01:14.28,0:01:14.64,Fala,,0,0,0,,{\pos(540,1360)}vou fazer
+Dialogue: 2,0:01:14.64,0:01:15.54,Fala,,0,0,0,,{\pos(540,1360)}na sua\Nlíngua nativa
+Dialogue: 1,0:01:17.74,0:01:18.80,Nota,,0,0,0,,{\pos(540,1360)}*moonwalk\Ninvoluntário*
+Dialogue: 2,0:01:18.86,0:01:19.54,Fala,,0,0,0,,{\pos(540,1360)}nossa ele\Nmeteu...
+Dialogue: 2,0:01:19.54,0:01:20.26,Fala,,0,0,0,,{\pos(540,1360)}ele desviou\Ntambém
+Dialogue: 2,0:01:20.26,0:01:21.42,Fala,,0,0,0,,{\pos(540,1360)}mano ele\Nmeteu...
+Dialogue: 2,0:01:21.42,0:01:22.14,Fala,,0,0,0,,{\pos(540,1360)}tô falando
+Dialogue: 2,0:01:22.14,0:01:22.44,Fala,,0,0,0,,{\pos(540,1360)}você viu?
+Dialogue: 2,0:01:22.44,0:01:22.76,Fala,,0,0,0,,{\pos(540,1360)}ele meteu
+Dialogue: 2,0:01:22.76,0:01:23.39,Fala,,0,0,0,,{\pos(540,1360)}o Michael\NJackson
+Dialogue: 2,0:01:23.39,0:01:23.96,Fala,,0,0,0,,{\pos(540,1360)}pra trás
+Dialogue: 2,0:01:24.06,0:01:24.79,Fala,,0,0,0,,{\pos(540,1360)}ele desviou
+Dialogue: 2,0:01:24.79,0:01:25.46,Fala,,0,0,0,,{\pos(540,1360)}mas caiu de nuca
+Dialogue: 2,0:01:25.48,0:01:26.22,Fala,,0,0,0,,{\pos(540,1360)}não mudou nada
+Dialogue: 2,0:01:26.22,0:01:26.46,Fala,,0,0,0,,{\pos(540,1360)}vai
+Dialogue: 2,0:01:26.46,0:01:26.79,Fala,,0,0,0,,{\pos(540,1360)}one
+Dialogue: 2,0:01:26.79,0:01:27.98,Fala,,0,0,0,,{\pos(540,1360)}mira aquí\Ntambién
+Dialogue: 2,0:01:28.30,0:01:29.39,Fala,,0,0,0,,{\pos(540,1360)}two
+Dialogue: 2,0:01:29.64,0:01:30.42,Fala,,0,0,0,,{\pos(540,1360)}THREE
+Dialogue: 1,0:01:31.94,0:01:34.14,Nota,,0,0,0,,{\pos(540,1360)}*smooth criminal\Nem câmera lenta*
+Dialogue: 1,0:01:38.74,0:01:40.74,Nota,,0,0,0,,{\pos(540,1360)}*o Castanhari\Nde camarote*
+Dialogue: 2,0:01:41.58,0:01:42.76,Fala,,0,0,0,,{\pos(540,1360)}já era
+Dialogue: 1,0:01:42.84,0:01:45.04,Nota,,0,0,0,,{\pos(540,1360)}*beat it na\Nversão literal*
+Dialogue: 2,0:01:46.38,0:01:47.04,Fala,,0,0,0,,{\pos(540,1360)}acabou
+Dialogue: 2,0:01:47.28,0:01:47.96,Fala,,0,0,0,,{\pos(540,1360)}krl
+Dialogue: 2,0:01:48.14,0:01:49.54,Fala,,0,0,0,,{\pos(540,1360)}você não\Nbate nada
+Dialogue: 2,0:01:49.88,0:01:50.74,Fala,,0,0,0,,{\pos(540,1360)}derrubou\Na lapela
+Dialogue: 2,0:01:50.74,0:01:52.06,Fala,,0,0,0,,{\pos(540,1360)}você é\Nmuito fraco
+Dialogue: 2,0:01:52.64,0:01:53.30,Fala,,0,0,0,,{\pos(540,1360)}oi Júlio
+Dialogue: 2,0:01:54.00,0:01:55.14,Fala,,0,0,0,,{\pos(540,1360)}você é diferente
+Dialogue: 1,0:01:55.20,0:01:56.96,Nota,,0,0,0,,{\pos(540,1360)}*levantou igual\Nzumbi do Thriller*
+Dialogue: 2,0:01:57.04,0:01:57.60,Fala,,0,0,0,,{\pos(540,1360)}Thriller
+Dialogue: 2,0:01:57.62,0:01:58.59,Fala,,0,0,0,,{\pos(540,1360)}as garotas
+Dialogue: 2,0:01:58.59,0:01:59.39,Fala,,0,0,0,,{\pos(540,1360)}ficam doidas
+Dialogue: 2,0:01:59.39,0:02:00.26,Fala,,0,0,0,,{\pos(540,1360)}quando elas\Nme veem
+Dialogue: 2,0:02:00.26,0:02:00.74,Fala,,0,0,0,,{\pos(540,1360)}elas dizem
+Dialogue: 2,0:02:00.74,0:02:01.48,Fala,,0,0,0,,{\pos(540,1360)}é Thriller
+Dialogue: 2,0:02:01.48,0:02:02.20,Fala,,0,0,0,,{\pos(540,1360)}é Thriller
+Dialogue: 2,0:02:02.20,0:02:02.94,Fala,,0,0,0,,{\pos(540,1360)}THRILLER

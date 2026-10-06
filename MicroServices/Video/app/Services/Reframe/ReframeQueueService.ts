@@ -1,10 +1,15 @@
-import { mkdir, rm } from 'node:fs/promises';
+import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { settings } from '@/Config/Env';
 import { FfmpegRunner } from '@/Services/Caption/FfmpegRunner';
 import { SubtitleBuilder, type Transcript } from '@/Services/Caption/SubtitleBuilder';
+import {
+    type CaptionPreset,
+    LiteralSubtitleBuilder,
+    type ReframeCaption,
+} from '@/Services/Reframe/LiteralSubtitleBuilder';
 import {
     ReframeFilterBuilder,
     type ReframeKeyframe,
@@ -23,10 +28,14 @@ export interface ReframeJob {
     keyframes: ReframeKeyframe[];
     settings: ReframeRenderSettings;
     transcript: Transcript | null;
+    captions: ReframeCaption[] | null;
+    captionPreset: CaptionPreset | null;
+    watermark: string;
     webhookUrl: string;
 }
 
 const VERTICAL_FONT_SCALE = 1.5;
+const FONTS_DIR = 'assets/fonts';
 
 /**
  * Renderiza o corte editado (reframe do /editor-de-video) em 1080x1920: baixa
@@ -42,6 +51,7 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
         private readonly ffmpeg: FfmpegRunner = new FfmpegRunner(),
         private readonly filters: ReframeFilterBuilder = new ReframeFilterBuilder(),
         private readonly subtitles: SubtitleBuilder = new SubtitleBuilder(),
+        private readonly literalSubtitles: LiteralSubtitleBuilder = new LiteralSubtitleBuilder(),
         private readonly webhooks: WebhookService = new WebhookService(),
     ) {
         super();
@@ -63,7 +73,15 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                 throw new Error('ffprobe não retornou a duração do clip.');
             }
 
-            const ass = await this.buildSubtitles(job, jobDir);
+            const ass =
+                job.captions === null
+                    ? await this.buildSubtitles(job, jobDir)
+                    : await this.buildLiteralSubtitles(
+                          job,
+                          job.captions,
+                          jobDir,
+                          meta.exactDurationSeconds,
+                      );
 
             const filter = this.filters.build(
                 job.keyframes,
@@ -146,6 +164,31 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
         );
 
         return 'subs.ass';
+    }
+
+    /**
+     * O libass troca fonte que não acha por outra SEM erro: as Montserrat vão
+     * junto no jobDir (fontsdir relativo, pelo mesmo motivo do `ass=` no
+     * FfmpegRunner). O `cp` falha alto se o serviço subir fora da sua pasta.
+     *
+     * ponytail: o fontsdir viaja dentro da string do assFile pra não mexer no
+     * ReframeFilterBuilder (PR11); quotar o assFile derruba a fonte calado.
+     * Upgrade: virar parâmetro do build() depois do PR7/PR11.
+     */
+    private async buildLiteralSubtitles(
+        job: ReframeJob,
+        captions: ReframeCaption[],
+        jobDir: string,
+        duration: number,
+    ): Promise<string> {
+        await cp(FONTS_DIR, join(jobDir, 'fonts'), { recursive: true });
+        await writeFile(
+            join(jobDir, 'captions.ass'),
+            this.literalSubtitles.render(captions, job.captionPreset, job.watermark, duration),
+            'utf8',
+        );
+
+        return 'captions.ass:fontsdir=fonts';
     }
 
     /** #rrggbb → &H00BBGGRR (ordem invertida do .ass). Cor inválida cai no branco. */

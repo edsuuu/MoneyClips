@@ -2,6 +2,12 @@ import type { Request, Response } from 'express';
 
 import { ValidationError } from '@/Exceptions/ValidationError';
 import type { Transcript } from '@/Services/Caption/SubtitleBuilder';
+import {
+    CAPTION_POSITIONS,
+    CAPTION_PRESETS,
+    CAPTION_STYLES,
+    type ReframeCaption,
+} from '@/Services/Reframe/LiteralSubtitleBuilder';
 import type { ReframeKeyframe } from '@/Services/Reframe/ReframeFilterBuilder';
 import { ReframeQueueService } from '@/Services/Reframe/ReframeQueueService';
 
@@ -14,6 +20,9 @@ interface CreateReframeRequest {
     keyframes?: unknown;
     settings?: unknown;
     transcript?: unknown;
+    captions?: unknown;
+    caption_preset?: unknown;
+    watermark?: unknown;
     webhook_url?: unknown;
 }
 
@@ -38,8 +47,12 @@ export class ReframeController {
             ? (body.keyframes as ReframeKeyframe[])
             : [];
         const settings = (body.settings ?? {}) as Record<string, unknown>;
+        const captionPreset = ReframeController.str(body.caption_preset);
+        const preset = CAPTION_PRESETS.find((name) => name === captionPreset) ?? null;
+        const watermark = ReframeController.str(body.watermark);
 
         const errors: Record<string, string> = {};
+        const captions = ReframeController.captions(body.captions, errors);
 
         if (editUuid === '') {
             errors['edit_uuid'] = 'edit_uuid obrigatório: como o Laravel acha a edição.';
@@ -59,6 +72,16 @@ export class ReframeController {
 
         if (keyframes.length === 0) {
             errors['keyframes'] = 'keyframes obrigatórios: pelo menos um.';
+        }
+
+        if (captionPreset !== '' && preset === null) {
+            errors['caption_preset'] =
+                `caption_preset inválido: use ${CAPTION_PRESETS.join(', ')}.`;
+        }
+
+        if ((captionPreset !== '' || watermark !== '') && captions === null) {
+            errors['captions'] ??=
+                'caption_preset e watermark só valem com captions[] (legenda literal).';
         }
 
         if (Object.keys(errors).length > 0) {
@@ -81,6 +104,9 @@ export class ReframeController {
                 typeof body.transcript === 'object' && body.transcript !== null
                     ? (body.transcript as Transcript)
                     : null,
+            captions,
+            captionPreset: preset,
+            watermark,
             webhookUrl,
         });
 
@@ -89,6 +115,69 @@ export class ReframeController {
 
     private static str(value: unknown): string {
         return typeof value === 'string' ? value.trim() : '';
+    }
+
+    /**
+     * Ausente = legenda karaokê de antes (null). Presente, cada bloco é
+     * conferido aqui: erro vira 422 no enqueue, não falha no meio do render.
+     */
+    private static captions(
+        value: unknown,
+        errors: Record<string, string>,
+    ): ReframeCaption[] | null {
+        if (value === undefined || value === null) {
+            return null;
+        }
+
+        if (!Array.isArray(value)) {
+            errors['captions'] = 'captions precisa ser uma lista de blocos.';
+
+            return null;
+        }
+
+        const captions: ReframeCaption[] = [];
+
+        for (const [index, item] of value.entries()) {
+            const block: Record<string, unknown> =
+                typeof item === 'object' && item !== null ? item : {};
+            const times: unknown[] = Array.isArray(block['t']) ? block['t'] : [];
+            const [start, end] = times;
+            const validTimes =
+                times.length === 2 &&
+                typeof start === 'number' &&
+                typeof end === 'number' &&
+                Number.isFinite(start) &&
+                start < end &&
+                Number.isFinite(end);
+            const text = typeof block['text'] === 'string' ? block['text'] : '';
+            const style = CAPTION_STYLES.find((name) => name === (block['style'] ?? 'speech'));
+            const pos = CAPTION_POSITIONS.find((name) => name === (block['pos'] ?? 'bottom'));
+
+            if (!validTimes) {
+                errors[`captions.${String(index)}.t`] =
+                    't precisa ser [início, fim] em segundos, com início < fim.';
+            }
+
+            if (text.trim() === '') {
+                errors[`captions.${String(index)}.text`] = 'text obrigatório.';
+            }
+
+            if (style === undefined) {
+                errors[`captions.${String(index)}.style`] =
+                    `style inválido: use ${CAPTION_STYLES.join(', ')}.`;
+            }
+
+            if (pos === undefined) {
+                errors[`captions.${String(index)}.pos`] =
+                    `pos inválido: use ${CAPTION_POSITIONS.join(', ')}.`;
+            }
+
+            if (validTimes && style !== undefined && pos !== undefined) {
+                captions.push({ t: [start, end], text, style, pos });
+            }
+        }
+
+        return captions;
     }
 
     /**

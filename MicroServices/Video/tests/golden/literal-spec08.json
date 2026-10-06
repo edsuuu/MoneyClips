@@ -1,0 +1,887 @@
+{
+    "duration": 123.01,
+    "watermark": "@unkvoid_clips",
+    "captions": [
+        {
+            "t": [
+                0.0,
+                0.64
+            ],
+            "text": "qual a comida"
+        },
+        {
+            "t": [
+                0.64,
+                1.29
+            ],
+            "text": "favorita"
+        },
+        {
+            "t": [
+                1.29,
+                2.09
+            ],
+            "text": "do Haaland?"
+        },
+        {
+            "t": [
+                3.49,
+                4.39
+            ],
+            "text": "ah vai se..."
+        },
+        {
+            "t": [
+                5.46,
+                6.56
+            ],
+            "text": "opa deu azar hein"
+        },
+        {
+            "t": [
+                6.56,
+                7.14
+            ],
+            "text": "falei"
+        },
+        {
+            "t": [
+                7.74,
+                8.79
+            ],
+            "text": "eu posso pedir"
+        },
+        {
+            "t": [
+                8.79,
+                9.34
+            ],
+            "text": "uma dica"
+        },
+        {
+            "t": [
+                9.34,
+                10.29
+            ],
+            "text": "dos universitários?"
+        },
+        {
+            "t": [
+                10.56,
+                11.29
+            ],
+            "text": "Michael Jackson"
+        },
+        {
+            "t": [
+                11.29,
+                11.79
+            ],
+            "text": "mas aí você"
+        },
+        {
+            "t": [
+                11.79,
+                12.74
+            ],
+            "text": "vai errar muito"
+        },
+        {
+            "t": [
+                13.0,
+                13.94
+            ],
+            "text": "qual a comida"
+        },
+        {
+            "t": [
+                13.94,
+                14.56
+            ],
+            "text": "preferida"
+        },
+        {
+            "t": [
+                14.56,
+                15.16
+            ],
+            "text": "do Haaland?"
+        },
+        {
+            "t": [
+                15.16,
+                15.82
+            ],
+            "text": "você sabe?"
+        },
+        {
+            "t": [
+                15.84,
+                16.36
+            ],
+            "text": "não sabe nem"
+        },
+        {
+            "t": [
+                16.36,
+                16.69
+            ],
+            "text": "quem é Haaland"
+        },
+        {
+            "t": [
+                16.69,
+                17.59
+            ],
+            "text": "sabe quem é Haaland?"
+        },
+        {
+            "t": [
+                18.12,
+                19.14
+            ],
+            "text": "opa aqui ó"
+        },
+        {
+            "t": [
+                19.14,
+                19.76
+            ],
+            "text": "olha o Castanhari"
+        },
+        {
+            "t": [
+                19.76,
+                20.59
+            ],
+            "text": "colando aqui"
+        },
+        {
+            "t": [
+                21.08,
+                22.16
+            ],
+            "text": "pesquisando pesquisando"
+        },
+        {
+            "t": [
+                22.16,
+                22.66
+            ],
+            "text": "vem vem vem"
+        },
+        {
+            "t": [
+                22.66,
+                23.59
+            ],
+            "text": "pesquisando aqui"
+        },
+        {
+            "t": [
+                23.64,
+                24.38
+            ],
+            "text": "tá pesquisando aqui"
+        },
+        {
+            "t": [
+                24.38,
+                24.72
+            ],
+            "text": "sabe por que"
+        },
+        {
+            "t": [
+                24.72,
+                25.32
+            ],
+            "text": "eu peguei o celular"
+        },
+        {
+            "t": [
+                25.32,
+                25.64
+            ],
+            "text": "e falei"
+        },
+        {
+            "t": [
+                25.64,
+                26.0
+            ],
+            "text": "qual a comida..."
+        },
+        {
+            "t": [
+                26.0,
+                26.7
+            ],
+            "text": "tá pesquisando aqui"
+        },
+        {
+            "t": [
+                26.7,
+                27.16
+            ],
+            "text": "você falou"
+        },
+        {
+            "t": [
+                27.16,
+                27.9
+            ],
+            "text": "do meu lado rapaz"
+        },
+        {
+            "t": [
+                27.9,
+                28.72
+            ],
+            "text": "mas eu falei"
+        },
+        {
+            "t": [
+                28.72,
+                29.2
+            ],
+            "text": "Haaland"
+        },
+        {
+            "t": [
+                29.2,
+                29.74
+            ],
+            "text": "eu queria saber"
+        },
+        {
+            "t": [
+                29.74,
+                30.52
+            ],
+            "text": "a comida preferida"
+        },
+        {
+            "t": [
+                30.52,
+                31.26
+            ],
+            "text": "da Xuxa"
+        },
+        {
+            "t": [
+                31.26,
+                32.06
+            ],
+            "text": "eu vou chutar..."
+        },
+        {
+            "t": [
+                32.12,
+                33.24
+            ],
+            "text": "*a cola saiu cara*",
+            "style": "note"
+        },
+        {
+            "t": [
+                33.28,
+                34.22
+            ],
+            "text": "monta nele Michael"
+        },
+        {
+            "t": [
+                34.78,
+                35.36
+            ],
+            "text": "pode"
+        },
+        {
+            "t": [
+                35.38,
+                36.56
+            ],
+            "text": "eu mato você"
+        },
+        {
+            "t": [
+                36.64,
+                37.44
+            ],
+            "text": "a comida preferida"
+        },
+        {
+            "t": [
+                37.44,
+                38.06
+            ],
+            "text": "do Haaland"
+        },
+        {
+            "t": [
+                38.08,
+                39.2
+            ],
+            "text": "ele tem cara"
+        },
+        {
+            "t": [
+                39.2,
+                40.2
+            ],
+            "text": "que gosta muito"
+        },
+        {
+            "t": [
+                40.2,
+                41.86
+            ],
+            "text": "de uma lasanha"
+        },
+        {
+            "t": [
+                41.9,
+                42.59
+            ],
+            "text": "não é possível"
+        },
+        {
+            "t": [
+                42.94,
+                43.59
+            ],
+            "text": "rodamos"
+        },
+        {
+            "t": [
+                44.94,
+                45.72
+            ],
+            "text": "vamos ver"
+        },
+        {
+            "t": [
+                45.72,
+                46.44
+            ],
+            "text": "o que vai cair"
+        },
+        {
+            "t": [
+                47.88,
+                48.54
+            ],
+            "text": "soquinho"
+        },
+        {
+            "t": [
+                50.14,
+                51.04
+            ],
+            "text": "oloco meteram"
+        },
+        {
+            "t": [
+                51.04,
+                51.9
+            ],
+            "text": "um soco mútuo"
+        },
+        {
+            "t": [
+                51.9,
+                52.44
+            ],
+            "text": "é novidade"
+        },
+        {
+            "t": [
+                52.44,
+                53.18
+            ],
+            "text": "ah então é eu"
+        },
+        {
+            "t": [
+                53.18,
+                53.5
+            ],
+            "text": "e o Michael"
+        },
+        {
+            "t": [
+                53.5,
+                53.96
+            ],
+            "text": "é verdade"
+        },
+        {
+            "t": [
+                54.6,
+                55.22
+            ],
+            "text": "ah nós dois?"
+        },
+        {
+            "t": [
+                55.28,
+                55.78
+            ],
+            "text": "nós dois"
+        },
+        {
+            "t": [
+                55.78,
+                56.84
+            ],
+            "text": "quer dividir"
+        },
+        {
+            "t": [
+                56.84,
+                57.46
+            ],
+            "text": "um soco comigo?"
+        },
+        {
+            "t": [
+                57.74,
+                58.2
+            ],
+            "text": "quero"
+        },
+        {
+            "t": [
+                58.24,
+                59.16
+            ],
+            "text": "vamos lá? vamos lá?"
+        },
+        {
+            "t": [
+                59.18,
+                59.66
+            ],
+            "text": "bora"
+        },
+        {
+            "t": [
+                60.14,
+                61.22
+            ],
+            "text": "no três hein ó"
+        },
+        {
+            "t": [
+                61.36,
+                61.82
+            ],
+            "text": "um"
+        },
+        {
+            "t": [
+                62.0,
+                62.86
+            ],
+            "text": "peraí no três"
+        },
+        {
+            "t": [
+                62.86,
+                63.54
+            ],
+            "text": "no três mesmo?"
+        },
+        {
+            "t": [
+                63.58,
+                64.34
+            ],
+            "text": "não no três"
+        },
+        {
+            "t": [
+                64.34,
+                65.42
+            ],
+            "text": "três dois"
+        },
+        {
+            "t": [
+                65.42,
+                65.92
+            ],
+            "text": "um vai"
+        },
+        {
+            "t": [
+                65.92,
+                66.38
+            ],
+            "text": "tá bom?"
+        },
+        {
+            "t": [
+                66.4,
+                67.32
+            ],
+            "text": "só pra explicar"
+        },
+        {
+            "t": [
+                67.7,
+                68.44
+            ],
+            "text": "três dois"
+        },
+        {
+            "t": [
+                68.44,
+                68.9
+            ],
+            "text": "um vai"
+        },
+        {
+            "t": [
+                68.9,
+                69.34
+            ],
+            "text": "é no vai"
+        },
+        {
+            "t": [
+                69.34,
+                69.98
+            ],
+            "text": "é no vai"
+        },
+        {
+            "t": [
+                69.98,
+                70.46
+            ],
+            "text": "três dois"
+        },
+        {
+            "t": [
+                70.46,
+                70.92
+            ],
+            "text": "um vai"
+        },
+        {
+            "t": [
+                70.92,
+                71.38
+            ],
+            "text": "é no vai"
+        },
+        {
+            "t": [
+                71.44,
+                72.24
+            ],
+            "text": "é no vai"
+        },
+        {
+            "t": [
+                72.3,
+                72.9
+            ],
+            "text": "baixa mais"
+        },
+        {
+            "t": [
+                72.9,
+                73.46
+            ],
+            "text": "um pouco"
+        },
+        {
+            "t": [
+                73.88,
+                74.28
+            ],
+            "text": "então vai"
+        },
+        {
+            "t": [
+                74.28,
+                74.64
+            ],
+            "text": "vou fazer"
+        },
+        {
+            "t": [
+                74.64,
+                75.54
+            ],
+            "text": "na sua língua nativa"
+        },
+        {
+            "t": [
+                77.74,
+                78.8
+            ],
+            "text": "*moonwalk involuntário*",
+            "style": "note"
+        },
+        {
+            "t": [
+                78.86,
+                79.54
+            ],
+            "text": "nossa ele meteu..."
+        },
+        {
+            "t": [
+                79.54,
+                80.26
+            ],
+            "text": "ele desviou também"
+        },
+        {
+            "t": [
+                80.26,
+                81.42
+            ],
+            "text": "mano ele meteu..."
+        },
+        {
+            "t": [
+                81.42,
+                82.14
+            ],
+            "text": "tô falando"
+        },
+        {
+            "t": [
+                82.14,
+                82.44
+            ],
+            "text": "você viu?"
+        },
+        {
+            "t": [
+                82.44,
+                82.76
+            ],
+            "text": "ele meteu"
+        },
+        {
+            "t": [
+                82.76,
+                83.39
+            ],
+            "text": "o Michael Jackson"
+        },
+        {
+            "t": [
+                83.39,
+                83.96
+            ],
+            "text": "pra trás"
+        },
+        {
+            "t": [
+                84.06,
+                84.79
+            ],
+            "text": "ele desviou"
+        },
+        {
+            "t": [
+                84.79,
+                85.46
+            ],
+            "text": "mas caiu de nuca"
+        },
+        {
+            "t": [
+                85.48,
+                86.22
+            ],
+            "text": "não mudou nada"
+        },
+        {
+            "t": [
+                86.22,
+                86.46
+            ],
+            "text": "vai"
+        },
+        {
+            "t": [
+                86.46,
+                86.79
+            ],
+            "text": "one"
+        },
+        {
+            "t": [
+                86.79,
+                87.98
+            ],
+            "text": "mira aquí también"
+        },
+        {
+            "t": [
+                88.3,
+                89.39
+            ],
+            "text": "two"
+        },
+        {
+            "t": [
+                89.64,
+                90.42
+            ],
+            "text": "THREE"
+        },
+        {
+            "t": [
+                91.94,
+                94.14
+            ],
+            "text": "*smooth criminal em câmera lenta*",
+            "style": "note"
+        },
+        {
+            "t": [
+                98.74,
+                100.74
+            ],
+            "text": "*o Castanhari de camarote*",
+            "style": "note"
+        },
+        {
+            "t": [
+                101.58,
+                102.76
+            ],
+            "text": "já era"
+        },
+        {
+            "t": [
+                102.84,
+                105.04
+            ],
+            "text": "*beat it na versão literal*",
+            "style": "note"
+        },
+        {
+            "t": [
+                106.38,
+                107.04
+            ],
+            "text": "acabou"
+        },
+        {
+            "t": [
+                107.28,
+                107.96
+            ],
+            "text": "krl"
+        },
+        {
+            "t": [
+                108.14,
+                109.54
+            ],
+            "text": "você não bate nada"
+        },
+        {
+            "t": [
+                109.88,
+                110.74
+            ],
+            "text": "derrubou a lapela"
+        },
+        {
+            "t": [
+                110.74,
+                112.06
+            ],
+            "text": "você é muito fraco"
+        },
+        {
+            "t": [
+                112.64,
+                113.3
+            ],
+            "text": "oi Júlio"
+        },
+        {
+            "t": [
+                114.0,
+                115.14
+            ],
+            "text": "você é diferente"
+        },
+        {
+            "t": [
+                115.2,
+                116.96
+            ],
+            "text": "*levantou igual zumbi do Thriller*",
+            "style": "note"
+        },
+        {
+            "t": [
+                117.04,
+                117.6
+            ],
+            "text": "Thriller"
+        },
+        {
+            "t": [
+                117.62,
+                118.59
+            ],
+            "text": "as garotas"
+        },
+        {
+            "t": [
+                118.59,
+                119.39
+            ],
+            "text": "ficam doidas"
+        },
+        {
+            "t": [
+                119.39,
+                120.26
+            ],
+            "text": "quando elas me veem"
+        },
+        {
+            "t": [
+                120.26,
+                120.74
+            ],
+            "text": "elas dizem"
+        },
+        {
+            "t": [
+                120.74,
+                121.48
+            ],
+            "text": "é Thriller"
+        },
+        {
+            "t": [
+                121.48,
+                122.2
+            ],
+            "text": "é Thriller"
+        },
+        {
+            "t": [
+                122.2,
+                122.94
+            ],
+            "text": "THRILLER"
+        }
+    ]
+}
