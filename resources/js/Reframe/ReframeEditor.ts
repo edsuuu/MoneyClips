@@ -64,6 +64,7 @@ export class ReframeEditor {
         refreshUrl: () => Promise<string | null>;
         generateRender: () => Promise<string | null>;
         generateTracking: () => Promise<string | null>;
+        pollStatus: () => Promise<{ tracking: string | null; render: string | null }>;
     };
 
     public $dispatch!: (event: string, detail: unknown) => void;
@@ -85,6 +86,8 @@ export class ReframeEditor {
     private _raf = 0;
 
     private _urlTimer = 0;
+
+    private _statusTimer = 0;
 
     private _onVisibility!: () => void;
 
@@ -175,6 +178,8 @@ export class ReframeEditor {
 
         this._urlTimer = window.setInterval(() => void this.recoverVideoUrl(), 25 * 60 * 1000);
 
+        this._statusTimer = window.setInterval(() => void this.pollStatus(), 3000);
+
         if (this.videoUrl) {
             this._video.src = this.videoUrl;
         }
@@ -185,6 +190,7 @@ export class ReframeEditor {
     public destroy(): void {
         cancelAnimationFrame(this._raf);
         clearInterval(this._urlTimer);
+        clearInterval(this._statusTimer);
         document.removeEventListener('visibilitychange', this._onVisibility);
         window.removeEventListener('beforeunload', this._onBeforeUnload);
         this._video.pause();
@@ -742,7 +748,7 @@ export class ReframeEditor {
     }
 
     public async save(): Promise<void> {
-        if (this.saving || !this.duration) return;
+        if (this.saving || !this.ensureVideoLoaded()) return;
         this.saving = true;
 
         try {
@@ -768,7 +774,7 @@ export class ReframeEditor {
             });
             this.$dispatch('toast', {
                 message: 'Não foi possível salvar. Tente de novo.',
-                variant: 'error',
+                variant: 'danger',
             });
         } finally {
             this.saving = false;
@@ -776,7 +782,8 @@ export class ReframeEditor {
     }
 
     public async generate(): Promise<void> {
-        if (this.generating || this.renderStatus === 'generating' || !this.duration) return;
+        if (this.generating || this.renderStatus === 'generating' || !this.ensureVideoLoaded())
+            return;
         this.generating = true;
 
         try {
@@ -793,7 +800,7 @@ export class ReframeEditor {
             });
             this.$dispatch('toast', {
                 message: 'Não foi possível gerar o corte. Tente de novo.',
-                variant: 'error',
+                variant: 'danger',
             });
         } finally {
             this.generating = false;
@@ -801,9 +808,13 @@ export class ReframeEditor {
     }
 
     public async track(): Promise<void> {
-        if (this.tracking || this.trackingStatus === 'processing' || !this.duration) return;
+        if (this.tracking || this.trackingStatus === 'processing' || !this.ensureVideoLoaded())
+            return;
 
-        if (this.keyframes.length > 1 && !window.confirm('O tracking substitui todos os keyframes atuais. Continuar?')) {
+        if (
+            this.keyframes.length > 1 &&
+            !window.confirm('O tracking substitui todos os keyframes atuais. Continuar?')
+        ) {
             return;
         }
 
@@ -823,10 +834,51 @@ export class ReframeEditor {
             });
             this.$dispatch('toast', {
                 message: 'Não foi possível gerar o tracking. Tente de novo.',
-                variant: 'error',
+                variant: 'danger',
             });
         } finally {
             this.tracking = false;
+        }
+    }
+
+    private ensureVideoLoaded(): boolean {
+        if (this.duration) return true;
+
+        this.$dispatch('toast', {
+            message: 'O vídeo ainda não carregou. Recarregue a página e tente de novo.',
+            variant: 'danger',
+        });
+
+        return false;
+    }
+
+    private async pollStatus(): Promise<void> {
+        if (this.trackingStatus !== 'processing' && this.renderStatus !== 'generating') return;
+
+        try {
+            const status = await this.$wire.pollStatus();
+
+            if (this.trackingStatus === 'processing' && status.tracking !== 'processing') {
+                this.dirty = false;
+                window.location.reload();
+
+                return;
+            }
+
+            const rendering = this.renderStatus === 'generating';
+            this.renderStatus = status.render;
+
+            if (rendering && status.render !== 'generating') {
+                const ready = status.render === 'ready';
+                this.$dispatch('toast', {
+                    message: ready
+                        ? 'Corte editado pronto — ele está em /meus-videos.'
+                        : 'A geração do corte editado falhou. Tente de novo.',
+                    variant: ready ? 'success' : 'danger',
+                });
+            }
+        } catch (error) {
+            ClientLogger.send('warning', `Falha ao consultar o status: ${String(error)}`);
         }
     }
 

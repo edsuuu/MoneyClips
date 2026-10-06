@@ -308,13 +308,13 @@
 
             <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
                 <button type="button" x-on:click="track()"
-                    x-bind:disabled="tracking || trackingStatus === 'processing' || (editId === null && !dirty)"
+                    x-bind:disabled="tracking || trackingStatus === 'processing'"
                     class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-violet-400/40 bg-violet-400/10 px-4 py-2.5 text-sm font-bold text-violet-700 transition hover:bg-violet-400/20 disabled:pointer-events-none disabled:opacity-50 dark:text-violet-300">
                     <x-ui.icon name="sparkles" class="size-3.5" />
                     <span x-text="tracking || trackingStatus === 'processing' ? 'Rastreando…' : (trackingStatus === 'ready' ? 'Refazer tracking automático' : 'Gerar tracking automático')"></span>
                 </button>
                 <p class="mt-2 text-center text-[11.5px] text-slate-500">Segue o rosto de quem fala e cria os keyframes — dá pra ajustar tudo depois.</p>
-                <p class="mt-1 text-center text-[11.5px] text-sky-600 dark:text-sky-400/80" x-show="trackingStatus === 'processing'" x-cloak>Rodando em segundo plano — recarregue a página em instantes.</p>
+                <p class="mt-1 text-center text-[11.5px] text-sky-600 dark:text-sky-400/80" x-show="trackingStatus === 'processing'" x-cloak>Rodando em segundo plano — a tela atualiza sozinha quando terminar.</p>
                 <p class="mt-1 text-center text-[11.5px] text-amber-600 dark:text-amber-400/80" x-show="trackingStatus === 'failed'" x-cloak>O tracking falhou. Marque os keyframes à mão ou tente de novo.</p>
             </div>
 
@@ -325,7 +325,7 @@
                     <span x-text="saving ? 'Salvando…' : 'Salvar edição'"></span>
                 </button>
                 <button type="button" x-on:click="generate()"
-                    x-bind:disabled="generating || renderStatus === 'generating' || (editId === null && !dirty)"
+                    x-bind:disabled="generating || renderStatus === 'generating'"
                     class="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-[10px] bg-emerald-400 px-4 py-3 text-sm font-bold text-gray-950 transition hover:bg-emerald-300 disabled:pointer-events-none disabled:opacity-50">
                     <x-ui.icon name="scissors" class="size-3.5" />
                     <span x-text="generating || renderStatus === 'generating' ? 'Gerando…' : (renderStatus === 'ready' ? 'Gerar novamente' : 'Gerar corte editado')"></span>
