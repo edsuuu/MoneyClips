@@ -36,6 +36,8 @@
                     ['label' => 'Dashboard', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*'],
                     ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*'],
                     ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*'],
+                    ['label' => 'Contas', 'icon' => 'user-circle', 'route' => 'accounts.index', 'pattern' => 'accounts.*'],
+                    ['label' => 'Observabilidade', 'icon' => 'activity', 'route' => 'observability.index', 'pattern' => 'observability.*'],
                 ] as $item)
                     <li class="shrink-0" x-on:click="menuOpen = false">
                         <x-nav-item
@@ -53,7 +55,7 @@
         @auth
             <div class="ml-auto flex items-center gap-1">
                 <x-theme-toggle />
-                <x-user-menu align="end" class="w-44" />
+                <x-user-menu align="end" class="lg:w-44" />
             </div>
         @endauth
     </div>
