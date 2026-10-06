@@ -1,6 +1,6 @@
 import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { settings } from '@/Config/Env';
 import { FfmpegRunner } from '@/Services/Caption/FfmpegRunner';
@@ -13,7 +13,9 @@ import {
 import {
     ReframeFilterBuilder,
     type ReframeKeyframe,
+    type ReframeOverlay,
     type ReframeRenderSettings,
+    type ReframeSfx,
 } from '@/Services/Reframe/ReframeFilterBuilder';
 import { S3Storage } from '@/Services/S3Storage';
 import { SerialQueueService } from '@/Services/SerialQueueService';
@@ -32,6 +34,8 @@ export interface ReframeJob {
     captionPreset: CaptionPreset | null;
     watermark: string;
     webhookUrl: string;
+    overlays: ReframeOverlay[];
+    sfx: ReframeSfx[];
 }
 
 const VERTICAL_FONT_SCALE = 1.5;
@@ -66,11 +70,16 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
         try {
             await mkdir(jobDir, { recursive: true });
             await this.storage.download(job.sourceKey, join(jobDir, 'source'));
+            await this.downloadAssets(job, jobDir);
 
             const meta = await this.probe.read(join(jobDir, 'source'));
 
             if (!(meta.exactDurationSeconds > 0)) {
                 throw new Error('ffprobe não retornou a duração do clip.');
+            }
+
+            if (job.sfx.length > 0 && !meta.hasAudio) {
+                throw new Error('sfx[] mistura sobre a voz, e o clip não tem faixa de áudio.');
             }
 
             const ass =
@@ -91,7 +100,11 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                 meta.exactDurationSeconds,
                 meta.fps,
                 ass,
+                job.overlays,
+                job.sfx,
             );
+            const audioMap = job.sfx.length === 0 ? '0:a?' : '[aout]';
+            const audioCodec = job.sfx.length === 0 ? ['copy'] : ['aac', '-b:a', '192k'];
 
             await this.ffmpeg.runWithFallback(
                 (encoderArgs) => [
@@ -99,15 +112,16 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                     '-y',
                     '-i',
                     'source',
+                    ...this.filters.inputArgs(job.overlays, job.sfx),
                     '-filter_complex',
                     filter,
                     '-map',
                     '[vout]',
                     '-map',
-                    '0:a?',
+                    audioMap,
                     ...encoderArgs,
                     '-c:a',
-                    'copy',
+                    ...audioCodec,
                     '-movflags',
                     '+faststart',
                     'out.mp4',
@@ -210,6 +224,19 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
 
     private assTransform(captionCase: string): 'upper' | 'lower' | 'none' {
         return ({ lower: 'lower', sentence: 'none' } as const)[captionCase] ?? 'upper';
+    }
+
+    /** A key vira caminho local: só é seguro porque o controller barra segmento `.`/`..` e prefixo fora de assets/. */
+    private async downloadAssets(job: ReframeJob, jobDir: string): Promise<void> {
+        const keys = new Set([
+            ...job.overlays.map((overlay) => overlay.key),
+            ...job.sfx.map((item) => item.key),
+        ]);
+
+        for (const key of keys) {
+            await mkdir(dirname(join(jobDir, key)), { recursive: true });
+            await this.storage.download(key, join(jobDir, key));
+        }
     }
 
     private workRoot(): string {

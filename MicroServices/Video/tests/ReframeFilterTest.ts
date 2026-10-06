@@ -114,4 +114,44 @@ const region = (
     );
 }
 
+{
+    const keyframes: ReframeKeyframe[] = Array.from({ length: 216 }, (_, index) => ({
+        t: index * 0.1,
+        mode: 'vertical',
+        regions: [region(index % 2 === 0 ? 0.1 : 0.4, 0, 0.3164, 1)],
+    }));
+    const graph = builder.build(keyframes, BACKGROUND, 1920, 1080, 22, 30, null);
+    const depths = [...graph.matchAll(/x='([^']*)'/gu)].map((match) => {
+        let depth = 0;
+        let deepest = 0;
+
+        for (const char of match[1]!) {
+            if (char === '(') {
+                depth += 1;
+                deepest = Math.max(deepest, depth);
+            }
+
+            if (char === ')') {
+                depth -= 1;
+            }
+        }
+
+        return deepest;
+    });
+
+    assert.match(graph, /split=3\[b0\]\[b1\]\[b2\]/, '216 keyframes viram 3 pedaços');
+    assert.match(graph, /\[b0\]trim=start=0:end=7\.9,/, 'o 1º pedaço vai até o 80º keyframe');
+    assert.match(
+        graph,
+        /\[b1\]trim=start=7\.9:end=15\.8,setpts=PTS-STARTPTS,pad=[^,]+,zoompan=z='[^']+':x='if\(lt\(\(in\/30\),0\),768,/,
+        'o 2º pedaço começa no último keyframe do 1º (x=0.4 → 768px)',
+    );
+    assert.match(graph, /\[b2\]trim=start=15\.8:end=22,/, 'o último pedaço vai até o fim');
+    assert.match(graph, /concat=n=3:v=1:a=0\[vout\]$/, 'o concat costura os pedaços');
+    assert.ok(
+        depths.every((depth) => depth <= 90),
+        `aninhamento até 90 (o ffmpeg 8.1 recusa a partir de 97): ${depths.join(',')}`,
+    );
+}
+
 console.log('ReframeFilterTest: ok');
