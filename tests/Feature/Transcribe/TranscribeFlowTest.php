@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Enums\TranscriptionStatusEnum;
+use App\Enums\VideoCutStatusEnum;
 use App\Jobs\StartTranscribeJob;
 use App\Models\File;
 use App\Models\User;
@@ -139,4 +140,43 @@ it('is idempotent once the transcription is terminal', function (): void {
     ], $this->headers)->assertOk()->assertJson(['status' => 'already-finished']);
 
     expect(File::query()->where('type', File::TRANSCRIPT)->count())->toBe(0);
+});
+
+it('keeps the video processing when the transcript cannot be stored', function (): void {
+    Storage::shouldReceive('disk->put')->andThrow(new RuntimeException('s3 fora'));
+
+    $video = Video::factory()->ready()->create(['transcription_status' => TranscriptionStatusEnum::Processing]);
+
+    $this->postJson('/api/webhook/transcribe', [
+        'uuid' => $video->uuid,
+        'status' => 'done',
+        'transcript' => ['language' => 'pt', 'segments' => []],
+    ], $this->headers)->assertServerError();
+
+    expect($video->fresh()?->transcription_status)->toBe(TranscriptionStatusEnum::Processing)
+        ->and($video->file(File::TRANSCRIPT))->toBeNull();
+});
+
+it('keeps the cut processing when its transcript cannot be stored', function (): void {
+    Storage::shouldReceive('disk->put')->andThrow(new RuntimeException('s3 fora'));
+
+    $video = Video::factory()->ready()->create();
+    $cut = $video->cuts()->create([
+        'start_seconds' => 5,
+        'end_seconds' => 65,
+        'status' => VideoCutStatusEnum::Ready,
+        'transcription_status' => TranscriptionStatusEnum::Processing,
+    ]);
+
+    $this->postJson('/api/webhook/transcribe', [
+        'uuid' => $cut->uuid,
+        'status' => 'done',
+        'transcript' => ['language' => 'pt', 'segments' => []],
+    ], $this->headers)->assertServerError();
+
+    expect($cut->fresh()?->transcription_status)->toBe(TranscriptionStatusEnum::Processing);
+});
+
+it('waits longer than the worker timeout before re-reserving a database job', function (): void {
+    expect(config('queue.connections.database.retry_after'))->toBeGreaterThan(1800);
 });

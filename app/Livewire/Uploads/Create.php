@@ -66,6 +66,8 @@ final class Create extends Component
 
     public function confirmYoutubeImport(): void
     {
+        $this->validate();
+
         if ($this->youtubePreview === null) {
             return;
         }
