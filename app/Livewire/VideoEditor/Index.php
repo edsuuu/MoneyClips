@@ -13,6 +13,7 @@ use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\View\View;
+use Livewire\Attributes\Renderless;
 use Livewire\Component;
 
 final class Index extends Component
@@ -103,9 +104,7 @@ final class Index extends Component
      */
     public function generateRender(): ?string
     {
-        $edit = $this->editId !== null
-            ? VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
-            : null;
+        $edit = $this->currentEdit();
 
         if (! $edit instanceof VideoCutEdit) {
             $this->toast('Salve a edição antes de gerar o corte.', 'danger');
@@ -148,9 +147,7 @@ final class Index extends Component
      */
     public function generateTracking(): ?string
     {
-        $edit = $this->editId !== null
-            ? VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
-            : null;
+        $edit = $this->currentEdit();
 
         if (! $edit instanceof VideoCutEdit) {
             $this->toast('Salve a edição antes de gerar o tracking.', 'danger');
@@ -180,9 +177,28 @@ final class Index extends Component
         }
 
         dispatch(new StartFaceTrackingJob($edit->id));
-        $this->toast('Tracking em andamento — recarregue em instantes pra ver os keyframes.');
+        $this->toast('Tracking em andamento — a tela atualiza sozinha quando terminar.');
 
         return TranscriptionStatusEnum::Processing->value;
+    }
+
+    /** @return array{tracking: ?string, render: ?string} */
+    #[Renderless]
+    public function pollStatus(): array
+    {
+        $edit = $this->currentEdit();
+
+        return [
+            'tracking' => $edit?->tracking_status?->value,
+            'render' => $edit?->render_status?->value,
+        ];
+    }
+
+    private function currentEdit(): ?VideoCutEdit
+    {
+        return $this->editId !== null
+            ? VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
+            : null;
     }
 
     private function latestEditId(): ?int
@@ -201,9 +217,7 @@ final class Index extends Component
      */
     private function editorPayload(): array
     {
-        $edit = $this->editId !== null
-            ? VideoCutEdit::query()->where('video_cut_id', $this->cut->id)->find($this->editId)
-            : null;
+        $edit = $this->currentEdit();
 
         $settings = $edit->settings ?? [];
         $speakerColors = $this->sanitizeSpeakerColors($settings['speakerColors'] ?? null);
