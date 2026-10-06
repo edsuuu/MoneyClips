@@ -77,6 +77,18 @@ it('writes the keyframes onto the edit the operator will open', function (): voi
         ->and($fresh?->mode)->toBe('vertical');
 });
 
+it('keeps the AI edit spec when tracking runs again', function (): void {
+    $edit = makeTrackingEdit();
+    $spec = ['version' => 1, 'caption_preset' => 'verde', 'cuts' => [], 'captions' => [], 'punches' => [['t' => [1.0, 1.5], 'kind' => 'punch']], 'title' => 'título', 'hashtags' => ['#a', '#b', '#c', '#d']];
+    $edit->update(['spec' => $spec]);
+
+    $this->postJson('/api/webhook/face-tracking', trackingPayload($edit->uuid), $this->headers)
+        ->assertOk();
+
+    expect($edit->fresh()?->spec)->toEqual($spec)
+        ->and($edit->fresh()?->keyframes)->toHaveCount(2);
+});
+
 it('seeds one caption color per detected speaker without touching the other settings', function (): void {
     $edit = makeTrackingEdit();
     $edit->update(['settings' => ['version' => 1, 'background' => '#101010', 'captionColor' => '#abcdef']]);

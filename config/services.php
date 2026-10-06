@@ -102,6 +102,7 @@ return [
             'VIDEO_CUT_EDIT_WEBHOOK_URL',
             mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/video-cut-edit',
         ),
+        'watermark' => env('VIDEO_CUT_EDIT_WATERMARK', '@unkvoid_clips'),
     ],
 
     'observability' => [
