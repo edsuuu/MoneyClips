@@ -8,6 +8,7 @@ from typing import Any
 
 from app.config.settings import settings
 from app.transcription.device import resolve_device
+from app.transcription.filters import is_hallucination, normalize
 
 logger = logging.getLogger("media.transcription.transcribe")
 
@@ -45,10 +46,15 @@ def transcribe(audio_path: Path, transcript_out: Path) -> dict[str, Any]:
         word_timestamps=True,
         vad_filter=True,
         beam_size=5,
+        condition_on_previous_text=False,
     )
 
     segments: list[dict[str, Any]] = []
+    previous_text: str | None = None
     for seg in segments_gen:
+        if is_hallucination(seg.text, previous_text):
+            continue
+        previous_text = normalize(seg.text)
         words = [
             {
                 "word": w.word,

@@ -156,6 +156,9 @@ def video_metadata(url: str) -> VideoMetadataResponse:
     status_code=status.HTTP_202_ACCEPTED,
 )
 def create_video_download(payload: VideoDownloadRequest) -> VideoDownloadAcceptedResponse:
+    if not payload.video_key.startswith("videos/") or ".." in payload.video_key:
+        raise HTTPException(status_code=400, detail="video_key must be under videos/")
+
     url = str(payload.url)
     if extract_video_id(url) is None:
         raise HTTPException(status_code=400, detail="not a youtube video url")
