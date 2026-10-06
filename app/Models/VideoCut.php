@@ -24,9 +24,13 @@ use Throwable;
  * @property int $id
  * @property string $uuid
  * @property int $video_id
- * @property int $start_seconds
- * @property int $end_seconds
+ * @property float $start_seconds
+ * @property float $end_seconds
  * @property bool $is_ai_generated
+ * @property int|null $score
+ * @property string|null $reason
+ * @property string|null $title
+ * @property array<int, string>|null $hashtags
  * @property VideoCutStatusEnum $status
  * @property TranscriptionStatusEnum|null $transcription_status
  * @property Carbon|null $edited_at
@@ -44,7 +48,7 @@ final class VideoCut extends Model
 
     protected $fillable = [
         'uuid', 'video_id', 'start_seconds', 'end_seconds',
-        'is_ai_generated', 'status', 'transcription_status', 'edited_at', 'error',
+        'is_ai_generated', 'score', 'reason', 'title', 'hashtags', 'status', 'transcription_status', 'edited_at', 'error',
     ];
 
     protected $attributes = ['status' => 'draft'];
@@ -110,9 +114,10 @@ final class VideoCut extends Model
     protected function casts(): array
     {
         return [
-            'start_seconds' => 'integer',
-            'end_seconds' => 'integer',
+            'start_seconds' => 'float',
+            'end_seconds' => 'float',
             'is_ai_generated' => 'boolean',
+            'hashtags' => 'array',
             'status' => VideoCutStatusEnum::class,
             'transcription_status' => TranscriptionStatusEnum::class,
             'edited_at' => 'datetime',

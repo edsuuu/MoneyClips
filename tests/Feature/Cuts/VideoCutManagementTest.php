@@ -23,8 +23,8 @@ it('persists a cut with integer bounds and draft status', function (): void {
 
     $cut = $video->cuts()->sole();
 
-    expect($cut->start_seconds)->toBe(5)
-        ->and($cut->end_seconds)->toBe(30)
+    expect($cut->start_seconds)->toBe(5.0)
+        ->and($cut->end_seconds)->toBe(30.0)
         ->and($cut->status)->toBe(VideoCutStatusEnum::Draft)
         ->and($cut->is_ai_generated)->toBeFalse()
         ->and($cut->uuid)->not->toBeEmpty();
@@ -201,4 +201,16 @@ it('claims the cut and dispatches the render job exactly once', function (): voi
         ->and($cut->error)->toBeNull();
 
     Bus::assertDispatchedTimes(StartCutRenderJob::class, 1);
+});
+
+it('keeps a decimal cut untouched when the range is confirmed without changes', function (): void {
+    $video = Video::factory()->ready()->create(['duration_seconds' => 2000]);
+    $cut = $video->cuts()->create(['start_seconds' => 100.42, 'end_seconds' => 179.77, 'status' => VideoCutStatusEnum::Ready]);
+
+    Livewire::actingAs($video->user)
+        ->test(Show::class, ['uuid' => $video->uuid])
+        ->call('updateCut', $cut->id, '01:40', '02:59');
+
+    expect($cut->fresh()?->start_seconds)->toBe(100.42)
+        ->and($cut->fresh()?->status)->toBe(VideoCutStatusEnum::Ready);
 });

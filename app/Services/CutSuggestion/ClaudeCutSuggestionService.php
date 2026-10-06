@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\CutSuggestion;
 
 use App\Exceptions\ClaudeException;
+use App\Helpers\Hashtags;
 use App\Models\Video;
 use App\Services\API\Claude\ClaudeService;
 use JsonException;
@@ -52,7 +53,9 @@ final readonly class ClaudeCutSuggestionService implements CutSuggestionInterfac
                 (float) ($candidate['start'] ?? 0),
                 (float) ($candidate['end'] ?? 0),
                 max(0, min(10, (int) ($candidate['score'] ?? 0))),
-                sprintf('%s — %s', (string) ($candidate['title'] ?? ''), (string) ($candidate['arc'] ?? '')),
+                (string) ($candidate['arc'] ?? ''),
+                mb_substr(mb_trim((string) ($candidate['title'] ?? '')), 0, 150),
+                Hashtags::parse(implode(' ', array_filter((array) ($candidate['hashtags'] ?? []), is_string(...)))),
             );
         }
 

@@ -8,6 +8,7 @@ use App\Enums\TranscriptionStatusEnum;
 use App\Models\Video;
 use App\Models\VideoCut;
 use App\Services\API\Discord\DiscordNotifierService;
+use App\Services\CutSuggestion\CutSuggestionData;
 use App\Services\CutSuggestion\CutSuggestionInterface;
 use App\Services\CutSuggestion\CutSuggestionValidatorService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -71,29 +72,28 @@ final class SuggestCutsJob implements ShouldQueue
         // timestamp fora do vídeo geraria corte que o ffmpeg não corta.
         throw_if($duration <= 0.0, RuntimeException::class, sprintf('Vídeo #%d não tem duração conhecida.', $video->id));
 
-        $raw = $provider->suggest($video, $this->transcriptFor($video), $this->prompt);
-        $suggestions = $validator->validate($raw, $duration);
+        $transcript = $this->transcriptFor($video);
+        $raw = $provider->suggest($video, $transcript, $this->prompt);
+        $aligned = array_map(
+            fn (CutSuggestionData $suggestion): CutSuggestionData => $suggestion->withBounds(...$this->alignToWords($transcript, $suggestion->start, $suggestion->end)),
+            $raw,
+        );
+        $suggestions = $validator->validate($aligned, $duration);
 
         $created = DB::transaction(function () use ($video, $raw, $suggestions): int {
             $created = 0;
 
             foreach ($suggestions as $suggestion) {
-                $start = (int) floor($suggestion->start);
-                $end = (int) ceil($suggestion->end);
-                if ($end - $start < 1) {
-                    continue;
-                }
+                $start = $suggestion->start;
+                $end = $suggestion->end;
 
                 if ($end - $start > VideoCut::MAX_DURATION_SECONDS) {
                     continue;
                 }
 
-                // ponytail: 1s de folga = o floor/ceil da coluna inteira — dois cortes
-                // que se encostam (509.7) viram 395–510 e 509–614. Some quando os
-                // segundos forem decimais.
                 $overlaps = $video->cuts()
-                    ->where('start_seconds', '<', $end - 1)
-                    ->where('end_seconds', '>', $start + 1)
+                    ->where('start_seconds', '<', $end)
+                    ->where('end_seconds', '>', $start)
                     ->exists();
 
                 if ($overlaps) {
@@ -104,6 +104,10 @@ final class SuggestCutsJob implements ShouldQueue
                     'start_seconds' => $start,
                     'end_seconds' => $end,
                     'is_ai_generated' => true,
+                    'score' => $suggestion->score,
+                    'reason' => $suggestion->reason === '' ? null : $suggestion->reason,
+                    'title' => $suggestion->title === '' ? null : $suggestion->title,
+                    'hashtags' => $suggestion->hashtags === [] ? null : $suggestion->hashtags,
                 ]);
 
                 $created++;
@@ -166,6 +170,46 @@ final class SuggestCutsJob implements ShouldQueue
             '❌ Sugestão de cortes falhou',
             sprintf('Vídeo #%d%s%s', $this->videoId, PHP_EOL, $error),
         );
+    }
+
+    /**
+     * Estende a borda que cai no meio de uma palavra até a borda dela; a
+     * risada depois da última palavra, que a IA incluiu de propósito, fica.
+     * Sem palavras com tempo, mantém o que a IA devolveu.
+     *
+     * @param  array<mixed>  $transcript
+     * @return array{float, float}
+     */
+    private function alignToWords(array $transcript, float $start, float $end): array
+    {
+        $first = null;
+        $last = null;
+
+        foreach ((array) ($transcript['segments'] ?? []) as $segment) {
+            if (! is_array($segment)) {
+                continue;
+            }
+
+            foreach ((array) ($segment['words'] ?? []) as $word) {
+                if (! is_array($word) || ! isset($word['start'], $word['end'])) {
+                    continue;
+                }
+
+                if ($first === null && (float) $word['end'] > $start) {
+                    $first = (float) $word['start'];
+                }
+
+                if ((float) $word['start'] < $end) {
+                    $last = (float) $word['end'];
+                }
+            }
+        }
+
+        if ($first === null || $last === null || $last <= $first) {
+            return [$start, $end];
+        }
+
+        return [min($start, $first), max($end, $last)];
     }
 
     /**

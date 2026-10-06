@@ -40,5 +40,6 @@ Choque cultural e gringos, humor caótico, prendas e desafios, respostas absurda
 - `arc`: setup -> escalada -> punchline(s) -> risada, com os tempos.
 - `laughs`: quantos picos de risada o trecho tem.
 - `score`: nota honesta de 0 a 10 de potencial viral para este canal.
+- `hashtags`: de 3 a 5 hashtags do assunto do trecho, em minúsculas.
 
 Devolva todos os momentos que passam nas regras, do melhor para o pior, no máximo 12. Se nenhum passar, devolva a lista vazia.
