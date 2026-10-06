@@ -120,9 +120,18 @@ curl -X POST http://127.0.0.1:8770/face-tracking \
   -F 'video=@corte.mp4' \
   -F 'uuid=uuid-do-video-cut-edit' \
   -F 'webhook_url=https://app.com/api/webhook/face-tracking' \
-  -F 'max_keyframes=40'
+  -F 'max_keyframes=40' \
+  -F 'style=smooth'
 # 202 {"job_id":"...","status":"queued"}
 ```
+
+`style` e opcional: `smooth` (default, camera suave de sempre) ou `cuts`
+(estilo cortes: tomadas fixas com troca seca quando o locutor muda por >=0.5s
+ou ha corte de cena, zoom-base ate o rosto ocupar 28% da largura do recorte,
+max 2.3x, YuNet pra rosto pequeno e identidade por aparencia via SFace — a
+contagem de pessoas nao infla em corte de camera). Cada troca seca usa 2
+keyframes: em clip com muito corte, mande `max_keyframes` maior (ate 120,
+o teto do webhook no Laravel).
 
 Fila de 1 consumidor, com o MESMO `gpu_lock` da transcricao (MediaPipe e
 faster-whisper disputam a mesma GPU). Amostra o video a `FACE_TRACKING_SAMPLE_FPS`,
@@ -146,8 +155,17 @@ desfecho (com header `X-Observability-Token`):
 Para falhas, `{"uuid": "...", "status": "failed", "error": "...", "keyframes": [], "speakers": [], "source": null}`.
 
 O modelo `face_landmarker.task` (~3.7MB) e baixado sob demanda no primeiro job
-pra `FACE_TRACKING_MODELS_DIR` (fora do git). Self-check das funcoes puras
-(RDP, regiao, IoU) sem baixar modelo nenhum:
+pra `FACE_TRACKING_MODELS_DIR` (fora do git); o `style=cuts` baixa tambem os
+dois abaixo, do [OpenCV Zoo](https://github.com/opencv/opencv_zoo) fixado no
+commit `47534e2`:
+
+| Modelo | Tamanho | Uso | Licenca |
+| --- | --- | --- | --- |
+| `face_detection_yunet_2023mar.onnx` (YuNet, Shiqi Yu) | ~230KB | detecta rosto de qualquer tamanho | MIT |
+| `face_recognition_sface_2021dec.onnx` (SFace, Zhong et al.) | ~37MB | identidade por aparencia (contagem de pessoas estavel em corte de camera) | Apache-2.0 |
+
+Self-check das funcoes puras (RDP, regiao, IoU, tomadas, agrupamento) sem
+baixar modelo nenhum:
 
 ```bash
 .venv/bin/python -m app.facetracking.check
@@ -164,7 +182,7 @@ app/
   transcription/transcribe.py # faster-whisper (modelo lazy, word timestamps)
   transcription/device.py    # device por S.O. (macOS → cpu/int8)
   facetracking/worker.py     # fila de face tracking + webhook (mesmo gpu_lock)
-  facetracking/tracker.py    # MediaPipe + IoU + ASD + RDP (funcoes puras isoladas)
+  facetracking/tracker.py    # MediaPipe + IoU + ASD + RDP; style=cuts: YuNet + SFace + tomadas
   facetracking/check.py      # self-check sem mediapipe/modelo
   youtube/client.py          # wrappers yt_dlp (listagem, metadata, downloads)
   storage/client.py          # wrapper boto3 S3
@@ -184,6 +202,6 @@ app/
 | `WHISPER_DEVICE`/`WHISPER_COMPUTE_TYPE` | cuda/float16 em producao (macOS ignora e usa cpu/int8) |
 | `FACE_TRACKING_SAMPLE_FPS` | frames por segundo amostrados no face tracking |
 | `FACE_TRACKING_MAX_KEYFRAMES` | teto de keyframes quando o caller nao manda `max_keyframes` |
-| `FACE_TRACKING_MODELS_DIR` | onde o `face_landmarker.task` e baixado (fora do git) |
+| `FACE_TRACKING_MODELS_DIR` | onde os modelos (`face_landmarker.task`, YuNet, SFace) sao baixados (fora do git) |
 | `FACE_TRACKING_DELEGATE` | `auto` (GPU so em Linux/NVIDIA), `gpu` ou `cpu`; macOS sempre cpu |
 | `OBSERVABILITY_URL`/`OBSERVABILITY_TOKEN`/`SERVICE_NAME` | logs+heartbeat pro Laravel; o token tambem assina os webhooks de video longo e transcricao |

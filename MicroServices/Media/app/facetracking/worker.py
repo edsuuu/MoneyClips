@@ -31,6 +31,7 @@ class FaceTrackingJob:
     video_path: Path
     webhook_url: str
     max_keyframes: int
+    style: str
 
 
 class FaceTrackingWorker:
@@ -66,6 +67,7 @@ class FaceTrackingWorker:
                     sample_fps=settings.face_tracking_sample_fps,
                     models_dir=settings.face_tracking_models_dir,
                     delegate=settings.face_tracking_delegate,
+                    style=job.style,
                 )
         except Exception as exception:
             logger.exception("face tracking falhou (uuid=%s)", job.uuid)
