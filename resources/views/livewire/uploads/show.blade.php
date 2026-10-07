@@ -469,6 +469,52 @@
                                     </button>
                                 @endunless
                             </div>
+
+                            @if ($cut['canEditWithAi'])
+                                <div x-data="{ asking: false, request: '' }" class="mt-2 space-y-2">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <button
+                                            type="button"
+                                            x-on:click="asking = !asking"
+                                            @disabled($cut['isAiBusy'])
+                                            class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            <x-ui.icon name="sparkles" class="size-3.5" />
+                                            Editar com IA
+                                        </button>
+
+                                        @if (! is_null($cut['aiLabel']))
+                                            <span @class(['inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold', $cut['aiBadgeClass'] => true])>
+                                                @if ($cut['isAiBusy'])
+                                                    <x-ui.icon name="loading" class="size-2.5" />
+                                                @endif
+                                                {{ $cut['aiLabel'] }}
+                                            </span>
+                                        @endif
+                                    </div>
+
+                                    <div x-show="asking" x-cloak class="flex gap-2">
+                                        <input
+                                            type="text"
+                                            x-model="request"
+                                            maxlength="300"
+                                            placeholder="Pedido opcional pra IA (nomes certos, foco...)"
+                                            class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
+                                        />
+                                        <button
+                                            type="button"
+                                            x-on:click="$wire.editWithAi({{ $cut['id'] }}, request); asking = false"
+                                            class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500"
+                                        >
+                                            Editar
+                                        </button>
+                                    </div>
+
+                                    @if (! is_null($cut['aiError']))
+                                        <p class="text-xs break-words text-red-600 dark:text-red-400">{{ $cut['aiError'] }}</p>
+                                    @endif
+                                </div>
+                            @endif
                         </div>
                     @endforeach
                 </div>

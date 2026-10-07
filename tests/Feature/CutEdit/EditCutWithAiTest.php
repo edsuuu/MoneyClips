@@ -1,0 +1,247 @@
+<?php
+
+declare(strict_types=1);
+
+use App\Enums\TranscriptionStatusEnum;
+use App\Enums\VideoCutStatusEnum;
+use App\Exceptions\ClaudeException;
+use App\Jobs\EditCutWithAiJob;
+use App\Jobs\StartFaceTrackingJob;
+use App\Jobs\StartVideoCutEditRenderJob;
+use App\Livewire\Uploads\Show;
+use App\Livewire\VideoEditor\Index as VideoEditor;
+use App\Models\Video;
+use App\Models\VideoCut;
+use App\Models\VideoCutEdit;
+use Illuminate\Process\FakeProcessResult;
+use Illuminate\Process\PendingProcess;
+use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Process;
+use Illuminate\Support\Facades\Storage;
+use Livewire\Livewire;
+
+beforeEach(function (): void {
+    Storage::fake('s3');
+    config(['services.observability.token' => 'test-token']);
+    $this->fixture = json_decode((string) file_get_contents(__DIR__.'/fixtures/spec-17-sovaco-peixe.json'), true, 512, JSON_THROW_ON_ERROR);
+});
+
+function aiEditCut(array $fixture, array $attributes = []): VideoCut
+{
+    $video = Video::factory()->ready()->create(['name' => 'Bate ou Regaça | Programa Pânico']);
+    $cut = $video->cuts()->create([
+        'start_seconds' => 116,
+        'end_seconds' => 212,
+        'status' => VideoCutStatusEnum::Ready,
+        'transcription_status' => TranscriptionStatusEnum::Ready,
+        ...$attributes,
+    ]);
+
+    Storage::disk('s3')->put($cut->transcriptPath(), (string) json_encode([
+        'segments' => [['start' => 0.0, 'end' => 96.0, 'text' => 'transcrição', 'words' => $fixture['words']]],
+    ]));
+
+    return $cut;
+}
+
+function aiEditFor(VideoCut $cut, array $attributes = []): VideoCutEdit
+{
+    return VideoCutEdit::factory()->create([
+        'video_cut_id' => $cut->id,
+        'source_meta' => ['width' => 1920, 'height' => 1080, 'duration' => 96.0],
+        'ai_status' => TranscriptionStatusEnum::Processing,
+        'ai_request' => 'o loiro é o Castanhari',
+        'tracking_status' => TranscriptionStatusEnum::Ready,
+        ...$attributes,
+    ]);
+}
+
+function claudeEditResult(array $structuredOutput, bool $isError = false): FakeProcessResult
+{
+    return Process::result((string) json_encode([
+        'type' => 'result',
+        'is_error' => $isError,
+        'result' => $isError ? 'Claude AI usage limit reached' : '',
+        'total_cost_usd' => 0.3,
+        'structured_output' => $isError ? null : $structuredOutput,
+    ]), exitCode: $isError ? 1 : 0);
+}
+
+function runEditCutWithAi(VideoCutEdit $edit): void
+{
+    app()->call([new EditCutWithAiJob($edit->id, [['start' => 0.0, 'end' => 1.5, 'speaker' => 1]]), 'handle']);
+}
+
+it('starts face tracking in the cuts style and claims once on a double click', function (): void {
+    Bus::fake([StartFaceTrackingJob::class]);
+    $cut = aiEditCut($this->fixture);
+
+    Livewire::actingAs($cut->video->user)
+        ->test(Show::class, ['uuid' => $cut->video->uuid])
+        ->call('editWithAi', $cut->id, '  o loiro é o Castanhari ')
+        ->call('editWithAi', $cut->id, '');
+
+    $edit = VideoCutEdit::query()->where('video_cut_id', $cut->id)->sole();
+
+    expect($edit->ai_status)->toBe(TranscriptionStatusEnum::Processing)
+        ->and($edit->tracking_status)->toBe(TranscriptionStatusEnum::Processing)
+        ->and($edit->ai_request)->toBe('o loiro é o Castanhari');
+
+    Bus::assertDispatchedTimes(StartFaceTrackingJob::class, 1);
+    Bus::assertDispatched(StartFaceTrackingJob::class, fn (StartFaceTrackingJob $job): bool => $job->editId === $edit->id && $job->style === 'cuts');
+});
+
+it('refuses a cut whose clip transcription is not ready', function (): void {
+    Bus::fake([StartFaceTrackingJob::class]);
+    $cut = aiEditCut($this->fixture, ['transcription_status' => TranscriptionStatusEnum::Processing]);
+
+    Livewire::actingAs($cut->video->user)
+        ->test(Show::class, ['uuid' => $cut->video->uuid])
+        ->call('editWithAi', $cut->id, '');
+
+    expect(VideoCutEdit::query()->where('video_cut_id', $cut->id)->exists())->toBeFalse();
+    Bus::assertNotDispatched(StartFaceTrackingJob::class);
+});
+
+it('hands the tracking result to the AI edit only when the AI asked for it', function (): void {
+    Bus::fake([EditCutWithAiJob::class]);
+    $cut = aiEditCut($this->fixture);
+    $aiEdit = aiEditFor($cut, ['tracking_status' => TranscriptionStatusEnum::Processing]);
+    $manualEdit = aiEditFor($cut, ['tracking_status' => TranscriptionStatusEnum::Processing, 'ai_status' => null]);
+    $payload = fn (VideoCutEdit $edit): array => [
+        'uuid' => $edit->uuid,
+        'status' => 'done',
+        'keyframes' => [['t' => 0.0, 'mode' => 'vertical', 'regions' => [['x' => 0.1, 'y' => 0.2, 'w' => 0.2, 'h' => 0.6]]]],
+        'speakers' => [['start' => 0.0, 'end' => 1.5, 'speaker' => 1]],
+        'source' => ['width' => 1920, 'height' => 1080, 'duration' => 96.0],
+    ];
+
+    $this->postJson('/api/webhook/face-tracking', $payload($aiEdit), ['X-Observability-Token' => 'test-token'])->assertOk();
+    $this->postJson('/api/webhook/face-tracking', $payload($manualEdit), ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    Bus::assertDispatchedTimes(EditCutWithAiJob::class, 1);
+    Bus::assertDispatched(EditCutWithAiJob::class, fn (EditCutWithAiJob $job): bool => $job->editId === $aiEdit->id
+        && $job->speakers === [['start' => 0.0, 'end' => 1.5, 'speaker' => 1]]);
+});
+
+it('fails the AI edit visibly when the tracking fails', function (): void {
+    Bus::fake([EditCutWithAiJob::class]);
+    $edit = aiEditFor(aiEditCut($this->fixture), ['tracking_status' => TranscriptionStatusEnum::Processing]);
+
+    $this->postJson('/api/webhook/face-tracking', ['uuid' => $edit->uuid, 'status' => 'failed', 'error' => 'sem rosto'], ['X-Observability-Token' => 'test-token'])
+        ->assertOk();
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Failed)
+        ->and($edit->fresh()?->ai_error)->toBe('Face tracking falhou: sem rosto');
+    Bus::assertNotDispatched(EditCutWithAiJob::class);
+});
+
+it('writes the validated spec and renders straight away', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Process::fake(['*' => claudeEditResult($this->fixture['spec'])]);
+    $edit = aiEditFor(aiEditCut($this->fixture));
+
+    runEditCutWithAi($edit);
+
+    $fresh = $edit->fresh();
+
+    expect($fresh?->ai_status)->toBe(TranscriptionStatusEnum::Ready)
+        ->and($fresh?->render_status)->toBe(VideoCutStatusEnum::Generating)
+        ->and($fresh?->spec['title'])->toBe('CASTANHARI beijou o SOVACO de língua 😂😂😂 @programapanico')
+        ->and($fresh?->spec['cuts'])->toBe([[0.0, 0.73], [95.05, 96.0]]);
+
+    Bus::assertDispatched(StartVideoCutEditRenderJob::class, fn (StartVideoCutEditRenderJob $job): bool => $job->editId === $edit->id);
+    Process::assertRanTimes(fn (PendingProcess $process): bool => str_contains((string) $process->input, 'Pedido do dono: o loiro é o Castanhari')
+        && str_contains((string) $process->input, 'Locutores: [0.0-1.5] 1')
+        && str_contains((string) $process->input, '0|0.26|0.26|não,')
+        && in_array('--json-schema', (array) $process->command, true), 1);
+});
+
+it('fails without rendering when the AI rejects the cut', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Process::fake(['*' => claudeEditResult(['verdict' => 'reject', 'reason' => 'conversa séria', 'cuts' => [], 'captions' => [], 'notes' => [], 'punches' => [], 'title' => '', 'hashtags' => []])]);
+    $edit = aiEditFor(aiEditCut($this->fixture));
+
+    runEditCutWithAi($edit);
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Failed)
+        ->and($edit->fresh()?->ai_error)->toStartWith('IA recusou o corte: conversa séria')
+        ->and($edit->fresh()?->spec)->toBeNull();
+    Process::assertRanTimes(fn (): bool => true, 1);
+    Bus::assertNotDispatched(StartVideoCutEditRenderJob::class);
+});
+
+it('retries once with the soft errors and renders the fixed spec', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Process::fake(['*' => Process::sequence()
+        ->push(claudeEditResult([...$this->fixture['spec'], 'title' => '']))
+        ->push(claudeEditResult($this->fixture['spec']))]);
+    $edit = aiEditFor(aiEditCut($this->fixture));
+
+    runEditCutWithAi($edit);
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Ready);
+    Process::assertRanTimes(fn (): bool => true, 2);
+    Process::assertRan(fn (PendingProcess $process): bool => str_contains((string) $process->input, 'Sua resposta anterior:')
+        && str_contains((string) $process->input, '- título vazio'));
+    Bus::assertDispatched(StartVideoCutEditRenderJob::class);
+});
+
+it('fails with the error list when the retry still breaks the rules', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Process::fake(['*' => claudeEditResult([...$this->fixture['spec'], 'title' => ''])]);
+    $edit = aiEditFor(aiEditCut($this->fixture));
+
+    runEditCutWithAi($edit);
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Failed)
+        ->and($edit->fresh()?->ai_error)->toBe('título vazio');
+    Process::assertRanTimes(fn (): bool => true, 2);
+    Bus::assertNotDispatched(StartVideoCutEditRenderJob::class);
+});
+
+it('shows the claude error on the edit when the call fails', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Process::fake(['*' => claudeEditResult([], isError: true)]);
+    $edit = aiEditFor(aiEditCut($this->fixture));
+
+    expect(fn () => runEditCutWithAi($edit))->toThrow(ClaudeException::class);
+
+    new EditCutWithAiJob($edit->id)->failed(new ClaudeException('O Claude falhou (exit 1): Claude AI usage limit reached'));
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Failed)
+        ->and($edit->fresh()?->ai_error)->toContain('usage limit reached');
+    Bus::assertNotDispatched(StartVideoCutEditRenderJob::class);
+});
+
+it('keeps the editor from rendering or re-tracking while the AI is editing', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class, StartFaceTrackingJob::class]);
+    $cut = aiEditCut($this->fixture);
+    $edit = aiEditFor($cut);
+
+    Livewire::actingAs($cut->video->user)
+        ->test(VideoEditor::class, ['uuid' => $cut->uuid])
+        ->set('editId', $edit->id)
+        ->call('generateRender')
+        ->assertReturned(null)
+        ->call('generateTracking')
+        ->assertReturned(null);
+
+    expect($edit->fresh()?->render_status)->toBeNull()
+        ->and($edit->fresh()?->tracking_status)->toBe(TranscriptionStatusEnum::Ready);
+    Bus::assertNotDispatched(StartVideoCutEditRenderJob::class);
+    Bus::assertNotDispatched(StartFaceTrackingJob::class);
+});
+
+it('does not start a second render when a manual one began during the claude call', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Process::fake(['*' => claudeEditResult($this->fixture['spec'])]);
+    $edit = aiEditFor(aiEditCut($this->fixture), ['render_status' => VideoCutStatusEnum::Generating]);
+
+    runEditCutWithAi($edit);
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Failed)
+        ->and($edit->fresh()?->ai_error)->toStartWith('Um render manual começou')
+        ->and($edit->fresh()?->spec)->toBeNull();
+    Bus::assertNotDispatched(StartVideoCutEditRenderJob::class);
+});

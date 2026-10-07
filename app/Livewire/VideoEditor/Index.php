@@ -122,6 +122,7 @@ final class Index extends Component
                 ->orWhere(fn (Builder $stale): Builder => $stale
                     ->where('render_status', VideoCutStatusEnum::Generating->value)
                     ->where('updated_at', '<', now()->subMinutes(30))))
+            ->where(fn (Builder $ai): Builder => $ai->whereNull('ai_status')->orWhere('ai_status', '!=', TranscriptionStatusEnum::Processing->value))
             ->update([
                 'render_status' => VideoCutStatusEnum::Generating,
                 'render_error' => null,
@@ -165,6 +166,7 @@ final class Index extends Component
                 ->orWhere(fn (Builder $stale): Builder => $stale
                     ->where('tracking_status', TranscriptionStatusEnum::Processing->value)
                     ->where('updated_at', '<', now()->subMinutes(30))))
+            ->where(fn (Builder $ai): Builder => $ai->whereNull('ai_status')->orWhere('ai_status', '!=', TranscriptionStatusEnum::Processing->value))
             ->update([
                 'tracking_status' => TranscriptionStatusEnum::Processing,
                 'tracking_error' => null,

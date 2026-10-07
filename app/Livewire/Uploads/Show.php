@@ -8,6 +8,7 @@ use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
 use App\Enums\VideoStatusEnum;
 use App\Jobs\StartCutRenderJob;
+use App\Jobs\StartFaceTrackingJob;
 use App\Jobs\SuggestCutsJob;
 use App\Livewire\Concerns\EditsTranscript;
 use App\Livewire\Concerns\WithToasts;
@@ -17,6 +18,7 @@ use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Component;
@@ -242,6 +244,66 @@ final class Show extends Component
         $this->toast('Procurando os melhores momentos — os cortes aparecem aqui quando ficarem prontos.');
     }
 
+    /**
+     * Encadeia face tracking (style=cuts) → Claude → validador → render. O
+     * lock no corte segura o clique duplo antes de existir edição; depois
+     * dele, o claim na própria edição.
+     */
+    public function editWithAi(int $cutId, string $request = ''): void
+    {
+        $request = mb_trim($request);
+
+        if (mb_strlen($request) > self::MAX_PROMPT_LENGTH) {
+            $this->toast('Descreva o pedido em menos palavras.', 'danger');
+
+            return;
+        }
+
+        $cut = $this->video->cuts()->whereKey($cutId)->first();
+
+        if (! $cut instanceof VideoCut || $cut->status !== VideoCutStatusEnum::Ready || $cut->transcription_status !== TranscriptionStatusEnum::Ready) {
+            $this->toast('O corte precisa estar pronto e transcrito antes de editar com IA.', 'danger');
+
+            return;
+        }
+
+        $editId = DB::transaction(function () use ($cut, $request): ?int {
+            $this->video->cuts()->whereKey($cut->id)->lockForUpdate()->first();
+
+            $edit = VideoCutEdit::query()->where('video_cut_id', $cut->id)->latest('id')->first()
+                ?? VideoCutEdit::query()->create(['video_cut_id' => $cut->id, 'mode' => 'vertical', 'keyframes' => []]);
+
+            // ponytail: mesmo destravamento de 30 min dos outros claims — webhook
+            // perdido no meio do encadeamento; watchdog em cron se doer.
+            $claimed = VideoCutEdit::query()
+                ->whereKey($edit->id)
+                ->where(fn (Builder $query): Builder => $query
+                    ->where('updated_at', '<', now()->subMinutes(30))
+                    ->orWhere(fn (Builder $idle): Builder => $idle
+                        ->where(fn (Builder $ai): Builder => $ai->whereNull('ai_status')->orWhere('ai_status', '!=', TranscriptionStatusEnum::Processing->value))
+                        ->where(fn (Builder $tracking): Builder => $tracking->whereNull('tracking_status')->orWhere('tracking_status', '!=', TranscriptionStatusEnum::Processing->value))
+                        ->where(fn (Builder $render): Builder => $render->whereNull('render_status')->orWhere('render_status', '!=', VideoCutStatusEnum::Generating->value))))
+                ->update([
+                    'ai_status' => TranscriptionStatusEnum::Processing,
+                    'ai_error' => null,
+                    'ai_request' => $request === '' ? null : $request,
+                    'tracking_status' => TranscriptionStatusEnum::Processing,
+                    'tracking_error' => null,
+                ]);
+
+            return $claimed === 1 ? $edit->id : null;
+        });
+
+        if (is_null($editId)) {
+            $this->toast('Este corte já está sendo editado ou renderizado.', 'danger');
+
+            return;
+        }
+
+        dispatch(new StartFaceTrackingJob($editId, 'cuts'));
+        $this->toast('Editando com IA — o vídeo vai pro estoque em /meus-videos quando ficar pronto.');
+    }
+
     private function duplicateCutExists(int $start, int $end, ?int $ignoreId = null): bool
     {
         $query = $this->video->cuts()
@@ -298,6 +360,38 @@ final class Show extends Component
         return $hours > 0 ? $hours.':'.$rest : $rest;
     }
 
+    /**
+     * @return array{aiLabel: ?string, aiBadgeClass: string, aiError: ?string, isAiBusy: bool}
+     */
+    private function aiEditState(?VideoCutEdit $edit): array
+    {
+        $state = ['aiLabel' => null, 'aiBadgeClass' => '', 'aiError' => null, 'isAiBusy' => false];
+
+        if (is_null($edit) || is_null($edit->ai_status)) {
+            return $state;
+        }
+
+        if ($edit->ai_status === TranscriptionStatusEnum::Failed) {
+            return ['aiLabel' => 'Edição com IA falhou', 'aiBadgeClass' => TranscriptionStatusEnum::Failed->badgeClass(), 'aiError' => $edit->ai_error, 'isAiBusy' => false];
+        }
+
+        if ($edit->ai_status === TranscriptionStatusEnum::Processing) {
+            $label = $edit->tracking_status === TranscriptionStatusEnum::Processing ? 'Rastreando rostos' : 'Editando com IA';
+
+            return ['aiLabel' => $label, 'aiBadgeClass' => TranscriptionStatusEnum::Processing->badgeClass(), 'aiError' => null, 'isAiBusy' => true];
+        }
+
+        if ($edit->render_status === VideoCutStatusEnum::Generating) {
+            return ['aiLabel' => 'Renderizando', 'aiBadgeClass' => TranscriptionStatusEnum::Processing->badgeClass(), 'aiError' => null, 'isAiBusy' => true];
+        }
+
+        if ($edit->render_status === VideoCutStatusEnum::Failed) {
+            return ['aiLabel' => 'Render falhou', 'aiBadgeClass' => TranscriptionStatusEnum::Failed->badgeClass(), 'aiError' => $edit->render_error, 'isAiBusy' => false];
+        }
+
+        return ['aiLabel' => 'Pronto no estoque', 'aiBadgeClass' => TranscriptionStatusEnum::Ready->badgeClass(), 'aiError' => null, 'isAiBusy' => false];
+    }
+
     /** @return array<string, float|int|string>|null */
     private function storyboard(Video $video): ?array
     {
@@ -322,6 +416,13 @@ final class Show extends Component
         $video = $this->video->fresh(['files', 'cuts']) ?? $this->video;
         $isPackaging = in_array($video->status, [VideoStatusEnum::Downloading, VideoStatusEnum::Uploaded, VideoStatusEnum::Packaging], true);
         $transcription = $video->transcription_status;
+        $aiStates = VideoCutEdit::query()
+            ->whereIn('video_cut_id', $video->cuts->pluck('id'))
+            ->latest('id')
+            ->get(['id', 'video_cut_id', 'ai_status', 'ai_error', 'tracking_status', 'render_status', 'render_error'])
+            ->unique('video_cut_id')
+            ->mapWithKeys(fn (VideoCutEdit $edit): array => [(int) $edit->video_cut_id => $this->aiEditState($edit)]);
+        $idleAi = $this->aiEditState(null);
 
         return view('livewire.uploads.show', [
             'dateLabel' => $video->created_at?->format('d/m/Y H:i') ?? '—',
@@ -371,8 +472,10 @@ final class Show extends Component
                 'editorUrl' => $cut->status === VideoCutStatusEnum::Ready
                     ? route('video-editor.index', $cut->uuid)
                     : null,
+                'canEditWithAi' => $cut->status === VideoCutStatusEnum::Ready && $cut->transcription_status === TranscriptionStatusEnum::Ready,
+                ...$aiStates->get($cut->id, $idleAi),
             ])->all(),
-            'hasBusyCuts' => $video->cuts->contains(
+            'hasBusyCuts' => $aiStates->contains(fn (array $state): bool => $state['isAiBusy']) || $video->cuts->contains(
                 fn (VideoCut $cut): bool => $cut->status === VideoCutStatusEnum::Generating
                     || $cut->transcription_status === TranscriptionStatusEnum::Processing,
             ),

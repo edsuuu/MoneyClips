@@ -32,6 +32,9 @@ use RuntimeException;
  * @property string|null $render_error
  * @property TranscriptionStatusEnum|null $tracking_status
  * @property string|null $tracking_error
+ * @property TranscriptionStatusEnum|null $ai_status
+ * @property string|null $ai_error
+ * @property string|null $ai_request
  * @property-read YoutubeShort|null $youtubeShort
  * @property-read VideoCut|null $videoCut
  */
@@ -45,8 +48,19 @@ final class VideoCutEdit extends Model
     protected $fillable = [
         'uuid', 'youtube_short_id', 'video_cut_id', 'source_meta',
         'mode', 'keyframes', 'settings', 'spec', 'render_status', 'render_error',
-        'tracking_status', 'tracking_error',
+        'tracking_status', 'tracking_error', 'ai_status', 'ai_error', 'ai_request',
     ];
+
+    public static function failAi(int $id, string $error): bool
+    {
+        return self::query()
+            ->whereKey($id)
+            ->where('ai_status', TranscriptionStatusEnum::Processing->value)
+            ->update([
+                'ai_status' => TranscriptionStatusEnum::Failed,
+                'ai_error' => $error,
+            ]) === 1;
+    }
 
     public function renderOutputPath(): string
     {
@@ -85,6 +99,7 @@ final class VideoCutEdit extends Model
             'spec' => 'array',
             'render_status' => VideoCutStatusEnum::class,
             'tracking_status' => TranscriptionStatusEnum::class,
+            'ai_status' => TranscriptionStatusEnum::class,
         ];
     }
 }
