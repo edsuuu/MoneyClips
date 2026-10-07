@@ -15,6 +15,7 @@ final class VideoCutEditWebhookRequest extends FormRequest
             'edit_uuid' => ['required', 'string'],
             'status' => ['required', 'in:done,failed'],
             'error' => ['nullable', 'string'],
+            'duration_seconds' => ['nullable', 'numeric'],
         ];
     }
 
@@ -33,5 +34,12 @@ final class VideoCutEditWebhookRequest extends FormRequest
         $error = $this->validated('error');
 
         return is_string($error) ? $error : null;
+    }
+
+    public function durationSeconds(): ?float
+    {
+        $duration = $this->validated('duration_seconds');
+
+        return is_numeric($duration) ? (float) $duration : null;
     }
 }
