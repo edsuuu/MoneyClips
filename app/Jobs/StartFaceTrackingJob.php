@@ -32,7 +32,7 @@ final class StartFaceTrackingJob implements ShouldQueue
 
     public int $timeout = 600;
 
-    public function __construct(public int $editId)
+    public function __construct(public int $editId, public string $style = 'smooth')
     {
         $this->onQueue('processing');
     }
@@ -70,7 +70,7 @@ final class StartFaceTrackingJob implements ShouldQueue
         $tmpClip = $this->pullToTemp($sourceKey, 'face-tracking-src-');
 
         try {
-            $jobId = $service->createTracking($tmpClip, $edit);
+            $jobId = $service->createTracking($tmpClip, $edit, $this->style);
 
             Log::channel('daily')->info('[INFO][FaceTracking] Tracking iniciado no media.', [
                 'edit_id' => $edit->id,
@@ -99,6 +99,8 @@ final class StartFaceTrackingJob implements ShouldQueue
         if ($claimed !== 1) {
             return;
         }
+
+        VideoCutEdit::failAi($this->editId, 'Face tracking falhou: '.$error);
 
         resolve(DiscordNotifierService::class)->error(
             '❌ Face tracking falhou ao iniciar',

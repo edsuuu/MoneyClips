@@ -1,0 +1,265 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Jobs;
+
+use App\Enums\TranscriptionStatusEnum;
+use App\Enums\VideoCutStatusEnum;
+use App\Exceptions\ClaudeException;
+use App\Models\VideoCut;
+use App\Models\VideoCutEdit;
+use App\Services\API\Claude\ClaudeService;
+use App\Services\API\Discord\DiscordNotifierService;
+use App\Services\CutEdit\CutEditValidatorService;
+use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Bus\Dispatchable;
+use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use JsonException;
+use RuntimeException;
+use Throwable;
+
+/**
+ * Segundo passo do "Editar com IA" (o webhook do face tracking despacha):
+ * o Claude escreve o spec a partir das palavras do clip e dos turnos de
+ * locutor, o validador confere, e o render sai direto pro estoque. Sem retry
+ * da fila: cada tentativa queima o limite da assinatura.
+ */
+final class EditCutWithAiJob implements ShouldQueue
+{
+    use Dispatchable;
+    use Queueable;
+
+    private const string PROMPT = 'prompts/cut-edit.md';
+
+    private const string SCHEMA = 'prompts/cut-edit.schema.json';
+
+    public int $tries = 1;
+
+    public int $timeout = 1200;
+
+    /**
+     * @param  list<array{start: float, end: float, speaker: int}>  $speakers
+     */
+    public function __construct(public int $editId, public array $speakers = [])
+    {
+        $this->onQueue('processing');
+    }
+
+    /**
+     * @throws ClaudeException
+     * @throws JsonException
+     * @throws Throwable
+     */
+    public function handle(ClaudeService $claude, CutEditValidatorService $validator): void
+    {
+        $edit = VideoCutEdit::query()->with('videoCut.video')->find($this->editId);
+
+        if (! $edit instanceof VideoCutEdit) {
+            Log::channel('daily')->warning('[WARN][CutEditAi] Edição inexistente ao editar com IA.', ['id' => $this->editId]);
+
+            return;
+        }
+
+        if ($edit->ai_status !== TranscriptionStatusEnum::Processing) {
+            Log::channel('daily')->info('[INFO][CutEditAi] Edição fora do estado "processing" — ignorando.', [
+                'id' => $edit->id,
+                'ai_status' => $edit->ai_status?->value,
+            ]);
+
+            return;
+        }
+
+        $cut = $edit->videoCut;
+
+        throw_unless($cut instanceof VideoCut, RuntimeException::class, 'O corte foi removido antes da edição com IA.');
+
+        $segments = $this->wordSegments($cut);
+        $words = array_merge(...$segments);
+
+        throw_if($words === [], RuntimeException::class, 'A transcrição do corte não tem palavras com tempo.');
+
+        $duration = (float) ($edit->source_meta['duration'] ?? $cut->end_seconds - $cut->start_seconds);
+        $input = $this->input($edit, $segments, $duration);
+
+        $output = $claude->structured(self::PROMPT, self::SCHEMA, $input);
+        $result = $validator->validate($output, $words, $duration);
+
+        if ($result['hard'] === [] && $result['soft'] !== []) {
+            Log::channel('daily')->info('[INFO][CutEditAi] Spec com erros moles — 1 retry.', ['edit_id' => $edit->id, 'soft' => $result['soft']]);
+
+            $output = $claude->structured(self::PROMPT, self::SCHEMA, $this->retryInput($input, $output, $result['soft']));
+            $result = $validator->validate($output, $words, $duration);
+        }
+
+        $errors = [...$result['hard'], ...$result['soft']];
+
+        if ($errors !== []) {
+            Log::channel('daily')->warning('[WARN][CutEditAi] IA não fechou a edição.', ['edit_id' => $edit->id, 'errors' => $errors]);
+
+            VideoCutEdit::failAi($edit->id, implode('; ', $errors));
+
+            return;
+        }
+
+        $claimed = VideoCutEdit::query()
+            ->whereKey($edit->id)
+            ->where('ai_status', TranscriptionStatusEnum::Processing->value)
+            ->where(fn (Builder $query): Builder => $query->whereNull('render_status')->orWhere('render_status', '!=', VideoCutStatusEnum::Generating->value))
+            ->update([
+                'ai_status' => TranscriptionStatusEnum::Ready,
+                'ai_error' => null,
+                'spec' => json_encode($result['spec'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION),
+                'render_status' => VideoCutStatusEnum::Generating,
+                'render_error' => null,
+            ]);
+
+        if ($claimed !== 1) {
+            VideoCutEdit::failAi($edit->id, 'Um render manual começou durante a edição com IA — tente de novo quando ele terminar.');
+
+            return;
+        }
+
+        dispatch(new StartVideoCutEditRenderJob($edit->id));
+
+        Log::channel('daily')->info('[INFO][CutEditAi] Spec gravado — render disparado.', [
+            'edit_id' => $edit->id,
+            'captions' => count($result['spec']['captions']),
+            'cuts' => count($result['spec']['cuts']),
+            'punches' => count($result['spec']['punches']),
+        ]);
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        $error = $exception?->getMessage() ?? 'Falha desconhecida na edição com IA.';
+
+        Log::channel('daily')->error('[ERRO][CutEditAi] Edição com IA falhou.', [
+            'edit_id' => $this->editId,
+            'exception' => $exception,
+        ]);
+
+        if (! VideoCutEdit::failAi($this->editId, $error)) {
+            return;
+        }
+
+        resolve(DiscordNotifierService::class)->error(
+            '❌ Edição com IA falhou',
+            sprintf('Edição #%d%s%s', $this->editId, PHP_EOL, $error),
+        );
+    }
+
+    /**
+     * Palavras com tempo, agrupadas pelo segmento da transcrição do clip. O
+     * índice que o Claude devolve é a posição na lista achatada.
+     *
+     * @return list<list<array{word: string, start: float, end: float}>>
+     *
+     * @throws JsonException
+     */
+    private function wordSegments(VideoCut $cut): array
+    {
+        $raw = Storage::disk('s3')->get($cut->transcriptPath());
+        $transcript = is_string($raw) ? json_decode($raw, true, 512, JSON_THROW_ON_ERROR) : null;
+
+        throw_unless(is_array($transcript) && is_array($transcript['segments'] ?? null), RuntimeException::class, sprintf('Transcrição ilegível do corte #%d.', $cut->id));
+
+        $segments = [];
+
+        foreach ($transcript['segments'] as $segment) {
+            if (! is_array($segment)) {
+                continue;
+            }
+
+            if (! is_array($segment['words'] ?? null)) {
+                continue;
+            }
+
+            $words = [];
+
+            foreach ($segment['words'] as $word) {
+                if (! is_array($word)) {
+                    continue;
+                }
+
+                if (! is_numeric($word['start'] ?? null)) {
+                    continue;
+                }
+
+                if (! is_numeric($word['end'] ?? null)) {
+                    continue;
+                }
+
+                $text = mb_trim((string) ($word['word'] ?? ''));
+
+                if ($text === '') {
+                    continue;
+                }
+
+                $words[] = ['word' => $text, 'start' => (float) $word['start'], 'end' => (float) $word['end']];
+            }
+
+            if ($words !== []) {
+                $segments[] = $words;
+            }
+        }
+
+        return $segments;
+    }
+
+    /**
+     * @param  list<list<array{word: string, start: float, end: float}>>  $segments
+     */
+    private function input(VideoCutEdit $edit, array $segments, float $duration): string
+    {
+        $turns = [];
+
+        foreach ($this->speakers as $speaker) {
+            $turns[] = sprintf('[%.1f-%.1f] %d', $speaker['start'], $speaker['end'], $speaker['speaker']);
+        }
+
+        $lines = [
+            sprintf('Vídeo: %s. Clip: %.1fs.', $edit->videoCut?->video->name ?? 'sem nome', $duration),
+            'Pedido do dono: '.($edit->ai_request ?? 'nenhum'),
+            'Locutores: '.($turns === [] ? 'sem dados' : implode(' | ', $turns)),
+            'Palavras (índice|início|fim|palavra; linha em branco = troca de segmento):',
+        ];
+
+        $index = 0;
+
+        foreach ($segments as $position => $words) {
+            if ($position > 0) {
+                $lines[] = '';
+            }
+
+            foreach ($words as $word) {
+                $lines[] = sprintf('%d|%.2f|%.2f|%s', $index, $word['start'], $word['end'], $word['word']);
+                $index++;
+            }
+        }
+
+        return implode(PHP_EOL, $lines);
+    }
+
+    /**
+     * @param  array<mixed>  $output
+     * @param  list<string>  $soft
+     *
+     * @throws JsonException
+     */
+    private function retryInput(string $input, array $output, array $soft): string
+    {
+        return implode(PHP_EOL, [
+            $input,
+            '',
+            'Sua resposta anterior:',
+            json_encode($output, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            '',
+            'Ela quebrou estas regras. Devolva o spec inteiro corrigindo só isto:',
+            ...array_map(static fn (string $error): string => '- '.$error, $soft),
+        ]);
+    }
+}

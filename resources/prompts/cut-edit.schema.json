@@ -1,0 +1,55 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "reason", "cuts", "captions", "notes", "punches", "title", "hashtags"],
+  "properties": {
+    "verdict": { "type": "string", "enum": ["edit", "reject"] },
+    "reason": { "type": "string", "description": "vazio se edit; o motivo se reject" },
+    "cuts": {
+      "type": "array",
+      "description": "trechos que saem, [início, fim] em segundos do clip: cabeça, rabo, gagueira, falso começo, muleta, no máximo 1 tangente",
+      "items": { "type": "array", "items": { "type": "number" } }
+    },
+    "captions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["w", "text", "style", "pos"],
+        "properties": {
+          "w": { "type": "array", "items": { "type": "integer" }, "description": "[primeiro, último] índices das palavras do bloco" },
+          "text": { "type": "string", "description": "literal: cê/tá/pra, minúsculas, krl/p0rr4, sem vírgula nem ponto" },
+          "style": { "type": "string", "enum": ["speech", "shout", "punch", "aside", "art"] },
+          "pos": { "type": "string", "enum": ["bottom", "top"] }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["t", "text", "pos"],
+        "properties": {
+          "t": { "type": "array", "items": { "type": "number" }, "description": "[início, fim] em segundos do clip, em risada ou pausa sem fala" },
+          "text": { "type": "string", "description": "*piada específica sobre quem reage*" },
+          "pos": { "type": "string", "enum": ["bottom", "top"] }
+        }
+      }
+    },
+    "punches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["t", "kind"],
+        "properties": {
+          "t": { "type": "array", "items": { "type": "number" }, "description": "[início, fim] em segundos do clip" },
+          "kind": { "type": "string", "enum": ["punch", "laugh", "slow"] }
+        }
+      }
+    },
+    "title": { "type": "string" },
+    "hashtags": { "type": "array", "items": { "type": "string" } }
+  }
+}

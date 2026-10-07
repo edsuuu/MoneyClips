@@ -8,6 +8,7 @@ use App\Enums\TranscriptionStatusEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Webhooks\FaceTrackingWebhookRequest;
 use App\Http\Resources\StatusResource;
+use App\Jobs\EditCutWithAiJob;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use App\Services\API\Discord\DiscordNotifierService;
@@ -50,6 +51,8 @@ final class FaceTrackingWebhookController extends Controller
         }
 
         if ($request->failed()) {
+            VideoCutEdit::failAi($edit->id, 'Face tracking falhou: '.($request->error() ?? 'sem detalhe'));
+
             $discord->error(
                 '❌ Face tracking falhou',
                 sprintf('Edição #%d (%s)%s%s', $edit->id, $edit->uuid, PHP_EOL, $request->error() ?? ''),
@@ -98,6 +101,8 @@ final class FaceTrackingWebhookController extends Controller
                 'tracking_error' => $throwable->getMessage(),
             ]);
 
+            VideoCutEdit::failAi($edit->id, 'Face tracking falhou: '.$throwable->getMessage());
+
             $discord->error(
                 '❌ Face tracking falhou ao gravar',
                 sprintf('Edição #%d%s%s', $edit->id, PHP_EOL, $throwable->getMessage()),
@@ -111,6 +116,10 @@ final class FaceTrackingWebhookController extends Controller
             'keyframes' => count($keyframes),
             'speakers' => count($request->speakers()),
         ]);
+
+        if ($edit->ai_status === TranscriptionStatusEnum::Processing) {
+            dispatch(new EditCutWithAiJob($edit->id, $request->speakers()));
+        }
 
         return new StatusResource('ready');
     }

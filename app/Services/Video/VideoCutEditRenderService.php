@@ -76,6 +76,7 @@ final readonly class VideoCutEditRenderService
         $fields = [
             'keyframes' => $this->keyframes->compose($edit->keyframes, $spec, (float) ($edit->source_meta['duration'] ?? 0.0)),
             'cuts' => $spec['cuts'],
+            'dead_air' => true,
             'captions' => $spec['captions'],
             'caption_preset' => $spec['caption_preset'],
             'overlays' => [],

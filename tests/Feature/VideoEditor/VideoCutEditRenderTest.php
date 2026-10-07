@@ -196,6 +196,7 @@ it('sends the spec to /reframe as literal captions with empty overlays and sfx',
     resolve(VideoCutEditRenderService::class)->startRender($edit->fresh(), null);
 
     Http::assertSent(fn (Request $request): bool => $request['cuts'] === editSpec()['cuts']
+        && $request['dead_air'] === true
         && $request['captions'] === editSpec()['captions']
         && $request['caption_preset'] === 'verde'
         && $request['watermark'] === '@unkvoid_clips'
@@ -209,7 +210,7 @@ it('sends no literal caption field without a spec', function (): void {
 
     resolve(VideoCutEditRenderService::class)->startRender($edit, null);
 
-    Http::assertSent(fn (Request $request): bool => array_intersect_key($request->data(), array_flip(['cuts', 'captions', 'caption_preset', 'watermark', 'overlays', 'sfx'])) === []);
+    Http::assertSent(fn (Request $request): bool => array_intersect_key($request->data(), array_flip(['cuts', 'dead_air', 'captions', 'caption_preset', 'watermark', 'overlays', 'sfx'])) === []);
 });
 
 it('stocks the short with the spec title and keeps an edited title on re-render', function (): void {
