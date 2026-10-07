@@ -15,6 +15,7 @@ import type {
     ReframeSfx,
 } from '@/Services/Reframe/ReframeFilterBuilder';
 import { ReframeQueueService } from '@/Services/Reframe/ReframeQueueService';
+import type { TimeRange } from '@/Services/Reframe/Timeline';
 
 const HEX_COLOR = /^#[0-9a-f]{6}$/iu;
 
@@ -43,6 +44,8 @@ interface CreateReframeRequest {
     webhook_url?: unknown;
     overlays?: unknown;
     sfx?: unknown;
+    cuts?: unknown;
+    dead_air?: unknown;
 }
 
 export class ReframeController {
@@ -105,6 +108,21 @@ export class ReframeController {
 
         const overlays = ReframeController.overlays(body.overlays, errors);
         const sfx = ReframeController.sfx(body.sfx, errors);
+        const cuts = ReframeController.cuts(body.cuts, errors);
+        const deadAir = body.dead_air === true;
+
+        if (
+            body.dead_air !== undefined &&
+            body.dead_air !== null &&
+            typeof body.dead_air !== 'boolean'
+        ) {
+            errors['dead_air'] = 'dead_air é booleano.';
+        }
+
+        if ((cuts !== null || deadAir) && captions === null && settings['captions'] === true) {
+            errors['captions'] ??=
+                'cuts/dead_air mudam o tempo do clip e a legenda karaokê não acompanha: mande captions[].';
+        }
 
         if (Object.keys(errors).length > 0) {
             throw new ValidationError(errors);
@@ -132,6 +150,8 @@ export class ReframeController {
             webhookUrl,
             overlays,
             sfx,
+            cuts,
+            deadAir,
         });
 
         res.status(202).json({ uuid });
@@ -310,6 +330,48 @@ export class ReframeController {
         });
 
         return sfx;
+    }
+
+    /**
+     * Trechos a REMOVER, em segundos do clip, no formato do spec do Laravel:
+     * ordenados e sem sobreposição (encostar pode). Ausente = sem jump cut;
+     * `[]` liga o pipeline novo (concat a/v + loudnorm) sem cortar nada.
+     */
+    private static cuts(value: unknown, errors: Record<string, string>): TimeRange[] | null {
+        if (value === undefined || value === null) {
+            return null;
+        }
+
+        if (!Array.isArray(value)) {
+            errors['cuts'] = 'cuts é uma lista de [início, fim] em segundos do clip.';
+            return null;
+        }
+
+        const cuts: TimeRange[] = [];
+        let previousEnd = 0;
+
+        for (const [index, item] of value.entries()) {
+            const [start, end] =
+                Array.isArray(item) && item.length === 2 ? (item as unknown[]) : [];
+
+            if (
+                typeof start !== 'number' ||
+                typeof end !== 'number' ||
+                !Number.isFinite(start) ||
+                !Number.isFinite(end) ||
+                start < previousEnd ||
+                end <= start
+            ) {
+                errors[`cuts.${String(index)}`] =
+                    'cada corte é [início, fim] com 0 ≤ início < fim, em ordem e sem sobreposição.';
+                return null;
+            }
+
+            cuts.push([start, end]);
+            previousEnd = end;
+        }
+
+        return cuts;
     }
 
     private static items(

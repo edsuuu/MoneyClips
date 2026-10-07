@@ -13,6 +13,7 @@ use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use App\Services\API\Discord\DiscordNotifierService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 final class VideoCutEditWebhookController extends Controller
 {
@@ -107,6 +108,16 @@ final class VideoCutEditWebhookController extends Controller
 
             return 'ready';
         });
+
+        $duration = $request->durationSeconds();
+
+        if ($status === 'ready' && ! is_null($duration) && $duration < 60) {
+            Log::channel('daily')->warning('[WARN][VideoCutEdit] Corte editado com menos de 60s.', [
+                'edit_id' => $edit->id,
+                'uuid' => $edit->uuid,
+                'duration_seconds' => $duration,
+            ]);
+        }
 
         return new StatusResource($status);
     }

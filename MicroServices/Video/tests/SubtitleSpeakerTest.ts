@@ -96,6 +96,8 @@ async function buildReframeAss(
         webhookUrl: 'http://127.0.0.1:8000/api/webhook/reframe',
         overlays: [],
         sfx: [],
+        cuts: null,
+        deadAir: false,
     };
 
     await queue['buildSubtitles'](job, workDir);

@@ -12,6 +12,8 @@
  * bounding box das janelas do trecho antes do zoompan.
  */
 
+import type { Timeline } from '@/Services/Reframe/Timeline';
+
 export interface ReframeRegion {
     x: number;
     y: number;
@@ -67,6 +69,12 @@ const MAX_KEYFRAMES_PER_RUN = 80;
 
 const ANIMATED_IMAGE = /\.(gif|apng)$/iu;
 
+const SPLICE_FADE_SECONDS = 0.03;
+
+// O loudnorm sai a 192kHz e com buraco no pts (67ms num clip de 9s, até sem
+// emenda): o asetpts renumera pelas amostras, senão o áudio atrasa no player.
+const LOUDNORM = 'loudnorm=I=-14:TP=-1,aresample=48000,asetpts=N/SR/TB';
+
 const OVERLAY_LAYOUTS: Record<ReframeOverlayKind, { fit: string; position: string }> = {
     card: {
         fit: 'scale=w=1000:h=800:force_original_aspect_ratio=decrease,pad=w=iw+32:h=ih+32:x=16:y=16:color=white',
@@ -115,12 +123,19 @@ export class ReframeFilterBuilder {
         assFile: string | null,
         overlays: ReframeOverlay[] = [],
         sfx: ReframeSfx[] = [],
+        timeline: Timeline | null = null,
     ): string {
         const runs = this.modeRuns(keyframes, duration);
         const parts: string[] = [];
 
         const splitLabels = runs.map((_, index) => `[b${String(index)}]`).join('');
-        parts.push(`[0:v]fps=${this.num(fps)},split=${String(runs.length)}${splitLabels}`);
+
+        if (timeline === null) {
+            parts.push(`[0:v]fps=${this.num(fps)},split=${String(runs.length)}${splitLabels}`);
+        } else {
+            parts.push(...this.jumpCutChain(timeline, fps));
+            parts.push(`[jv]split=${String(runs.length)}${splitLabels}`);
+        }
 
         runs.forEach((run, index) => {
             parts.push(...this.runChain(run, index, sourceWidth, sourceHeight, fps, background));
@@ -137,9 +152,19 @@ export class ReframeFilterBuilder {
             parts.push(`[v${String(overlays.length - 1)}]null${subtitles}[vout]`);
         }
 
-        if (sfx.length > 0) {
-            parts.push(this.sfxMix(sfx, '[0:a]', overlays.length + 1));
+        if (timeline === null) {
+            if (sfx.length > 0) {
+                parts.push(this.sfxMix(sfx, '[0:a]', overlays.length + 1, '[aout]'));
+            }
+
+            return parts.join(';');
         }
+
+        if (sfx.length > 0) {
+            parts.push(this.sfxMix(sfx, '[ja]', overlays.length + 1, '[mix]'));
+        }
+
+        parts.push(`${sfx.length > 0 ? '[mix]' : '[ja]'}${LOUDNORM}[aout]`);
 
         return parts.join(';');
     }
@@ -173,6 +198,44 @@ export class ReframeFilterBuilder {
         }
 
         return args;
+    }
+
+    /**
+     * Jump cut: trim/atrim de cada trecho do keep no MESMO graph e concat a/v,
+     * com fade curto no áudio só nas emendas (sem estalo no corte). Daqui pra
+     * frente tudo está em tempo de saída: [jv] entra no lugar do [0:v] e [ja]
+     * no lugar do [0:a].
+     */
+    private jumpCutChain(timeline: Timeline, fps: number): string[] {
+        const last = timeline.keep.length - 1;
+        const labels = (prefix: string): string =>
+            timeline.keep.map((_, index) => `[${prefix}${String(index)}]`).join('');
+        const parts = [
+            `[0:v]fps=${this.num(fps)},split=${String(timeline.keep.length)}${labels('cv')}`,
+            `[0:a]asplit=${String(timeline.keep.length)}${labels('ca')}`,
+        ];
+
+        timeline.keep.forEach(([start, end], index) => {
+            const label = String(index);
+            const range = `start=${this.num(start)}:end=${this.num(end)}`;
+            const fadeIn = index > 0 ? `,afade=t=in:d=${String(SPLICE_FADE_SECONDS)}` : '';
+            const fadeOut =
+                index < last
+                    ? `,afade=t=out:st=${this.num(end - start - SPLICE_FADE_SECONDS)}:d=${String(SPLICE_FADE_SECONDS)}`
+                    : '';
+
+            parts.push(`[cv${label}]trim=${range},setpts=PTS-STARTPTS[kv${label}]`);
+            parts.push(
+                `[ca${label}]atrim=${range},asetpts=PTS-STARTPTS${fadeIn}${fadeOut}[ka${label}]`,
+            );
+        });
+
+        const segments = timeline.keep
+            .map((_, index) => `[kv${String(index)}][ka${String(index)}]`)
+            .join('');
+        parts.push(`${segments}concat=n=${String(timeline.keep.length)}:v=1:a=1[jv][ja]`);
+
+        return parts;
     }
 
     /** Trechos contíguos de mesmo modo; o primeiro sempre começa em t=0. */
@@ -418,7 +481,7 @@ export class ReframeFilterBuilder {
      * desde t=0 (a voz cai 29,6 dB com 30 SFX). O alimiter segura o pico com
      * level=0, porque o default (auto-ganho) mexeria no volume da voz.
      */
-    private sfxMix(sfx: ReframeSfx[], voice: string, firstInput: number): string {
+    private sfxMix(sfx: ReframeSfx[], voice: string, firstInput: number, output: string): string {
         const keys = this.sfxKeys(sfx);
         const parts = sfx.map(
             (item, index) =>
@@ -426,7 +489,7 @@ export class ReframeFilterBuilder {
         );
         const labels = sfx.map((_, index) => `[x${String(index)}]`).join('');
         parts.push(
-            `${voice}${labels}amix=inputs=${String(sfx.length + 1)}:normalize=0:duration=first,alimiter=limit=0.97:level=0[aout]`,
+            `${voice}${labels}amix=inputs=${String(sfx.length + 1)}:normalize=0:duration=first,alimiter=limit=0.97:level=0${output}`,
         );
 
         return parts.join(';');

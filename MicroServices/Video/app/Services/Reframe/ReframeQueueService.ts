@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -17,6 +17,7 @@ import {
     type ReframeRenderSettings,
     type ReframeSfx,
 } from '@/Services/Reframe/ReframeFilterBuilder';
+import { type TimeRange, Timeline } from '@/Services/Reframe/Timeline';
 import { S3Storage } from '@/Services/S3Storage';
 import { SerialQueueService } from '@/Services/SerialQueueService';
 import { Probe } from '@/Services/Video/Probe';
@@ -36,10 +37,15 @@ export interface ReframeJob {
     webhookUrl: string;
     overlays: ReframeOverlay[];
     sfx: ReframeSfx[];
+    cuts: TimeRange[] | null;
+    deadAir: boolean;
 }
 
 const VERTICAL_FONT_SCALE = 1.5;
 const FONTS_DIR = 'assets/fonts';
+const MIN_PAUSE_SECONDS = 0.5;
+const MAX_PAUSE_SECONDS = 1.5;
+const PAUSE_PAD_SECONDS = 0.12;
 
 /**
  * Renderiza o corte editado (reframe do /editor-de-video) em 1080x1920: baixa
@@ -82,29 +88,61 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                 throw new Error('sfx[] mistura sobre a voz, e o clip não tem faixa de áudio.');
             }
 
+            const jumpCut = job.cuts !== null || job.deadAir;
+
+            if (jumpCut && !meta.hasAudio) {
+                throw new Error(
+                    'cuts/dead_air cortam o áudio junto, e o clip não tem faixa de áudio.',
+                );
+            }
+
+            const timeline = jumpCut
+                ? Timeline.fromRemoved(
+                      meta.exactDurationSeconds,
+                      [
+                          ...(job.cuts ?? []),
+                          ...(job.deadAir ? await this.deadAir(jobDir, job.captions ?? []) : []),
+                      ],
+                      meta.fps,
+                  )
+                : null;
+
+            if (timeline !== null) {
+                this.info(
+                    `Jump cut: ${String(timeline.keep.length)} trechos, ${meta.exactDurationSeconds.toFixed(2)}s → ${timeline.duration.toFixed(2)}s`,
+                );
+            }
+
+            const captions =
+                job.captions === null ? null : (timeline?.windows(job.captions) ?? job.captions);
+            const overlays = timeline?.windows(job.overlays) ?? job.overlays;
+            const sfx = timeline?.sfx(job.sfx) ?? job.sfx;
+
             const ass =
-                job.captions === null
+                captions === null
                     ? await this.buildSubtitles(job, jobDir)
                     : await this.buildLiteralSubtitles(
                           job,
-                          job.captions,
+                          captions,
                           jobDir,
-                          meta.exactDurationSeconds,
+                          timeline?.duration ?? meta.exactDurationSeconds,
                       );
 
             const filter = this.filters.build(
-                job.keyframes,
+                timeline?.keyframes(job.keyframes) ?? job.keyframes,
                 job.settings.background,
                 meta.width,
                 meta.height,
-                meta.exactDurationSeconds,
+                timeline?.duration ?? meta.exactDurationSeconds,
                 meta.fps,
                 ass,
-                job.overlays,
-                job.sfx,
+                overlays,
+                sfx,
+                timeline,
             );
-            const audioMap = job.sfx.length === 0 ? '0:a?' : '[aout]';
-            const audioCodec = job.sfx.length === 0 ? ['copy'] : ['aac', '-b:a', '192k'];
+            const mixesAudio = sfx.length > 0 || timeline !== null;
+            const audioMap = mixesAudio ? '[aout]' : '0:a?';
+            const audioCodec = mixesAudio ? ['aac', '-b:a', '192k'] : ['copy'];
 
             await this.ffmpeg.runWithFallback(
                 (encoderArgs) => [
@@ -112,7 +150,7 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                     '-y',
                     '-i',
                     'source',
-                    ...this.filters.inputArgs(job.overlays, job.sfx),
+                    ...this.filters.inputArgs(overlays, sfx),
                     '-filter_complex',
                     filter,
                     '-map',
@@ -130,12 +168,15 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                 'reframe',
             );
 
+            const rendered = await this.probe.read(join(jobDir, 'out.mp4'));
+
             await this.storage.uploadFile(join(jobDir, 'out.mp4'), job.outputKey);
 
             await this.webhooks.send(job.webhookUrl, {
                 uuid: job.uuid,
                 edit_uuid: job.editUuid,
                 status: 'done',
+                duration_seconds: Math.round(rendered.exactDurationSeconds * 1000) / 1000,
             });
 
             this.info(`Reframe concluído: ${job.editUuid}`);
@@ -224,6 +265,69 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
 
     private assTransform(captionCase: string): 'upper' | 'lower' | 'none' {
         return ({ lower: 'lower', sentence: 'none' } as const)[captionCase] ?? 'upper';
+    }
+
+    /**
+     * Ar morto pelo ÁUDIO (silencedetect −35dB), não pelo intervalo entre
+     * palavras: risada não tem palavra e não é silêncio. Pausa de 0.5 a 1.5s
+     * vira corte com 0.12s de folga de cada lado; acima disso é pausa
+     * dramática e fica (porte do dead_air do render.py). Pausa que tem nota
+     * (o spec põe nota em pausa sem fala) também fica. O ametadata grava em
+     * arquivo porque o stderr do FfmpegRunner guarda só a cauda.
+     *
+     * ponytail: limiar fixo de −35dB; estúdio com ruído de fundo pede −30dB.
+     */
+    private async deadAir(jobDir: string, captions: ReframeCaption[]): Promise<TimeRange[]> {
+        const result = await this.ffmpeg.run(
+            [
+                '-hide_banner',
+                '-i',
+                'source',
+                '-vn',
+                '-af',
+                `silencedetect=noise=-35dB:d=${String(MIN_PAUSE_SECONDS)},ametadata=mode=print:file=silences.txt`,
+                '-f',
+                'null',
+                '-',
+            ],
+            jobDir,
+        );
+
+        if (result.code !== 0) {
+            throw new Error(`silencedetect falhou: ${result.stderr.slice(-1000)}`);
+        }
+
+        const log = await readFile(join(jobDir, 'silences.txt'), 'utf8');
+        const notes = captions.filter((caption) => caption.style === 'note');
+        const cuts: TimeRange[] = [];
+        let start: number | null = null;
+
+        for (const [, edge, value] of log.matchAll(/silence_(start|end)=(-?[\d.]+)/gu)) {
+            if (edge === 'start') {
+                start = Number(value);
+                continue;
+            }
+
+            const end = Number(value);
+            const pause = start;
+            start = null;
+
+            if (
+                pause === null ||
+                end - pause < MIN_PAUSE_SECONDS ||
+                end - pause > MAX_PAUSE_SECONDS
+            ) {
+                continue;
+            }
+
+            const cut: TimeRange = [pause + PAUSE_PAD_SECONDS, end - PAUSE_PAD_SECONDS];
+
+            if (!notes.some(({ t }) => t[0] < cut[1] && t[1] > cut[0])) {
+                cuts.push(cut);
+            }
+        }
+
+        return cuts;
     }
 
     /** A key vira caminho local: só é seguro porque o controller barra segmento `.`/`..` e prefixo fora de assets/. */

@@ -15,7 +15,9 @@ use App\Services\Video\VideoCutEditRenderService;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
+use Psr\Log\LoggerInterface;
 
 beforeEach(function (): void {
     $this->user = User::factory()->create();
@@ -99,6 +101,23 @@ it('finishes the render via webhook and puts the clip in the stock', function ()
         ->and($short?->video_path)->toBe($edit->renderOutputPath())
         ->and($short?->downloaded_at)->not->toBeNull()
         ->and($fresh?->youtube_short_id)->toBe($short?->id);
+});
+
+it('warns in the log only when the rendered edit is shorter than 60s', function (): void {
+    config(['services.observability.token' => 'test-token']);
+    $short = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);
+    $long = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);
+    $channel = Mockery::mock(LoggerInterface::class);
+    $channel->shouldReceive('warning')->once()->with('[WARN][VideoCutEdit] Corte editado com menos de 60s.', ['edit_id' => $short->id, 'uuid' => $short->uuid, 'duration_seconds' => 42.5]);
+    Log::shouldReceive('channel')->once()->with('daily')->andReturn($channel);
+
+    foreach ([[$short, 42.5], [$long, 75.0]] as [$edit, $duration]) {
+        $this->postJson('/api/webhook/video-cut-edit', [
+            'edit_uuid' => $edit->uuid,
+            'status' => 'done',
+            'duration_seconds' => $duration,
+        ], ['X-Observability-Token' => 'test-token'])->assertOk()->assertExactJson(['status' => 'ready']);
+    }
 });
 
 it('marks the edit as failed when the parent cut was removed during the render', function (): void {
