@@ -103,6 +103,19 @@ it('finishes the render via webhook and puts the clip in the stock', function ()
         ->and($fresh?->youtube_short_id)->toBe($short?->id);
 });
 
+it('keeps the final duration of the render on the Short for the card', function (): void {
+    config(['services.observability.token' => 'test-token']);
+    $edit = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);
+
+    $this->postJson('/api/webhook/video-cut-edit', [
+        'edit_uuid' => $edit->uuid,
+        'status' => 'done',
+        'duration_seconds' => 64.6,
+    ], ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    expect(YoutubeShort::query()->where('youtube_id', 'reframe-'.$edit->uuid)->value('duration_seconds'))->toBe(65);
+});
+
 it('warns in the log only when the rendered edit is shorter than 60s', function (): void {
     config(['services.observability.token' => 'test-token']);
     $short = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);

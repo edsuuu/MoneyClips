@@ -161,6 +161,58 @@ it('retries a failed post on the next good time and clears the error', function 
         ->and($failed->error)->toBeNull();
 });
 
+it('clears the outcome of the previous attempt on retry, so a late webhook of the old job finds nothing', function (): void {
+    $failed = agendaPost($this->short, $this->tiktok, '2026-10-08 08:00', PostStatusEnum::Failed, [
+        'error' => 'Sem resposta do provider.',
+        'external_id' => 'job-antigo',
+        'url' => 'https://www.tiktok.com/@x/video/1',
+        'privacy' => 'private',
+        'posted_at' => '2026-10-08 08:05',
+    ]);
+
+    Livewire::test(Index::class)->call('retryPost', $failed->id);
+
+    $failed->refresh();
+    expect($failed->status)->toBe(PostStatusEnum::Scheduled)
+        ->and($failed->external_id)->toBeNull()
+        ->and($failed->url)->toBeNull()
+        ->and($failed->privacy)->toBeNull()
+        ->and($failed->posted_at)->toBeNull();
+});
+
+it('counts and reschedules the same missed posts: the ones older than 7 days stay put', function (): void {
+    $recent = agendaPost($this->short, $this->tiktok, '2026-10-07 20:00', PostStatusEnum::Missed);
+    $old = agendaPost(YoutubeShort::factory()->for($this->creator)->ready()->create(), $this->tiktok, '2026-09-28 20:00', PostStatusEnum::Missed);
+
+    Livewire::test(Index::class)
+        ->assertSee('Reagendar perdidas (1)')
+        ->call('retryAllMissed')
+        ->assertDispatched('toast', message: '1 postagem reagendada.', variant: 'success');
+
+    expect($recent->refresh()->status)->toBe(PostStatusEnum::Scheduled)
+        ->and($old->refresh()->status)->toBe(PostStatusEnum::Missed);
+});
+
+it('leaves a disconnected account out of the coverage: it already shows up in "precisa de você"', function (): void {
+    agendaAccount($this->creator, 'tiktok', ['name' => '@reserva', 'session_status' => SocialAccount::SESSION_INVALID]);
+    agendaPost($this->short, $this->tiktok, '2026-10-12 20:00');
+    agendaPost($this->short, $this->youtube, '2026-10-12 21:30');
+
+    Livewire::test(Index::class)
+        ->assertSee('2 agendados · cobrem 5 dias')
+        ->assertDontSee('A agenda acaba');
+});
+
+it('warns that a scheduled post goes out private on a private-only account', function (): void {
+    config(['services.google.youtube_app_verified' => false]);
+    agendaPost($this->short, $this->tiktok, '2026-10-08 20:00');
+    agendaPost($this->short, $this->youtube, '2026-10-08 20:00');
+
+    Livewire::test(Index::class)
+        ->assertSee('Sai privado')
+        ->assertViewHas('days', fn (array $days): bool => array_column($days[0]['rows'][0]['posts'], 'private_label') === [null, 'Sai privado']);
+});
+
 it('reschedules only the missed posts of the user, in their original order', function (): void {
     $older = agendaPost($this->short, $this->tiktok, '2026-10-07 08:00', PostStatusEnum::Missed);
     $newer = agendaPost(YoutubeShort::factory()->for($this->creator)->ready()->create(), $this->tiktok, '2026-10-07 20:00', PostStatusEnum::Missed);

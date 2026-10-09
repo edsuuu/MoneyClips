@@ -6,10 +6,10 @@
         @endif
         {{ $post['badge_label'] }}
     </x-ui.badge>
-    @if ($post['is_private'])
-        <x-ui.badge size="sm" color="amber" title="A conta ainda não passou na auditoria da plataforma: só você vê o vídeo.">Saiu privado</x-ui.badge>
+    @if ($post['private_label'])
+        <x-ui.badge size="sm" color="amber" title="A conta ainda não passou na auditoria da plataforma: só você vê o vídeo.">{{ $post['private_label'] }}</x-ui.badge>
     @endif
-    <span class="min-w-0 truncate text-slate-500 max-sm:order-last max-sm:w-full max-sm:pl-16 sm:flex-1" title="{{ $post['detail'] }}">{{ $post['detail'] }}</span>
+    <span class="min-w-0 text-slate-500 max-sm:line-clamp-2 sm:truncate max-sm:order-last max-sm:w-full max-sm:pl-16 sm:flex-1" title="{{ $post['detail'] }}">{{ $post['detail'] }}</span>
 
     @if ($post['can_cancel'])
         <button type="button" wire:click="cancelPost({{ $post['id'] }})" wire:confirm="{{ $post['cancel_confirm'] }}" wire:loading.attr="disabled"

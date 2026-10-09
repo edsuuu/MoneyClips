@@ -73,6 +73,11 @@ return [
             'body' => 'No Short pronto, Agendar escolhe as contas e o horário; o próximo horário bom já vem marcado.',
         ],
         [
+            'target' => 'video-posts',
+            'title' => 'Acompanhe cada plataforma',
+            'body' => 'Cada rede tem a sua linha: agendado, postando, postado ou o que deu errado, com o botão para resolver.',
+        ],
+        [
             'target' => 'nav-agenda',
             'title' => 'Acompanhe na Agenda',
             'body' => 'A Agenda mostra o que sai nos próximos 7 dias e o que precisa de você.',
