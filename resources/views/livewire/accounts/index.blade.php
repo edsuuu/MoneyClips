@@ -2,7 +2,7 @@
     <div class="mb-6 flex flex-wrap items-start justify-between gap-6 border-b border-slate-800 pb-6">
         <div>
             <h1 class="text-3xl font-extrabold tracking-tight text-slate-50">Contas</h1>
-            <p class="mt-2 text-sm text-slate-500">Contas usadas para publicar. O TikTok entra por email/senha; o YouTube é vinculado via Google.</p>
+            <p class="mt-2 text-sm text-slate-500">Contas usadas para publicar. O TikTok entra por cookies de sessão; o YouTube é vinculado via Google.</p>
         </div>
         <div class="flex flex-wrap gap-2.5">
             <button type="button" wire:click="createTiktok"
@@ -66,12 +66,13 @@
         @endif
 
         @foreach($tiktokAccounts as $account)
-            <div class="flex flex-col gap-4 rounded-[14px] border border-slate-800 bg-slate-900 p-5" wire:key="account-{{ $account['id'] }}">
+            <div class="flex min-w-0 flex-col gap-4 rounded-[14px] border border-slate-800 bg-slate-900 p-5" wire:key="account-{{ $account['id'] }}">
                 <div class="flex items-center gap-3">
                     <div class="flex size-10 shrink-0 items-center justify-center rounded-[11px] bg-slate-700/60 text-sm font-extrabold text-slate-200">TT</div>
                     <div class="min-w-0 flex-1">
                         <div class="text-[15px] font-bold">TikTok</div>
                         <div class="truncate font-mono text-xs text-slate-500">{{ $account['subtitle'] }}</div>
+                        <div class="text-xs text-slate-500">{{ $account['sessionSavedLabel'] }}</div>
                     </div>
                     <div @class([
                         'flex shrink-0 items-center gap-1.5 text-xs font-semibold',
@@ -93,7 +94,7 @@
                     <span class="text-[13px] text-slate-400">Ativa para publicação</span>
                     <div class="flex items-center gap-3">
                         <x-ui.toggle :active="$account['is_active']" wire:click="toggleActive({{ $account['id'] }})" title="Ativar/desativar conta" />
-                        <button type="button" wire:click="editTiktok({{ $account['id'] }})" title="Editar credenciais"
+                        <button type="button" wire:click="editTiktok({{ $account['id'] }})" title="Editar conta"
                             class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-sky-950/60 hover:text-sky-400">
                             <x-ui.icon name="pencil-square" class="size-4" />
                         </button>
@@ -117,13 +118,12 @@
         <form wire:submit="saveTiktok" class="space-y-5">
             <div>
                 <h2 class="text-lg font-extrabold text-slate-50">{{ $tiktokModalTitle }}</h2>
-                <p class="mt-1 text-sm text-slate-400">Credenciais de login usadas para publicar no TikTok.</p>
+                <p class="mt-1 text-sm text-slate-400">Os cookies são só de escrita: depois de salvos, nunca são exibidos de novo.</p>
             </div>
 
             <div class="grid gap-4">
-                <x-ui.input wire:model="name" label="Nome / @@handle" placeholder="@clipsd211" />
-                <x-ui.input wire:model="login_email" type="email" label="Email" placeholder="conta@email.com" />
-                <x-ui.input wire:model="login_password" :viewable="true" label="Senha" />
+                <x-ui.input wire:model="name" label="Nome / @handle" placeholder="@clipsd211" />
+                <x-ui.textarea wire:model="cookiesInput" label="Cookies da sessão (JSON)" :description="$cookiesHint" rows="5" autocomplete="off" spellcheck="false" />
                 <x-ui.checkbox wire:model="is_active" label="Conta ativa" />
             </div>
 

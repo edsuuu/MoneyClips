@@ -7,6 +7,7 @@ namespace App\Livewire\Accounts;
 use App\Livewire\Concerns\WithCurrentUser;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -25,19 +26,21 @@ final class Index extends Component
 
     public string $name = '';
 
-    public string $login_email = '';
-
-    public string $login_password = '';
+    public string $cookiesInput = '';
 
     public bool $is_active = true;
 
-    /** @return array<string, list<string>> */
+    /** @return array<string, list<mixed>> */
     public function rules(): array
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'login_email' => ['required', 'email', 'max:255'],
-            'login_password' => ['required', 'string', 'max:255'],
+            'cookiesInput' => [
+                $this->editingAccountId === null ? 'required' : 'nullable',
+                'json',
+                'max:200000',
+                fn (string $attribute, mixed $value, Closure $fail) => is_array(json_decode((string) $value, true)) || $value === '' ? null : $fail('Os cookies precisam ser uma lista JSON.'),
+            ],
         ];
     }
 
@@ -46,9 +49,8 @@ final class Index extends Component
     {
         return [
             'name.required' => 'Informe o nome ou @handle da conta.',
-            'login_email.required' => 'Informe o email de login.',
-            'login_email.email' => 'Informe um email válido.',
-            'login_password.required' => 'Informe a senha de login.',
+            'cookiesInput.required' => 'Cole os cookies da sessão.',
+            'cookiesInput.json' => 'Os cookies precisam estar em JSON válido.',
         ];
     }
 
@@ -57,8 +59,7 @@ final class Index extends Component
     {
         return [
             'name' => 'nome',
-            'login_email' => 'email',
-            'login_password' => 'senha',
+            'cookiesInput' => 'cookies',
         ];
     }
 
@@ -82,8 +83,6 @@ final class Index extends Component
         $this->resetValidation();
         $this->editingAccountId = $account->id;
         $this->name = $account->name;
-        $this->login_email = $account->login_email ?? '';
-        $this->login_password = $account->login_password ?? '';
         $this->is_active = $account->is_active;
         $this->showTiktokModal = true;
     }
@@ -96,10 +95,13 @@ final class Index extends Component
             'user_id' => $this->currentUser()->id,
             'platform' => 'tiktok',
             'name' => $this->name,
-            'login_email' => $this->login_email,
-            'login_password' => $this->login_password,
             'is_active' => $this->is_active,
         ];
+
+        if ($this->cookiesInput !== '') {
+            $payload['cookies'] = json_decode($this->cookiesInput, true, 512, JSON_THROW_ON_ERROR);
+            $payload['cookies_last_validated_at'] = now();
+        }
 
         if ($this->editingAccountId !== null) {
             $account = $this->tiktokQuery()->find($this->editingAccountId);
@@ -165,7 +167,7 @@ final class Index extends Component
 
     /**
      * @param  Collection<int, SocialAccount>  $accounts
-     * @return Collection<int, array{id: int, name: string, login_email: string|null, is_active: bool, statusColor: string, statusLabel: string, subtitle: string}>
+     * @return Collection<int, array{id: int, name: string, is_active: bool, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
      */
     private function decorateTiktokAccounts(Collection $accounts): Collection
     {
@@ -173,11 +175,13 @@ final class Index extends Component
             ->map(fn (SocialAccount $account): array => [
                 'id' => $account->id,
                 'name' => $account->name,
-                'login_email' => $account->login_email,
                 'is_active' => $account->is_active,
                 'statusColor' => $this->sessionStatusColor($account->session_status),
                 'statusLabel' => $this->sessionStatusLabel($account->session_status),
-                'subtitle' => $account->name.($account->login_email !== null && $account->login_email !== '' ? ' · '.$account->login_email : ''),
+                'subtitle' => $account->name,
+                'sessionSavedLabel' => $account->cookies_last_validated_at === null
+                    ? 'Sem sessão salva'
+                    : 'Sessão salva em '.$account->cookies_last_validated_at->format('d/m/Y H:i'),
             ])
             ->values();
     }
@@ -218,7 +222,7 @@ final class Index extends Component
 
     private function resetForm(): void
     {
-        $this->reset(['editingAccountId', 'showTiktokModal', 'name', 'login_email', 'login_password', 'is_active']);
+        $this->reset(['editingAccountId', 'showTiktokModal', 'name', 'cookiesInput', 'is_active']);
         $this->resetValidation();
     }
 
@@ -236,6 +240,7 @@ final class Index extends Component
                     'label' => $youtubeAccount->tokenExpired() ? 'Token expirado' : 'Vinculado',
                 ]
                 : null,
+            'cookiesHint' => $this->editingAccountId !== null ? 'Deixe em branco para manter a sessão salva.' : null,
             'tiktokModalTitle' => $this->editingAccountId !== null ? 'Editar conta TikTok' : 'Nova conta TikTok',
             'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),
         ]);
