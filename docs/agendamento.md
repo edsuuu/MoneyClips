@@ -123,3 +123,20 @@ falha com o motivo.
   (a linha do unique é reaproveitada).
 - Escopo: listas via `SocialPost::forUser()`; cancelar/tentar de novo via
   `SocialPostPolicy::update` (admin ou dono da conta).
+
+## Modo da conta e auto-agendamento
+
+- Um controle só em `/contas`: **Desligada** (`is_active=false`, some do
+  modal) · **Manual** (ativa; o dono agenda) · **Automática** (ativa +
+  `auto_schedule`). `SocialAccountModeEnum` + `SocialAccount::mode()` /
+  `applyMode()`; o dispatcher segue lendo só `is_active`.
+- Short marcado como pronto (`markReady`) entra na hora no próximo horário
+  livre de cada conta Automática do dono (`PostSchedulerService::autoSchedule`).
+  Short de canal (sem dono) nunca entra sozinho; conta que já tem qualquer
+  linha daquele Short (inclusive Cancelada) fica de fora: cancelar é
+  definitivo pro automático.
+- `posts:fill` (de hora em hora) preenche o que faltou, do pronto mais antigo
+  pro mais novo (conta que virou Automática depois, por exemplo), e avisa no
+  Discord (`services.discord.webhook`) quando os agendados futuros de uma
+  conta Automática são menos que `per_day` — no máximo 1 aviso por conta por
+  dia (cache `posting:low-stock:{id}`).

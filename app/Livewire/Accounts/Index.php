@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Accounts;
 
+use App\Enums\SocialAccountModeEnum;
 use App\Livewire\Concerns\WithCurrentUser;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
@@ -128,17 +129,18 @@ final class Index extends Component
         $this->showYoutubeModal = true;
     }
 
-    public function toggleActive(int $id): void
+    public function setMode(int $id, string $mode): void
     {
         $account = SocialAccount::query()->find($id);
-        if (! $account instanceof SocialAccount) {
+        $chosen = SocialAccountModeEnum::tryFrom($mode);
+        if (! $account instanceof SocialAccount || is_null($chosen)) {
             return;
         }
 
         $this->authorize('update', $account);
-        $account->is_active = ! $account->is_active;
+        $account->applyMode($chosen);
         $account->save();
-        $this->toast(sprintf('Conta %s.', $account->is_active ? 'ativada' : 'desativada'));
+        $this->toast(sprintf('Conta em modo %s.', $chosen->label()));
     }
 
     public function delete(int $id): void
@@ -167,7 +169,7 @@ final class Index extends Component
 
     /**
      * @param  Collection<int, SocialAccount>  $accounts
-     * @return Collection<int, array{id: int, name: string, is_active: bool, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
+     * @return Collection<int, array{id: int, name: string, is_active: bool, modes: list<array{value: string, label: string, active: bool}>, modeHelp: string, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
      */
     private function decorateTiktokAccounts(Collection $accounts): Collection
     {
@@ -176,6 +178,8 @@ final class Index extends Component
                 'id' => $account->id,
                 'name' => $account->name,
                 'is_active' => $account->is_active,
+                'modes' => $this->modeOptions($account),
+                'modeHelp' => $account->mode()->help(),
                 'statusColor' => $this->sessionStatusColor($account->session_status),
                 'statusLabel' => $this->sessionStatusLabel($account->session_status),
                 'subtitle' => $account->name,
@@ -184,6 +188,16 @@ final class Index extends Component
                     : 'Sessão salva em '.$account->cookies_last_validated_at->format('d/m/Y H:i'),
             ])
             ->values();
+    }
+
+    /** @return list<array{value: string, label: string, active: bool}> */
+    private function modeOptions(SocialAccount $account): array
+    {
+        return array_map(fn (SocialAccountModeEnum $mode): array => [
+            'value' => $mode->value,
+            'label' => $mode->label(),
+            'active' => $account->mode() === $mode,
+        ], SocialAccountModeEnum::cases());
     }
 
     private function sessionStatusColor(?string $status): string
@@ -240,6 +254,8 @@ final class Index extends Component
                     'label' => $youtubeAccount->tokenExpired() ? 'Token expirado' : 'Vinculado',
                 ]
                 : null,
+            'youtubeModes' => $youtubeAccount instanceof SocialAccount ? $this->modeOptions($youtubeAccount) : [],
+            'youtubeModeHelp' => $youtubeAccount instanceof SocialAccount ? $youtubeAccount->mode()->help() : '',
             'cookiesHint' => $this->editingAccountId !== null ? 'Deixe em branco para manter a sessão salva.' : null,
             'tiktokModalTitle' => $this->editingAccountId !== null ? 'Editar conta TikTok' : 'Nova conta TikTok',
             'googleOAuthReady' => filled(config('services.google.client_id')) && filled(config('services.google.client_secret')),

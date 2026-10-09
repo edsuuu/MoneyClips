@@ -23,3 +23,8 @@ Schedule::command('posts:dispatch')
     ->name('posts-dispatch')
     ->everyMinute()
     ->withoutOverlapping();
+
+Schedule::command('posts:fill')
+    ->name('posts-fill')
+    ->hourly()
+    ->withoutOverlapping();

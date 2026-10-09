@@ -71,12 +71,12 @@ it('scopes social accounts to the owner', function (): void {
 
     $this->actingAs($this->creator);
     Livewire::test(AccountsIndex::class)->assertSee('@minha')->assertDontSee('@alheia');
-    Livewire::test(AccountsIndex::class)->call('toggleActive', $foreign->id)->assertForbidden();
+    Livewire::test(AccountsIndex::class)->call('setMode', $foreign->id, 'off')->assertForbidden();
     Livewire::test(AccountsIndex::class)->call('delete', $foreign->id)->assertForbidden();
     expect($foreign->refresh()->is_active)->toBeTrue();
 
     $this->actingAs($this->admin);
     Livewire::test(AccountsIndex::class)->assertSee('@minha')->assertSee('@alheia')
-        ->call('toggleActive', $foreign->id)->assertOk();
+        ->call('setMode', $foreign->id, 'off')->assertOk();
     expect($foreign->refresh()->is_active)->toBeFalse();
 });

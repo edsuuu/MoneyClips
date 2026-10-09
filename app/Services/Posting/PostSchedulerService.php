@@ -10,6 +10,7 @@ use App\Models\SocialPost;
 use App\Models\User;
 use App\Models\YoutubeShort;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -99,6 +100,68 @@ final class PostSchedulerService
 
             return $post;
         });
+    }
+
+    /**
+     * Short pronto entra sozinho no próximo horário livre de cada conta
+     * Automática do dono. Conta que já tem QUALQUER linha desse Short fica de
+     * fora — inclusive Cancelada: o dono cancelou, o preenchimento não desfaz.
+     * Short de canal (sem dono) nunca entra sozinho.
+     *
+     * @return list<SocialPost>
+     *
+     * @throws RuntimeException
+     */
+    public function autoSchedule(YoutubeShort $short): array
+    {
+        if (is_null($short->user_id) || is_null($short->ready_at) || ! is_null($short->posted_youtube_at) || ! is_null($short->posted_tiktok_at)) {
+            return [];
+        }
+
+        $accounts = $this->autoAccounts()
+            ->where('user_id', $short->user_id)
+            ->whereDoesntHave('socialPosts', fn (Builder $query): Builder => $query->where('youtube_short_id', $short->id))
+            ->get();
+
+        $posts = [];
+        foreach ($accounts as $account) {
+            $post = $this->schedule($short, $account);
+            if ($post instanceof SocialPost) {
+                $posts[] = $post->setRelation('socialAccount', $account);
+            }
+        }
+
+        return $posts;
+    }
+
+    /**
+     * O que faltou agendar nas contas Automáticas (conta virou Automática
+     * depois do Short ficar pronto, horário que não coube etc.), do pronto
+     * mais antigo pro mais novo.
+     *
+     * @throws RuntimeException
+     */
+    public function fillAutoAccounts(): int
+    {
+        $shorts = YoutubeShort::query()
+            ->whereIn('user_id', $this->autoAccounts()->select('user_id'))
+            ->whereNotNull('video_path')
+            ->whereNotNull('ready_at')
+            ->whereNull('posted_youtube_at')
+            ->whereNull('posted_tiktok_at')
+            ->oldest('ready_at')
+            ->get();
+
+        return $shorts->sum(fn (YoutubeShort $short): int => count($this->autoSchedule($short)));
+    }
+
+    /** @return Builder<SocialAccount> */
+    public function autoAccounts(): Builder
+    {
+        return SocialAccount::query()
+            ->where('is_active', true)
+            ->where('auto_schedule', true)
+            ->where(fn (Builder $query): Builder => $query->whereNull('session_status')->orWhere('session_status', '!=', SocialAccount::SESSION_INVALID));
     }
 
     /**

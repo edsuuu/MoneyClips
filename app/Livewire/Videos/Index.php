@@ -16,12 +16,14 @@ use App\Models\SocialPost;
 use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use App\Services\DownloadYoutube\DownloadShortsService;
+use App\Services\Posting\PostSchedulerService;
 use Illuminate\Contracts\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use RuntimeException;
 use Throwable;
 
 final class Index extends Component
@@ -115,7 +117,22 @@ final class Index extends Component
         }
 
         $short->forceFill(['ready_at' => now()])->save();
-        $this->toast('Vídeo marcado como pronto.');
+
+        try {
+            $posts = resolve(PostSchedulerService::class)->autoSchedule($short);
+        } catch (RuntimeException $runtimeException) {
+            report($runtimeException);
+            $posts = [];
+        }
+
+        if ($posts === []) {
+            $this->toast('Vídeo marcado como pronto.');
+
+            return;
+        }
+
+        $done = array_map(fn (SocialPost $post): array => ['platform' => $this->platformLabel($post->socialAccount->platform), 'when' => $this->whenLabel($post->scheduled_for)], $posts);
+        $this->toast('Vídeo marcado como pronto. '.$this->scheduledToast($done));
     }
 
     /**
