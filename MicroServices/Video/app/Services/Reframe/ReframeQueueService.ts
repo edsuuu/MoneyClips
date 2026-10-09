@@ -101,7 +101,9 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
                       meta.exactDurationSeconds,
                       [
                           ...(job.cuts ?? []),
-                          ...(job.deadAir ? await this.deadAir(jobDir, job.captions ?? []) : []),
+                          ...(job.deadAir
+                              ? await this.deadAir(jobDir, job.captions ?? [], job.overlays)
+                              : []),
                       ],
                       meta.fps,
                   )
@@ -272,12 +274,18 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
      * palavras: risada não tem palavra e não é silêncio. Pausa de 0.5 a 1.5s
      * vira corte com 0.12s de folga de cada lado; acima disso é pausa
      * dramática e fica (porte do dead_air do render.py). Pausa que tem nota
-     * (o spec põe nota em pausa sem fala) também fica. O ametadata grava em
-     * arquivo porque o stderr do FfmpegRunner guarda só a cauda.
+     * ou meme_clip (o spec põe os dois em pausa sem fala) também fica: cortada,
+     * o overlay encolhe e o áudio do meme toca por cima da fala seguinte. O
+     * ametadata grava em arquivo porque o stderr do FfmpegRunner guarda só a
+     * cauda.
      *
      * ponytail: limiar fixo de −35dB; estúdio com ruído de fundo pede −30dB.
      */
-    private async deadAir(jobDir: string, captions: ReframeCaption[]): Promise<TimeRange[]> {
+    private async deadAir(
+        jobDir: string,
+        captions: ReframeCaption[],
+        overlays: ReframeOverlay[],
+    ): Promise<TimeRange[]> {
         const result = await this.ffmpeg.run(
             [
                 '-hide_banner',
@@ -298,7 +306,10 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
         }
 
         const log = await readFile(join(jobDir, 'silences.txt'), 'utf8');
-        const notes = captions.filter((caption) => caption.style === 'note');
+        const protectedWindows = [
+            ...captions.filter((caption) => caption.style === 'note'),
+            ...overlays.filter((overlay) => overlay.kind === 'meme_clip'),
+        ];
         const cuts: TimeRange[] = [];
         let start: number | null = null;
 
@@ -322,7 +333,7 @@ export class ReframeQueueService extends SerialQueueService<ReframeJob> {
 
             const cut: TimeRange = [pause + PAUSE_PAD_SECONDS, end - PAUSE_PAD_SECONDS];
 
-            if (!notes.some(({ t }) => t[0] < cut[1] && t[1] > cut[0])) {
+            if (!protectedWindows.some(({ t }) => t[0] < cut[1] && t[1] > cut[0])) {
                 cuts.push(cut);
             }
         }
