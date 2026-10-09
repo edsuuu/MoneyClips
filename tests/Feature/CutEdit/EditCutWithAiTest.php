@@ -10,6 +10,7 @@ use App\Jobs\StartFaceTrackingJob;
 use App\Jobs\StartVideoCutEditRenderJob;
 use App\Livewire\Uploads\Show;
 use App\Livewire\VideoEditor\Index as VideoEditor;
+use App\Models\StockAsset;
 use App\Models\Video;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
@@ -244,4 +245,34 @@ it('does not start a second render when a manual one began during the claude cal
         ->and($edit->fresh()?->ai_error)->toStartWith('Um render manual começou')
         ->and($edit->fresh()?->spec)->toBeNull();
     Bus::assertNotDispatched(StartVideoCutEditRenderJob::class);
+});
+
+it('offers the approved stickers to claude and renders without the ones that break the rules', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    $sticker = StockAsset::query()->create(['id' => 'f3b1c2d4-0000-7000-8000-000000000001', 'kind' => 'meme_sticker', 'tags' => ['susto'], 'license' => 'own_risk', 'source' => 'manual', 'storage_key' => 'assets/meme_sticker/1.png', 'status' => 'approved']);
+    $word = $this->fixture['spec']['captions'][1]['w'][0];
+    Process::fake(['*' => claudeEditResult([...$this->fixture['spec'], 'memes' => [
+        ['asset_id' => $sticker->id, 'w' => $word],
+        ['asset_id' => $sticker->id, 'w' => $this->fixture['spec']['captions'][20]['w'][0]],
+    ]])]);
+    $edit = aiEditFor(aiEditCut($this->fixture));
+
+    runEditCutWithAi($edit);
+
+    $command = [];
+    Process::assertRan(function (PendingProcess $process) use (&$command): bool {
+        $command = (array) $process->command;
+
+        return true;
+    });
+    $schema = json_decode($command[array_search('--json-schema', $command, true) + 1], true, 512, JSON_THROW_ON_ERROR);
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Ready)
+        ->and($edit->fresh()?->spec['memes'])->toHaveCount(1)
+        ->and($edit->fresh()?->spec['memes'][0]['key'])->toBe('assets/meme_sticker/1.png')
+        ->and($schema['properties']['memes']['items']['properties']['asset_id']['enum'])->toBe([$sticker->id])
+        ->and($schema['properties'])->not->toHaveKey('sfx')
+        ->and($command[array_search('--system-prompt', $command, true) + 1])->toContain('#### `memes`', $sticker->id);
+    Process::assertRanTimes(fn (): bool => true, 1);
+    Bus::assertDispatched(StartVideoCutEditRenderJob::class);
 });

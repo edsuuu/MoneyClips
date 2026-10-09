@@ -86,7 +86,7 @@ O enquadramento no rosto de quem fala, a troca seca entre locutores e o ritmo 1.
 
 ## Proibido nesta edição
 
-Emoji na tela, figurinha, meme, gancho escrito no topo, efeito de tremer ou preto e branco. Nada disso entra no spec.
+Gancho escrito no topo, efeito de tremer, preto e branco e emoji dentro do texto de legenda ou nota. Figurinha, meme, emoji na tela e efeito sonoro só entram pela seção **Figurinhas, memes e sons**, quando ela existir no fim deste prompt; sem ela, nada disso entra no spec.
 
 ## Conferência antes de devolver
 

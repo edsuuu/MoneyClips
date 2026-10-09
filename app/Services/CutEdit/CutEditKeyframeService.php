@@ -36,7 +36,7 @@ final readonly class CutEditKeyframeService
 
     /**
      * @param  list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}>  $keyframes
-     * @param  array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>}  $spec
+     * @param  array{cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, ...}  $spec
      * @return list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}>
      */
     public function compose(array $keyframes, array $spec, float $duration): array

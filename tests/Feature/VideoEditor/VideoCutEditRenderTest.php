@@ -273,3 +273,29 @@ it('falls back to the cut title and hashtags, then to the video name, when the s
 
     expect(YoutubeShort::query()->where('youtube_id', 'reframe-'.$other->uuid)->firstOrFail()->title)->toBe($other->videoCut->video->name);
 });
+
+it('turns the stock items of the spec into overlays and sfx, with the meme clip audio', function (): void {
+    Http::fake(['*/reframe' => Http::response(['uuid' => 'job'], 202)]);
+    $edit = makeEditForRender($this->user);
+    $edit->update(['spec' => editSpec([
+        'memes' => [['asset_id' => 'a', 'key' => 'assets/meme_sticker/a.png', 't' => [1.02, 1.75], 'has_audio' => false]],
+        'meme_clips' => [
+            ['asset_id' => 'b', 'key' => 'assets/meme_clip/b.mp4', 't' => [5.1, 7.1], 'has_audio' => true],
+            ['asset_id' => 'c', 'key' => 'assets/meme_clip/c.mp4', 't' => [9.2, 10.2], 'has_audio' => false],
+        ],
+        'emoji' => [['asset_id' => 'd', 'key' => 'assets/emoji/d.png', 't' => [3.02, 3.6], 'has_audio' => false]],
+        'sfx' => [['asset_id' => 'e', 'key' => 'assets/sfx/e.mp3', 't' => [0.97, 1.4], 'has_audio' => false]],
+    ])]);
+
+    resolve(VideoCutEditRenderService::class)->startRender($edit->fresh(), null);
+
+    Http::assertSent(fn (Request $request): bool => $request['overlays'] === [
+        ['key' => 'assets/meme_sticker/a.png', 't' => [1.02, 1.75], 'kind' => 'meme'],
+        ['key' => 'assets/meme_clip/b.mp4', 't' => [5.1, 7.1], 'kind' => 'meme_clip'],
+        ['key' => 'assets/meme_clip/c.mp4', 't' => [9.2, 10.2], 'kind' => 'meme_clip'],
+        ['key' => 'assets/emoji/d.png', 't' => [3.02, 3.6], 'kind' => 'emoji'],
+    ] && $request['sfx'] === [
+        ['key' => 'assets/meme_clip/b.mp4', 't' => 5.1],
+        ['key' => 'assets/sfx/e.mp3', 't' => 0.97],
+    ]);
+});
