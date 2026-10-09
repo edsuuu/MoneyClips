@@ -70,7 +70,7 @@ UI podem ser pt-BR). Nunca invente APIs/métodos — confira no código.
   privados → **`render()` por último** (o pint não reordena métodos — é
   manual de propósito).
 - Reuse: `App\Support\Hashtags`, `App\Jobs\Concerns\TransfersStorageFiles`,
-  `x-ui.toggle`, `x-ui.server-modal`, `x-ui.modal`, `x-log-level-badge`,
+  `x-ui.server-modal`, `x-ui.modal`, `x-log-level-badge`,
   `components/sidebar.blade.php` (fonte única de navegação).
 - Python (media): ruff 0.15 + **mypy --strict**
   (genéricos completos, `datetime.UTC`, `contextlib.suppress`).

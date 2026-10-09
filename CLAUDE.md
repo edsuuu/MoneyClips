@@ -177,7 +177,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | Tabela | Papel |
 | --- | --- |
 | `users` | login Google OAuth; papel `admin`/`creator` via spatie (`model_has_roles`) |
-| `social_accounts` | credenciais por plataforma (OAuth do YT e do TikTok oficial, cookies do TT); `platform` = onde posta, `provider` (`PostProviderEnum`) = por onde (padrão pela plataforma: `youtube_api`, `tiktok_uploader`; `tiktok_official` vem do Login Kit); `session_status=invalid` = token revogado/cookies mortos (o dispatcher falha na hora) |
+| `social_accounts` | credenciais por plataforma (OAuth do YT e do TikTok oficial, cookies do TT); `platform` = onde posta, `provider` (`PostProviderEnum`) = por onde (padrão pela plataforma: `youtube_api`, `tiktok_uploader`; `tiktok_official` vem do Login Kit); `session_status=invalid` = token revogado/cookies mortos (o dispatcher falha na hora); modo (`SocialAccountModeEnum`, `mode()`/`applyMode()`) = Desligada (`!is_active`) · Manual (ativa) · Automática (ativa + `auto_schedule`) |
 | `social_posts` | 1 linha por Short × conta (unique): `scheduled_for`, `status` (`PostStatusEnum` scheduled→posting→published\|failed\|missed\|canceled), `privacy`, `external_id`, `url`, `error`, `attempts`. Sem `user_id`: o dono é o da conta (`SocialPost::forUser($user)`, admin vê tudo) |
 | `videos` | vídeos longos enviados em /upload (arquivo ou URL do YouTube): ciclo `awaiting_upload\|downloading → uploaded → packaging → ready` + metadados do HLS |
 | `youtube_shorts` | estoque; ciclo `ready_at` → `posted_*_at`; `user_id` nullable (dono do vídeo longo no corte editado; null = short de canal, só admin vê) |
@@ -193,7 +193,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo; corte manual e busca de momentos por IA (`SuggestCutsJob` → cortes com `is_ai_generated`) |
 | `/editor-de-video/{cut}` | `App\Livewire\VideoEditor\Index` | reframe do corte por keyframes (crop 9:16, modos, legendas) + "Gerar tracking automático" (face tracking no `media`, sobrescreve os keyframes) + "Gerar corte editado" → render no serviço `video` → estoque de `/meus-videos` |
 | `/agenda` | `App\Livewire\Schedule\Index` | próximos 7 dias por dia (linha = Short + horário, um selo de estado por plataforma) + bloco "precisa de você" (Failed/Missed dos últimos 7 dias, com Tentar de novo / Reconectar conta / Reagendar perdidas); cancelar e reagendar via `PostSchedulerService`; `wire:poll` só com post em Posting |
-| `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok por cookies de sessão, só de escrita — a tela mostra "sessão salva em DATA" e nunca devolve o valor; TikTok oficial via Login Kit; YouTube OAuth) com toggle por conta (conta desativada não posta) |
+| `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok por cookies de sessão, só de escrita — a tela mostra "sessão salva em DATA" e nunca devolve o valor; TikTok oficial via Login Kit; YouTube OAuth) com o modo por conta (Desligada · Manual · Automática, um controle só: `setMode`; conta desligada não posta) |
 | `/observabilidade` | `App\Livewire\Observability\Index` | stream de logs dos microserviços |
 
 Não existe redirect legado: cada tela tem UMA rota. Link novo aponta pra rota
@@ -204,6 +204,7 @@ final — nada de `Route::redirect` pra não mexer na navbar.
 | Comando | O que faz |
 | --- | --- |
 | `uploads:prune-stale` | aborta uploads multipart abandonados > 24h (diário) |
+| `posts:fill` | de hora em hora: agenda nas contas Automáticas os Shorts prontos que faltaram (o `markReady` e o ligar da Automática já agendam na hora; linha Cancelada não é refeita; postado só bloqueia a plataforma em que saiu) e avisa no Discord, 1×/dia por conta, quando os agendados futuros cobrem menos de 1 dia (`min(per_day, nº de horários)`) |
 | `posts:dispatch` | a cada minuto: agendado com atraso > `grace_minutes` vira Missed, Posting sem resposta > `stuck_minutes` vira Failed, o que chegou na hora é reivindicado e vai pro `PublishPostJob` |
 | `assets:add-file {path}` / `assets:add-dir {path}` | sobe pro MinIO e cria `stock_assets` pending (`--kind --license --tags --emotion --source-url --author --real-person --has-audio --risk-note`) |
 | `assets:review` | aprova/recusa os pending um a um, com aviso de risco (pessoa real/áudio) |
@@ -260,7 +261,7 @@ Cron: `* * * * * php artisan schedule:run` + dois workers de fila
 - Propriedade pública = fronteira de confiança: valide/saneie nas ações.
 - Reuse antes de escrever: `App\Support\Hashtags` (hashtag ⇄ input),
   `App\Jobs\Concerns\TransfersStorageFiles` (MinIO ⇄ tmp), componentes
-  `x-ui.toggle`, `x-ui.server-modal` (modal @if server-driven),
+  `x-ui.server-modal` (modal @if server-driven),
   `x-ui.modal` (Alpine), `x-log-level-badge`, e
   `components/navbar.blade.php` (fonte ÚNICA de navegação —
   desktop + drawer mobile).

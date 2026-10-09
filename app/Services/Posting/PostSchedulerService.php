@@ -10,6 +10,7 @@ use App\Models\SocialPost;
 use App\Models\User;
 use App\Models\YoutubeShort;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -101,6 +102,111 @@ final class PostSchedulerService
 
             return $post;
         });
+    }
+
+    /**
+     * Short pronto entra sozinho no próximo horário livre de cada conta
+     * Automática do dono. Conta que já tem QUALQUER linha desse Short fica de
+     * fora — inclusive Cancelada: o dono cancelou, o preenchimento não desfaz.
+     * Já postado só bloqueia a plataforma em que saiu. Short de canal (sem
+     * dono) nunca entra sozinho.
+     *
+     * @return list<SocialPost>
+     *
+     * @throws RuntimeException
+     */
+    public function autoSchedule(YoutubeShort $short): array
+    {
+        if (is_null($short->user_id) || is_null($short->ready_at) || blank($short->video_path)) {
+            return [];
+        }
+
+        $accounts = $this->autoAccounts()
+            ->where('user_id', $short->user_id)
+            ->whereDoesntHave('socialPosts', fn (Builder $query): Builder => $query->where('youtube_short_id', $short->id))
+            ->get()
+            ->filter(fn (SocialAccount $account): bool => is_null($short->getAttribute('posted_'.$account->platform.'_at')));
+
+        $posts = [];
+        foreach ($accounts as $account) {
+            $post = $this->schedule($short, $account);
+            if ($post instanceof SocialPost) {
+                $posts[] = $post->setRelation('socialAccount', $account);
+            }
+        }
+
+        return $posts;
+    }
+
+    /**
+     * O que faltou agendar nas contas Automáticas (horário que não coube,
+     * Short que ficou pronto com a conta em outro modo etc.).
+     *
+     * @throws RuntimeException
+     */
+    public function fillAutoAccounts(): int
+    {
+        return $this->autoAccounts()->get()->sum(fn (SocialAccount $account): int => $this->fillAccount($account));
+    }
+
+    /**
+     * Os prontos do dono que ainda não estão na conta, do mais antigo pro
+     * mais novo. Qualquer linha conta como "já está", inclusive a Cancelada:
+     * o × do dono é definitivo.
+     *
+     * @throws RuntimeException
+     */
+    public function fillAccount(SocialAccount $account): int
+    {
+        $taken = SocialPost::query()
+            ->where('social_account_id', $account->id)
+            ->select('youtube_short_id');
+
+        $shorts = YoutubeShort::query()
+            ->where('user_id', $account->user_id)
+            ->whereNotNull('video_path')
+            ->whereNotNull('ready_at')
+            ->whereNull('posted_'.$account->platform.'_at')
+            ->whereNotIn('id', $taken)
+            ->oldest('ready_at')
+            ->get();
+
+        return $shorts->filter(fn (YoutubeShort $short): bool => $this->schedule($short, $account) instanceof SocialPost)->count();
+    }
+
+    /**
+     * Desligar uma conta Automática APAGA os agendados dela (linha Scheduled
+     * não tem desfecho, nada se perde): religada, o preenchimento devolve o
+     * que saiu daqui sem confundir com o que o dono cancelou no ×.
+     */
+    public function deleteScheduled(SocialAccount $account): int
+    {
+        return (int) SocialPost::query()
+            ->where('social_account_id', $account->id)
+            ->where('status', PostStatusEnum::Scheduled)
+            ->delete();
+    }
+
+    /**
+     * Desligar uma conta Manual cancela os agendados dela: foram escolhidos à
+     * mão, a linha Cancelada guarda o registro e não vira Falhou (com Discord)
+     * na hora marcada.
+     */
+    public function cancelScheduled(SocialAccount $account): int
+    {
+        return SocialPost::query()
+            ->where('social_account_id', $account->id)
+            ->where('status', PostStatusEnum::Scheduled)
+            ->update(['status' => PostStatusEnum::Canceled]);
+    }
+
+    /** @return Builder<SocialAccount> */
+    public function autoAccounts(): Builder
+    {
+        return SocialAccount::query()
+            ->where('is_active', true)
+            ->where('auto_schedule', true)
+            ->where(fn (Builder $query): Builder => $query->whereNull('session_status')->orWhere('session_status', '!=', SocialAccount::SESSION_INVALID));
     }
 
     /**

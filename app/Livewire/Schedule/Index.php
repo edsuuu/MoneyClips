@@ -134,13 +134,13 @@ final class Index extends Component
         return sprintf('%s · %s %d %s', $count, $scheduled === 1 ? 'cobre' : 'cobrem', $covered, $covered === 1 ? 'dia' : 'dias');
     }
 
-    private function shortAgendaWarning(int $scheduled, int $covered): ?string
+    private function shortAgendaWarning(int $scheduled, int $covered, bool $hasAuto): ?string
     {
-        if ($scheduled === 0 || $covered > 2) {
+        if ($scheduled === 0 || $covered > 2 || $hasAuto) {
             return null;
         }
 
-        return sprintf('A agenda acaba %s. Marque mais Shorts como prontos e agende.', $covered === 2 ? 'amanhã' : 'hoje');
+        return sprintf('A agenda acaba %s. Marque mais Shorts como prontos ou ligue o modo Automático.', $covered === 2 ? 'amanhã' : 'hoje');
     }
 
     private function readyShortsCount(): int
@@ -186,14 +186,14 @@ final class Index extends Component
             'hasAccounts' => $accounts->isNotEmpty(),
             'summaryLabel' => $this->summaryLabel($scheduled->count(), $covered),
             'nextLabel' => $next instanceof SocialPost ? 'Próxima postagem: '.$this->whenLabel($next->scheduled_for) : null,
-            'shortAgendaWarning' => $this->shortAgendaWarning($scheduled->count(), $covered),
+            'shortAgendaWarning' => $this->shortAgendaWarning($scheduled->count(), $covered, $activeAccounts->contains('auto_schedule', true)),
             'attention' => $attentionRows->all(),
             'attentionTitle' => $attentionCount === 1 ? '1 postagem precisa de você' : sprintf('%d postagens precisam de você', $attentionCount),
             'missedLabel' => $missedCount > 0 ? sprintf('Reagendar perdidas (%d)', $missedCount) : null,
             'emptyText' => match (true) {
                 ! $isEmpty => null,
                 $this->readyShortsCount() === 0 => 'Não há Shorts prontos. Revise os Shorts em Meus vídeos.',
-                default => 'Marque Shorts como prontos em Meus vídeos e clique em Agendar.',
+                default => 'Marque Shorts como prontos em Meus vídeos e clique em Agendar. Ou ligue o modo Automático em Contas e a agenda se preenche sozinha.',
             },
             'days' => $isEmpty ? [] : $this->days($listed, $this->schedulableShortIds($listed->map(fn (SocialPost $post): YoutubeShort => $post->youtubeShort))),
             'hasPosting' => $posts->contains('status', PostStatusEnum::Posting),

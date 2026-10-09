@@ -53,19 +53,21 @@
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between border-t border-slate-800 pt-3.5">
-                    <span class="text-[13px] text-slate-400">Ativa para publicação</span>
-                    <div class="flex items-center gap-3">
-                        <x-ui.toggle :active="$youtubeAccount->is_active" wire:click="toggleActive({{ $youtubeAccount->id }})" title="Ativar/desativar conta" />
-                        <button type="button" wire:click="openYoutube" title="Gerenciar vinculação"
-                            class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-sky-950/60 hover:text-sky-400">
-                            <x-ui.icon name="cog" class="size-4" />
-                        </button>
-                        <button type="button" wire:click="delete({{ $youtubeAccount->id }})" wire:confirm="Desvincular o canal do YouTube?" title="Desvincular conta"
-                            class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-950/60 hover:text-red-400">
-                            <x-ui.icon name="x-mark" class="size-4" />
-                        </button>
+                <div class="flex flex-col gap-2.5 border-t border-slate-800 pt-3.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[13px] text-slate-400">Modo</span>
+                        <div class="flex items-center gap-3">
+                            <button type="button" wire:click="openYoutube" title="Gerenciar vinculação"
+                                class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-sky-950/60 hover:text-sky-400">
+                                <x-ui.icon name="cog" class="size-4" />
+                            </button>
+                            <button type="button" wire:click="delete({{ $youtubeAccount->id }})" wire:confirm="Desvincular o canal do YouTube?" title="Desvincular conta"
+                                class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-950/60 hover:text-red-400">
+                                <x-ui.icon name="x-mark" class="size-4" />
+                            </button>
+                        </div>
                     </div>
+                    @include('livewire.accounts.partials.mode-control', ['accountId' => $youtubeAccount->id, 'modes' => $youtubeModes, 'help' => $youtubeModeHelp])
                 </div>
             </div>
         @endif
@@ -95,21 +97,23 @@
                     </div>
                 </div>
 
-                <div class="flex items-center justify-between border-t border-slate-800 pt-3.5">
-                    <span class="text-[13px] text-slate-400">Ativa para publicação</span>
-                    <div class="flex items-center gap-3">
-                        <x-ui.toggle :active="$account['is_active']" wire:click="toggleActive({{ $account['id'] }})" title="Ativar/desativar conta" />
-                        @unless($account['isOfficial'])
-                            <button type="button" wire:click="editTiktok({{ $account['id'] }})" title="Editar conta"
-                                class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-sky-950/60 hover:text-sky-400">
-                                <x-ui.icon name="pencil-square" class="size-4" />
+                <div class="flex flex-col gap-2.5 border-t border-slate-800 pt-3.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[13px] text-slate-400">Modo</span>
+                        <div class="flex items-center gap-3">
+                            @unless($account['isOfficial'])
+                                <button type="button" wire:click="editTiktok({{ $account['id'] }})" title="Editar conta"
+                                    class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-sky-950/60 hover:text-sky-400">
+                                    <x-ui.icon name="pencil-square" class="size-4" />
+                                </button>
+                            @endunless
+                            <button type="button" wire:click="delete({{ $account['id'] }})" wire:confirm="Remover esta conta?" title="Remover conta"
+                                class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-950/60 hover:text-red-400">
+                                <x-ui.icon name="x-mark" class="size-4" />
                             </button>
-                        @endunless
-                        <button type="button" wire:click="delete({{ $account['id'] }})" wire:confirm="Remover esta conta?" title="Remover conta"
-                            class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-950/60 hover:text-red-400">
-                            <x-ui.icon name="x-mark" class="size-4" />
-                        </button>
+                        </div>
                     </div>
+                    @include('livewire.accounts.partials.mode-control', ['accountId' => $account['id'], 'modes' => $account['modes'], 'help' => $account['modeHelp']])
                 </div>
             </div>
         @endforeach
