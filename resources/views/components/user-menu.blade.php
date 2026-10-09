@@ -1,4 +1,4 @@
-@props(['placement' => 'bottom', 'align' => 'start'])
+@props(['placement' => 'bottom', 'align' => 'start', 'hasTour' => false])
 
 <x-ui.dropdown :align="$align" :placement="$placement" {{ $attributes }}>
     <x-slot:trigger>
@@ -22,6 +22,12 @@
     <x-ui.menu-item :href="route('profile.edit')" icon="cog" wire:navigate>
         {{ __('Settings') }}
     </x-ui.menu-item>
+
+    @if ($hasTour)
+        <x-ui.menu-item icon="question-mark-circle" x-on:click="$dispatch('dropdown-close'); $dispatch('tour-start')">
+            Ver tutorial
+        </x-ui.menu-item>
+    @endif
 
     <form method="POST" action="{{ route('logout') }}" class="w-full">
         @csrf

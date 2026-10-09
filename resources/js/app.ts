@@ -5,6 +5,7 @@ import type { ReframePayload } from './Reframe/ReframeTypes';
 import { SubtitleEditor, type RawSegment } from './Subtitle/SubtitleEditor';
 import { ClientLogger } from './Support/ClientLogger';
 import { ThemeStore } from './Support/ThemeStore';
+import { GuidedTour, type TourStep } from './Tour/GuidedTour';
 import { TrimEditor, type TrimEditorConfig } from './Trim/TrimEditor';
 import { MultipartUploader } from './Upload/MultipartUploader';
 import type { VideoUploaderConfig } from './Upload/UploadTypes';
@@ -54,4 +55,8 @@ document.addEventListener('alpine:init', () => {
         (config) => new TrimEditor(config as unknown as TrimEditorConfig),
     );
     window.Alpine.data('cutRow', () => new CutRowEditor());
+    window.Alpine.data(
+        'guidedTour',
+        (steps, name) => new GuidedTour(steps as unknown as TourStep[], name as unknown as string),
+    );
 });

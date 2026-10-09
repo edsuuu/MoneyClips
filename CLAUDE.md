@@ -223,6 +223,15 @@ Cron: `* * * * * php artisan schedule:run` + dois workers de fila
   `x-ui.modal` (Alpine), `x-log-level-badge`, e
   `components/navbar.blade.php` (fonte ÚNICA de navegação —
   desktop + drawer mobile).
+- **Tutorial guiado**: passos por nome de rota em `config/tour.php`
+  (`target`, `title`, `body`, `advance: click` opcional), ancorados por
+  `data-tour="<target>"` no elemento da tela. O `AppLayout` monta o
+  `x-ui.tour` (classe `resources/js/Tour/GuidedTour.ts`) só na rota que tem
+  passos; abre sozinho na 1ª visita (localStorage `tour.<rota>`), pula passo
+  cujo alvo não está na tela e reabre pelo "Ver tutorial" do menu do usuário.
+  `advance: click` libera o clique no alvo e avança com ele — só em
+  navegação, nunca em botão que dispara ação que custa (Buscar, Gerar,
+  Editar com IA, Importar).
 
 ## Qualidade / CI
 

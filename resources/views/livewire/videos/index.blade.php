@@ -34,7 +34,7 @@
     @if ($tab === 'available')
         <div class="flex flex-col gap-8">
             <div>
-                <div class="mb-3.5 flex items-baseline gap-2.5">
+                <div class="mb-3.5 flex items-baseline gap-2.5" data-tour="videos-review">
                     <span class="text-[15px] font-bold">Baixados</span>
                     <span class="text-[13px] text-slate-500">aguardando título, hashtags e revisão</span>
                 </div>

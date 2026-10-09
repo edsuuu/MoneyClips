@@ -93,7 +93,7 @@
 
     @if ($section === 'downloaded')
         <div class="flex gap-2">
-            <button type="button" wire:click="markReady({{ $video['id'] }})"
+            <button type="button" wire:click="markReady({{ $video['id'] }})" data-tour="video-mark-ready"
                 class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-gray-950 transition hover:bg-sky-300">
                 <x-ui.icon name="plus" class="size-3" />
                 Marcar como pronto

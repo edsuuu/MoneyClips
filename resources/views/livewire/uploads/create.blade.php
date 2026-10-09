@@ -3,6 +3,7 @@
     <x-ui.subheading>Arraste um arquivo, clique para escolher ou importe pelo link do YouTube.</x-ui.subheading>
 
     <div
+        data-tour="upload-file"
         class="mt-8"
         x-data="videoUploader({ maxBytes: @js($maxBytes), accepted: @js($accept), videoUrlBase: @js($videoUrlBase) })"
     >
@@ -68,7 +69,7 @@
         </template>
     </div>
 
-    <div class="mt-10">
+    <div class="mt-10" data-tour="upload-youtube">
         <div class="flex items-center gap-4">
             <div class="h-px flex-1 bg-slate-800"></div>
             <span class="text-xs font-medium uppercase tracking-wide text-slate-500">ou importe do YouTube</span>
