@@ -47,7 +47,7 @@ final class EditCutWithAiJob implements ShouldQueue
     /**
      * @param  list<array{start: float, end: float, speaker: int}>  $speakers
      */
-    public function __construct(public int $editId, public array $speakers = [])
+    public function __construct(public int $editId, public array $speakers = [], public ?string $change = null)
     {
         $this->onQueue('processing');
     }
@@ -88,18 +88,25 @@ final class EditCutWithAiJob implements ShouldQueue
 
         $duration = (float) ($edit->source_meta['duration'] ?? $cut->end_seconds - $cut->start_seconds);
         $input = $this->input($edit, $segments, $duration);
+        $captionPreset = $edit->caption_preset;
+
+        if (! is_null($this->change)) {
+            $input = $this->changeInput($input, $edit);
+            $captionPreset = $edit->spec['caption_preset'] ?? $edit->caption_preset;
+        }
+
         $assets = $stock->available($cut);
         $prompt = $stock->prompt($assets);
         $schema = $stock->schema($assets);
 
         $output = $claude->structured($prompt, $schema, $input);
-        $result = $validator->validate($output, $words, $duration, $assets, $edit->caption_preset);
+        $result = $validator->validate($output, $words, $duration, $assets, $captionPreset);
 
         if ($result['hard'] === [] && $result['soft'] !== []) {
             Log::channel('daily')->info('[INFO][CutEditAi] Spec com erros moles — 1 retry.', ['edit_id' => $edit->id, 'soft' => $result['soft']]);
 
             $output = $claude->structured($prompt, $schema, $this->retryInput($input, $output, $result['soft']));
-            $result = $validator->validate($output, $words, $duration, $assets, $edit->caption_preset);
+            $result = $validator->validate($output, $words, $duration, $assets, $captionPreset);
         }
 
         if ($result['warnings'] !== []) {
@@ -125,7 +132,7 @@ final class EditCutWithAiJob implements ShouldQueue
             ->update([
                 'ai_status' => TranscriptionStatusEnum::Ready,
                 'ai_error' => null,
-                'spec' => json_encode($spec, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION),
+                'spec' => json_encode([...$spec, 'ai_output' => $output], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION),
                 'render_status' => VideoCutStatusEnum::Generating,
                 'render_error' => null,
             ]);
@@ -143,6 +150,7 @@ final class EditCutWithAiJob implements ShouldQueue
             'captions' => count($result['spec']['captions']),
             'cuts' => count($result['spec']['cuts']),
             'punches' => count($result['spec']['punches']),
+            'change' => $this->change,
         ]);
     }
 
@@ -286,6 +294,28 @@ final class EditCutWithAiJob implements ShouldQueue
         }
 
         return implode(PHP_EOL, $lines);
+    }
+
+    /**
+     * Refazer a partir do /meus-videos: só a última resposta da IA volta, sem
+     * encadear o histórico, e o tracking não roda de novo.
+     *
+     * ponytail: os turnos de locutor não vão (`Locutores: sem dados`) — a
+     * resposta anterior já carrega as decisões por quem fala. Ler o
+     * speakers.json do corte se o refazer piorar notas e zooms.
+     *
+     * @throws JsonException
+     */
+    private function changeInput(string $input, VideoCutEdit $edit): string
+    {
+        return implode(PHP_EOL, [
+            $input,
+            '',
+            'Edição anterior:',
+            json_encode($edit->spec['ai_output'] ?? [], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE),
+            '',
+            'Mudança pedida: '.$this->change,
+        ]);
     }
 
     /**

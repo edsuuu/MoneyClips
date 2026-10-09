@@ -10,10 +10,12 @@ use App\Jobs\StartFaceTrackingJob;
 use App\Jobs\StartVideoCutEditRenderJob;
 use App\Livewire\Uploads\Show;
 use App\Livewire\VideoEditor\Index as VideoEditor;
+use App\Livewire\Videos\Index as Videos;
 use App\Models\StockAsset;
 use App\Models\Video;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
+use App\Models\YoutubeShort;
 use Illuminate\Http\Client\Request;
 use Illuminate\Process\FakeProcessResult;
 use Illuminate\Process\PendingProcess;
@@ -362,4 +364,78 @@ it('renders without the image when storing it in the stock fails', function (): 
     expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Ready)
         ->and($edit->fresh()?->spec['images'])->toBe([]);
     Bus::assertDispatched(StartVideoCutEditRenderJob::class);
+});
+
+it('redoes the short with the previous answer and the change and replaces it in the stock', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class, EditCutWithAiJob::class]);
+    $sticker = StockAsset::query()->create(['id' => 'f3b1c2d4-0000-7000-8000-000000000001', 'kind' => 'meme_sticker', 'tags' => ['susto'], 'license' => 'own_risk', 'source' => 'manual', 'storage_key' => 'assets/meme_sticker/1.png', 'status' => 'approved']);
+    $first = [...$this->fixture['spec'], 'memes' => [['asset_id' => $sticker->id, 'w' => $this->fixture['spec']['captions'][1]['w'][0]]]];
+    Process::fake(['*' => Process::sequence()
+        ->push(claudeEditResult($first))
+        ->push(claudeEditResult([...$first, 'title' => 'título refeito']))]);
+    $cut = aiEditCut($this->fixture);
+    $edit = aiEditFor($cut);
+    $webhook = fn () => $this->postJson('/api/webhook/video-cut-edit', ['edit_uuid' => $edit->uuid, 'status' => 'done'], ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    runEditCutWithAi($edit);
+    $webhook();
+
+    $short = YoutubeShort::query()->sole();
+    $short->update(['title' => 'título do dono', 'ready_at' => now()->subDay()]);
+
+    $readyAt = $short->fresh()?->ready_at?->toDateTimeString();
+    $preset = $edit->fresh()?->spec['caption_preset'];
+
+    Livewire::actingAs($cut->video->user)
+        ->test(Videos::class)
+        ->call('redo', $short->id, '  mais memes ')
+        ->call('redo', $short->id, 'de novo')
+        ->assertSee('Refazendo…');
+
+    Bus::assertDispatchedTimes(EditCutWithAiJob::class, 1);
+    Bus::assertDispatched(EditCutWithAiJob::class, fn (EditCutWithAiJob $job): bool => $job->editId === $edit->id && $job->change === 'mais memes' && $job->speakers === []);
+
+    app()->call([new EditCutWithAiJob($edit->id, change: 'mais memes'), 'handle']);
+    $webhook();
+
+    Process::assertRanTimes(fn (): bool => true, 2);
+    Process::assertRan(function (PendingProcess $process) use ($sticker): bool {
+        $command = (array) $process->command;
+
+        return str_contains((string) $process->input, "Edição anterior:\n{\"verdict\":\"edit\"")
+            && str_contains((string) $process->input, 'Mudança pedida: mais memes')
+            && str_contains((string) $command[array_search('--json-schema', $command, true) + 1], $sticker->id);
+    });
+
+    expect($edit->fresh()?->spec['title'])->toBe('título refeito')
+        ->and($edit->fresh()?->spec['ai_output']['title'] ?? null)->toBe('título refeito')
+        ->and($edit->fresh()?->spec['caption_preset'])->toBe($preset)
+        ->and(YoutubeShort::query()->sole()->id)->toBe($short->id)
+        ->and($short->fresh()?->title)->toBe('título do dono')
+        ->and($short->fresh()?->ready_at?->toDateTimeString())->toBe($readyAt);
+});
+
+it('refuses an empty change or a short without the stored AI answer and hides the old error while redoing', function (): void {
+    Bus::fake([EditCutWithAiJob::class]);
+    $cut = aiEditCut($this->fixture);
+    $old = YoutubeShort::factory()->create();
+    $redoable = YoutubeShort::factory()->create();
+    aiEditFor($cut, ['ai_status' => TranscriptionStatusEnum::Ready, 'spec' => ['caption_preset' => 'verde'], 'youtube_short_id' => $old->id]);
+    aiEditFor($cut, ['ai_status' => TranscriptionStatusEnum::Ready, 'spec' => ['caption_preset' => 'verde', 'ai_output' => ['title' => 't']], 'youtube_short_id' => $redoable->id, 'render_status' => VideoCutStatusEnum::Failed, 'render_error' => 'render antigo falhou']);
+
+    Livewire::actingAs($cut->video->user)
+        ->test(Videos::class)
+        ->assertViewHas('downloaded', function (array $cards) use ($old, $redoable): bool {
+            $canRedo = array_column($cards, 'canRedo', 'id');
+
+            return $canRedo[$old->id] === false && $canRedo[$redoable->id] === true;
+        })
+        ->assertSee('render antigo falhou')
+        ->call('redo', $old->id, 'mais memes')
+        ->call('redo', $redoable->id, '   ')
+        ->call('redo', $redoable->id, 'mais memes')
+        ->assertSee('Refazendo…')
+        ->assertDontSee('render antigo falhou');
+
+    Bus::assertDispatchedTimes(EditCutWithAiJob::class, 1);
 });
