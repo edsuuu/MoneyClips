@@ -113,7 +113,7 @@ trait WithPostScheduling
             foreach ($accounts as $account) {
                 $post = $scheduler->schedule($short, $account, $at);
                 if ($post instanceof SocialPost) {
-                    $done[] = ['platform' => $this->platformLabel($account->platform), 'when' => $this->whenLabel($post->scheduled_for)];
+                    $done[] = $this->scheduledSlot($post->setRelation('socialAccount', $account));
                 }
             }
         } catch (RuntimeException $runtimeException) {
@@ -425,6 +425,12 @@ trait WithPostScheduling
             $at->isYesterday() => 'ontem às '.$time,
             default => $this->dayName($at).' às '.$time,
         };
+    }
+
+    /** @return array{platform: string, when: string} */
+    private function scheduledSlot(SocialPost $post): array
+    {
+        return ['platform' => $this->platformLabel($post->socialAccount->platform), 'when' => $this->whenLabel($post->scheduled_for)];
     }
 
     /** @param  list<array{platform: string, when: string}>  $slots */

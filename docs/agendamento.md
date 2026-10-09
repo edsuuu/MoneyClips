@@ -139,11 +139,17 @@ falha com o motivo.
   `applyMode()`; o dispatcher segue lendo só `is_active`.
 - Short marcado como pronto (`markReady`) entra na hora no próximo horário
   livre de cada conta Automática do dono (`PostSchedulerService::autoSchedule`).
-  Short de canal (sem dono) nunca entra sozinho; conta que já tem qualquer
-  linha daquele Short (inclusive Cancelada) fica de fora: cancelar é
-  definitivo pro automático.
+  Short de canal (sem dono) ou sem vídeo nunca entra sozinho; conta que já
+  tem qualquer linha daquele Short (inclusive Cancelada) fica de fora:
+  cancelar é definitivo pro automático. Já postado só bloqueia a plataforma
+  em que saiu (`posted_{platform}_at`).
+- Ligar a Automática já preenche a conta na hora (`fillAccount`) e traz de
+  volta as linhas Canceladas dela. Desligar uma conta Automática cancela os
+  agendados dela (`cancelScheduled`, com `wire:confirm`), em vez de deixar
+  cada um virar Falhou com Discord na hora marcada. Conta com sessão inválida
+  não aceita a Automática ("Reconecte a conta").
 - `posts:fill` (de hora em hora) preenche o que faltou, do pronto mais antigo
-  pro mais novo (conta que virou Automática depois, por exemplo), e avisa no
-  Discord (`services.discord.webhook`) quando os agendados futuros de uma
-  conta Automática são menos que `per_day` — no máximo 1 aviso por conta por
-  dia (cache `posting:low-stock:{id}`).
+  pro mais novo, e avisa no Discord (`services.discord.webhook`) quando os
+  agendados futuros de uma conta Automática são menos do que cabe num dia
+  (`min(per_day, nº de horários de posting.times)`) — no máximo 1 aviso por
+  conta por dia (cache `posting:low-stock:{id}`).

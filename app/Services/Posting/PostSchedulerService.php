@@ -108,7 +108,8 @@ final class PostSchedulerService
      * Short pronto entra sozinho no próximo horário livre de cada conta
      * Automática do dono. Conta que já tem QUALQUER linha desse Short fica de
      * fora — inclusive Cancelada: o dono cancelou, o preenchimento não desfaz.
-     * Short de canal (sem dono) nunca entra sozinho.
+     * Já postado só bloqueia a plataforma em que saiu. Short de canal (sem
+     * dono) nunca entra sozinho.
      *
      * @return list<SocialPost>
      *
@@ -116,14 +117,15 @@ final class PostSchedulerService
      */
     public function autoSchedule(YoutubeShort $short): array
     {
-        if (is_null($short->user_id) || is_null($short->ready_at) || ! is_null($short->posted_youtube_at) || ! is_null($short->posted_tiktok_at)) {
+        if (is_null($short->user_id) || is_null($short->ready_at) || blank($short->video_path)) {
             return [];
         }
 
         $accounts = $this->autoAccounts()
             ->where('user_id', $short->user_id)
             ->whereDoesntHave('socialPosts', fn (Builder $query): Builder => $query->where('youtube_short_id', $short->id))
-            ->get();
+            ->get()
+            ->filter(fn (SocialAccount $account): bool => is_null($short->getAttribute('posted_'.$account->platform.'_at')));
 
         $posts = [];
         foreach ($accounts as $account) {
@@ -137,24 +139,52 @@ final class PostSchedulerService
     }
 
     /**
-     * O que faltou agendar nas contas Automáticas (conta virou Automática
-     * depois do Short ficar pronto, horário que não coube etc.), do pronto
-     * mais antigo pro mais novo.
+     * O que faltou agendar nas contas Automáticas (horário que não coube,
+     * Short que ficou pronto com a conta em outro modo etc.).
      *
      * @throws RuntimeException
      */
     public function fillAutoAccounts(): int
     {
+        return $this->autoAccounts()->get()->sum(fn (SocialAccount $account): int => $this->fillAccount($account));
+    }
+
+    /**
+     * Os prontos do dono que ainda não estão na conta, do mais antigo pro
+     * mais novo. Ao religar o Automático (`$reviveCanceled`) a linha Cancelada
+     * volta: foi o desligar que cancelou, e o dono pediu o Automático de novo.
+     *
+     * @throws RuntimeException
+     */
+    public function fillAccount(SocialAccount $account, bool $reviveCanceled = false): int
+    {
+        $taken = SocialPost::query()
+            ->where('social_account_id', $account->id)
+            ->when($reviveCanceled, fn (Builder $query): Builder => $query->where('status', '!=', PostStatusEnum::Canceled))
+            ->select('youtube_short_id');
+
         $shorts = YoutubeShort::query()
-            ->whereIn('user_id', $this->autoAccounts()->select('user_id'))
+            ->where('user_id', $account->user_id)
             ->whereNotNull('video_path')
             ->whereNotNull('ready_at')
-            ->whereNull('posted_youtube_at')
-            ->whereNull('posted_tiktok_at')
+            ->whereNull('posted_'.$account->platform.'_at')
+            ->whereNotIn('id', $taken)
             ->oldest('ready_at')
             ->get();
 
-        return $shorts->sum(fn (YoutubeShort $short): int => count($this->autoSchedule($short)));
+        return $shorts->filter(fn (YoutubeShort $short): bool => $this->schedule($short, $account) instanceof SocialPost)->count();
+    }
+
+    /**
+     * Desligar uma conta Automática cancela os agendados dela: senão cada um
+     * vira Falhou (com Discord) na hora marcada.
+     */
+    public function cancelScheduled(SocialAccount $account): int
+    {
+        return SocialPost::query()
+            ->where('social_account_id', $account->id)
+            ->where('status', PostStatusEnum::Scheduled)
+            ->update(['status' => PostStatusEnum::Canceled]);
     }
 
     /** @return Builder<SocialAccount> */

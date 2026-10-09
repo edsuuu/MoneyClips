@@ -131,8 +131,7 @@ final class Index extends Component
             return;
         }
 
-        $done = array_map(fn (SocialPost $post): array => ['platform' => $this->platformLabel($post->socialAccount->platform), 'when' => $this->whenLabel($post->scheduled_for)], $posts);
-        $this->toast('Vídeo marcado como pronto. '.$this->scheduledToast($done));
+        $this->toast('Vídeo marcado como pronto. '.$this->scheduledToast(array_map($this->scheduledSlot(...), $posts)));
     }
 
     /**

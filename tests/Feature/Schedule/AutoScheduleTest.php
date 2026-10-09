@@ -12,6 +12,7 @@ use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\User;
 use App\Models\YoutubeShort;
+use App\Services\Posting\PostSchedulerService;
 use Database\Seeders\Seeder001Roles;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Date;
@@ -94,8 +95,9 @@ it('fills what is missing, oldest ready first, without undoing a cancel or touch
     $canceled = YoutubeShort::factory()->for($this->creator)->ready()->create();
     SocialPost::query()->create(['youtube_short_id' => $canceled->id, 'social_account_id' => $auto->id, 'scheduled_for' => '2026-10-08 08:00', 'status' => PostStatusEnum::Canceled]);
     YoutubeShort::factory()->ready()->create();
-    YoutubeShort::factory()->for($this->creator)->ready()->posted()->create();
+    YoutubeShort::factory()->for($this->creator)->ready()->create(['posted_tiktok_at' => now()]);
     YoutubeShort::factory()->for($this->creator)->create(['ready_at' => null]);
+    YoutubeShort::factory()->for($this->creator)->ready()->notDownloaded()->create();
 
     $this->artisan('posts:fill')->assertSuccessful();
 
@@ -143,4 +145,88 @@ it('drops the short agenda warning once an account is Automatic', function (): v
 
     $manual->update(['auto_schedule' => true]);
     Livewire::test(ScheduleIndex::class)->assertDontSee('A agenda acaba');
+});
+
+it('schedules on TikTok a Short that already went out only on YouTube', function (): void {
+    $tiktok = autoAccount($this->creator, 'tiktok');
+    $youtube = autoAccount($this->creator, 'youtube');
+    $short = YoutubeShort::factory()->for($this->creator)->ready()->posted()->create();
+
+    $this->artisan('posts:fill')->assertSuccessful();
+
+    expect(SocialPost::query()->where('social_account_id', $tiktok->id)->sole()->youtube_short_id)->toBe($short->id)
+        ->and(SocialPost::query()->where('social_account_id', $youtube->id)->exists())->toBeFalse();
+});
+
+it('never auto-schedules a Short without video', function (): void {
+    autoAccount($this->creator, 'tiktok');
+    $short = YoutubeShort::factory()->for($this->creator)->ready()->notDownloaded()->create();
+
+    expect(resolve(PostSchedulerService::class)->autoSchedule($short))->toBe([])
+        ->and(SocialPost::query()->count())->toBe(0);
+});
+
+it('fills the account right away when it turns Automatic', function (): void {
+    $account = autoAccount($this->creator, 'tiktok', SocialAccountModeEnum::Manual);
+    YoutubeShort::factory()->for($this->creator)->ready()->count(2)->create();
+
+    Livewire::test(AccountsIndex::class)
+        ->call('setMode', $account->id, 'auto')
+        ->assertDispatched('toast', message: 'Conta em modo Automática. 2 Shorts agendados.', variant: 'success');
+
+    expect($account->socialPosts()->where('status', PostStatusEnum::Scheduled)->count())->toBe(2);
+});
+
+it('refuses Automatic on a disconnected account', function (): void {
+    $account = autoAccount($this->creator, 'tiktok', SocialAccountModeEnum::Manual);
+    $account->update(['session_status' => SocialAccount::SESSION_INVALID]);
+
+    Livewire::test(AccountsIndex::class)
+        ->call('setMode', $account->id, 'auto')
+        ->assertDispatched('toast', message: 'Reconecte a conta para o Automático funcionar.', variant: 'danger');
+
+    expect($account->refresh()->mode())->toBe(SocialAccountModeEnum::Manual);
+});
+
+it('cancels the scheduled posts of an Automatic account turned off, without Discord, and brings them back when it turns Automatic again', function (): void {
+    config(['posting.per_day' => 2]);
+    $account = autoAccount($this->creator, 'tiktok');
+    $other = autoAccount($this->creator, 'youtube');
+    YoutubeShort::factory()->for($this->creator)->ready()->count(2)->create();
+    $this->artisan('posts:fill')->assertSuccessful();
+
+    Livewire::test(AccountsIndex::class)
+        ->assertSeeHtml('wire:confirm="2 postagens agendadas serão canceladas."')
+        ->call('setMode', $account->id, 'off')
+        ->assertDispatched('toast', message: 'Conta em modo Desligada. 2 postagens canceladas.', variant: 'success');
+
+    expect($account->socialPosts()->where('status', PostStatusEnum::Canceled)->count())->toBe(2)
+        ->and($other->socialPosts()->where('status', PostStatusEnum::Scheduled)->count())->toBe(2);
+
+    $this->artisan('posts:fill')->assertSuccessful();
+    expect($account->socialPosts()->where('status', PostStatusEnum::Scheduled)->count())->toBe(0);
+
+    Livewire::test(AccountsIndex::class)
+        ->call('setMode', $account->id, 'auto')
+        ->assertDispatched('toast', message: 'Conta em modo Automática. 2 Shorts agendados.', variant: 'success');
+
+    expect($account->socialPosts()->where('status', PostStatusEnum::Scheduled)->count())->toBe(2);
+    Http::assertNothingSent();
+});
+
+it('measures the low stock against the posts a day can really hold', function (): void {
+    config(['posting.times' => ['09:00', '20:00', '21:00']]);
+    $account = autoAccount($this->creator, 'tiktok');
+    foreach (range(1, 3) as $day) {
+        SocialPost::query()->create([
+            'youtube_short_id' => YoutubeShort::factory()->for($this->creator)->create()->id,
+            'social_account_id' => $account->id,
+            'scheduled_for' => now()->addDays($day),
+            'status' => PostStatusEnum::Scheduled,
+        ]);
+    }
+
+    $this->artisan('posts:fill')->assertSuccessful();
+
+    Http::assertNothingSent();
 });

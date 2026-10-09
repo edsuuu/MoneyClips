@@ -4,15 +4,18 @@ declare(strict_types=1);
 
 namespace App\Livewire\Accounts;
 
+use App\Enums\PostStatusEnum;
 use App\Enums\SocialAccountModeEnum;
 use App\Livewire\Concerns\WithCurrentUser;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
+use App\Services\Posting\PostSchedulerService;
 use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Component;
+use RuntimeException;
 
 final class Index extends Component
 {
@@ -138,9 +141,27 @@ final class Index extends Component
         }
 
         $this->authorize('update', $account);
+
+        if ($chosen === SocialAccountModeEnum::Auto && $account->session_status === SocialAccount::SESSION_INVALID) {
+            $this->toast('Reconecte a conta para o Automático funcionar.', 'danger');
+
+            return;
+        }
+
+        $previous = $account->mode();
         $account->applyMode($chosen);
         $account->save();
-        $this->toast(sprintf('Conta em modo %s.', $chosen->label()));
+
+        try {
+            $outcome = $this->modeOutcome($account, $previous, $chosen);
+        } catch (RuntimeException $runtimeException) {
+            report($runtimeException);
+            $this->toast(sprintf('Conta em modo %s. Não deu para agendar: %s', $chosen->label(), $runtimeException->getMessage()), 'danger');
+
+            return;
+        }
+
+        $this->toast(sprintf('Conta em modo %s.%s', $chosen->label(), $outcome));
     }
 
     public function delete(int $id): void
@@ -169,7 +190,7 @@ final class Index extends Component
 
     /**
      * @param  Collection<int, SocialAccount>  $accounts
-     * @return Collection<int, array{id: int, name: string, is_active: bool, modes: list<array{value: string, label: string, active: bool}>, modeHelp: string, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
+     * @return Collection<int, array{id: int, name: string, is_active: bool, modes: list<array{value: string, label: string, active: bool, confirm: string|null}>, modeHelp: string, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
      */
     private function decorateTiktokAccounts(Collection $accounts): Collection
     {
@@ -190,13 +211,52 @@ final class Index extends Component
             ->values();
     }
 
-    /** @return list<array{value: string, label: string, active: bool}> */
+    /**
+     * Desligar a Automática cancela os agendados dela; ligar a Automática já
+     * preenche a conta (trazendo de volta o que o desligar cancelou).
+     *
+     * @throws RuntimeException
+     */
+    private function modeOutcome(SocialAccount $account, SocialAccountModeEnum $previous, SocialAccountModeEnum $chosen): string
+    {
+        $scheduler = resolve(PostSchedulerService::class);
+
+        if ($previous === SocialAccountModeEnum::Auto && $chosen === SocialAccountModeEnum::Off) {
+            $canceled = $scheduler->cancelScheduled($account);
+
+            return match ($canceled) {
+                0 => '',
+                1 => ' 1 postagem cancelada.',
+                default => sprintf(' %d postagens canceladas.', $canceled),
+            };
+        }
+
+        if ($previous !== SocialAccountModeEnum::Auto && $chosen === SocialAccountModeEnum::Auto) {
+            $filled = $scheduler->fillAccount($account, reviveCanceled: true);
+
+            return match ($filled) {
+                0 => '',
+                1 => ' 1 Short agendado.',
+                default => sprintf(' %d Shorts agendados.', $filled),
+            };
+        }
+
+        return '';
+    }
+
+    /** @return list<array{value: string, label: string, active: bool, confirm: string|null}> */
     private function modeOptions(SocialAccount $account): array
     {
+        $current = $account->mode();
+        $scheduled = $current === SocialAccountModeEnum::Auto ? $account->socialPosts()->where('status', PostStatusEnum::Scheduled)->count() : 0;
+
         return array_map(fn (SocialAccountModeEnum $mode): array => [
             'value' => $mode->value,
             'label' => $mode->label(),
-            'active' => $account->mode() === $mode,
+            'active' => $current === $mode,
+            'confirm' => $mode === SocialAccountModeEnum::Off && $scheduled > 0
+                ? ($scheduled === 1 ? '1 postagem agendada será cancelada.' : sprintf('%d postagens agendadas serão canceladas.', $scheduled))
+                : null,
         ], SocialAccountModeEnum::cases());
     }
 

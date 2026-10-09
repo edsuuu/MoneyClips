@@ -191,7 +191,7 @@ final — nada de `Route::redirect` pra não mexer na navbar.
 | Comando | O que faz |
 | --- | --- |
 | `uploads:prune-stale` | aborta uploads multipart abandonados > 24h (diário) |
-| `posts:fill` | de hora em hora: agenda nas contas Automáticas os Shorts prontos que faltaram (o `markReady` já agenda na hora; linha Cancelada não é refeita) e avisa no Discord, 1×/dia por conta, quando os agendados futuros cobrem menos de 1 dia (`per_day`) |
+| `posts:fill` | de hora em hora: agenda nas contas Automáticas os Shorts prontos que faltaram (o `markReady` e o ligar da Automática já agendam na hora; linha Cancelada não é refeita; postado só bloqueia a plataforma em que saiu) e avisa no Discord, 1×/dia por conta, quando os agendados futuros cobrem menos de 1 dia (`min(per_day, nº de horários)`) |
 | `posts:dispatch` | a cada minuto: agendado com atraso > `grace_minutes` vira Missed, Posting sem resposta > `stuck_minutes` vira Failed, o que chegou na hora é reivindicado e vai pro `PublishPostJob` |
 | `assets:add-file {path}` / `assets:add-dir {path}` | sobe pro MinIO e cria `stock_assets` pending (`--kind --license --tags --emotion --source-url --author --real-person --has-audio --risk-note`) |
 | `assets:review` | aprova/recusa os pending um a um, com aviso de risco (pessoa real/áudio) |
@@ -248,7 +248,7 @@ Cron: `* * * * * php artisan schedule:run` + dois workers de fila
 - Propriedade pública = fronteira de confiança: valide/saneie nas ações.
 - Reuse antes de escrever: `App\Support\Hashtags` (hashtag ⇄ input),
   `App\Jobs\Concerns\TransfersStorageFiles` (MinIO ⇄ tmp), componentes
-  `x-ui.toggle`, `x-ui.server-modal` (modal @if server-driven),
+  `x-ui.server-modal` (modal @if server-driven),
   `x-ui.modal` (Alpine), `x-log-level-badge`, e
   `components/navbar.blade.php` (fonte ÚNICA de navegação —
   desktop + drawer mobile).
