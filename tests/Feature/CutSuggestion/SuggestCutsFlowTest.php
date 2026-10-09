@@ -154,3 +154,24 @@ it('records the reason when the provider fails', function (): void {
     expect($video->fresh()?->cut_suggestion_status)->toBe(TranscriptionStatusEnum::Failed)
         ->and($video->fresh()?->cut_suggestion_error)->toBe('O Claude falhou (exit 1): limite atingido');
 });
+
+it('re-renders the cut list once the search is ready', function (): void {
+    $video = searchingVideo();
+
+    $component = Livewire::actingAs($video->user)->test(Show::class, ['uuid' => $video->uuid]);
+
+    $video->cuts()->create(['start_seconds' => 100, 'end_seconds' => 180, 'title' => 'Momento novo']);
+    $video->update(['cut_suggestion_status' => TranscriptionStatusEnum::Ready]);
+
+    $component->call('$refresh')->assertSee('Momento novo');
+});
+
+it('offers see-more only for a long reason', function (): void {
+    $video = searchingVideo();
+    $video->cuts()->create(['start_seconds' => 100, 'end_seconds' => 180, 'reason' => str_repeat('motivo longo ', 20)]);
+    $video->cuts()->create(['start_seconds' => 300, 'end_seconds' => 360, 'reason' => 'curto']);
+
+    Livewire::actingAs($video->user)->test(Show::class, ['uuid' => $video->uuid])
+        ->assertSee('ver mais', false)
+        ->assertViewHas('cutItems', fn (array $items): bool => $items[0]['reasonIsLong'] && ! $items[1]['reasonIsLong']);
+});
