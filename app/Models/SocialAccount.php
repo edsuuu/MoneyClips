@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\PostProviderEnum;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -59,6 +60,10 @@ final class SocialAccount extends Model
             if (empty($model->uuid)) {
                 $model->uuid = (string) Str::uuid();
             }
+
+            if (is_null($model->getAttribute('provider'))) {
+                $model->provider = PostProviderEnum::defaultFor($model->platform);
+            }
         });
     }
 
@@ -71,6 +76,7 @@ final class SocialAccount extends Model
             'scopes' => 'array',
             'meta' => 'array',
             'is_active' => 'boolean',
+            'provider' => PostProviderEnum::class,
             'cookies' => 'encrypted:array',
             'cookies_last_validated_at' => 'datetime',
         ];

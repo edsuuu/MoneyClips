@@ -3,8 +3,11 @@
 Plataforma de **produção de Shorts** a partir de vídeos longos (upload/import
 → cortes → edição 9:16 → estoque). Laravel orquestra; microserviços fazem o
 trabalho pesado (download, transcrição, corte/render de vídeo). **A postagem
-automática foi REMOVIDA e será refeita do zero** — o microserviço
-TikTokUploader segue no repo sem consumidor. **Tudo roda nativo — sem Docker**
+automática está sendo refeita**: o núcleo (agenda em `social_posts`,
+`posts:dispatch`, `PublishPostJob`) existe, os providers nativos (YouTube Data
+API, TikTokUploader, TikTok oficial) entram em PRs próprios — ver
+`docs/agendamento.md`. O microserviço TikTokUploader segue no repo sem
+consumidor. **Tudo roda nativo — sem Docker**
 (`make up`).
 
 ## Stack
@@ -14,9 +17,9 @@ TikTokUploader segue no repo sem consumidor. **Tudo roda nativo — sem Docker**
   `resources/views/components/ui/` (sem Flux UI). Toasts: trait
   `App\Livewire\Concerns\WithToasts` → `components/ui/toasts.blade.php`.
 - **MySQL** (`DB_CONNECTION=mysql`) + **fila em banco** (`QUEUE_CONNECTION=database`,
-  filas nomeadas: `posting` (órfã — reservada pra quando a postagem for
-  refeita) e `processing` — worker no `make up` escuta
-  `--queue=posting,processing,default --timeout=1800`)
+  filas nomeadas: `posting` (`PublishPostJob`, worker próprio pra um upload
+  longo não travar o resto) e `processing` — o `make up` sobe dois workers:
+  `--queue=processing,default` e `--queue=posting`, ambos `--timeout=1800`)
 - **MinIO** (S3-compatível) — disk `s3`, bucket `video`
 - Qualidade: **PHPStan/Larastan**, **Pint**, **Rector** (CI roda `composer check`)
 - Design de referência das telas: `docs/designs/*.dc.html` (claude.ai/design)
@@ -51,7 +54,10 @@ contorna `upload_max_filesize`/`post_max_size` e dá retomada em arquivos de GBs
 media /shorts/download → youtube_shorts direto (Shorts prontos de um canal)
 ```
 
-A publicação em si é manual por enquanto (a postagem automática será refeita).
+Postagem: `social_posts` (1 linha por Short × conta, horário na linha) →
+`posts:dispatch` a cada minuto (claim atômico) → `PublishPostJob` (1 tentativa,
+nunca reposta às cegas) → provider da conta. Sem provider real ainda: detalhes
+em `docs/agendamento.md`.
 
 ## Organização de código (Services por integração)
 
@@ -74,6 +80,10 @@ A publicação em si é manual por enquanto (a postagem automática será refeit
   em sua pasta: `API/Youtube/` (Data API v3 + OAuth), `API/Discord/` (webhook
   de alertas) e `API/Claude/` (`claude -p` na assinatura Max, saída
   estruturada; `CLAUDE_CLI_BIN` com caminho absoluto, log no canal `claude`).
+- **`app/Services/Posting/`** — núcleo da postagem: `PostProviderInterface`
+  (um provider por `social_accounts.provider`, escolhido por
+  `PostProviderEnum::service()`), `PostResultData` e `PostSchedulerService`
+  (próximo horário livre da grade `config/posting.php`).
 - **Clients de microserviço** na raiz de Services:
   `app/Services/{DownloadYoutube,Video}/` — `Video` concentra os
   clients do serviço `video` (:8790) e da transcrição (`CutRenderService`,
@@ -87,9 +97,10 @@ A publicação em si é manual por enquanto (a postagem automática será refeit
 ### Estoque (`youtube_shorts` + `/meus-videos`)
 
 Ciclo: baixado (`video_path`) → revisado/pronto (`ready_at`). As colunas
-`posted_youtube_at`/`posted_tiktok_at` são históricas (alimentam a tab
-"Postados"); nada mais as escreve. `template_rendered_at` alimenta a tab
-"Com template" (histórico — o pipeline de template foi removido).
+`posted_youtube_at`/`posted_tiktok_at` alimentam a tab "Postados"; o
+`PublishPostJob` grava a da plataforma quando o post sai.
+`template_rendered_at` alimenta a tab "Com template" (histórico — o pipeline
+de template foi removido).
 `postableVideoPath()` prefere `processed_video_path` legado, quando existe.
 
 ### YouTube (contas + downloads — SEM postagem)
@@ -126,7 +137,8 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | Tabela | Papel |
 | --- | --- |
 | `users` | login Google OAuth |
-| `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT) |
+| `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT); `platform` = onde posta, `provider` (`PostProviderEnum`) = por onde (padrão pela plataforma: `youtube_api`, `tiktok_uploader`) |
+| `social_posts` | 1 linha por Short × conta (unique): `scheduled_for`, `status` (`PostStatusEnum` scheduled→posting→published\|failed\|missed\|canceled), `privacy`, `external_id`, `url`, `error`, `attempts`. Sem `user_id`: o dono é o da conta (`SocialPost::forUser($user)`, admin vê tudo) |
 | `videos` | vídeos longos enviados em /upload (arquivo ou URL do YouTube): ciclo `awaiting_upload\|downloading → uploaded → packaging → ready` + metadados do HLS |
 | `youtube_shorts` | estoque; ciclo `ready_at` → `posted_*_at` |
 | `stock_assets` | banco curado de sfx/emoji/imagem/meme (uuid, `kind`, `license`, `status` pending→approved\|disabled; `duration_ms`/`width`/`height` lidos no add via ffprobe/getimagesize, nullable; `author` = crédito CC BY); binário em `assets/<kind>/<uuid>.<ext>` no MinIO, nunca no git; memes exigem `own_risk` |
@@ -151,12 +163,14 @@ final — nada de `Route::redirect` pra não mexer na navbar.
 | Comando | O que faz |
 | --- | --- |
 | `uploads:prune-stale` | aborta uploads multipart abandonados > 24h (diário) |
+| `posts:dispatch` | a cada minuto: agendado com atraso > `grace_minutes` vira Missed, Posting sem resposta > `stuck_minutes` vira Failed, o que chegou na hora é reivindicado e vai pro `PublishPostJob` |
 | `assets:add-file {path}` / `assets:add-dir {path}` | sobe pro MinIO e cria `stock_assets` pending (`--kind --license --tags --emotion --source-url --author --real-person --has-audio --risk-note`) |
 | `assets:review` | aprova/recusa os pending um a um, com aviso de risco (pessoa real/áudio) |
 | `assets:disable {id}` | tira o asset de circulação |
 
-Cron: `* * * * * php artisan schedule:run` + worker de fila
-(`queue:listen --queue=posting,processing,default --tries=1 --timeout=1800`).
+Cron: `* * * * * php artisan schedule:run` + dois workers de fila
+(`queue:listen --queue=processing,default --tries=1 --timeout=1800` e
+`queue:listen --queue=posting --tries=1 --timeout=1800`).
 
 ## Idioma do código (PROIBIDO usar pt-BR)
 

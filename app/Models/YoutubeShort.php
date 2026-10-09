@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Helpers\Hashtags;
 use Database\Factories\YoutubeShortFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -50,6 +51,34 @@ final class YoutubeShort extends Model
     public function postableVideoPath(): string
     {
         return (string) ($this->processed_video_path ?? $this->video_path);
+    }
+
+    /**
+     * Título + bloco de hashtags, montado num lugar só: o relatório do canal
+     * achou bloco de hashtags duplicado e hashtag colada no título (a mesma
+     * tag no título e no bloco). Tag que já está no título não se repete, e a
+     * comparação ignora caixa (#Podcast = #podcast).
+     */
+    public function caption(): string
+    {
+        $title = mb_trim((string) $this->title);
+        preg_match_all('/#[\p{L}\p{N}_]+/u', mb_strtolower($title), $inTitle);
+
+        $tags = [];
+        foreach (Hashtags::parse(implode(' ', $this->hashtags ?? [])) as $tag) {
+            $key = mb_strtolower($tag);
+            if (isset($tags[$key])) {
+                continue;
+            }
+
+            if (in_array($key, $inTitle[0], true)) {
+                continue;
+            }
+
+            $tags[$key] = $tag;
+        }
+
+        return mb_trim($title."\n\n".implode(' ', $tags));
     }
 
     public function presignedUrl(): ?string

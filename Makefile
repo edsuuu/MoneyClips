@@ -7,10 +7,11 @@ MS := MicroServices
 
 up:  ## Sobe Laravel + microserviços nativos, todos juntos
 	npx concurrently -k \
-		-c "#93c5fd,#c4b5fd,#fb7185,#fdba74,#34d399,#f472b6,#facc15" \
-		-n serve,queue,pail,vite,media,tiktok,video \
+		-c "#93c5fd,#c4b5fd,#a5b4fc,#fb7185,#fdba74,#34d399,#f472b6,#facc15" \
+		-n serve,queue,posting,pail,vite,media,tiktok,video \
 		"PHP_CLI_SERVER_WORKERS=8 php artisan serve" \
-		"php artisan queue:listen --queue=posting,processing,default --tries=1 --timeout=1800" \
+		"php artisan queue:listen --queue=processing,default --tries=1 --timeout=1800" \
+		"php artisan queue:listen --queue=posting --tries=1 --timeout=1800" \
 		"php artisan pail --timeout=0" \
 		"npm run dev" \
 		"cd $(MS)/Media && .venv/bin/python -m app.main" \
