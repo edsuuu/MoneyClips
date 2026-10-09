@@ -418,8 +418,8 @@ it('redoes the short with the previous answer and the change and replaces it in 
 it('refuses an empty change or a short without the stored AI answer and hides the old error while redoing', function (): void {
     Bus::fake([EditCutWithAiJob::class]);
     $cut = aiEditCut($this->fixture);
-    $old = YoutubeShort::factory()->create();
-    $redoable = YoutubeShort::factory()->create();
+    $old = YoutubeShort::factory()->create(['user_id' => $cut->video->user_id]);
+    $redoable = YoutubeShort::factory()->create(['user_id' => $cut->video->user_id]);
     aiEditFor($cut, ['ai_status' => TranscriptionStatusEnum::Ready, 'spec' => ['caption_preset' => 'verde'], 'youtube_short_id' => $old->id]);
     aiEditFor($cut, ['ai_status' => TranscriptionStatusEnum::Ready, 'spec' => ['caption_preset' => 'verde', 'ai_output' => ['title' => 't']], 'youtube_short_id' => $redoable->id, 'render_status' => VideoCutStatusEnum::Failed, 'render_error' => 'render antigo falhou']);
 

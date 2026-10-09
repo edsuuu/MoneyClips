@@ -101,6 +101,7 @@ final class VideoCutEditWebhookController extends Controller
             $short = YoutubeShort::query()->firstOrNew(
                 ['youtube_id' => 'reframe-'.$edit->uuid],
                 [
+                    'user_id' => $video->user_id,
                     'title' => mb_trim((string) ($edit->spec['title'] ?? '')) ?: $cut->title ?: $video->name,
                     'hashtags' => ($edit->spec['hashtags'] ?? null) ?: $cut->hashtags,
                 ],

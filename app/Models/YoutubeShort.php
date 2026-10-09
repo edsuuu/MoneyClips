@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Helpers\Hashtags;
+use App\Models\Concerns\BelongsToUser;
 use Database\Factories\YoutubeShortFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,7 @@ use Throwable;
  * posted_tiktok_at + social_posts por plataforma).
  *
  * @property int $id
+ * @property int|null $user_id
  * @property string $youtube_id
  * @property string|null $channel_url
  * @property string|null $title
@@ -33,16 +35,19 @@ use Throwable;
  * @property Carbon|null $posted_at
  * @property Carbon|null $posted_youtube_at
  * @property Carbon|null $posted_tiktok_at
+ * @property-read User|null $user
  */
 final class YoutubeShort extends Model
 {
+    use BelongsToUser;
+
     /** @use HasFactory<YoutubeShortFactory> */
     use HasFactory;
 
     private const int PRESIGNED_TTL_MINUTES = 30;
 
     protected $fillable = [
-        'youtube_id', 'channel_url', 'title', 'hashtags',
+        'user_id', 'youtube_id', 'channel_url', 'title', 'hashtags',
         'video_path', 'processed_video_path', 'youtube_video_id',
         'downloaded_at', 'ready_at', 'template_rendered_at', 'posted_at',
         'posted_youtube_at', 'posted_tiktok_at',

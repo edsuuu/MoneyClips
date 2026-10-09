@@ -7,8 +7,9 @@ use App\Models\YoutubeShort;
 use Illuminate\Support\Facades\Config;
 
 beforeEach(function (): void {
-    $this->actingAs(User::factory()->create());
-    YoutubeShort::factory()->create(['ready_at' => null]);
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    YoutubeShort::factory()->for($user)->create(['ready_at' => null]);
 });
 
 it('mounts the tour with every step anchored on the screen', function (string $url, string $routeName): void {

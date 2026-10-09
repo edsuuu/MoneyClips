@@ -58,7 +58,7 @@ it('renders the screen for the owner and redirects guests', function (): void {
 
 it('rejects cuts the user cannot edit', function (): void {
     $foreign = makeReadyCut();
-    $this->get('/editor-de-video/'.$foreign->uuid)->assertNotFound();
+    $this->get('/editor-de-video/'.$foreign->uuid)->assertForbidden();
 
     $draft = makeReadyCut($this->user);
     $draft->update(['status' => VideoCutStatusEnum::Draft]);

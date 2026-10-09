@@ -6,10 +6,10 @@ namespace App\Models;
 
 use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoStatusEnum;
+use App\Models\Concerns\BelongsToUser;
 use Database\Factories\VideoFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
@@ -51,6 +51,8 @@ use Throwable;
  */
 final class Video extends Model
 {
+    use BelongsToUser;
+
     /** @use HasFactory<VideoFactory> */
     use HasFactory;
 
@@ -71,12 +73,6 @@ final class Video extends Model
         'duration_seconds', 'width', 'height', 'error', 'ready_at',
         'transcription_status', 'cut_suggestion_status', 'cut_suggestion_error',
     ];
-
-    /** @return BelongsTo<User, $this> */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
 
     /** @return HasMany<File, $this> */
     public function files(): HasMany
@@ -102,13 +98,19 @@ final class Video extends Model
     }
 
     /**
-     * Cada operador só enxerga o que subiu: o vídeo alheio não resolve na rota e
-     * vira 404. É o único ponto de dono — toda rota `{video:uuid}` passa por aqui.
+     * Cada operador só enxerga o que subiu (admin vê tudo): o vídeo alheio não
+     * resolve na rota e vira 404. Toda rota `{video:uuid}` passa por aqui; as
+     * telas `Route::view` checam a VideoPolicy no mount.
      */
     public function resolveRouteBinding($value, $field = null): ?Model
     {
+        $user = Auth::user();
+        if (! $user instanceof User) {
+            return null;
+        }
+
         return $this->where($field ?? $this->getRouteKeyName(), $value)
-            ->where('user_id', Auth::id())
+            ->forUser($user)
             ->first();
     }
 

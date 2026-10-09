@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\PermissionEnum;
 use App\Http\Controllers\Auth\OAuthController;
 use App\Http\Controllers\HLSStreamController;
 use App\Http\Controllers\MultipartUploadController;
@@ -62,7 +63,7 @@ Route::middleware(['auth'])->group(function (): void {
     Route::view('/meus-videos', 'videos.index')->name('videos.index');
     Route::view('/editor-de-video/{cut}', 'video-editor.index')->name('video-editor.index');
     Route::view('/contas', 'accounts.index')->name('accounts.index');
-    Route::view('/observabilidade', 'observability.index')->name('observability.index');
+    Route::view('/observabilidade', 'observability.index')->middleware('can:'.PermissionEnum::ObservabilityView->value)->name('observability.index');
 
     Route::prefix('oauth/{platform}')
         ->name('oauth.')

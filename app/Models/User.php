@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\RoleEnum;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -30,6 +31,11 @@ final class User extends Authenticatable implements Auditable, MustVerifyEmail
 
     /** @var list<string> */
     protected $hidden = ['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'];
+
+    public function isAdmin(): bool
+    {
+        return $this->hasRole(RoleEnum::Admin);
+    }
 
     public function initials(): string
     {

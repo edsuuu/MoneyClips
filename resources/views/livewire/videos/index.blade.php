@@ -5,11 +5,13 @@
             <h1 class="text-3xl font-extrabold tracking-tight text-slate-50">Meus clipes</h1>
         </div>
         <div class="flex flex-wrap justify-end gap-2.5">
+            @if ($canDownload)
             <button type="button" wire:click="openUpload"
                 class="flex cursor-pointer items-center gap-2 rounded-[10px] border border-slate-700 bg-slate-800 px-4 py-2.5 text-[13.5px] font-semibold text-slate-100 transition hover:bg-slate-700">
                 <x-ui.icon name="plus" class="size-3.5" />
                 Novo download
             </button>
+            @endif
         </div>
     </div>
 

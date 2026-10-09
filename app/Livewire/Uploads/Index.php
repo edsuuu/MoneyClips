@@ -5,24 +5,25 @@ declare(strict_types=1);
 namespace App\Livewire\Uploads;
 
 use App\Enums\VideoStatusEnum;
+use App\Livewire\Concerns\WithCurrentUser;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\File;
 use App\Models\Video;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Livewire\Component;
 use Livewire\WithPagination;
 
 final class Index extends Component
 {
+    use WithCurrentUser;
     use WithPagination;
     use WithToasts;
 
     /** @return Builder<Video> */
     private function videos(): Builder
     {
-        return Video::query()->where('user_id', Auth::id())->with('files');
+        return Video::query()->forUser($this->currentUser())->with('files');
     }
 
     public function delete(string $uuid): void

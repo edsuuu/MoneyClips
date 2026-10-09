@@ -40,14 +40,15 @@ final class Index extends Component
     public ?int $editId = null;
 
     /**
-     * O dono é filtrado aqui (via vídeo pai) porque a rota é `Route::view`,
-     * que não dispara model binding. Só corte pronto tem arquivo pra editar.
+     * O dono é checado aqui (VideoPolicy do vídeo pai) porque a rota é
+     * `Route::view`, que não dispara model binding. Só corte pronto tem
+     * arquivo pra editar.
      */
     public function mount(string $uuid): void
     {
         $cut = VideoCut::query()->with('video')->where('uuid', $uuid)->firstOrFail();
 
-        abort_unless($cut->video->user_id === auth()->id(), 404);
+        $this->authorize('view', $cut->video);
         abort_unless($cut->status === VideoCutStatusEnum::Ready, 404);
 
         $this->cut = $cut;
