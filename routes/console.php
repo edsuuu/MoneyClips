@@ -18,3 +18,8 @@ Schedule::command('uploads:prune-stale')
     ->name('uploads-prune-stale')
     ->dailyAt('04:30')
     ->withoutOverlapping();
+
+Schedule::command('posts:dispatch')
+    ->name('posts-dispatch')
+    ->everyMinute()
+    ->withoutOverlapping();
