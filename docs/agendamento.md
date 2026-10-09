@@ -104,5 +104,22 @@ falha com o motivo.
   longo não travar a fila `processing`.
 - Logs em `daily` com `[INFO|WARN|ERRO][Posting]`; Discord em Missed, Failed e
   Published.
-- Missed por servidor desligado: reagendar é do dono (tela `/agenda`, PR
-  próprio).
+- Missed por servidor desligado: reagendar é do dono na tela `/agenda`
+  (botão por post ou "Reagendar perdidas", que reagenda todos os Missed nos
+  próximos horários bons, na ordem original; Failed fica de fora: o dono lê
+  o motivo antes).
+
+## Tela `/agenda` e modal Agendar
+
+- `/agenda` (`App\Livewire\Schedule\Index`): próximos 7 dias por dia, uma
+  linha por Short + horário com um selo por plataforma; bloco "precisa de
+  você" com Failed/Missed dos últimos 7 dias. Failed mostra "Reconectar
+  conta" quando a causa é a conta (desativada, sessão inválida, token sem
+  refresh, `invalid_grant`) e "Tentar de novo" no resto.
+- Modal Agendar (card Pronto de `/meus-videos` e linha da agenda): 1
+  checkbox por conta ativa do dono do Short, já marcadas as livres, +
+  "No próximo horário bom" ou `datetime-local`. Conta com post ativo daquele
+  Short aparece desabilitada com o motivo; cancelado volta a ser agendável
+  (a linha do unique é reaproveitada).
+- Escopo: listas via `SocialPost::forUser()`; cancelar/tentar de novo via
+  `SocialPostPolicy::update` (admin ou dono da conta).

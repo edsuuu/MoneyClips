@@ -7,7 +7,10 @@ namespace App\Services\Posting;
 use App\Enums\PostStatusEnum;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
+use App\Models\User;
+use App\Models\YoutubeShort;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 final class PostSchedulerService
@@ -63,5 +66,76 @@ final class PostSchedulerService
         }
 
         throw new RuntimeException('Sem horário pra agendar: confira posting.times, posting.per_day e posting.min_gap_minutes.');
+    }
+
+    /**
+     * Agenda o Short na conta (sem `$at` = próximo horário bom). Devolve null
+     * quando o Short já tem post ativo nessa conta: o unique Short × conta não
+     * deixa duplicar, e a linha Cancelada é reaproveitada. A conta fica
+     * travada até gravar, senão dois agendamentos pegam o mesmo horário.
+     *
+     * @throws RuntimeException
+     */
+    public function schedule(YoutubeShort $short, SocialAccount $account, ?CarbonImmutable $at = null): ?SocialPost
+    {
+        return DB::transaction(function () use ($short, $account, $at): ?SocialPost {
+            SocialAccount::query()->whereKey($account->id)->lockForUpdate()->first();
+
+            $post = SocialPost::query()->firstOrNew(['youtube_short_id' => $short->id, 'social_account_id' => $account->id]);
+            if ($post->exists && $post->status !== PostStatusEnum::Canceled) {
+                return null;
+            }
+
+            $post->fill([
+                'scheduled_for' => $at ?? $this->nextSlot($account),
+                'status' => PostStatusEnum::Scheduled,
+                'privacy' => null,
+                'external_id' => null,
+                'url' => null,
+                'error' => null,
+                'started_at' => null,
+                'posted_at' => null,
+            ])->save();
+
+            return $post;
+        });
+    }
+
+    /**
+     * Tentar de novo / reagendar um Failed ou Missed. Devolve null se o post
+     * saiu desses estados no meio do caminho (o UPDATE só vinga neles).
+     *
+     * @throws RuntimeException
+     */
+    public function reschedule(SocialPost $post, ?CarbonImmutable $at = null): ?CarbonImmutable
+    {
+        return DB::transaction(function () use ($post, $at): ?CarbonImmutable {
+            SocialAccount::query()->whereKey($post->social_account_id)->lockForUpdate()->first();
+
+            $at ??= $this->nextSlot($post->socialAccount);
+            $updated = SocialPost::query()
+                ->whereKey($post->id)
+                ->whereIn('status', [PostStatusEnum::Failed, PostStatusEnum::Missed])
+                ->update(['status' => PostStatusEnum::Scheduled, 'scheduled_for' => $at, 'error' => null, 'started_at' => null]);
+
+            return $updated === 1 ? $at : null;
+        });
+    }
+
+    /**
+     * Só Missed: Failed pode ter causa que o dono precisa ler antes.
+     *
+     * @throws RuntimeException
+     */
+    public function rescheduleMissed(User $user): int
+    {
+        $missed = SocialPost::query()
+            ->forUser($user)
+            ->with('socialAccount')
+            ->where('status', PostStatusEnum::Missed)
+            ->oldest('scheduled_for')
+            ->get();
+
+        return $missed->filter(fn (SocialPost $post): bool => $this->reschedule($post) instanceof CarbonImmutable)->count();
     }
 }

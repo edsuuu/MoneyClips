@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\YoutubeShort;
 use Illuminate\Support\Facades\Config;
@@ -10,6 +11,8 @@ beforeEach(function (): void {
     $user = User::factory()->create();
     $this->actingAs($user);
     YoutubeShort::factory()->for($user)->create(['ready_at' => null]);
+    YoutubeShort::factory()->for($user)->ready()->create();
+    SocialAccount::query()->create(['user_id' => $user->id, 'platform' => 'tiktok', 'name' => '@conta', 'is_active' => true]);
 });
 
 it('mounts the tour with every step anchored on the screen', function (string $url, string $routeName): void {

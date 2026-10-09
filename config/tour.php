@@ -60,12 +60,47 @@ return [
         [
             'target' => 'videos-review',
             'title' => 'Revise antes de postar',
-            'body' => 'Confira o vídeo, o título e as hashtags em Visualizar.',
+            'body' => 'Confira o vídeo, o título e as hashtags em Revisar título.',
         ],
         [
             'target' => 'video-mark-ready',
             'title' => 'Aprove o Short',
             'body' => 'Pronto quer dizer "pode postar"; o Short passa para Prontos para postar.',
+        ],
+        [
+            'target' => 'video-schedule',
+            'title' => 'Agende a postagem',
+            'body' => 'No Short pronto, Agendar escolhe as contas e o horário; o próximo horário bom já vem marcado.',
+        ],
+        [
+            'target' => 'nav-agenda',
+            'title' => 'Acompanhe na Agenda',
+            'body' => 'A Agenda mostra o que sai nos próximos 7 dias e o que precisa de você.',
+            'advance' => 'click',
+        ],
+    ],
+
+    'schedule.index' => [
+        [
+            'target' => 'agenda-summary',
+            'title' => 'Sua agenda',
+            'body' => 'Quantos Shorts estão agendados, até quando a agenda vai e qual sai primeiro.',
+        ],
+        [
+            'target' => 'agenda-attention',
+            'title' => 'O que precisa de você',
+            'body' => 'Postagem que falhou ou perdeu o horário aparece aqui com o botão certo para resolver.',
+        ],
+        [
+            'target' => 'agenda-days',
+            'title' => 'Os próximos 7 dias',
+            'body' => 'Cada linha é um Short e o horário; um selo por rede mostra se já saiu. O × cancela aquela rede.',
+        ],
+        [
+            'target' => 'agenda-ready',
+            'title' => 'Agende mais Shorts',
+            'body' => 'Em Meus vídeos, clique em Agendar no Short pronto.',
+            'advance' => 'click',
         ],
     ],
 ];
