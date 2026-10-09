@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Accounts;
 
+use App\Enums\PostProviderEnum;
 use App\Livewire\Concerns\WithCurrentUser;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
@@ -80,6 +81,12 @@ final class Index extends Component
         }
 
         $this->authorize('update', $account);
+        if ($account->provider === PostProviderEnum::TiktokOfficial) {
+            $this->toast('Conta oficial não usa cookies: revincule pelo botão TikTok oficial.', 'danger');
+
+            return;
+        }
+
         $this->resetValidation();
         $this->editingAccountId = $account->id;
         $this->name = $account->name;
@@ -167,7 +174,7 @@ final class Index extends Component
 
     /**
      * @param  Collection<int, SocialAccount>  $accounts
-     * @return Collection<int, array{id: int, name: string, is_active: bool, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
+     * @return Collection<int, array{id: int, name: string, is_active: bool, isOfficial: bool, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
      */
     private function decorateTiktokAccounts(Collection $accounts): Collection
     {
@@ -176,12 +183,15 @@ final class Index extends Component
                 'id' => $account->id,
                 'name' => $account->name,
                 'is_active' => $account->is_active,
+                'isOfficial' => $account->provider === PostProviderEnum::TiktokOfficial,
                 'statusColor' => $this->sessionStatusColor($account->session_status),
                 'statusLabel' => $this->sessionStatusLabel($account->session_status),
                 'subtitle' => $account->name,
-                'sessionSavedLabel' => $account->cookies_last_validated_at === null
-                    ? 'Sem sessão salva'
-                    : 'Sessão salva em '.$account->cookies_last_validated_at->format('d/m/Y H:i'),
+                'sessionSavedLabel' => match (true) {
+                    $account->provider === PostProviderEnum::TiktokOfficial => 'API oficial (Login Kit)',
+                    $account->cookies_last_validated_at === null => 'Sem sessão salva',
+                    default => 'Sessão salva em '.$account->cookies_last_validated_at->format('d/m/Y H:i'),
+                },
             ])
             ->values();
     }

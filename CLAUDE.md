@@ -4,10 +4,11 @@ Plataforma de **produção de Shorts** a partir de vídeos longos (upload/import
 → cortes → edição 9:16 → estoque). Laravel orquestra; microserviços fazem o
 trabalho pesado (download, transcrição, corte/render de vídeo). **A postagem
 automática está sendo refeita**: o núcleo (agenda em `social_posts`,
-`posts:dispatch`, `PublishPostJob`) e os providers da YouTube Data API
-(`YoutubePostService`) e do microserviço TikTokUploader
-(`TikTokUploaderPostService` + webhook `/api/webhook/tiktok-post`) existem; o
-TikTok oficial entra em PR próprio — ver `docs/agendamento.md`. **Tudo roda nativo — sem Docker**
+`posts:dispatch`, `PublishPostJob`) e os três providers nativos existem:
+YouTube Data API (`YoutubePostService`), microserviço TikTokUploader
+(`TikTokUploaderPostService` + webhook `/api/webhook/tiktok-post`) e TikTok
+Content Posting API oficial (`TikTokPostService`, Login Kit em `/contas`) —
+ver `docs/agendamento.md`. **Tudo roda nativo — sem Docker**
 (`make up`).
 
 ## Stack
@@ -57,7 +58,8 @@ media /shorts/download → youtube_shorts direto (Shorts prontos de um canal)
 Postagem: `social_posts` (1 linha por Short × conta, horário na linha) →
 `posts:dispatch` a cada minuto (claim atômico) → `PublishPostJob` (1 tentativa,
 nunca reposta às cegas) → provider da conta (`youtube_api` síncrono; `tiktok_uploader` assíncrono, fechado
-pelo webhook `/api/webhook/tiktok-post`; TikTok oficial em PR próprio). Detalhes em `docs/agendamento.md`.
+pelo webhook `/api/webhook/tiktok-post`; `tiktok_official` síncrono com
+polling do status). Detalhes em `docs/agendamento.md`.
 
 ## Organização de código (Services por integração)
 
@@ -78,7 +80,10 @@ pelo webhook `/api/webhook/tiktok-post`; TikTok oficial em PR próprio). Detalhe
   pelos controllers.
 - **`app/Services/API/`** — cada integração externa por API (não-microserviço)
   em sua pasta: `API/Youtube/` (Data API v3 + OAuth; `YoutubePostService` =
-  provider `youtube_api`, upload resumable + refresh do token), `API/Discord/` (webhook
+  provider `youtube_api`, upload resumable + refresh do token), `API/TikTok/`
+  (Login Kit `TikTokAccountConnectorService` + `TikTokPostService` = provider
+  `tiktok_official`, Content Posting API; envs `TIKTOK_CLIENT_KEY`,
+  `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`, `TIKTOK_APP_AUDITED`), `API/Discord/` (webhook
   de alertas) e `API/Claude/` (`claude -p` na assinatura Max, saída
   estruturada; `CLAUDE_CLI_BIN` com caminho absoluto, log no canal `claude`).
 - **`app/Services/Posting/`** — núcleo da postagem: `PostProviderInterface`
@@ -165,7 +170,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | Tabela | Papel |
 | --- | --- |
 | `users` | login Google OAuth; papel `admin`/`creator` via spatie (`model_has_roles`) |
-| `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT); `platform` = onde posta, `provider` (`PostProviderEnum`) = por onde (padrão pela plataforma: `youtube_api`, `tiktok_uploader`) |
+| `social_accounts` | credenciais por plataforma (OAuth do YT e do TikTok oficial, cookies do TT); `platform` = onde posta, `provider` (`PostProviderEnum`) = por onde (padrão pela plataforma: `youtube_api`, `tiktok_uploader`; `tiktok_official` vem do Login Kit); `session_status=invalid` = token revogado/cookies mortos (o dispatcher falha na hora) |
 | `social_posts` | 1 linha por Short × conta (unique): `scheduled_for`, `status` (`PostStatusEnum` scheduled→posting→published\|failed\|missed\|canceled), `privacy`, `external_id`, `url`, `error`, `attempts`. Sem `user_id`: o dono é o da conta (`SocialPost::forUser($user)`, admin vê tudo) |
 | `videos` | vídeos longos enviados em /upload (arquivo ou URL do YouTube): ciclo `awaiting_upload\|downloading → uploaded → packaging → ready` + metadados do HLS |
 | `youtube_shorts` | estoque; ciclo `ready_at` → `posted_*_at`; `user_id` nullable (dono do vídeo longo no corte editado; null = short de canal, só admin vê) |
@@ -180,7 +185,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | `/upload` | `App\Livewire\Uploads\Create` | envio de vídeo longo (multipart direto pro MinIO, com retomada) OU import por URL do YouTube (valida + preview → download no microserviço) |
 | `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo; corte manual e busca de momentos por IA (`SuggestCutsJob` → cortes com `is_ai_generated`) |
 | `/editor-de-video/{cut}` | `App\Livewire\VideoEditor\Index` | reframe do corte por keyframes (crop 9:16, modos, legendas) + "Gerar tracking automático" (face tracking no `media`, sobrescreve os keyframes) + "Gerar corte editado" → render no serviço `video` → estoque de `/meus-videos` |
-| `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok por cookies de sessão, só de escrita — a tela mostra "sessão salva em DATA" e nunca devolve o valor; YouTube OAuth) com toggle por conta — guardados pra postagem futura |
+| `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok por cookies de sessão, só de escrita — a tela mostra "sessão salva em DATA" e nunca devolve o valor; TikTok oficial via Login Kit; YouTube OAuth) com toggle por conta (conta desativada não posta) |
 | `/observabilidade` | `App\Livewire\Observability\Index` | stream de logs dos microserviços |
 
 Não existe redirect legado: cada tela tem UMA rota. Link novo aponta pra rota

@@ -176,6 +176,17 @@ return [
         ),
     ],
 
+    // TikTok oficial: Login Kit (OAuth em /contas) + Content Posting API (direct
+    // post). App sem auditoria só posta SELF_ONLY e só em conta privada:
+    // TIKTOK_APP_AUDITED=true depois que o TikTok aprovar o app.
+    'tiktok' => [
+        'client_key' => env('TIKTOK_CLIENT_KEY'),
+        'client_secret' => env('TIKTOK_CLIENT_SECRET'),
+        'redirect' => env('TIKTOK_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/tiktok/callback'),
+        'scopes' => env('TIKTOK_SCOPES', 'user.info.basic,video.publish'),
+        'app_audited' => (bool) env('TIKTOK_APP_AUDITED', false),
+    ],
+
     'discord' => [
         'webhook' => env('DISCORD_WEBHOOK_URL', ''),
     ],

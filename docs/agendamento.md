@@ -1,7 +1,8 @@
 # Agendamento e postagem automática
 
-Estado: **núcleo pronto + providers da YouTube Data API e do TikTokUploader**. Só providers
-nativos, escolhidos por conta, cada um no seu PR e nesta ordem: YouTube Data
+Estado: **núcleo pronto + os três providers** (YouTube Data API, TikTokUploader
+e TikTok Content Posting API). Só providers nativos, escolhidos por conta,
+cada um no seu PR e nesta ordem: YouTube Data
 API (`videos.insert`, OAuth que já existe em `/contas`) → TikTokUploader
 (cookies) → TikTok Content Posting API oficial (direct post, privado até a
 auditoria passar). Nenhuma agregadora. A tela `/agenda` e o
@@ -100,6 +101,7 @@ Adicionar um provider:
 |---|---|---|
 | `youtube_api` | `App\Services\API\Youtube\YoutubePostService` | pronto |
 | `tiktok_uploader` | `App\Services\TikTokUploader\TikTokUploaderPostService` | pronto (assíncrono, webhook) |
+| `tiktok_official` | `App\Services\API\TikTok\TikTokPostService` | pronto, testado só com `Http::fake` (chaves pendentes) |
 
 ### YouTube Data API (`youtube_api`)
 
@@ -157,6 +159,40 @@ Risco de ban aceito pelo dono: o microserviço (`MicroServices/TikTokUploader`,
 - O fechamento (job síncrono ou webhook) passa por
   `App\Services\Posting\PostCloserService::close()`: UPDATE só se ainda está
   em Posting, `posted_*_at`, log e Discord num lugar só.
+
+### TikTok oficial (`tiktok_official`, Content Posting API)
+
+- **Conta:** botão "TikTok oficial" em `/contas` → `oauth/tiktok/connect`
+  (Login Kit v2, `state` na sessão, escopos `TIKTOK_SCOPES` =
+  `user.info.basic,video.publish`) → callback troca o `code` no
+  `/v2/oauth/token/` e busca o nome em `/v2/user/info/`
+  (`TikTokAccountConnectorService`). Grava `social_accounts` platform=tiktok,
+  `provider=tiktok_official`, `external_account_id = open_id`, tokens
+  criptografados, `session_status=valid`. O card mostra "API oficial (Login
+  Kit)" e não tem editor de cookies.
+- **Token:** access token de 24h renovado 5 min antes de vencer com o refresh
+  token (365d, rotacionado e regravado). `invalid_grant`,
+  `access_token_invalid`, `scope_not_authorized` ou 401 → Failed "revincule"
+  + `session_status=invalid`.
+- **Post** (`TikTokPostService`, direct post): `creator_info/query` →
+  privacidade: **app sem auditoria só posta `SELF_ONLY`** (e só em conta
+  privada), então sem `TIKTOK_APP_AUDITED=true` vai `SELF_ONLY` (gravado
+  `private`) e o log registra; auditado + público → `PUBLIC_TO_EVERYONE`. Nível
+  fora de `privacy_level_options` → Failed antes do upload. Respeita
+  `comment/duet/stitch_disabled` do criador. `video/init` (`FILE_UPLOAD`;
+  ≤ 64 MiB num pedaço só, acima pedaços de 10 MiB e o último absorve o resto)
+  → `PUT` com `Content-Range` na `upload_url` → `status/fetch` a cada 5 s
+  (até 10 min, `Sleep` — fakeável) até `PUBLISH_COMPLETE` (link
+  `tiktok.com/@{creator_username}/video/{id}` quando público) ou `FAILED`
+  (`fail_reason`). Sem confirmação em 10 min → Failed com o `publish_id`,
+  "confira no app".
+- **Cota/erros:** `rate_limit_exceeded`, `spam_risk_too_many_posts`,
+  `spam_risk_too_many_pending_share`, `reached_active_user_cap` → Failed "Cota
+  do TikTok" sem retry; `unaudited_client_can_only_post_to_private_accounts`
+  → Failed explicando; o resto → "TikTok recusou … (HTTP, code): mensagem".
+- Envs: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`
+  (padrão `APP_URL/oauth/tiktok/callback`, cadastrar igual no portal),
+  `TIKTOK_SCOPES`, `TIKTOK_APP_AUDITED`.
 
 ## Operação
 

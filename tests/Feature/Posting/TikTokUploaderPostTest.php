@@ -2,7 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Testing\TestResponse;
 use App\Enums\PostStatusEnum;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
@@ -14,6 +13,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 
 const TT_COOKIE = 'tt-secret-sessionid-value';
 

@@ -27,7 +27,7 @@ final class SocialAccount extends Model
     public const string SESSION_UNKNOWN = 'unknown';
 
     protected $fillable = [
-        'uuid', 'user_id', 'platform', 'name', 'external_account_id',
+        'uuid', 'user_id', 'platform', 'provider', 'name', 'external_account_id',
         'access_token', 'refresh_token', 'token_expires_at', 'scopes',
         'meta', 'is_active', 'cookies', 'cookies_last_validated_at', 'session_status',
     ];
