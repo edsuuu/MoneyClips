@@ -1,3 +1,5 @@
+@props(['hasTour' => false])
+
 <header x-data="{ menuOpen: false }" class="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 px-4 py-2">
     <div class="flex items-center gap-x-4">
         <button
@@ -33,17 +35,18 @@
         >
             <ul class="flex items-center gap-1 max-lg:flex-col max-lg:items-stretch lg:justify-center">
                 @foreach ([
-                    ['label' => 'Painel', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*'],
-                    ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*'],
-                    ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*'],
-                    ['label' => 'Contas', 'icon' => 'user-circle', 'route' => 'accounts.index', 'pattern' => 'accounts.*'],
-                    ['label' => 'Observabilidade', 'icon' => 'activity', 'route' => 'observability.index', 'pattern' => 'observability.*'],
+                    ['label' => 'Painel', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*', 'tour' => null],
+                    ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*', 'tour' => 'nav-library'],
+                    ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*', 'tour' => 'nav-videos'],
+                    ['label' => 'Contas', 'icon' => 'user-circle', 'route' => 'accounts.index', 'pattern' => 'accounts.*', 'tour' => null],
+                    ['label' => 'Observabilidade', 'icon' => 'activity', 'route' => 'observability.index', 'pattern' => 'observability.*', 'tour' => null],
                 ] as $item)
                     <li class="shrink-0" x-on:click="menuOpen = false">
                         <x-nav-item
                             :icon="$item['icon']"
                             :href="route($item['route'])"
                             :current="request()->routeIs($item['pattern'])"
+                            :data-tour="$item['tour']"
                         >
                             <span class="whitespace-nowrap">{{ $item['label'] }}</span>
                         </x-nav-item>
@@ -55,7 +58,7 @@
         @auth
             <div class="ml-auto flex items-center gap-1">
                 <x-theme-toggle />
-                <x-user-menu align="end" class="lg:w-44" />
+                <x-user-menu align="end" class="lg:w-44" :has-tour="$hasTour" />
             </div>
         @endauth
     </div>

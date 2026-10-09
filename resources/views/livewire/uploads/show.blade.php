@@ -277,7 +277,7 @@
 
             <aside class="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
                 @if ($subtitlesUrl)
-                    <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3">
+                    <div class="rounded-xl border border-slate-800 bg-slate-900/60 p-3" data-tour="cut-search">
                         <div class="flex items-center gap-1.5 text-sm font-semibold text-slate-200">
                             <x-ui.icon name="sparkles" class="size-4 text-violet-500 dark:text-violet-400" />
                             Encontre um momento
@@ -321,6 +321,7 @@
                         <button
                             type="button"
                             x-on:click="editing = !editing"
+                            data-tour="cut-manual"
                             class="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-300 transition hover:bg-slate-800/60"
                         >
                             <x-ui.icon name="scissors" class="size-3.5" />
@@ -334,6 +335,7 @@
                     @foreach ($cutItems as $cut)
                         <div
                             wire:key="cut-{{ $cut['id'] }}"
+                            data-tour="cut-card"
                             x-data="cutRow()"
                             x-on:click.outside="confirmingDelete = false"
                             class="rounded-xl border border-slate-800 bg-slate-900/60 p-3"
@@ -440,6 +442,7 @@
                                     <button
                                         type="button"
                                         wire:click="generateCut({{ $cut['id'] }})"
+                                        data-tour="cut-generate"
                                         @disabled($cut['isGenerating'])
                                         class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
                                     >
@@ -481,6 +484,7 @@
                                         <button
                                             type="button"
                                             x-on:click="asking = !asking"
+                                            data-tour="cut-ai-edit"
                                             @disabled($cut['isAiBusy'])
                                             class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
                                         >

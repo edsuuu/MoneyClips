@@ -31,7 +31,7 @@
     </head>
     <body class="min-h-screen bg-slate-950 text-slate-100 antialiased">
         @if ($navbar)
-            <x-navbar />
+            <x-navbar :has-tour="$hasTour" />
         @endif
 
         <main @class(['px-4 lg:px-8', 'py-6' => $navbar, 'py-4' => ! $navbar])>
@@ -39,6 +39,10 @@
         </main>
 
         <x-ui.toasts />
+
+        @if ($hasTour)
+            <x-ui.tour :name="$tourName" :steps="$tourSteps" />
+        @endif
 
         @livewireScripts
     </body>
