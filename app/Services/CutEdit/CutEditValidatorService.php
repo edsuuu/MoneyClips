@@ -86,9 +86,9 @@ final readonly class CutEditValidatorService
      * @param  array<mixed>  $spec
      * @param  list<array{word: string, start: float, end: float}>  $words
      * @param  array<string, array<string, StockAsset>>  $assets
-     * @return array{hard: list<string>, soft: list<string>, warnings: list<string>, spec: array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>, images: list<ImageRequest>, memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}}
+     * @return array{hard: list<string>, soft: list<string>, warnings: list<string>, spec: array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>, ignored_request: string, images: list<ImageRequest>, memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}}
      */
-    public function validate(array $spec, array $words, float $duration, array $assets = []): array
+    public function validate(array $spec, array $words, float $duration, array $assets = [], ?string $captionPreset = null): array
     {
         $hard = [];
         $soft = [];
@@ -163,12 +163,13 @@ final readonly class CutEditValidatorService
             'warnings' => $warnings,
             'spec' => [
                 'version' => 1,
-                'caption_preset' => $this->captionPreset(),
+                'caption_preset' => $captionPreset ?? $this->captionPreset(),
                 'cuts' => $cuts,
                 'captions' => $captions,
                 'punches' => $punches,
                 'title' => $title,
                 'hashtags' => $hashtags,
+                'ignored_request' => is_string($spec['ignored_request'] ?? null) ? mb_trim($spec['ignored_request']) : '',
                 'images' => $images,
                 ...$stock,
             ],

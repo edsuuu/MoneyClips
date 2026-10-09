@@ -1,10 +1,11 @@
 {
   "type": "object",
   "additionalProperties": false,
-  "required": ["verdict", "reason", "cuts", "captions", "notes", "punches", "title", "hashtags"],
+  "required": ["verdict", "reason", "ignored_request", "cuts", "captions", "notes", "punches", "title", "hashtags"],
   "properties": {
     "verdict": { "type": "string", "enum": ["edit", "reject"] },
     "reason": { "type": "string", "description": "vazio se edit; o motivo se reject" },
+    "ignored_request": { "type": "string", "description": "o que o pedido do dono pediu e as regras ou o spec não permitem, curto; vazio se atendeu tudo ou não houve pedido" },
     "cuts": {
       "type": "array",
       "description": "trechos que saem, [início, fim] em segundos do clip: cabeça, rabo, gagueira, falso começo, muleta, no máximo 1 tangente",

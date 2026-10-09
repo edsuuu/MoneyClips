@@ -17,6 +17,7 @@ use App\Models\Video;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
+use App\Services\CutEdit\CutEditValidatorService;
 use Illuminate\Contracts\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -249,12 +250,18 @@ final class Show extends Component
      * lock no corte segura o clique duplo antes de existir edição; depois
      * dele, o claim na própria edição.
      */
-    public function editWithAi(int $cutId, string $request = ''): void
+    public function editWithAi(int $cutId, string $request = '', string $captionPreset = ''): void
     {
         $request = mb_trim($request);
 
         if (mb_strlen($request) > self::MAX_PROMPT_LENGTH) {
             $this->toast('Descreva o pedido em menos palavras.', 'danger');
+
+            return;
+        }
+
+        if ($captionPreset !== '' && ! in_array($captionPreset, CutEditValidatorService::CAPTION_PRESETS, true)) {
+            $this->toast('Escolha uma legenda da lista.', 'danger');
 
             return;
         }
@@ -267,7 +274,7 @@ final class Show extends Component
             return;
         }
 
-        $editId = DB::transaction(function () use ($cut, $request): ?int {
+        $editId = DB::transaction(function () use ($cut, $request, $captionPreset): ?int {
             $this->video->cuts()->whereKey($cut->id)->lockForUpdate()->first();
 
             $edit = VideoCutEdit::query()->where('video_cut_id', $cut->id)->latest('id')->first()
@@ -287,6 +294,7 @@ final class Show extends Component
                     'ai_status' => TranscriptionStatusEnum::Processing,
                     'ai_error' => null,
                     'ai_request' => $request === '' ? null : $request,
+                    'caption_preset' => $captionPreset === '' ? null : $captionPreset,
                     'tracking_status' => TranscriptionStatusEnum::Processing,
                     'tracking_error' => null,
                 ]);
@@ -361,35 +369,38 @@ final class Show extends Component
     }
 
     /**
-     * @return array{aiLabel: ?string, aiBadgeClass: string, aiError: ?string, isAiBusy: bool}
+     * @return array{aiLabel: ?string, aiBadgeClass: string, aiError: ?string, aiIgnored: string, isAiBusy: bool}
      */
     private function aiEditState(?VideoCutEdit $edit): array
     {
-        $state = ['aiLabel' => null, 'aiBadgeClass' => '', 'aiError' => null, 'isAiBusy' => false];
+        $state = ['aiLabel' => null, 'aiBadgeClass' => '', 'aiError' => null, 'aiIgnored' => '', 'isAiBusy' => false];
 
         if (is_null($edit) || is_null($edit->ai_status)) {
             return $state;
         }
 
         if ($edit->ai_status === TranscriptionStatusEnum::Failed) {
-            return ['aiLabel' => 'Edição com IA falhou', 'aiBadgeClass' => TranscriptionStatusEnum::Failed->badgeClass(), 'aiError' => $edit->ai_error, 'isAiBusy' => false];
+            return ['aiLabel' => 'Edição com IA falhou', 'aiBadgeClass' => TranscriptionStatusEnum::Failed->badgeClass(), 'aiError' => $edit->ai_error, 'aiIgnored' => '', 'isAiBusy' => false];
         }
 
         if ($edit->ai_status === TranscriptionStatusEnum::Processing) {
             $label = $edit->tracking_status === TranscriptionStatusEnum::Processing ? 'Rastreando rostos' : 'Editando com IA';
 
-            return ['aiLabel' => $label, 'aiBadgeClass' => TranscriptionStatusEnum::Processing->badgeClass(), 'aiError' => null, 'isAiBusy' => true];
+            return ['aiLabel' => $label, 'aiBadgeClass' => TranscriptionStatusEnum::Processing->badgeClass(), 'aiError' => null, 'aiIgnored' => '', 'isAiBusy' => true];
         }
 
+        $ignored = $edit->getAttribute('ignored_request');
+        $ignored = is_string($ignored) ? $ignored : '';
+
         if ($edit->render_status === VideoCutStatusEnum::Generating) {
-            return ['aiLabel' => 'Renderizando', 'aiBadgeClass' => TranscriptionStatusEnum::Processing->badgeClass(), 'aiError' => null, 'isAiBusy' => true];
+            return ['aiLabel' => 'Renderizando', 'aiBadgeClass' => TranscriptionStatusEnum::Processing->badgeClass(), 'aiError' => null, 'aiIgnored' => $ignored, 'isAiBusy' => true];
         }
 
         if ($edit->render_status === VideoCutStatusEnum::Failed) {
-            return ['aiLabel' => 'Render falhou', 'aiBadgeClass' => TranscriptionStatusEnum::Failed->badgeClass(), 'aiError' => $edit->render_error, 'isAiBusy' => false];
+            return ['aiLabel' => 'Render falhou', 'aiBadgeClass' => TranscriptionStatusEnum::Failed->badgeClass(), 'aiError' => $edit->render_error, 'aiIgnored' => $ignored, 'isAiBusy' => false];
         }
 
-        return ['aiLabel' => 'Pronto no estoque', 'aiBadgeClass' => TranscriptionStatusEnum::Ready->badgeClass(), 'aiError' => null, 'isAiBusy' => false];
+        return ['aiLabel' => 'Pronto no estoque', 'aiBadgeClass' => TranscriptionStatusEnum::Ready->badgeClass(), 'aiError' => null, 'aiIgnored' => $ignored, 'isAiBusy' => false];
     }
 
     /** @return array<string, float|int|string>|null */
@@ -419,7 +430,7 @@ final class Show extends Component
         $aiStates = VideoCutEdit::query()
             ->whereIn('video_cut_id', $video->cuts->pluck('id'))
             ->latest('id')
-            ->get(['id', 'video_cut_id', 'ai_status', 'ai_error', 'tracking_status', 'render_status', 'render_error'])
+            ->get(['id', 'video_cut_id', 'ai_status', 'ai_error', 'tracking_status', 'render_status', 'render_error', 'spec->ignored_request as ignored_request'])
             ->unique('video_cut_id')
             ->mapWithKeys(fn (VideoCutEdit $edit): array => [(int) $edit->video_cut_id => $this->aiEditState($edit)]);
         $idleAi = $this->aiEditState(null);

@@ -94,6 +94,21 @@ it('starts face tracking in the cuts style and claims once on a double click', f
     Bus::assertDispatched(StartFaceTrackingJob::class, fn (StartFaceTrackingJob $job): bool => $job->editId === $edit->id && $job->style === 'cuts');
 });
 
+it('saves the chosen caption preset and refuses one outside the list', function (): void {
+    Bus::fake([StartFaceTrackingJob::class]);
+    $cut = aiEditCut($this->fixture);
+    $component = Livewire::actingAs($cut->video->user)->test(Show::class, ['uuid' => $cut->video->uuid]);
+
+    $component->call('editWithAi', $cut->id, '', 'amarelo');
+
+    expect(VideoCutEdit::query()->where('video_cut_id', $cut->id)->exists())->toBeFalse();
+
+    $component->call('editWithAi', $cut->id, '', 'branco_limpo');
+
+    expect(VideoCutEdit::query()->where('video_cut_id', $cut->id)->sole()->caption_preset)->toBe('branco_limpo');
+    Bus::assertDispatchedTimes(StartFaceTrackingJob::class, 1);
+});
+
 it('refuses a cut whose clip transcription is not ready', function (): void {
     Bus::fake([StartFaceTrackingJob::class]);
     $cut = aiEditCut($this->fixture, ['transcription_status' => TranscriptionStatusEnum::Processing]);
@@ -158,6 +173,21 @@ it('writes the validated spec and renders straight away', function (): void {
         && str_contains((string) $process->input, 'Locutores: [0.0-1.5] 1')
         && str_contains((string) $process->input, '0|0.26|0.26|não,')
         && in_array('--json-schema', (array) $process->command, true), 1);
+});
+
+it('renders with the chosen caption preset and shows on the card what the AI could not do', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Process::fake(['*' => claudeEditResult([...$this->fixture['spec'], 'ignored_request' => 'legenda amarela: não existe esse preset'])]);
+    $cut = aiEditCut($this->fixture);
+    $edit = aiEditFor($cut, ['caption_preset' => 'branco_limpo']);
+
+    runEditCutWithAi($edit);
+
+    expect($edit->fresh()?->spec['caption_preset'])->toBe('branco_limpo');
+
+    Livewire::actingAs($cut->video->user)
+        ->test(Show::class, ['uuid' => $cut->video->uuid])
+        ->assertSee('A IA não conseguiu: legenda amarela: não existe esse preset');
 });
 
 it('fails without rendering when the AI rejects the cut', function (): void {
