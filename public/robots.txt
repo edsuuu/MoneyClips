@@ -1,2 +1,8 @@
 User-agent: *
-Disallow:
+Disallow: /dashboard
+Disallow: /upload
+Disallow: /meus-uploads
+Disallow: /meus-videos
+Disallow: /editor-de-video
+Disallow: /contas
+Disallow: /observabilidade

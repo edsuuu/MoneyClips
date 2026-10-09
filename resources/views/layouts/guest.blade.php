@@ -8,6 +8,16 @@
         <title>
             {{ filled($title ?? null) ? $title.' - '.config('app.name', 'Laravel') : config('app.name', 'Laravel') }}
         </title>
+        <meta name="description" content="{{ $description ?? __('Envie um vídeo longo ou um link do YouTube e receba cortes em 9:16 com legenda, escolhidos por IA. Revise e gere o Short.') }}">
+        <link rel="canonical" href="{{ url()->current() }}">
+        <meta property="og:type" content="website">
+        <meta property="og:locale" content="pt_BR">
+        <meta property="og:site_name" content="{{ config('app.name') }}">
+        <meta property="og:title" content="{{ filled($title ?? null) ? $title.' - '.config('app.name') : config('app.name') }}">
+        <meta property="og:description" content="{{ $description ?? __('Envie um vídeo longo ou um link do YouTube e receba cortes em 9:16 com legenda, escolhidos por IA. Revise e gere o Short.') }}">
+        <meta property="og:url" content="{{ url()->current() }}">
+        <meta property="og:image" content="{{ asset('apple-touch-icon.png') }}">
+        <meta name="twitter:card" content="summary">
 
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -24,13 +34,13 @@
             <div class="mx-auto flex h-[68px] w-full max-w-[1120px] items-center justify-between gap-6 px-6">
                 <a href="{{ route('home') }}" wire:navigate class="flex items-center gap-2.5">
                     <x-brand-mark class="size-9 drop-shadow-[0_0_9px_rgba(124,58,237,0.55)]" />
-                    <span class="text-[19px] font-extrabold tracking-[0.14em] text-slate-50">UNK<span class="text-[#a855f7]">VOID</span></span>
+                    <span class="text-[19px] font-extrabold tracking-[0.14em] text-white">UNK<span class="text-[#a855f7]">VOID</span></span>
                 </a>
 
                 <nav class="hidden items-center gap-8 text-sm text-[#a1a1aa] lg:flex">
                     <a href="{{ route('home') }}#funcoes" class="transition hover:text-white">Funcionalidades</a>
                     <a href="{{ route('home') }}#como-funciona" class="transition hover:text-white">Como funciona</a>
-                    <a href="{{ route('home') }}#precos" class="transition hover:text-white">Preços</a>
+                    <a href="{{ route('home') }}#precos" class="transition hover:text-white">Beta</a>
                 </nav>
 
                 <div class="flex items-center gap-3">
@@ -39,7 +49,7 @@
                     @endauth
 
                     @guest
-                        <x-login-cta class="cursor-pointer rounded-full bg-[linear-gradient(120deg,#7c3aed,#a855f7)] px-[18px] py-[9px] text-sm font-semibold text-white shadow-[0_6px_20px_rgba(124,58,237,0.4)] transition hover:brightness-110">Começar grátis</x-login-cta>
+                        <x-login-cta class="cursor-pointer rounded-full bg-[linear-gradient(120deg,#7c3aed,#a855f7)] px-[18px] py-[9px] text-sm font-semibold text-white shadow-[0_6px_20px_rgba(124,58,237,0.4)] transition hover:brightness-110">Entrar</x-login-cta>
                     @endguest
                 </div>
             </div>

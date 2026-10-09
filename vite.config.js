@@ -2,7 +2,7 @@ import {
     defineConfig
 } from 'vite';
 import laravel from 'laravel-vite-plugin';
-import { bunny } from 'laravel-vite-plugin/fonts';
+import { fontsource } from 'laravel-vite-plugin/fonts';
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
@@ -11,15 +11,18 @@ export default defineConfig({
             input: ['resources/css/app.css', 'resources/js/app.ts'],
             refresh: true,
             fonts: [
-                bunny('Instrument Sans', {
+                fontsource('Instrument Sans', {
                     weights: [400, 500, 600],
+                    preload: false,
                 }),
                 // Landing pública (design docs/designs/Unkvoid.dc.html).
-                bunny('Inter', {
+                fontsource('Inter', {
                     weights: [400, 500, 600, 700, 800],
+                    preload: [{ weight: 800 }],
                 }),
-                bunny('JetBrains Mono', {
+                fontsource('JetBrains Mono', {
                     weights: [400, 500],
+                    preload: false,
                 }),
             ],
         }),
