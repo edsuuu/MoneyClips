@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Enums\PermissionEnum;
 use App\Models\User;
 use App\Services\CutSuggestion\ClaudeCutSuggestionService;
 use App\Services\CutSuggestion\CutSuggestionInterface;
@@ -40,7 +41,7 @@ final class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('client-logs', fn (Request $request): Limit => Limit::perMinute(30)->by((string) $request->user()?->id));
 
-        Gate::define('viewLogViewer', fn (?User $user = null): bool => true);
+        Gate::define('viewLogViewer', fn (?User $user = null): bool => $user?->can(PermissionEnum::LogsView->value) ?? false);
     }
 
     private function configureDefaults(): void

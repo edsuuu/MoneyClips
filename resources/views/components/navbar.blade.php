@@ -39,8 +39,9 @@
                     ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*', 'tour' => 'nav-library'],
                     ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*', 'tour' => 'nav-videos'],
                     ['label' => 'Contas', 'icon' => 'user-circle', 'route' => 'accounts.index', 'pattern' => 'accounts.*', 'tour' => null],
-                    ['label' => 'Observabilidade', 'icon' => 'activity', 'route' => 'observability.index', 'pattern' => 'observability.*', 'tour' => null],
+                    ['label' => 'Observabilidade', 'icon' => 'activity', 'route' => 'observability.index', 'pattern' => 'observability.*', 'tour' => null, 'can' => 'observability.view'],
                 ] as $item)
+                    @continue(isset($item['can']) && Gate::denies($item['can']))
                     <li class="shrink-0" x-on:click="menuOpen = false">
                         <x-nav-item
                             :icon="$item['icon']"

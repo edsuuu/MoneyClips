@@ -41,7 +41,7 @@ final class SocialPost extends Model
      */
     protected function scopeForUser(Builder $query, User $user): Builder
     {
-        if ($user->hasRole('admin')) {
+        if ($user->isAdmin()) {
             return $query;
         }
 

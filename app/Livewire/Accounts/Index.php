@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace App\Livewire\Accounts;
 
+use App\Livewire\Concerns\WithCurrentUser;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\SocialAccount;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 use Livewire\Component;
 
 final class Index extends Component
 {
+    use WithCurrentUser;
     use WithToasts;
 
     public bool $showTiktokModal = false;
@@ -69,7 +70,7 @@ final class Index extends Component
 
     public function editTiktok(int $id): void
     {
-        $account = $this->tiktokQuery()->whereKey($id)->first();
+        $account = $this->tiktokQuery()->find($id);
 
         if (! $account instanceof SocialAccount) {
             $this->toast('Conta não encontrada.', 'danger');
@@ -77,6 +78,7 @@ final class Index extends Component
             return;
         }
 
+        $this->authorize('update', $account);
         $this->resetValidation();
         $this->editingAccountId = $account->id;
         $this->name = $account->name;
@@ -91,7 +93,7 @@ final class Index extends Component
         $this->validate();
 
         $payload = [
-            'user_id' => $this->currentUserId(),
+            'user_id' => $this->currentUser()->id,
             'platform' => 'tiktok',
             'name' => $this->name,
             'login_email' => $this->login_email,
@@ -100,7 +102,7 @@ final class Index extends Component
         ];
 
         if ($this->editingAccountId !== null) {
-            $account = $this->tiktokQuery()->whereKey($this->editingAccountId)->first();
+            $account = $this->tiktokQuery()->find($this->editingAccountId);
 
             if (! $account instanceof SocialAccount) {
                 $this->toast('Conta não encontrada.', 'danger');
@@ -108,6 +110,7 @@ final class Index extends Component
                 return;
             }
 
+            $this->authorize('update', $account);
             $account->update($payload);
             $this->toast('Conta atualizada.');
         } else {
@@ -125,11 +128,12 @@ final class Index extends Component
 
     public function toggleActive(int $id): void
     {
-        $account = $this->accountQuery()->whereKey($id)->first();
+        $account = SocialAccount::query()->find($id);
         if (! $account instanceof SocialAccount) {
             return;
         }
 
+        $this->authorize('update', $account);
         $account->is_active = ! $account->is_active;
         $account->save();
         $this->toast(sprintf('Conta %s.', $account->is_active ? 'ativada' : 'desativada'));
@@ -137,7 +141,13 @@ final class Index extends Component
 
     public function delete(int $id): void
     {
-        $this->accountQuery()->whereKey($id)->delete();
+        $account = SocialAccount::query()->find($id);
+        if (! $account instanceof SocialAccount) {
+            return;
+        }
+
+        $this->authorize('delete', $account);
+        $account->delete();
 
         if ($this->editingAccountId === $id) {
             $this->resetForm();
@@ -195,7 +205,7 @@ final class Index extends Component
      */
     private function accountQuery(): Builder
     {
-        return SocialAccount::query()->where('user_id', $this->currentUserId());
+        return SocialAccount::query()->forUser($this->currentUser());
     }
 
     /**
@@ -203,15 +213,7 @@ final class Index extends Component
      */
     private function tiktokQuery(): Builder
     {
-        return $this->accountQuery()->where('platform', 'tiktok');
-    }
-
-    private function currentUserId(): int
-    {
-        $userId = Auth::id();
-        abort_unless(is_int($userId), 403);
-
-        return $userId;
+        return SocialAccount::query()->where('platform', 'tiktok');
     }
 
     private function resetForm(): void

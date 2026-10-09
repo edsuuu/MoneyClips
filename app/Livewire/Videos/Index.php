@@ -8,6 +8,7 @@ use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
 use App\Helpers\Hashtags;
 use App\Jobs\EditCutWithAiJob;
+use App\Livewire\Concerns\WithCurrentUser;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
@@ -22,6 +23,7 @@ use Throwable;
 
 final class Index extends Component
 {
+    use WithCurrentUser;
     use WithToasts;
 
     public const string TAB_AVAILABLE = 'available';
@@ -63,6 +65,8 @@ final class Index extends Component
             return;
         }
 
+        $this->authorize('update', $short);
+
         $this->editingId = $short->id;
         $this->editTitle = $short->title ?? '';
         $this->editHashtags = Hashtags::toInput($short->hashtags);
@@ -80,6 +84,8 @@ final class Index extends Component
             return;
         }
 
+        $this->authorize('update', $short);
+
         $title = mb_trim($this->editTitle);
         $short->title = $title === '' ? $short->title : $title;
         $short->hashtags = Hashtags::parse($this->editHashtags);
@@ -95,6 +101,8 @@ final class Index extends Component
         if (! $short instanceof YoutubeShort) {
             return;
         }
+
+        $this->authorize('update', $short);
 
         if (($short->hashtags ?? []) === []) {
             $this->toast('Defina as hashtags antes de marcar como pronto.', 'danger');
@@ -113,6 +121,13 @@ final class Index extends Component
      */
     public function redo(int $shortId, string $change): void
     {
+        $short = YoutubeShort::query()->find($shortId);
+        if (! $short instanceof YoutubeShort) {
+            return;
+        }
+
+        $this->authorize('update', $short);
+
         $change = mb_trim($change);
 
         if ($change === '' || mb_strlen($change) > self::MAX_CHANGE_LENGTH) {
@@ -153,6 +168,7 @@ final class Index extends Component
 
     public function openUpload(): void
     {
+        abort_unless($this->currentUser()->isAdmin(), 403);
         $this->channelUrl = '';
         $this->showUpload = true;
     }
@@ -162,8 +178,13 @@ final class Index extends Component
         $this->showUpload = false;
     }
 
+    /**
+     * Short de canal nasce sem dono (o webhook do media não sabe quem pediu):
+     * só o admin, que enxerga o estoque inteiro, pode disparar.
+     */
     public function startDownload(): void
     {
+        abort_unless($this->currentUser()->isAdmin(), 403);
         $this->validate();
 
         try {
@@ -191,7 +212,7 @@ final class Index extends Component
     /** @return Builder<YoutubeShort> */
     private function downloadedQuery(): Builder
     {
-        return YoutubeShort::query()
+        return YoutubeShort::query()->forUser($this->currentUser())
             ->whereNotNull('video_path')
             ->whereNull('ready_at')
             ->whereNull('posted_youtube_at')
@@ -201,7 +222,7 @@ final class Index extends Component
     /** @return Builder<YoutubeShort> */
     private function readyQuery(): Builder
     {
-        return YoutubeShort::query()
+        return YoutubeShort::query()->forUser($this->currentUser())
             ->whereNotNull('video_path')
             ->whereNotNull('ready_at')
             ->whereNull('template_rendered_at')
@@ -212,7 +233,7 @@ final class Index extends Component
     /** @return Builder<YoutubeShort> */
     private function templatedQuery(): Builder
     {
-        return YoutubeShort::query()
+        return YoutubeShort::query()->forUser($this->currentUser())
             ->whereNotNull('template_rendered_at')
             ->whereNull('posted_youtube_at')
             ->whereNull('posted_tiktok_at');
@@ -221,7 +242,7 @@ final class Index extends Component
     /** @return Builder<YoutubeShort> */
     private function postedQuery(): Builder
     {
-        return YoutubeShort::query()->where(fn (Builder $q): Builder => $q
+        return YoutubeShort::query()->forUser($this->currentUser())->where(fn (Builder $q): Builder => $q
             ->whereNotNull('posted_youtube_at')
             ->orWhereNotNull('posted_tiktok_at'));
     }
@@ -336,7 +357,7 @@ final class Index extends Component
             'posted' => $this->postedQuery()->count(),
         ];
 
-        $editing = $this->editingId !== null ? YoutubeShort::query()->find($this->editingId) : null;
+        $editing = $this->editingId !== null ? YoutubeShort::query()->forUser($this->currentUser())->find($this->editingId) : null;
         $downloadedCards = $this->decorate($downloaded, self::TAB_AVAILABLE);
         $readyCards = $this->decorate($ready, self::TAB_AVAILABLE);
         $templatedCards = $this->decorate($templated, self::TAB_TEMPLATED);
@@ -352,6 +373,7 @@ final class Index extends Component
                 ['key' => self::TAB_TEMPLATED, 'label' => 'Com template', 'count' => $counts['templated']],
                 ['key' => self::TAB_POSTED, 'label' => 'Postados', 'count' => $counts['posted']],
             ],
+            'canDownload' => $this->currentUser()->isAdmin(),
             'editingVideo' => $editing,
             'editingUrl' => $editing instanceof YoutubeShort ? $editing->presignedUrl() : null,
             'editingCredits' => $editing instanceof YoutubeShort ? $this->credits($editing) : '',

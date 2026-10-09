@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Database\Seeders;
 
+use App\Enums\RoleEnum;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
@@ -21,6 +22,6 @@ final class Seeder002AdminUser extends Seeder
             'email_verified_at' => now(),
         ]);
 
-        $admin->assignRole('Administrador');
+        $admin->assignRole(RoleEnum::Admin);
     }
 }

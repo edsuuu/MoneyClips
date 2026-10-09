@@ -30,7 +30,7 @@ it('abre o player do próprio vídeo', function (): void {
 it('não resolve o vídeo alheio em nenhuma rota', function (): void {
     $theirs = Video::factory()->ready()->create(['user_id' => User::factory()->create()->id]);
 
-    $this->get(route('uploads.show', $theirs->uuid))->assertNotFound();
+    $this->get(route('uploads.show', $theirs->uuid))->assertForbidden();
     $this->getJson(sprintf('/uploads/%s/parts', $theirs->uuid))->assertNotFound();
     $this->postJson(sprintf('/uploads/%s/parts', $theirs->uuid), ['part_numbers' => [1]])->assertNotFound();
     $this->postJson(sprintf('/uploads/%s/complete', $theirs->uuid), ['parts' => []])->assertNotFound();

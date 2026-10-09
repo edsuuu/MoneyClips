@@ -5,14 +5,16 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Enums\PostProviderEnum;
+use App\Models\Concerns\BelongsToUser;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 final class SocialAccount extends Model
 {
+    use BelongsToUser;
+
     /** @use HasFactory<Factory> */
     use HasFactory;
 
@@ -38,14 +40,6 @@ final class SocialAccount extends Model
     public function getRouteKeyName(): string
     {
         return 'uuid';
-    }
-
-    /**
-     * @return BelongsTo<User, $this>
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function tokenExpired(): bool

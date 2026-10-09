@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\RoleEnum;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Services\API\Youtube\YoutubeAccountConnectorService;
@@ -12,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -63,7 +65,7 @@ final class OAuthController extends Controller
                     'email_verified_at' => $user->email_verified_at ?? Date::now(),
                 ])->save();
             } else {
-                $user = User::query()->create([
+                $user = DB::transaction(fn (): User => User::query()->create([
                     'name' => $socialUser->getName() ?: $socialUser->getNickname() ?: 'Usuario Google',
                     'email' => $email,
                     'password' => Hash::make(Str::random(40)),
@@ -71,7 +73,7 @@ final class OAuthController extends Controller
                     'google_id' => $socialUser->getId(),
                     'google_avatar' => $socialUser->getAvatar(),
                     'email_verified_at' => Date::now(),
-                ]);
+                ])->assignRole(RoleEnum::Creator));
 
                 event(new Registered($user));
             }

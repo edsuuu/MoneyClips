@@ -44,16 +44,17 @@ final class Show extends Component
     public string $cutSearch = '';
 
     /**
-     * O dono e filtrado aqui, e nao no resolveRouteBinding do Video: a rota e
-     * `Route::view`, que nao dispara model binding.
+     * O dono e checado aqui (VideoPolicy), e nao no resolveRouteBinding do
+     * Video: a rota e `Route::view`, que nao dispara model binding.
      */
     public function mount(string $uuid): void
     {
         $this->video = Video::query()
             ->with('files')
             ->where('uuid', $uuid)
-            ->where('user_id', auth()->id())
             ->firstOrFail();
+
+        $this->authorize('view', $this->video);
 
         // Assinada UMA vez: presigned muda a cada assinatura, e um fallbackUrl
         // novo a cada wire:poll mudaria o x-data do player no morph — o Alpine

@@ -117,6 +117,26 @@ de template foi removido).
 - Cookies do TikTok seguem **criptografados no banco**
   (`social_accounts.cookies`, cast `encrypted:array`), sem consumidor.
 
+## Permissões e escopo
+
+Detalhe em `docs/permissoes.md`. Resumo:
+
+- Papéis (spatie/laravel-permission, `App\Enums\RoleEnum`): `admin` (vê tudo;
+  usuários anteriores aos papéis viram admin UMA vez na migration
+  `promote_existing_users_to_admin`; `Seeder001Roles` só cria papéis/permissões) e `creator`
+  (usuário novo do Google OAuth; só o que tem `user_id` dele).
+  `User::isAdmin()` é o único ponto que pergunta pelo papel.
+- Permissões (`App\Enums\PermissionEnum`, só onde papel não basta, todas do
+  admin): `observability.view` (`/observabilidade` + navbar), `logs.view`
+  (`Gate viewLogViewer` do log-viewer), sem `assets.review`: a revisão de `stock_assets` é só por artisan.
+- **Listagem filtra por scope, ação em registro único checa Policy**: trait
+  `App\Models\Concerns\BelongsToUser` (`user()` + `forUser(User)`) em
+  `Video`/`YoutubeShort`/`SocialAccount`; policies padrão em `app/Policies/`;
+  403 em pt-BR mapeado em `bootstrap/app.php`. Sem global scope.
+- Rota `{video:uuid}` alheia → 404 (`resolveRouteBinding`); tela `Route::view`
+  alheia → 403 (policy no `mount()`). `stock_assets` é global (só admin revisa).
+- Sanctum e laravel-auditing ficam instalados pro SaaS; nenhuma API criada.
+
 ## Observabilidade
 
 Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
@@ -136,11 +156,11 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 
 | Tabela | Papel |
 | --- | --- |
-| `users` | login Google OAuth |
+| `users` | login Google OAuth; papel `admin`/`creator` via spatie (`model_has_roles`) |
 | `social_accounts` | credenciais por plataforma (OAuth do YT, cookies do TT); `platform` = onde posta, `provider` (`PostProviderEnum`) = por onde (padrão pela plataforma: `youtube_api`, `tiktok_uploader`) |
 | `social_posts` | 1 linha por Short × conta (unique): `scheduled_for`, `status` (`PostStatusEnum` scheduled→posting→published\|failed\|missed\|canceled), `privacy`, `external_id`, `url`, `error`, `attempts`. Sem `user_id`: o dono é o da conta (`SocialPost::forUser($user)`, admin vê tudo) |
 | `videos` | vídeos longos enviados em /upload (arquivo ou URL do YouTube): ciclo `awaiting_upload\|downloading → uploaded → packaging → ready` + metadados do HLS |
-| `youtube_shorts` | estoque; ciclo `ready_at` → `posted_*_at` |
+| `youtube_shorts` | estoque; ciclo `ready_at` → `posted_*_at`; `user_id` nullable (dono do vídeo longo no corte editado; null = short de canal, só admin vê) |
 | `stock_assets` | banco curado de sfx/emoji/imagem/meme (uuid, `kind`, `license`, `status` pending→approved\|disabled; `duration_ms`/`width`/`height` lidos no add via ffprobe/getimagesize, nullable; `author` = crédito CC BY); binário em `assets/<kind>/<uuid>.<ext>` no MinIO, nunca no git; memes exigem `own_risk` |
 | `service_logs` | observabilidade (logs dos microserviços) |
 

@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 use App\Enums\PostProviderEnum;
 use App\Enums\PostStatusEnum;
+use App\Enums\RoleEnum;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\User;
 use App\Models\YoutubeShort;
-use Spatie\Permission\Models\Role;
 
 it('builds the caption without a duplicated hashtag block nor a tag already in the title', function (): void {
     $short = new YoutubeShort([
@@ -42,7 +42,7 @@ it('scopes posts to the owner of the account and lets the admin see all', functi
     $owner = User::factory()->create();
     $other = User::factory()->create();
     $admin = User::factory()->create();
-    $admin->assignRole(Role::create(['name' => 'admin']));
+    $admin->assignRole(RoleEnum::Admin);
 
     $mine = SocialPost::query()->create([
         'youtube_short_id' => YoutubeShort::factory()->create()->id,

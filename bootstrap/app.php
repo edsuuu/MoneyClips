@@ -3,9 +3,11 @@
 declare(strict_types=1);
 
 use App\Http\Middleware\RequirePasswordUnlessGoogleAuthenticated;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -23,5 +25,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectUsersTo('/meus-videos');
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->map(
+            AuthorizationException::class,
+            fn (AuthorizationException $exception): AccessDeniedHttpException => new AccessDeniedHttpException('Você não tem permissão para acessar este recurso.', $exception),
+        );
     })->create();
