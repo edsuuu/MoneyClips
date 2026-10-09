@@ -171,7 +171,11 @@ final class YoutubePostService implements PostProviderInterface
         $length = 0;
         foreach (Hashtags::parse(implode(' ', $short->hashtags ?? [])) as $hashtag) {
             $tag = str_replace(['<', '>'], '', mb_ltrim($hashtag, '#'));
-            if ($tag === '' || $length + mb_strlen($tag) + 1 > self::TAGS_MAX_CHARS) {
+            if ($tag === '') {
+                continue;
+            }
+
+            if ($length + mb_strlen($tag) + 1 > self::TAGS_MAX_CHARS) {
                 continue;
             }
 
@@ -243,7 +247,7 @@ final class YoutubePostService implements PostProviderInterface
                 $response = $this->put($sessionUrl, $chunk, sprintf('bytes %d-%d/%d', $offset, $last, $size));
 
                 $resumed = false;
-                while ($this->interrupted($response)) {
+                while (! $response instanceof Response || $response->serverError()) {
                     if (++$resumes > self::RESUME_ATTEMPTS) {
                         throw new YoutubeApiException(sprintf(
                             'Envio ao YouTube interrompido (%s) e a sessão não respondeu em %d tentativas. %s',
@@ -288,14 +292,6 @@ final class YoutubePostService implements PostProviderInterface
         } catch (ConnectionException) {
             return null;
         }
-    }
-
-    /**
-     * @phpstan-assert-if-false Response $response
-     */
-    private function interrupted(?Response $response): bool
-    {
-        return ! $response instanceof Response || $response->serverError();
     }
 
     private function nextOffset(Response $response): int
