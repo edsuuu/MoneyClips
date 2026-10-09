@@ -14,7 +14,7 @@ Route::view('/', 'home.welcome')->name('home');
 
 Route::get('/login', fn () => to_route('home', ['login' => 1]))->middleware('guest')->name('login');
 
-Route::view('/termos-de-servico', 'legal.terms')->name('legal.terms');
+Route::view('/termos-de-uso', 'legal.terms')->name('legal.terms');
 Route::view('/politica-de-privacidade', 'legal.privacy')->name('legal.privacy');
 
 Route::middleware('guest')
