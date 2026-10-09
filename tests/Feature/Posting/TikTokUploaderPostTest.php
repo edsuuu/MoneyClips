@@ -200,18 +200,53 @@ it('never marks a dry-run or a restricted post as published', function (string $
     'restricted' => ['restricted', 'Conteúdo restrito'],
 ]);
 
-it('keeps the account in sync but does not reopen a post the reaper already closed', function (): void {
+it('keeps the account in sync but does not reopen a post the owner already closed', function (): void {
     $account = tiktokAccount();
-    $post = tiktokPost($account, ['status' => PostStatusEnum::Failed, 'external_id' => 'job-1', 'error' => 'Resultado desconhecido']);
+    $post = tiktokPost($account, ['status' => PostStatusEnum::Canceled, 'external_id' => 'job-1']);
 
     tiktokWebhook([
         'job_id' => 'job-1', 'status' => 'completed', 'title' => 'x', 'session_status' => 'valid',
         'refreshed_cookies' => [['name' => 'sessionid', 'value' => TT_REFRESHED]],
     ])->assertOk()->assertExactJson(['status' => 'already-finished']);
 
-    expect($post->refresh()->status)->toBe(PostStatusEnum::Failed)
+    expect($post->refresh()->status)->toBe(PostStatusEnum::Canceled)
+        ->and($post->youtubeShort->posted_tiktok_at)->toBeNull()
         ->and($account->refresh()->cookies)->toBe([['name' => 'sessionid', 'value' => TT_REFRESHED]]);
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'discord.test') && str_contains($request->body(), 'chegou tarde'));
 });
+
+it('publishes a late completed webhook over the unknown result the reaper recorded', function (): void {
+    $logs = tiktokLogs();
+    $post = tiktokPost(tiktokAccount(), ['status' => PostStatusEnum::Posting, 'external_id' => 'job-1', 'started_at' => now()->subHours(2)]);
+
+    $this->artisan('posts:dispatch')->assertSuccessful();
+    expect($post->refresh()->status)->toBe(PostStatusEnum::Failed)
+        ->and($post->error)->toContain('Resultado desconhecido');
+
+    tiktokWebhook(['job_id' => 'job-1', 'status' => 'completed', 'title' => 'x', 'session_status' => 'valid'])
+        ->assertOk()->assertExactJson(['status' => 'post-closed']);
+
+    $post->refresh();
+    expect($post->status)->toBe(PostStatusEnum::Published)
+        ->and($post->error)->toBeNull()
+        ->and($post->privacy)->toBe('public')
+        ->and($post->youtubeShort->posted_tiktok_at)->not->toBeNull()
+        ->and($logs())->toContain('Resposta tardia');
+    Http::assertNotSent(fn (Request $request): bool => str_contains($request->url(), 'uploader.test'));
+});
+
+it('ignores a repeated webhook without a false alarm on Discord', function (string $status): void {
+    $post = tiktokPost(tiktokAccount(), ['status' => PostStatusEnum::Posting, 'external_id' => 'job-1']);
+    $payload = ['job_id' => 'job-1', 'status' => $status, 'title' => 'x', 'error' => 'Falhou', 'session_status' => 'valid'];
+
+    tiktokWebhook($payload)->assertOk()->assertExactJson(['status' => 'post-closed']);
+    tiktokWebhook($payload)->assertOk()->assertExactJson(['status' => 'already-finished']);
+
+    expect($post->refresh()->status)->not->toBe(PostStatusEnum::Posting);
+    $discord = Http::recorded(fn (Request $request): bool => str_contains($request->url(), 'discord.test'));
+    expect($discord)->toHaveCount(1)
+        ->and($discord->first()[0]->body())->not->toContain('chegou tarde');
+})->with(['completed', 'failed']);
 
 it('answers 404 to an unknown job and 401 without the token', function (): void {
     tiktokWebhook(['job_id' => 'nope', 'status' => 'completed', 'session_status' => 'valid'])->assertNotFound();

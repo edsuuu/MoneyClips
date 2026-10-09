@@ -114,7 +114,11 @@ Adicionar um provider:
   sem gastar cota). Revincular em `/contas` volta a sessão pra `valid`.
 - **Upload resumable** (`videos.insert`, `part=snippet,status`): abre a sessão
   com os metadados e manda o arquivo em pedaços de 8 MiB, seguindo o `Range`
-  do 308. O vídeo só nasce no canal quando o último pedaço é aceito.
+  do 308. O vídeo só nasce no canal quando o último pedaço é aceito. 5xx ou
+  conexão caída num pedaço → consulta a sessão (`PUT` vazio com
+  `Content-Range: bytes */<total>`, backoff 2/4/8 s, até 3 vezes no upload):
+  308 retoma do `Range`, 200/201 é o vídeo criado (Published). Sem resposta
+  → Failed dizendo se o vídeo pode existir (último pedaço) ou não.
 - **Metadados:** título do Short (sem `<`/`>`, até 100 caracteres; vazio vira
   "Short"), descrição = `caption()` (até 5000 bytes), `tags` = hashtags sem
   `#` (até 500 caracteres), categoria 22, `selfDeclaredMadeForKids=false`.
@@ -158,12 +162,16 @@ Risco de ban aceito pelo dono: o microserviço (`MicroServices/TikTokUploader`,
   novos em `/contas`). Cookies nunca vão pra log, `error`, Discord ou resposta.
 - O fechamento (job síncrono ou webhook) passa por
   `App\Services\Posting\PostCloserService::close()`: UPDATE só se ainda está
-  em Posting, `posted_*_at`, log e Discord num lugar só.
+  em Posting, `posted_*_at`, log e Discord num lugar só. Resposta repetida
+  (webhook reenviado com o mesmo desfecho) é ignorada sem alarme; `completed`
+  tardio sobre o "Resultado desconhecido" do reaper vira Published (é o
+  desfecho real, nada é repostado) e fica no log; qualquer outra resposta
+  tardia só avisa no Discord.
 
 ### TikTok oficial (`tiktok_official`, Content Posting API)
 
 - **Conta:** botão "TikTok oficial" em `/contas` → `oauth/tiktok/connect`
-  (Login Kit v2, `state` na sessão, escopos `TIKTOK_SCOPES` =
+  (Login Kit v2, `state` na sessão, escopos fixos no código
   `user.info.basic,video.publish`) → callback troca o `code` no
   `/v2/oauth/token/` e busca o nome em `/v2/user/info/`
   (`TikTokAccountConnectorService`). Grava `social_accounts` platform=tiktok,
@@ -176,13 +184,14 @@ Risco de ban aceito pelo dono: o microserviço (`MicroServices/TikTokUploader`,
   + `session_status=invalid`.
 - **Post** (`TikTokPostService`, direct post): `creator_info/query` →
   privacidade: **app sem auditoria só posta `SELF_ONLY`** (e só em conta
-  privada), então sem `TIKTOK_APP_AUDITED=true` vai `SELF_ONLY` (gravado
+  privada), então sem `TIKTOK_OFFICIAL_AUDITED=true` vai `SELF_ONLY` (gravado
   `private`) e o log registra; auditado + público → `PUBLIC_TO_EVERYONE`. Nível
   fora de `privacy_level_options` → Failed antes do upload. Respeita
   `comment/duet/stitch_disabled` do criador. `video/init` (`FILE_UPLOAD`;
   ≤ 64 MiB num pedaço só, acima pedaços de 10 MiB e o último absorve o resto)
   → `PUT` com `Content-Range` na `upload_url` → `status/fetch` a cada 5 s
-  (até 10 min, `Sleep` — fakeável) até `PUBLISH_COMPLETE` (link
+  (até 10 min, `Sleep` — fakeável; 5xx, 429 ou conexão caída no polling
+  só gasta uma tentativa, o vídeo já foi enviado) até `PUBLISH_COMPLETE` (link
   `tiktok.com/@{creator_username}/video/{id}` quando público) ou `FAILED`
   (`fail_reason`). Sem confirmação em 10 min → Failed com o `publish_id`,
   "confira no app".
@@ -192,7 +201,7 @@ Risco de ban aceito pelo dono: o microserviço (`MicroServices/TikTokUploader`,
   → Failed explicando; o resto → "TikTok recusou … (HTTP, code): mensagem".
 - Envs: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`
   (padrão `APP_URL/oauth/tiktok/callback`, cadastrar igual no portal),
-  `TIKTOK_SCOPES`, `TIKTOK_APP_AUDITED`.
+  `TIKTOK_OFFICIAL_AUDITED` (bloco `services.tiktok_official`).
 
 ## Operação
 
