@@ -50,6 +50,58 @@
       }
     },
     "title": { "type": "string" },
-    "hashtags": { "type": "array", "items": { "type": "string" } }
+    "hashtags": { "type": "array", "items": { "type": "string" } },
+    "memes": {
+      "type": "array",
+      "description": "figurinha de reação pequena acima da legenda, durante o bloco da palavra w. Liga com o que a fala nomeia ou com a emoção do instante. No máximo 3 por minuto e 5 nos primeiros 25s, com 4s ou mais entre uma e outra",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["asset_id", "w"],
+        "properties": {
+          "asset_id": { "type": "string", "enum": [] },
+          "w": { "type": "integer", "description": "índice da palavra" }
+        }
+      }
+    },
+    "meme_clips": {
+      "type": "array",
+      "description": "vídeo-meme em tela cheia com o próprio áudio, logo depois da punchline. Cobre a tela pela duração do catálogo e precisa caber inteiro numa risada ou pausa SEM palavra e fora dos cuts. No máximo 2 por minuto",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["asset_id", "t"],
+        "properties": {
+          "asset_id": { "type": "string", "enum": [] },
+          "t": { "type": "number", "description": "segundos do clip em que entra" }
+        }
+      }
+    },
+    "emoji": {
+      "type": "array",
+      "description": "emoji acima da legenda, durante o bloco da palavra w: a emoção específica daquela linha. No máximo 1 por minuto e nunca no mesmo bloco de uma figurinha",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["asset_id", "w"],
+        "properties": {
+          "asset_id": { "type": "string", "enum": [] },
+          "w": { "type": "integer", "description": "índice da palavra" }
+        }
+      }
+    },
+    "sfx": {
+      "type": "array",
+      "description": "efeito sonoro colado numa entrada visual (figurinha, emoji, texto-arte ou vídeo-meme), uns 0,05s antes dela, ou o sting em cima da risada final. Nunca solto. O vídeo-meme já traz o próprio áudio. No máximo 4 por minuto",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["asset_id", "t"],
+        "properties": {
+          "asset_id": { "type": "string", "enum": [] },
+          "t": { "type": "number", "description": "segundos do clip em que toca" }
+        }
+      }
+    }
   }
 }

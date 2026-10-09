@@ -11,8 +11,10 @@ use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use App\Services\API\Claude\ClaudeService;
 use App\Services\API\Discord\DiscordNotifierService;
+use App\Services\CutEdit\CutEditAssetService;
 use App\Services\CutEdit\CutEditValidatorService;
 use Illuminate\Contracts\Database\Query\Builder;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
@@ -33,10 +35,6 @@ final class EditCutWithAiJob implements ShouldQueue
     use Dispatchable;
     use Queueable;
 
-    private const string PROMPT = 'prompts/cut-edit.md';
-
-    private const string SCHEMA = 'prompts/cut-edit.schema.json';
-
     public int $tries = 1;
 
     public int $timeout = 1200;
@@ -51,10 +49,11 @@ final class EditCutWithAiJob implements ShouldQueue
 
     /**
      * @throws ClaudeException
+     * @throws FileNotFoundException
      * @throws JsonException
      * @throws Throwable
      */
-    public function handle(ClaudeService $claude, CutEditValidatorService $validator): void
+    public function handle(ClaudeService $claude, CutEditValidatorService $validator, CutEditAssetService $stock): void
     {
         $edit = VideoCutEdit::query()->with('videoCut.video')->find($this->editId);
 
@@ -84,15 +83,22 @@ final class EditCutWithAiJob implements ShouldQueue
 
         $duration = (float) ($edit->source_meta['duration'] ?? $cut->end_seconds - $cut->start_seconds);
         $input = $this->input($edit, $segments, $duration);
+        $assets = $stock->available($cut);
+        $prompt = $stock->prompt($assets);
+        $schema = $stock->schema($assets);
 
-        $output = $claude->structured(self::PROMPT, self::SCHEMA, $input);
-        $result = $validator->validate($output, $words, $duration);
+        $output = $claude->structured($prompt, $schema, $input);
+        $result = $validator->validate($output, $words, $duration, $assets);
 
         if ($result['hard'] === [] && $result['soft'] !== []) {
             Log::channel('daily')->info('[INFO][CutEditAi] Spec com erros moles — 1 retry.', ['edit_id' => $edit->id, 'soft' => $result['soft']]);
 
-            $output = $claude->structured(self::PROMPT, self::SCHEMA, $this->retryInput($input, $output, $result['soft']));
-            $result = $validator->validate($output, $words, $duration);
+            $output = $claude->structured($prompt, $schema, $this->retryInput($input, $output, $result['soft']));
+            $result = $validator->validate($output, $words, $duration, $assets);
+        }
+
+        if ($result['warnings'] !== []) {
+            Log::channel('daily')->warning('[WARN][CutEditAi] Itens do estoque descartados.', ['edit_id' => $edit->id, 'warnings' => $result['warnings']]);
         }
 
         $errors = [...$result['hard'], ...$result['soft']];

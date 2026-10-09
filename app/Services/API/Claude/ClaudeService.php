@@ -6,7 +6,6 @@ namespace App\Services\API\Claude;
 
 use App\Exceptions\ClaudeException;
 use Illuminate\Process\Exceptions\ProcessTimedOutException;
-use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Process;
 use JsonException;
@@ -23,7 +22,7 @@ final class ClaudeService
      * @throws ClaudeException
      * @throws JsonException
      */
-    public function structured(string $promptFile, string $schemaFile, string $input): array
+    public function structured(string $systemPrompt, string $schema, string $input): array
     {
         $command = [
             (string) config('services.claude.bin'), '-p',
@@ -32,9 +31,9 @@ final class ClaudeService
             '--no-session-persistence',
             '--model', (string) config('services.claude.model'),
             '--effort', (string) config('services.claude.effort'),
-            '--system-prompt-file', resource_path($promptFile),
+            '--system-prompt', $systemPrompt,
             '--output-format', 'json',
-            '--json-schema', File::get(resource_path($schemaFile)),
+            '--json-schema', $schema,
         ];
 
         $timeout = (int) config('services.claude.timeout');

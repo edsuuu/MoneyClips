@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\CutEdit;
 
 use App\Helpers\Hashtags;
+use App\Models\StockAsset;
 use App\Models\VideoCutEdit;
 use Illuminate\Support\Arr;
 
@@ -13,8 +14,11 @@ use Illuminate\Support\Arr;
  * IA escreveu (legenda por ÍNDICE de palavra, tempos em segundos do clip) e
  * devolve o spec convertido, com o tempo de cada legenda calculado aqui pela
  * regra do draft(). Erro duro = o corte não fecha (reject, sem retry); erro
- * mole = 1 retry com a lista anexada. Limiares = faixa medida nos shorts do
- * gusta.
+ * mole = 1 retry com a lista anexada; aviso = item do estoque (figurinha,
+ * vídeo-meme, emoji, som) descartado sem retry. Limiares = faixa medida nos
+ * shorts do gusta.
+ *
+ * @phpstan-type StockAssetItem array{asset_id: string, key: string, t: array{0: float, 1: float}, has_audio: bool}
  */
 final readonly class CutEditValidatorService
 {
@@ -58,12 +62,21 @@ final readonly class CutEditValidatorService
 
     private const float TAIL = 0.25;
 
+    private const array ASSET_RATES = ['memes' => 3.0, 'meme_clips' => 2.0, 'emoji' => 1.0, 'sfx' => 4.0];
+
+    private const float HOOK = 25.0;
+
+    private const int MAX_HOOK_MEMES = 5;
+
+    private const float MIN_MEME_GAP = 4.0;
+
     /**
      * @param  array<mixed>  $spec
      * @param  list<array{word: string, start: float, end: float}>  $words
-     * @return array{hard: list<string>, soft: list<string>, spec: array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>}}
+     * @param  array<string, array<string, StockAsset>>  $assets
+     * @return array{hard: list<string>, soft: list<string>, warnings: list<string>, spec: array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>, memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}}
      */
-    public function validate(array $spec, array $words, float $duration): array
+    public function validate(array $spec, array $words, float $duration, array $assets = []): array
     {
         $hard = [];
         $soft = [];
@@ -116,6 +129,9 @@ final readonly class CutEditValidatorService
 
         $punches = $this->punches($spec['punches'] ?? [], $duration, $soft);
 
+        $warnings = [];
+        $stock = $this->stockAssets($spec, $assets, $captions, $words, $cuts, $duration, $kept, $warnings);
+
         $title = is_string($spec['title'] ?? null) ? mb_trim($spec['title']) : '';
         $rawTags = array_values(array_filter(Arr::wrap($spec['hashtags'] ?? []), is_string(...)));
         $hashtags = Hashtags::parse(implode(' ', $rawTags));
@@ -131,6 +147,7 @@ final readonly class CutEditValidatorService
         return [
             'hard' => $hard,
             'soft' => $soft,
+            'warnings' => $warnings,
             'spec' => [
                 'version' => 1,
                 'caption_preset' => $this->captionPreset(),
@@ -139,8 +156,205 @@ final readonly class CutEditValidatorService
                 'punches' => $punches,
                 'title' => $title,
                 'hashtags' => $hashtags,
+                ...$stock,
             ],
         ];
+    }
+
+    /**
+     * Na ordem do tempo, o que quebra regra cai com aviso e não pede retry:
+     * Short sem meme é melhor que edição perdida.
+     *
+     * @param  array<mixed>  $spec
+     * @param  array<string, array<string, StockAsset>>  $assets
+     * @param  list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>  $captions
+     * @param  list<array{word: string, start: float, end: float}>  $words
+     * @param  list<array{0: float, 1: float}>  $cuts
+     * @param  list<string>  $warnings
+     * @return array{memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}
+     */
+    private function stockAssets(array $spec, array $assets, array $captions, array $words, array $cuts, float $duration, float $kept, array &$warnings): array
+    {
+        $minutes = max($kept, 1.0) / 60;
+        $placed = ['memes' => [], 'meme_clips' => [], 'emoji' => [], 'sfx' => []];
+
+        foreach (self::ASSET_RATES as $field => $rate) {
+            $candidates = [];
+
+            foreach (Arr::wrap($spec[$field] ?? []) as $index => $item) {
+                $asset = is_array($item) && is_string($item['asset_id'] ?? null) ? ($assets[$field][$item['asset_id']] ?? null) : null;
+
+                if (! is_array($item) || is_null($asset)) {
+                    $warnings[] = sprintf('%s %d: asset fora do estoque liberado pra este clip', $field, $index);
+
+                    continue;
+                }
+
+                $length = ($asset->duration_ms ?? 0) / 1000;
+                $span = match ($field) {
+                    'memes', 'emoji' => $this->blockSpan($item['w'] ?? null, $captions, $words, $cuts),
+                    'meme_clips' => $this->silentSpan($item['t'] ?? null, $length, $words, $cuts, $duration),
+                    'sfx' => $this->soundSpan($item['t'] ?? null, $length, $cuts, $duration),
+                };
+
+                if (is_string($span)) {
+                    $warnings[] = sprintf('%s %d: %s', $field, $index, $span);
+
+                    continue;
+                }
+
+                $candidates[] = ['asset_id' => $asset->id, 'key' => $asset->storage_key, 't' => $span, 'has_audio' => $asset->has_audio];
+            }
+
+            usort($candidates, static fn (array $a, array $b): int => $a['t'][0] <=> $b['t'][0]);
+
+            foreach ($candidates as $candidate) {
+                $limit = $this->assetLimit($field, $candidate, $placed, $rate, $minutes, $cuts);
+
+                if (! is_null($limit)) {
+                    $warnings[] = sprintf('%s em %.1fs: %s', $field, $candidate['t'][0], $limit);
+
+                    continue;
+                }
+
+                $placed[$field][] = $candidate;
+            }
+        }
+
+        return $placed;
+    }
+
+    /**
+     * @param  StockAssetItem  $candidate
+     * @param  array{memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}  $placed
+     * @param  list<array{0: float, 1: float}>  $cuts
+     */
+    private function assetLimit(string $field, array $candidate, array $placed, float $rate, float $minutes, array $cuts): ?string
+    {
+        $same = $placed[$field] ?? [];
+
+        if (in_array($candidate['asset_id'], array_column($same, 'asset_id'), true)) {
+            return 'asset repetido no clip';
+        }
+
+        if (count($same) + 1 > $rate * $minutes) {
+            return sprintf('passa de %g por minuto', $rate);
+        }
+
+        if ($field === 'emoji' && array_any($placed['memes'], static fn (array $meme): bool => $meme['t'][0] < $candidate['t'][1] && $meme['t'][1] > $candidate['t'][0])) {
+            return 'em cima de uma figurinha';
+        }
+
+        if ($field !== 'memes' || $same === []) {
+            return null;
+        }
+
+        $start = $this->outputTime($candidate['t'][0], $cuts);
+        $hook = array_filter($same, fn (array $meme): bool => $this->outputTime($meme['t'][0], $cuts) < self::HOOK);
+
+        if ($start < self::HOOK && count($hook) >= self::MAX_HOOK_MEMES) {
+            return sprintf('passa de %d figurinhas nos primeiros %gs', self::MAX_HOOK_MEMES, self::HOOK);
+        }
+
+        if ($start - $this->outputTime($same[count($same) - 1]['t'][0], $cuts) < self::MIN_MEME_GAP) {
+            return sprintf('a menos de %gs da figurinha anterior', self::MIN_MEME_GAP);
+        }
+
+        return null;
+    }
+
+    /**
+     * Figurinha e emoji ficam acima da legenda durante o bloco da palavra `w`.
+     *
+     * @param  list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>  $captions
+     * @param  list<array{word: string, start: float, end: float}>  $words
+     * @param  list<array{0: float, 1: float}>  $cuts
+     * @return array{0: float, 1: float}|string
+     */
+    private function blockSpan(mixed $index, array $captions, array $words, array $cuts): array|string
+    {
+        if (! is_int($index) || ! isset($words[$index])) {
+            return 'índice w inválido';
+        }
+
+        $middle = ($words[$index]['start'] + $words[$index]['end']) / 2;
+
+        if ($this->insideCut($middle, $cuts)) {
+            return 'palavra cortada';
+        }
+
+        foreach ($captions as $caption) {
+            if (in_array($caption['style'], self::SPEECH_STYLES, true) && $caption['t'][0] <= $middle && $middle <= $caption['t'][1]) {
+                return $caption['t'];
+            }
+        }
+
+        return 'palavra sem legenda';
+    }
+
+    /**
+     * Vídeo-meme cobre a tela com o próprio áudio pela duração do asset: a
+     * janela inteira tem que caber no clip, fora dos cuts e sem palavra.
+     *
+     * @param  list<array{word: string, start: float, end: float}>  $words
+     * @param  list<array{0: float, 1: float}>  $cuts
+     * @return array{0: float, 1: float}|string
+     */
+    private function silentSpan(mixed $start, float $length, array $words, array $cuts, float $duration): array|string
+    {
+        if (! is_numeric($start)) {
+            return 't inválido';
+        }
+
+        $span = [round((float) $start, 2), round((float) $start + $length, 2)];
+
+        if ($span[0] < 0 || $span[1] > $duration || array_any($cuts, static fn (array $cut): bool => $cut[0] < $span[1] && $cut[1] > $span[0])) {
+            return 'fora do clip ou cruzando um corte';
+        }
+
+        if (array_any($words, static fn (array $word): bool => $word['start'] < $span[1] && $word['end'] > $span[0])) {
+            return 'em cima de fala';
+        }
+
+        return $span;
+    }
+
+    /**
+     * @param  list<array{0: float, 1: float}>  $cuts
+     * @return array{0: float, 1: float}|string
+     */
+    private function soundSpan(mixed $start, float $length, array $cuts, float $duration): array|string
+    {
+        if (! is_numeric($start)) {
+            return 't inválido';
+        }
+
+        $time = round((float) $start, 2);
+
+        if ($time < 0 || $time >= $duration || $this->insideCut($time, $cuts)) {
+            return 'fora do clip ou dentro de um corte';
+        }
+
+        return [$time, round($time + $length, 2)];
+    }
+
+    /**
+     * Tempo no vídeo final = o do clip menos o que os cuts tiram antes dele.
+     * O ar morto, que o render corta depois, fica fora da conta.
+     *
+     * @param  list<array{0: float, 1: float}>  $cuts
+     */
+    private function outputTime(float $time, array $cuts): float
+    {
+        $removed = 0.0;
+
+        foreach ($cuts as [$start, $end]) {
+            if ($start < $time) {
+                $removed += min($end, $time) - $start;
+            }
+        }
+
+        return $time - $removed;
     }
 
     /**

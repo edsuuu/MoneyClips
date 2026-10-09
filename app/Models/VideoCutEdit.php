@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
+use App\Services\CutEdit\CutEditValidatorService;
 use Database\Factories\VideoCutEditFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -19,6 +20,8 @@ use RuntimeException;
  * render ffmpeg multiplica por iw/ih reais. A fonte é o clipe do corte pai; o
  * resultado do render vira uma row em `files` (type `edit`).
  *
+ * @phpstan-import-type StockAssetItem from CutEditValidatorService
+ *
  * @property int $id
  * @property string $uuid
  * @property int|null $youtube_short_id
@@ -27,7 +30,7 @@ use RuntimeException;
  * @property string $mode
  * @property list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}> $keyframes
  * @property array{version: int, background: string, captions?: bool, captionColor?: string, captionCase?: string, speakerColors?: array<int, string>}|null $settings
- * @property array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>}|null $spec
+ * @property array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>, memes?: list<StockAssetItem>, meme_clips?: list<StockAssetItem>, emoji?: list<StockAssetItem>, sfx?: list<StockAssetItem>}|null $spec
  * @property VideoCutStatusEnum|null $render_status
  * @property string|null $render_error
  * @property TranscriptionStatusEnum|null $tracking_status

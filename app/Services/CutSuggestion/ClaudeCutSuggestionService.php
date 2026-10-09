@@ -8,6 +8,8 @@ use App\Exceptions\ClaudeException;
 use App\Helpers\Hashtags;
 use App\Models\Video;
 use App\Services\API\Claude\ClaudeService;
+use Illuminate\Contracts\Filesystem\FileNotFoundException;
+use Illuminate\Support\Facades\File;
 use JsonException;
 
 final readonly class ClaudeCutSuggestionService implements CutSuggestionInterface
@@ -19,6 +21,7 @@ final readonly class ClaudeCutSuggestionService implements CutSuggestionInterfac
      * @return list<CutSuggestionData>
      *
      * @throws ClaudeException
+     * @throws FileNotFoundException
      * @throws JsonException
      */
     public function suggest(Video $video, array $transcript, string $prompt): array
@@ -39,7 +42,11 @@ final readonly class ClaudeCutSuggestionService implements CutSuggestionInterfac
             $lines[] = sprintf('[%.1f-%.1f] %s', (float) ($segment['start'] ?? 0), (float) ($segment['end'] ?? 0), mb_trim((string) ($segment['text'] ?? '')));
         }
 
-        $output = $this->claude->structured('prompts/cut-suggestion.md', 'prompts/cut-suggestion.schema.json', implode(PHP_EOL, $lines));
+        $output = $this->claude->structured(
+            File::get(resource_path('prompts/cut-suggestion.md')),
+            File::get(resource_path('prompts/cut-suggestion.schema.json')),
+            implode(PHP_EOL, $lines),
+        );
 
         $candidates = is_array($output['candidates'] ?? null) ? $output['candidates'] : [];
         $suggestions = [];

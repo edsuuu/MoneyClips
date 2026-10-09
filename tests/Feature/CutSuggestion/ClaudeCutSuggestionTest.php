@@ -25,7 +25,7 @@ function claudeResponse(array $overrides = []): string
 it('runs claude -p without tools and returns the structured output', function (): void {
     Process::fake(['*' => Process::result(claudeResponse(['structured_output' => ['candidates' => [['start' => 1]]]]))]);
 
-    $output = resolve(ClaudeService::class)->structured('prompts/cut-suggestion.md', 'prompts/cut-suggestion.schema.json', 'entrada');
+    $output = resolve(ClaudeService::class)->structured('prompt', '{}', 'entrada');
 
     expect($output)->toBe(['candidates' => [['start' => 1]]]);
 
@@ -43,7 +43,7 @@ it('runs claude -p without tools and returns the structured output', function ()
 it('fails loud when claude does not deliver', function (string $output, int $exitCode): void {
     Process::fake(['*' => Process::result($output, exitCode: $exitCode)]);
 
-    resolve(ClaudeService::class)->structured('prompts/cut-suggestion.md', 'prompts/cut-suggestion.schema.json', 'entrada');
+    resolve(ClaudeService::class)->structured('prompt', '{}', 'entrada');
 })->throws(ClaudeException::class)->with([
     'limite atingido' => [claudeResponse(['is_error' => true, 'result' => 'Claude AI usage limit reached']), 1],
     'binário ausente' => ['', 127],

@@ -6,14 +6,20 @@ namespace App\Services\Video;
 
 use App\Models\VideoCutEdit;
 use App\Services\CutEdit\CutEditKeyframeService;
+use App\Services\CutEdit\CutEditValidatorService;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use RuntimeException;
 
+/**
+ * @phpstan-import-type StockAssetItem from CutEditValidatorService
+ */
 final readonly class VideoCutEditRenderService
 {
+    private const array OVERLAY_KINDS = ['memes' => 'meme', 'meme_clips' => 'meme_clip', 'emoji' => 'emoji'];
+
     public function __construct(private CutEditKeyframeService $keyframes) {}
 
     /**
@@ -79,8 +85,7 @@ final readonly class VideoCutEditRenderService
             'dead_air' => true,
             'captions' => $spec['captions'],
             'caption_preset' => $spec['caption_preset'],
-            'overlays' => [],
-            'sfx' => [],
+            ...$this->stockFields($spec),
         ];
 
         $watermark = mb_trim((string) config('services.video_cut_edit.watermark'));
@@ -90,6 +95,39 @@ final readonly class VideoCutEditRenderService
         }
 
         return $fields;
+    }
+
+    /**
+     * Figurinha, vídeo-meme e emoji viram overlay; o som vai em `sfx[]` junto
+     * com o áudio do vídeo-meme (a mesma key, tocando do começo da janela).
+     *
+     * @param  array{memes?: list<StockAssetItem>, meme_clips?: list<StockAssetItem>, emoji?: list<StockAssetItem>, sfx?: list<StockAssetItem>, ...}  $spec
+     * @return array{overlays: list<array{key: string, t: array{0: float, 1: float}, kind: string}>, sfx: list<array{key: string, t: float}>}
+     */
+    private function stockFields(array $spec): array
+    {
+        $overlays = [];
+        $sfx = [];
+
+        foreach (self::OVERLAY_KINDS as $field => $kind) {
+            foreach ($spec[$field] ?? [] as $item) {
+                $overlays[] = ['key' => $item['key'], 't' => $item['t'], 'kind' => $kind];
+            }
+        }
+
+        foreach ($spec['meme_clips'] ?? [] as $clip) {
+            if (! $clip['has_audio']) {
+                continue;
+            }
+
+            $sfx[] = ['key' => $clip['key'], 't' => $clip['t'][0]];
+        }
+
+        foreach ($spec['sfx'] ?? [] as $sound) {
+            $sfx[] = ['key' => $sound['key'], 't' => $sound['t'][0]];
+        }
+
+        return ['overlays' => $overlays, 'sfx' => $sfx];
     }
 
     private function client(): PendingRequest
