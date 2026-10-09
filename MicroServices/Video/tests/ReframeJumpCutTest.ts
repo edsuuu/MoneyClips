@@ -658,8 +658,24 @@ async function main(): Promise<void> {
             pos: 'bottom' as const,
         };
         const speech = { ...note, style: 'speech' as const };
-        assert.equal((await queue['deadAir'](dir, [speech])).length, 1, 'a pausa de 1s vira corte');
-        assert.deepEqual(await queue['deadAir'](dir, [note]), [], 'pausa com nota fica');
+        const memeClip = {
+            key: 'assets/meme/a.mp4',
+            t: [5.2, 5.8] as [number, number],
+            kind: 'meme_clip' as const,
+            pos: null,
+        };
+        const emoji = { ...memeClip, kind: 'emoji' as const };
+        assert.equal(
+            (await queue['deadAir'](dir, [speech], [emoji])).length,
+            1,
+            'a pausa de 1s vira corte',
+        );
+        assert.deepEqual(await queue['deadAir'](dir, [note], []), [], 'pausa com nota fica');
+        assert.deepEqual(
+            await queue['deadAir'](dir, [speech], [memeClip]),
+            [],
+            'pausa com meme_clip fica',
+        );
         console.log(
             `ok  render real: vídeo ${String(durations['video'])}s, áudio ${String(durations['audio'])}s, webhook ${String(webhooks[0]!.duration_seconds)}s`,
         );
