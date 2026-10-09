@@ -8,6 +8,7 @@ use App\Http\Controllers\Webhooks\DownloadVideoWebhookController;
 use App\Http\Controllers\Webhooks\DownloadYoutubeWebhookController;
 use App\Http\Controllers\Webhooks\FaceTrackingWebhookController;
 use App\Http\Controllers\Webhooks\HLSWebhookController;
+use App\Http\Controllers\Webhooks\TikTokPostWebhookController;
 use App\Http\Controllers\Webhooks\TranscribeWebhookController;
 use App\Http\Controllers\Webhooks\VideoCutEditWebhookController;
 use App\Http\Middleware\VerifyObservabilityToken;
@@ -22,6 +23,7 @@ Route::prefix('webhook')->name('webhook.')->group(function (): void {
         Route::post('/video-cut-edit', VideoCutEditWebhookController::class)->name('video-cut-edit');
         Route::post('/transcribe', TranscribeWebhookController::class)->name('transcribe');
         Route::post('/face-tracking', FaceTrackingWebhookController::class)->name('face-tracking');
+        Route::post('/tiktok-post', TikTokPostWebhookController::class)->name('tiktok-post');
     });
 });
 

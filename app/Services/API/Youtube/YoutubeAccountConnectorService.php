@@ -49,6 +49,7 @@ final class YoutubeAccountConnectorService
             'refresh_token' => (string) ($user->refreshToken) ?: null,
             'token_expires_at' => $user->expiresIn !== null ? now()->addSeconds((int) ($user->expiresIn)) : null,
             'meta' => ['channel_id' => $channelId, 'privacy_status' => 'public'],
+            'session_status' => SocialAccount::SESSION_VALID,
         ]);
 
         return [$account];

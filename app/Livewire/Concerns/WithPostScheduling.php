@@ -373,7 +373,8 @@ trait WithPostScheduling
 
     /**
      * Failed pede o botão certo: problema na conta (desativada, sessão
-     * inválida, token sem refresh) leva a /contas; o resto tenta de novo.
+     * inválida — o provider marca em `invalid_grant`/401) leva a /contas; o
+     * resto tenta de novo.
      */
     private function postAction(SocialPost $post): ?string
     {
@@ -388,7 +389,6 @@ trait WithPostScheduling
         $account = $post->socialAccount;
         $needsReconnect = ! $account->is_active
             || $account->session_status === SocialAccount::SESSION_INVALID
-            || ($account->tokenExpired() && blank($account->refresh_token))
             || str_contains(mb_strtolower((string) $post->error), 'invalid_grant');
 
         return $needsReconnect ? 'reconnect' : 'retry';
@@ -404,14 +404,16 @@ trait WithPostScheduling
     }
 
     /**
-     * A conta só posta privado: canal com `privacy_status` private, ou app do
-     * Google ainda não verificado (a API força private em todo upload).
+     * A conta só posta privado: canal com `privacy_status` private, app do
+     * Google ainda não verificado (a API força private em todo upload) ou
+     * app do TikTok oficial sem auditoria (só SELF_ONLY).
      */
     private function isPrivateOnly(SocialAccount $account): bool
     {
         return match ($account->provider) {
-            PostProviderEnum::YoutubeApi => ! config('services.google.youtube_app_verified') || ($account->meta['privacy_status'] ?? null) === 'private',
+            PostProviderEnum::YoutubeApi => ! config()->boolean('services.google.youtube_app_verified') || ($account->meta['privacy_status'] ?? null) === 'private',
             PostProviderEnum::TiktokUploader => false,
+            PostProviderEnum::TiktokOfficial => ! config()->boolean('services.tiktok_official.audited'),
         };
     }
 
@@ -477,6 +479,7 @@ trait WithPostScheduling
         return match ($provider) {
             PostProviderEnum::YoutubeApi => 'API oficial',
             PostProviderEnum::TiktokUploader => 'pelo navegador',
+            PostProviderEnum::TiktokOfficial => 'API oficial',
         };
     }
 

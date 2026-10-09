@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Services\API\TikTok\TikTokPostService;
+use App\Services\API\Youtube\YoutubePostService;
 use App\Services\Posting\PostProviderInterface;
+use App\Services\TikTokUploader\TikTokUploaderPostService;
 use InvalidArgumentException;
 
 enum PostProviderEnum: string
 {
     case YoutubeApi = 'youtube_api';
     case TiktokUploader = 'tiktok_uploader';
+    case TiktokOfficial = 'tiktok_official';
 
     public static function defaultFor(string $platform): self
     {
@@ -21,10 +25,12 @@ enum PostProviderEnum: string
         };
     }
 
-    // ponytail: nenhum provider real ainda — cada PR de provider (YouTube API, TikTokUploader, TikTok oficial) troca isto por um match
-    // case → classe. Até lá nada está ligado ao container e a postagem falha com o motivo (só os testes ligam um fake).
     public function service(): PostProviderInterface
     {
-        return resolve(PostProviderInterface::class);
+        return match ($this) {
+            self::YoutubeApi => resolve(YoutubePostService::class),
+            self::TiktokUploader => resolve(TikTokUploaderPostService::class),
+            self::TiktokOfficial => resolve(TikTokPostService::class),
+        };
     }
 }

@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Enums\PostProviderEnum;
 use App\Enums\PostStatusEnum;
 use App\Enums\RoleEnum;
 use App\Livewire\Videos\Index;
@@ -203,6 +204,21 @@ it('flags the account that only posts private before confirming', function (): v
     Livewire::test(Index::class)
         ->call('openSchedule', $this->short->id)
         ->assertDontSee('sai privado');
+});
+
+it('labels the official TikTok account and flags it private until the app is audited', function (): void {
+    config(['services.tiktok_official.audited' => false]);
+    $this->tiktok->update(['provider' => PostProviderEnum::TiktokOfficial]);
+
+    Livewire::test(Index::class)
+        ->call('openSchedule', $this->short->id)
+        ->assertViewHas('scheduleModal', fn (array $modal): bool => $modal['accounts'][0]['provider_label'] === 'API oficial · sai privado' && $modal['accounts'][0]['is_private_only']);
+
+    config(['services.tiktok_official.audited' => true]);
+
+    Livewire::test(Index::class)
+        ->call('openSchedule', $this->short->id)
+        ->assertViewHas('scheduleModal', fn (array $modal): bool => $modal['accounts'][0]['provider_label'] === 'API oficial' && ! $modal['accounts'][0]['is_private_only']);
 });
 
 it('refuses to schedule a Short that is not ready or has no video', function (): void {

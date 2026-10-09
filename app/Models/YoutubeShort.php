@@ -62,13 +62,22 @@ final class YoutubeShort extends Model
     /**
      * Título + bloco de hashtags, montado num lugar só: o relatório do canal
      * achou bloco de hashtags duplicado e hashtag colada no título (a mesma
-     * tag no título e no bloco). Tag que já está no título não se repete, e a
-     * comparação ignora caixa (#Podcast = #podcast).
+     * tag no título e no bloco).
      */
     public function caption(): string
     {
-        $title = mb_trim((string) $this->title);
-        preg_match_all('/#[\p{L}\p{N}_]+/u', mb_strtolower($title), $inTitle);
+        return mb_trim(mb_trim((string) $this->title)."\n\n".implode(' ', $this->captionHashtags()));
+    }
+
+    /**
+     * Hashtags do bloco da legenda: tag que já está no título não se repete, e
+     * a comparação ignora caixa (#Podcast = #podcast).
+     *
+     * @return list<string>
+     */
+    public function captionHashtags(): array
+    {
+        preg_match_all('/#[\p{L}\p{N}_]+/u', mb_strtolower((string) $this->title), $inTitle);
 
         $tags = [];
         foreach (Hashtags::parse(implode(' ', $this->hashtags ?? [])) as $tag) {
@@ -84,7 +93,7 @@ final class YoutubeShort extends Model
             $tags[$key] = $tag;
         }
 
-        return mb_trim($title."\n\n".implode(' ', $tags));
+        return array_values($tags);
     }
 
     public function presignedUrl(): ?string
