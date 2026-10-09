@@ -2,7 +2,7 @@
     <div class="flex flex-wrap items-start justify-between gap-6">
         <div>
             <div class="mb-2 font-mono text-[11px] tracking-[0.1em] text-slate-500">MEUS VÍDEOS</div>
-            <h1 class="text-3xl font-extrabold tracking-tight text-slate-50">Estoque e postagens</h1>
+            <h1 class="text-3xl font-extrabold tracking-tight text-slate-50">Meus clipes</h1>
         </div>
         <div class="flex flex-wrap justify-end gap-2.5">
             <button type="button" wire:click="openUpload"
@@ -36,7 +36,7 @@
             <div>
                 <div class="mb-3.5 flex items-baseline gap-2.5">
                     <span class="text-[15px] font-bold">Baixados</span>
-                    <span class="text-[13px] text-slate-500">aguardando hashtags e revisão antes de entrar na fila</span>
+                    <span class="text-[13px] text-slate-500">aguardando título, hashtags e revisão</span>
                 </div>
                 @if ($downloaded === [])
                     <div class="rounded-xl border border-dashed border-slate-800 py-8 text-center text-[13px] text-slate-500">Nada aguardando revisão.</div>
@@ -51,8 +51,8 @@
 
             <div>
                 <div class="mb-3.5 flex items-baseline gap-2.5">
-                    <span class="text-[15px] font-bold">Prontos para postar</span>
-                    <span class="text-[13px] text-slate-500">com hashtags definidas, prontos pra entrar na agenda</span>
+                    <span class="text-[15px] font-bold">Prontos</span>
+                    <span class="text-[13px] text-slate-500">revisados, prontos para você publicar</span>
                 </div>
                 @if ($ready === [])
                     <div class="rounded-xl border border-dashed border-slate-800 py-8 text-center text-[13px] text-slate-500">Nenhum vídeo pronto — revise os baixados acima.</div>
@@ -69,7 +69,7 @@
 
     @if ($tab === 'templated')
         <div>
-            <div class="mb-4 text-[13px] text-slate-500">vídeos já renderizados com template, prontos para postar</div>
+            <div class="mb-4 text-[13px] text-slate-500">vídeos renderizados com template (histórico)</div>
             @if ($templated === [])
                 <div class="rounded-xl border border-dashed border-slate-800 py-10 text-center text-[13px] text-slate-500">
                     Nenhum vídeo com template.

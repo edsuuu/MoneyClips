@@ -613,9 +613,15 @@
         <div wire:key="failed" class="rounded-2xl border border-red-500/30 bg-red-500/5 px-8 py-16 text-center">
             <x-ui.icon name="exclamation-triangle" class="mx-auto size-9 text-red-500 dark:text-red-400" />
             <div class="mt-4 text-sm font-semibold text-red-700 dark:text-red-200">{{ $statusLabel }}</div>
-            @if ($error)
-                <div class="mt-2 text-xs text-red-600/90 dark:text-red-400/80">{{ $error }}</div>
-            @endif
+            <div class="mt-2 text-xs text-red-600/90 dark:text-red-400/80">{{ $failureMessage }}</div>
+            <div class="mt-5 flex flex-wrap items-center justify-center gap-2">
+                @if ($canRetryVideo)
+                    <button type="button" wire:click="retryVideo" class="cursor-pointer rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-500">Tentar de novo</button>
+                @else
+                    <a href="{{ route('uploads.create') }}" wire:navigate class="rounded-lg bg-sky-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-sky-500">Tentar de novo</a>
+                @endif
+                <button type="button" wire:click="deleteVideo" wire:confirm="Excluir este vídeo?" class="cursor-pointer rounded-lg border border-red-500/40 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-500/10 dark:text-red-300">Excluir</button>
+            </div>
         </div>
     @endif
 </div>

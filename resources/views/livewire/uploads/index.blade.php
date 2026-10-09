@@ -88,7 +88,7 @@
                         </x-ui.button>
                     @endif
 
-                    <x-ui.button variant="ghost" x-on:click="confirming = true">
+                    <x-ui.button variant="ghost" x-on:click="confirming = true" aria-label="Remover vídeo">
                         <x-ui.icon name="trash" class="size-4" />
                     </x-ui.button>
                 </div>

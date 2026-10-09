@@ -72,3 +72,9 @@ it('maps the candidates and sends the transcript as timed lines', function (): v
     Process::assertRan(fn (PendingProcess $process): bool => str_contains((string) $process->input, '[846.6-848.7] qual a comida favorita do Haaland?')
         && str_contains((string) $process->input, 'Pedido do dono: os momentos mais engraçados'));
 });
+
+it('tells the user when the claude usage limit was hit', function (): void {
+    Process::fake(['*' => Process::result(claudeResponse(['is_error' => true, 'result' => 'Claude AI usage limit reached']), exitCode: 1)]);
+
+    resolve(ClaudeService::class)->structured('prompt', '{}', 'entrada');
+})->throws(ClaudeException::class, 'limite de uso');

@@ -46,12 +46,12 @@ it('shows the search failure on the page', function (): void {
     $video = Video::factory()->ready()->create([
         'transcription_status' => TranscriptionStatusEnum::Ready,
         'cut_suggestion_status' => TranscriptionStatusEnum::Failed,
-        'cut_suggestion_error' => 'O Claude falhou (exit 1): limite atingido',
+        'cut_suggestion_error' => 'A IA não conseguiu responder agora. Tente de novo em alguns minutos.',
     ]);
 
     Livewire::actingAs($video->user)
         ->test(Show::class, ['uuid' => $video->uuid])
-        ->assertSee('O Claude falhou (exit 1): limite atingido');
+        ->assertSee('A IA não conseguiu responder agora. Tente de novo em alguns minutos.');
 });
 
 it('skips suggestions that overlap an existing cut and marks the search ready', function (): void {
@@ -147,12 +147,12 @@ it('tells the owner when no new moment was found', function (): void {
 it('records the reason when the provider fails', function (): void {
     $video = searchingVideo();
 
-    $this->mock(CutSuggestionInterface::class)->shouldReceive('suggest')->andThrow(ClaudeException::failed(1, 'limite atingido'));
+    $this->mock(CutSuggestionInterface::class)->shouldReceive('suggest')->andThrow(ClaudeException::failed());
 
     expect(fn () => dispatch_sync(new SuggestCutsJob($video->id, '')))->toThrow(ClaudeException::class);
 
     expect($video->fresh()?->cut_suggestion_status)->toBe(TranscriptionStatusEnum::Failed)
-        ->and($video->fresh()?->cut_suggestion_error)->toBe('O Claude falhou (exit 1): limite atingido');
+        ->and($video->fresh()?->cut_suggestion_error)->toBe('A IA não conseguiu responder agora. Tente de novo em alguns minutos.');
 });
 
 it('re-renders the cut list once the search is ready', function (): void {

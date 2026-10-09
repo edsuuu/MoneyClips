@@ -33,7 +33,7 @@
         >
             <ul class="flex items-center gap-1 max-lg:flex-col max-lg:items-stretch lg:justify-center">
                 @foreach ([
-                    ['label' => 'Dashboard', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*'],
+                    ['label' => 'Painel', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*'],
                     ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*'],
                     ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*'],
                     ['label' => 'Contas', 'icon' => 'user-circle', 'route' => 'accounts.index', 'pattern' => 'accounts.*'],
