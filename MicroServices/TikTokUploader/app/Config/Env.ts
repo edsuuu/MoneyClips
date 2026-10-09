@@ -27,7 +27,7 @@ export interface Settings {
     apiPort: number;
     /** Vazio = endpoints abertos (dev); setado = exige Bearer token. */
     apiToken: string;
-    /** Compartilhado com o Laravel — autentica logs/heartbeat E o webhook de post. */
+    /** Compartilhado com o Laravel — autentica logs E o webhook de post. */
     observabilityToken: string;
 }
 

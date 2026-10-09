@@ -204,4 +204,4 @@ app/
 | `FACE_TRACKING_MAX_KEYFRAMES` | teto de keyframes quando o caller nao manda `max_keyframes` |
 | `FACE_TRACKING_MODELS_DIR` | onde os modelos (`face_landmarker.task`, YuNet, SFace) sao baixados (fora do git) |
 | `FACE_TRACKING_DELEGATE` | `auto` (GPU so em Linux/NVIDIA), `gpu` ou `cpu`; macOS sempre cpu |
-| `OBSERVABILITY_URL`/`OBSERVABILITY_TOKEN`/`SERVICE_NAME` | logs+heartbeat pro Laravel; o token tambem assina os webhooks de video longo e transcricao |
+| `OBSERVABILITY_URL`/`OBSERVABILITY_TOKEN`/`SERVICE_NAME` | logs pro Laravel; o token tambem assina os webhooks de video longo e transcricao |

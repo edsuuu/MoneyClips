@@ -1,8 +1,7 @@
 /**
  * Observabilidade remota: decora o logger do console para
  * também empilhar as linhas num buffer e enviá-las em lote ao Laravel
- * (POST /api/observability/logs, flush a cada 2s ou 20 linhas), além de um
- * heartbeat a cada 30s (POST /api/observability/heartbeat).
+ * (POST /api/observability/logs, flush a cada 2s ou 20 linhas).
  *
  * Regra de ouro: FIRE-AND-FORGET. Timeout curto, erro descartado — o envio de
  * log nunca pode derrubar ou atrasar o serviço. `pm2 logs` continua igual
@@ -22,7 +21,6 @@ interface LogEntry {
 
 const FLUSH_INTERVAL_MS = 2_000;
 const FLUSH_MAX_ENTRIES = 20;
-const HEARTBEAT_INTERVAL_MS = 30_000;
 const REQUEST_TIMEOUT_MS = 3_000;
 const BUFFER_HARD_CAP = 500;
 
@@ -50,15 +48,6 @@ function flush(): void {
     const entries = buffer;
     buffer = [];
     post('/logs', { service, hostname: hostname(), entries });
-}
-
-function heartbeat(): void {
-    post('/heartbeat', {
-        service,
-        hostname: hostname(),
-        uptime_seconds: Math.round(process.uptime()),
-        memory_mb: Math.round(process.memoryUsage().rss / 1024 / 1024),
-    });
 }
 
 /**
@@ -92,8 +81,6 @@ export function initObservability(serviceName: string): void {
     }
 
     setInterval(flush, FLUSH_INTERVAL_MS).unref();
-    heartbeat();
-    setInterval(heartbeat, HEARTBEAT_INTERVAL_MS).unref();
 
     original.info(`[Observability] Push remoto ligado (${service} → ${baseUrl}).`);
 }

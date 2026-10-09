@@ -24,7 +24,7 @@ Exceção: o download do `Media` (produtor de vídeo) sobe direto pro MinIO.
 
 ### Observabilidade
 
-Todos os 3 serviços do fluxo têm push de logs + heartbeat pro Laravel
+Todos os 3 serviços do fluxo têm push de logs pro Laravel
 (`RemoteObservability.ts` nos Node, `observability.py` nos Python) —
 fire-and-forget, o console/pm2 continua a saída primária. Envs por serviço:
 

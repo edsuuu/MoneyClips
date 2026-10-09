@@ -150,9 +150,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
   logs (filtros por serviço/level + busca, poll 3s) + drawer de detalhe.
 - Lado dos serviços: `RemoteObservability.ts` (Node) / `observability.py`
   (Python) — decoram o logger local (buffer, flush 2s/20 linhas,
-  fire-and-forget). Ainda enviam heartbeat a cada 30s, mas o endpoint
-  `/api/observability/heartbeat` foi removido (o POST volta 404 inofensivo).
-  Envs: `OBSERVABILITY_URL`, `OBSERVABILITY_TOKEN`, `SERVICE_NAME`.
+  fire-and-forget). Envs: `OBSERVABILITY_URL`, `OBSERVABILITY_TOKEN`, `SERVICE_NAME`.
 
 ## Banco de dados (visão geral)
 
@@ -346,9 +344,6 @@ make up      # sobe Laravel (serve/queue/pail/vite) + media +
   do git.
 - Renomear as chaves `HLS_*`: apontam pro serviço `Video`, não mais pro
   serviço que dá nome a elas.
-- Os microserviços ainda enviam heartbeat (30s) pra um endpoint que não existe
-  mais — remover o heartbeat de `RemoteObservability.ts`/`observability.py`
-  quando conveniente.
 
 ## Agentes e contexto
 

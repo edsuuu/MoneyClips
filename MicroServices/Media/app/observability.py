@@ -1,7 +1,6 @@
 """Observabilidade remota: handler de logging que empilha
 as linhas num buffer e as envia em lote ao Laravel (POST
-/api/observability/logs, flush a cada 2s), além de um heartbeat a cada 30s
-(POST /api/observability/heartbeat).
+/api/observability/logs, flush a cada 2s).
 
 Regra de ouro: FIRE-AND-FORGET. Timeout curto, erro descartado — o envio de
 log nunca pode derrubar ou atrasar o serviço. O console (pm2) continua sendo
@@ -13,9 +12,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import os
-import resource
 import socket
-import sys
 import threading
 import time
 from datetime import UTC, datetime
@@ -25,11 +22,8 @@ import httpx
 
 FLUSH_INTERVAL_SECONDS = 2.0
 FLUSH_MAX_ENTRIES = 20
-HEARTBEAT_INTERVAL_SECONDS = 30.0
 REQUEST_TIMEOUT_SECONDS = 3.0
 BUFFER_HARD_CAP = 500
-
-_START_MONOTONIC = time.monotonic()
 
 _LEVELS = {
     logging.DEBUG: "debug",
@@ -38,13 +32,6 @@ _LEVELS = {
     logging.ERROR: "error",
     logging.CRITICAL: "error",
 }
-
-
-def _memory_mb() -> int:
-    usage = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # macOS reporta bytes; Linux, kilobytes.
-    divisor = 1024 * 1024 if sys.platform == "darwin" else 1024
-    return int(usage / divisor)
 
 
 class RemoteLogHandler(logging.Handler):
@@ -101,24 +88,6 @@ class RemoteLogHandler(logging.Handler):
             )
 
 
-def _heartbeat_loop(url: str, token: str, service: str) -> None:
-    hostname = socket.gethostname()
-    while True:
-        with contextlib.suppress(Exception):
-            httpx.post(
-                f"{url}/heartbeat",
-                json={
-                    "service": service,
-                    "hostname": hostname,
-                    "uptime_seconds": int(time.monotonic() - _START_MONOTONIC),
-                    "memory_mb": _memory_mb(),
-                },
-                headers={"X-Observability-Token": token},
-                timeout=REQUEST_TIMEOUT_SECONDS,
-            )
-        time.sleep(HEARTBEAT_INTERVAL_SECONDS)
-
-
 def start_observability(
     service_name: str,
     logger_name: str,
@@ -146,5 +115,4 @@ def start_observability(
     handler.setLevel(logging.DEBUG)
     logger.addHandler(handler)
 
-    threading.Thread(target=_heartbeat_loop, args=(url, token, service), daemon=True).start()
     logger.info("[Observability] Push remoto ligado (%s → %s).", service, url)
