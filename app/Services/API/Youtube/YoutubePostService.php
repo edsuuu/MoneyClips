@@ -14,6 +14,7 @@ use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Sleep;
 use RuntimeException;
 
 /**
@@ -30,6 +31,8 @@ final class YoutubePostService implements PostProviderInterface
 
     // ponytail: múltiplo de 256 KiB (exigência do resumable). Shorts têm dezenas de MB: 8 MiB por PUT mantém a memória baixa.
     private const int CHUNK_BYTES = 8 * 1024 * 1024;
+
+    private const int RESUME_ATTEMPTS = 3;
 
     private const int TITLE_MAX_CHARS = 100;
 
@@ -86,7 +89,7 @@ final class YoutubePostService implements PostProviderInterface
     {
         $token = (string) $account->access_token;
         $expiresAt = $account->token_expires_at;
-        if ($token !== '' && ($expiresAt === null || $expiresAt->subMinute()->isFuture())) {
+        if ($token !== '' && (is_null($expiresAt) || $expiresAt->subMinute()->isFuture())) {
             return $token;
         }
 
@@ -168,15 +171,11 @@ final class YoutubePostService implements PostProviderInterface
         $length = 0;
         foreach (Hashtags::parse(implode(' ', $short->hashtags ?? [])) as $hashtag) {
             $tag = str_replace(['<', '>'], '', mb_ltrim($hashtag, '#'));
+            if ($tag === '' || $length + mb_strlen($tag) + 1 > self::TAGS_MAX_CHARS) {
+                continue;
+            }
+
             $length += mb_strlen($tag) + 1;
-            if ($tag === '') {
-                continue;
-            }
-
-            if ($length > self::TAGS_MAX_CHARS) {
-                continue;
-            }
-
             $tags[] = $tag;
         }
 
@@ -221,6 +220,10 @@ final class YoutubePostService implements PostProviderInterface
     }
 
     /**
+     * Um 5xx ou uma conexão caída não dizem quanto o Google recebeu: a sessão
+     * é consultada com um PUT vazio (Content-Range só com o total) e o envio
+     * continua do `Range` devolvido, ou termina se o vídeo já foi criado (200/201).
+     *
      * @return array<array-key, mixed>
      *
      * @throws YoutubeApiException
@@ -232,20 +235,35 @@ final class YoutubePostService implements PostProviderInterface
 
         try {
             $offset = 0;
+            $resumes = 0;
             while (true) {
                 fseek($handle, $offset);
                 $chunk = (string) fread($handle, self::CHUNK_BYTES);
-                $response = Http::withHeaders(['Content-Range' => sprintf('bytes %d-%d/%d', $offset, $offset + mb_strlen($chunk) - 1, $size)])
-                    ->withBody($chunk, 'video/mp4')
-                    ->timeout(300)
-                    ->put($sessionUrl);
+                $last = $offset + mb_strlen($chunk, '8bit') - 1;
+                $response = $this->put($sessionUrl, $chunk, sprintf('bytes %d-%d/%d', $offset, $last, $size));
+
+                $resumed = false;
+                while ($this->interrupted($response)) {
+                    if (++$resumes > self::RESUME_ATTEMPTS) {
+                        throw new YoutubeApiException(sprintf(
+                            'Envio ao YouTube interrompido (%s) e a sessão não respondeu em %d tentativas. %s',
+                            $response instanceof Response ? 'HTTP '.$response->status() : 'conexão caída',
+                            self::RESUME_ATTEMPTS,
+                            $last === $size - 1 ? 'O último pedaço pode ter chegado: confira no YouTube Studio antes de tentar de novo.' : 'O vídeo não foi criado; tente de novo.',
+                        ));
+                    }
+
+                    Sleep::for(2 ** $resumes)->seconds();
+                    $response = $this->put($sessionUrl, '', sprintf('bytes */%d', $size));
+                    $resumed = true;
+                }
 
                 if ($response->status() !== 308) {
                     break;
                 }
 
                 $next = $this->nextOffset($response);
-                throw_if($next <= $offset, YoutubeApiException::class, 'Upload resumable do YouTube parou de avançar. O vídeo não foi criado; tente de novo.');
+                throw_if(! $resumed && $next <= $offset, YoutubeApiException::class, 'Upload resumable do YouTube parou de avançar. O vídeo não foi criado; tente de novo.');
 
                 $offset = $next;
             }
@@ -258,6 +276,26 @@ final class YoutubePostService implements PostProviderInterface
         }
 
         return (array) $response->json();
+    }
+
+    private function put(string $sessionUrl, string $body, string $contentRange): ?Response
+    {
+        try {
+            return Http::withHeaders(['Content-Range' => $contentRange])
+                ->withBody($body, 'video/mp4')
+                ->timeout(300)
+                ->put($sessionUrl);
+        } catch (ConnectionException) {
+            return null;
+        }
+    }
+
+    /**
+     * @phpstan-assert-if-false Response $response
+     */
+    private function interrupted(?Response $response): bool
+    {
+        return ! $response instanceof Response || $response->serverError();
     }
 
     private function nextOffset(Response $response): int

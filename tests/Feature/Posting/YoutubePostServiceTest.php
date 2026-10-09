@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Sleep;
 use Livewire\Livewire;
 
 const YT_ACCESS = 'ya29.secret-access-token';
@@ -55,7 +56,7 @@ function youtubePost(SocialAccount $account): SocialPost
 function youtubeTempFile(int $bytes = 4): string
 {
     $path = (string) tempnam(sys_get_temp_dir(), 'yt-test-');
-    file_put_contents($path, str_repeat('x', $bytes));
+    file_put_contents($path, random_bytes($bytes));
 
     return $path;
 }
@@ -92,6 +93,7 @@ function captureLogs(): Closure
 beforeEach(function (): void {
     Date::setTestNow('2026-10-08 20:00:00');
     Storage::fake('s3');
+    Sleep::fake();
     config(['services.google.client_id' => 'client-id', 'services.google.client_secret' => 'client-secret']);
 });
 
@@ -144,7 +146,74 @@ it('follows the Range of a 308 to send the next chunk', function (): void {
     expect($result->status)->toBe(PostStatusEnum::Published);
     Http::assertSent(fn (Request $request): bool => $request->hasHeader('Content-Range', sprintf('bytes 0-8388607/%d', $size)));
     Http::assertSent(fn (Request $request): bool => $request->hasHeader('Content-Range', sprintf('bytes 8388608-%d/%d', $size - 1, $size))
-        && mb_strlen($request->body()) === $size - 8388608);
+        && mb_strlen($request->body(), '8bit') === $size - 8388608);
+});
+
+it('resumes from the Range the session reports after a 5xx in the middle of the upload', function (): void {
+    $size = 9 * 1024 * 1024;
+    Http::fake([
+        'www.googleapis.com/upload/youtube/v3/videos*' => Http::sequence()
+            ->push('', 200, ['Location' => YT_SESSION])
+            ->push('', 503)
+            ->push('', 308, ['Range' => 'bytes=0-4194303'])
+            ->push(['id' => 'vid123', 'status' => ['privacyStatus' => 'private']]),
+    ]);
+
+    $result = resolve(YoutubePostService::class)->post(youtubePost(youtubeAccount()), youtubeTempFile($size));
+
+    expect($result->status)->toBe(PostStatusEnum::Published)
+        ->and($result->url)->toBe('https://www.youtube.com/shorts/vid123');
+    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Content-Range', sprintf('bytes */%d', $size))
+        && $request->body() === '');
+    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Content-Range', sprintf('bytes 4194304-%d/%d', $size - 1, $size))
+        && mb_strlen($request->body(), '8bit') === $size - 4194304);
+    Sleep::assertSleptTimes(1);
+});
+
+it('publishes when the connection drops on the last chunk but the session says the video was created', function (): void {
+    Http::fake([
+        'www.googleapis.com/upload/youtube/v3/videos*' => Http::sequence()
+            ->push('', 200, ['Location' => YT_SESSION])
+            ->pushFailedConnection()
+            ->push(['id' => 'vid123', 'status' => ['privacyStatus' => 'private']], 201),
+    ]);
+
+    $result = resolve(YoutubePostService::class)->post(youtubePost(youtubeAccount()), youtubeTempFile());
+
+    expect($result->status)->toBe(PostStatusEnum::Published)
+        ->and($result->url)->toBe('https://www.youtube.com/shorts/vid123');
+    Http::assertSent(fn (Request $request): bool => $request->hasHeader('Content-Range', 'bytes */4'));
+});
+
+it('fails after three unanswered session queries, saying whether the video may exist', function (int $size, string $expected): void {
+    Http::fake([
+        'www.googleapis.com/upload/youtube/v3/videos*' => Http::sequence()
+            ->push('', 200, ['Location' => YT_SESSION])
+            ->push('', 503)
+            ->push('', 503)
+            ->pushFailedConnection()
+            ->push('', 503),
+    ]);
+
+    $result = resolve(YoutubePostService::class)->post(youtubePost(youtubeAccount()), youtubeTempFile($size));
+
+    expect($result->status)->toBe(PostStatusEnum::Failed)
+        ->and($result->error)->toContain('3 tentativas')->toContain($expected);
+    Http::assertSentCount(5);
+})->with([
+    'last chunk' => [4, 'confira no YouTube Studio'],
+    'middle chunk' => [9 * 1024 * 1024, 'O vídeo não foi criado'],
+]);
+
+it('skips a tag over the 500-char budget without spending the budget on it', function (): void {
+    fakeYoutubeUpload();
+    $post = youtubePost(youtubeAccount());
+    $post->youtubeShort->update(['hashtags' => [str_repeat('a', 495), str_repeat('b', 10), 'ok']]);
+
+    resolve(YoutubePostService::class)->post($post, youtubeTempFile());
+
+    Http::assertSent(fn (Request $request): bool => $request->method() === 'POST'
+        && $request['snippet']['tags'] === [str_repeat('a', 495), 'ok']);
 });
 
 it('refreshes an expired token, saves it and uploads with the new one', function (): void {
