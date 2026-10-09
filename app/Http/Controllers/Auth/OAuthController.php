@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Auth;
 
 use App\Enums\RoleEnum;
+use App\Exceptions\TikTokApiException;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Services\API\TikTok\TikTokAccountConnectorService;
 use App\Services\API\Youtube\YoutubeAccountConnectorService;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -26,6 +28,10 @@ use Throwable;
 final class OAuthController extends Controller
 {
     private const string YOUTUBE = 'youtube';
+
+    private const string TIKTOK = 'tiktok';
+
+    private const string TIKTOK_STATE = 'oauth.tiktok.state';
 
     private const array LOGIN_SCOPES = ['openid', 'profile', 'email'];
 
@@ -90,8 +96,12 @@ final class OAuthController extends Controller
         }
     }
 
-    public function connect(string $platform): RedirectResponse
+    public function connect(Request $request, string $platform, TikTokAccountConnectorService $tiktok): RedirectResponse
     {
+        if ($platform === self::TIKTOK) {
+            return $this->connectTiktok($request, $tiktok);
+        }
+
         if ($platform !== self::YOUTUBE) {
             return to_route('accounts.index')->with('error', 'Plataforma não suporta OAuth: '.$platform);
         }
@@ -107,8 +117,12 @@ final class OAuthController extends Controller
             ->redirect();
     }
 
-    public function callback(string $platform, YoutubeAccountConnectorService $connector): RedirectResponse
+    public function callback(Request $request, string $platform, YoutubeAccountConnectorService $connector, TikTokAccountConnectorService $tiktok): RedirectResponse
     {
+        if ($platform === self::TIKTOK) {
+            return $this->tiktokCallback($request, $tiktok);
+        }
+
         if ($platform !== self::YOUTUBE) {
             return to_route('accounts.index')->with('error', 'Plataforma inválida: '.$platform);
         }
@@ -136,6 +150,42 @@ final class OAuthController extends Controller
 
             return to_route('accounts.index')->with('error', 'Falha na autenticação OAuth. Tente novamente.');
         }
+    }
+
+    private function connectTiktok(Request $request, TikTokAccountConnectorService $tiktok): RedirectResponse
+    {
+        if (! $tiktok->configured()) {
+            return to_route('accounts.index')
+                ->with('error', 'Configure o app do TikTok (TIKTOK_CLIENT_KEY/TIKTOK_CLIENT_SECRET) no .env antes de conectar.');
+        }
+
+        $state = Str::random(40);
+        $request->session()->put(self::TIKTOK_STATE, $state);
+
+        return redirect()->away($tiktok->authorizeUrl($state));
+    }
+
+    private function tiktokCallback(Request $request, TikTokAccountConnectorService $tiktok): RedirectResponse
+    {
+        $expected = $request->session()->pull(self::TIKTOK_STATE);
+        if (! is_string($expected) || ! hash_equals($expected, $request->string('state')->toString())) {
+            return to_route('accounts.index')->with('error', 'Autorização do TikTok expirou ou não partiu daqui. Tente vincular de novo.');
+        }
+
+        if ($request->filled('error') || ! $request->filled('code')) {
+            return to_route('accounts.index')->with('error', 'TikTok não autorizou a conta: '.$request->string('error_description', $request->string('error', 'sem código')->toString())->limit(200));
+        }
+
+        $userId = Auth::id();
+        abort_unless(is_int($userId), 403);
+
+        try {
+            $account = $tiktok->fromCallback($request->string('code')->toString(), $userId);
+        } catch (TikTokApiException $tikTokApiException) {
+            return to_route('accounts.index')->with('error', $tikTokApiException->getMessage());
+        }
+
+        return to_route('accounts.index')->with('status', 'Conta TikTok oficial conectada: '.$account->name);
     }
 
     private function googleProvider(string $redirect): AbstractProvider

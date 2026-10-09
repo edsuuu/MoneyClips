@@ -9,6 +9,7 @@ use App\Jobs\PublishPostJob;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Services\API\Discord\DiscordNotifierService;
+use App\Services\Posting\PostCloserService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -61,7 +62,7 @@ final class DispatchPostsCommand extends Command
             ->where('started_at', '<', now()->subMinutes((int) config('posting.stuck_minutes')))
             ->get();
 
-        $error = 'Resultado desconhecido: a postagem ficou sem resposta. Confira na plataforma antes de tentar de novo.';
+        $error = PostCloserService::UNKNOWN_RESULT_ERROR;
 
         foreach ($stuck as $post) {
             if (! $this->transition($post, PostStatusEnum::Posting, ['status' => PostStatusEnum::Failed, 'error' => $error])) {

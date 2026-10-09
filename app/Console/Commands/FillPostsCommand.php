@@ -43,6 +43,7 @@ final class FillPostsCommand extends Command
             if ($upcoming >= $perDay) {
                 continue;
             }
+
             if (! Cache::add('posting:low-stock:'.$account->id, true, now()->addDay())) {
                 continue;
             }

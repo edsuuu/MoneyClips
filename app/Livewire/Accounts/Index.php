@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Livewire\Accounts;
 
+use App\Enums\PostProviderEnum;
 use App\Enums\PostStatusEnum;
 use App\Enums\SocialAccountModeEnum;
 use App\Livewire\Concerns\WithCurrentUser;
@@ -190,7 +191,7 @@ final class Index extends Component
 
     /**
      * @param  Collection<int, SocialAccount>  $accounts
-     * @return Collection<int, array{id: int, name: string, is_active: bool, modes: list<array{value: string, label: string, active: bool, confirm: string|null}>, modeHelp: string, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
+     * @return Collection<int, array{id: int, name: string, is_active: bool, isOfficial: bool, modes: list<array{value: string, label: string, active: bool, confirm: string|null}>, modeHelp: string, statusColor: string, statusLabel: string, subtitle: string, sessionSavedLabel: string}>
      */
     private function decorateTiktokAccounts(Collection $accounts): Collection
     {
@@ -199,14 +200,17 @@ final class Index extends Component
                 'id' => $account->id,
                 'name' => $account->name,
                 'is_active' => $account->is_active,
+                'isOfficial' => $account->provider === PostProviderEnum::TiktokOfficial,
                 'modes' => $this->modeOptions($account),
                 'modeHelp' => $account->mode()->help(),
                 'statusColor' => $this->sessionStatusColor($account->session_status),
                 'statusLabel' => $this->sessionStatusLabel($account->session_status),
                 'subtitle' => $account->name,
-                'sessionSavedLabel' => $account->cookies_last_validated_at === null
-                    ? 'Sem sessão salva'
-                    : 'Sessão salva em '.$account->cookies_last_validated_at->format('d/m/Y H:i'),
+                'sessionSavedLabel' => match (true) {
+                    $account->provider === PostProviderEnum::TiktokOfficial => 'API oficial (Login Kit)',
+                    $account->cookies_last_validated_at === null => 'Sem sessão salva',
+                    default => 'Sessão salva em '.$account->cookies_last_validated_at->format('d/m/Y H:i'),
+                },
             ])
             ->values();
     }
@@ -291,7 +295,7 @@ final class Index extends Component
      */
     private function tiktokQuery(): Builder
     {
-        return SocialAccount::query()->where('platform', 'tiktok');
+        return SocialAccount::query()->where('platform', 'tiktok')->where('provider', PostProviderEnum::TiktokUploader);
     }
 
     private function resetForm(): void
@@ -310,8 +314,8 @@ final class Index extends Component
             'youtubeAccount' => $youtubeAccount,
             'youtubeStatus' => $youtubeAccount instanceof SocialAccount
                 ? [
-                    'expired' => $youtubeAccount->tokenExpired(),
-                    'label' => $youtubeAccount->tokenExpired() ? 'Token expirado' : 'Vinculado',
+                    'expired' => $youtubeAccount->session_status === SocialAccount::SESSION_INVALID,
+                    'label' => $youtubeAccount->session_status === SocialAccount::SESSION_INVALID ? 'Acesso revogado' : 'Vinculado',
                 ]
                 : null,
             'youtubeModes' => $youtubeAccount instanceof SocialAccount ? $this->modeOptions($youtubeAccount) : [],

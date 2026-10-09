@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Enums\PostProviderEnum;
+use App\Enums\SocialAccountModeEnum;
 use App\Livewire\Accounts\Index;
 use App\Models\SocialAccount;
 use App\Models\User;
@@ -79,4 +81,24 @@ it('requires valid cookies json on create', function (): void {
         ->set('cookiesInput', '"scalar"')
         ->call('saveTiktok')
         ->assertHasErrors('cookiesInput');
+});
+
+it('gives the official TikTok card the mode control and no cookie editing', function (): void {
+    $official = SocialAccount::query()->create([
+        'user_id' => $this->user->id,
+        'platform' => 'tiktok',
+        'provider' => PostProviderEnum::TiktokOfficial,
+        'name' => '@oficial',
+        'is_active' => true,
+    ]);
+
+    Livewire::test(Index::class)
+        ->assertSee('TikTok oficial')
+        ->assertSeeHtml('setMode('.$official->id.", 'auto')")
+        ->assertDontSeeHtml('editTiktok('.$official->id.')')
+        ->call('setMode', $official->id, 'auto')
+        ->assertDispatched('toast', message: 'Conta em modo Automática.', variant: 'success');
+
+    expect($official->refresh()->mode())->toBe(SocialAccountModeEnum::Auto)
+        ->and($official->provider)->toBe(PostProviderEnum::TiktokOfficial);
 });

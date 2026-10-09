@@ -29,7 +29,7 @@ final class SocialAccount extends Model
     public const string SESSION_UNKNOWN = 'unknown';
 
     protected $fillable = [
-        'uuid', 'user_id', 'platform', 'name', 'external_account_id',
+        'uuid', 'user_id', 'platform', 'provider', 'name', 'external_account_id',
         'access_token', 'refresh_token', 'token_expires_at', 'scopes',
         'meta', 'is_active', 'auto_schedule', 'cookies', 'cookies_last_validated_at', 'session_status',
     ];
@@ -60,12 +60,6 @@ final class SocialAccount extends Model
     {
         $this->is_active = $mode !== SocialAccountModeEnum::Off;
         $this->auto_schedule = $mode === SocialAccountModeEnum::Auto;
-    }
-
-    public function tokenExpired(): bool
-    {
-        // Cast 'datetime' garante CarbonImmutable|null aqui.
-        return $this->token_expires_at !== null && $this->token_expires_at->isPast();
     }
 
     protected static function booted(): void
