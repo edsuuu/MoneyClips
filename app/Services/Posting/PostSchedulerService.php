@@ -15,6 +15,8 @@ use RuntimeException;
 
 final class PostSchedulerService
 {
+    public const int ATTENTION_DAYS = 7;
+
     private const int LEAD_MINUTES = 5;
 
     /**
@@ -103,7 +105,9 @@ final class PostSchedulerService
 
     /**
      * Tentar de novo / reagendar um Failed ou Missed. Devolve null se o post
-     * saiu desses estados no meio do caminho (o UPDATE só vinga neles).
+     * saiu desses estados no meio do caminho (o UPDATE só vinga neles). O
+     * desfecho da tentativa anterior sai junto: com o `external_id` velho, o
+     * webhook atrasado do job antigo fecharia a tentativa nova.
      *
      * @throws RuntimeException
      */
@@ -116,14 +120,25 @@ final class PostSchedulerService
             $updated = SocialPost::query()
                 ->whereKey($post->id)
                 ->whereIn('status', [PostStatusEnum::Failed, PostStatusEnum::Missed])
-                ->update(['status' => PostStatusEnum::Scheduled, 'scheduled_for' => $at, 'error' => null, 'started_at' => null]);
+                ->update([
+                    'status' => PostStatusEnum::Scheduled,
+                    'scheduled_for' => $at,
+                    'privacy' => null,
+                    'external_id' => null,
+                    'url' => null,
+                    'error' => null,
+                    'started_at' => null,
+                    'posted_at' => null,
+                ]);
 
             return $updated === 1 ? $at : null;
         });
     }
 
     /**
-     * Só Missed: Failed pode ter causa que o dono precisa ler antes.
+     * Só Missed, e só os que a /agenda mostra (últimos `ATTENTION_DAYS`):
+     * Failed pode ter causa que o dono precisa ler antes, e Missed antigo que
+     * ele nem vê não volta a sair sozinho.
      *
      * @throws RuntimeException
      */
@@ -133,6 +148,7 @@ final class PostSchedulerService
             ->forUser($user)
             ->with('socialAccount')
             ->where('status', PostStatusEnum::Missed)
+            ->where('scheduled_for', '>=', CarbonImmutable::today()->subDays(self::ATTENTION_DAYS))
             ->oldest('scheduled_for')
             ->get();
 

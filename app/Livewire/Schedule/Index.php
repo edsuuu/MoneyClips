@@ -27,8 +27,6 @@ final class Index extends Component
 
     private const int DAYS = 7;
 
-    private const int ATTENTION_DAYS = 7;
-
     private const array ATTENTION_STATUSES = [PostStatusEnum::Failed, PostStatusEnum::Missed];
 
     public function retryAllMissed(): void
@@ -105,14 +103,15 @@ final class Index extends Component
 
     /**
      * Dias corridos (hoje conta) até o último agendado, pela conta ativa
-     * mais curta: conta ativa sem nada agendado zera a cobertura.
+     * mais curta: conta ativa sem nada agendado zera a cobertura. Conta
+     * desconectada fica de fora: ela já aparece em "precisa de você".
      *
      * @param  Collection<int, SocialAccount>  $accounts
      * @param  Collection<int, SocialPost>  $scheduled
      */
     private function coveredDays(Collection $accounts, Collection $scheduled): int
     {
-        $perAccount = $accounts->map(function (SocialAccount $account) use ($scheduled): int {
+        $perAccount = $accounts->reject(fn (SocialAccount $account): bool => $account->session_status === SocialAccount::SESSION_INVALID)->map(function (SocialAccount $account) use ($scheduled): int {
             $last = $scheduled->where('social_account_id', $account->id)->sortByDesc('scheduled_for')->first();
 
             return $last instanceof SocialPost ? (int) CarbonImmutable::today()->diffInDays($last->scheduled_for->startOfDay()) + 1 : 0;
@@ -164,7 +163,7 @@ final class Index extends Component
             ->forUser($user)
             ->with(['youtubeShort', 'socialAccount'])
             ->where('status', '!=', PostStatusEnum::Canceled)
-            ->where('scheduled_for', '>=', CarbonImmutable::today()->subDays(self::ATTENTION_DAYS))
+            ->where('scheduled_for', '>=', CarbonImmutable::today()->subDays(PostSchedulerService::ATTENTION_DAYS))
             ->where('scheduled_for', '<', CarbonImmutable::today()->addDays(self::DAYS))
             ->oldest('scheduled_for')
             ->get();

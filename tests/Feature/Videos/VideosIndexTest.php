@@ -26,6 +26,16 @@ it('splits the stock into downloaded and ready sections', function (): void {
         ->assertViewHas('posted', fn (array $items): bool => count($items) === 1);
 });
 
+it('shows the duration under the card title and falls back to the id when it is unknown', function (): void {
+    YoutubeShort::factory()->for($this->user)->ready()->create(['youtube_id' => 'reframe-abc', 'duration_seconds' => 78]);
+    YoutubeShort::factory()->for($this->user)->ready()->create(['youtube_id' => 'dQw4w9WgXcQ']);
+
+    Livewire::test(Index::class)
+        ->assertSee('1:18')
+        ->assertDontSee('reframe-abc')
+        ->assertSee('dQw4w9WgXcQ');
+});
+
 it('requires hashtags before marking a video as ready', function (): void {
     $short = YoutubeShort::factory()->for($this->user)->create(['hashtags' => [], 'ready_at' => null]);
 

@@ -68,7 +68,11 @@ trait WithPostScheduling
 
     public function saveSchedule(): void
     {
-        $short = $this->schedulingShortId !== null ? YoutubeShort::query()->find($this->schedulingShortId) : null;
+        if (is_null($this->schedulingShortId)) {
+            return;
+        }
+
+        $short = YoutubeShort::query()->find($this->schedulingShortId);
         if (! $short instanceof YoutubeShort) {
             $this->closeSchedule();
 
@@ -77,6 +81,12 @@ trait WithPostScheduling
 
         $this->authorize('update', $short);
         $this->resetValidation();
+
+        if (is_null($short->ready_at) || blank($short->video_path)) {
+            $this->toast('Marque o Short como pronto antes de agendar.', 'danger');
+
+            return;
+        }
 
         $chosen = array_map(intval(...), $this->scheduleAccountIds);
         $accounts = $this->schedulableAccounts($short)->filter(fn (SocialAccount $account): bool => in_array($account->id, $chosen, true));
@@ -265,11 +275,15 @@ trait WithPostScheduling
     }
 
     /**
-     * @return array{title: string, accounts: list<array{id: int, label: string, provider_label: string, blocked_reason: string|null, is_blocked: bool}>, can_schedule: bool, next_label: string, times_help: string, min_at: string}|null
+     * @return array{title: string, accounts: list<array{id: int, label: string, provider_label: string, is_private_only: bool, blocked_reason: string|null, is_blocked: bool}>, can_schedule: bool, next_label: string, times_help: string, min_at: string}|null
      */
     private function scheduleModal(): ?array
     {
-        $short = $this->schedulingShortId !== null ? YoutubeShort::query()->forUser($this->currentUser())->find($this->schedulingShortId) : null;
+        if (is_null($this->schedulingShortId)) {
+            return null;
+        }
+
+        $short = YoutubeShort::query()->forUser($this->currentUser())->find($this->schedulingShortId);
         if (! $short instanceof YoutubeShort) {
             return null;
         }
@@ -290,10 +304,12 @@ trait WithPostScheduling
                 }
             }
 
+            $privateOnly = $this->isPrivateOnly($account);
             $rows[] = [
                 'id' => $account->id,
                 'label' => $this->platformLabel($account->platform).' · '.$account->name,
-                'provider_label' => $this->providerLabel($account->provider),
+                'provider_label' => $this->providerLabel($account->provider).($privateOnly ? ' · sai privado' : ''),
+                'is_private_only' => $privateOnly,
                 'blocked_reason' => $blocked,
                 'is_blocked' => ! is_null($blocked),
             ];
@@ -310,7 +326,7 @@ trait WithPostScheduling
     }
 
     /**
-     * @return array{id: int, short_id: int, short_title: string, platform_label: string, account_name: string, badge_label: string, badge_color: string, is_posting: bool, is_private: bool, time_label: string, detail: string, url: string|null, url_label: string, can_cancel: bool, cancel_confirm: string, action: string|null, action_label: string}
+     * @return array{id: int, short_id: int, short_title: string, platform_label: string, account_name: string, badge_label: string, badge_color: string, is_posting: bool, private_label: string|null, time_label: string, detail: string, url: string|null, url_label: string, can_cancel: bool, cancel_confirm: string, action: string|null, action_label: string}
      */
     private function postRow(SocialPost $post): array
     {
@@ -327,7 +343,7 @@ trait WithPostScheduling
             'badge_label' => $post->status->label(),
             'badge_color' => self::POST_STATUS_COLORS[$post->status->value],
             'is_posting' => $post->status === PostStatusEnum::Posting,
-            'is_private' => $post->status === PostStatusEnum::Published && $post->privacy === 'private',
+            'private_label' => $this->privateLabel($post),
             'time_label' => $post->scheduled_for->format('H:i'),
             'detail' => $this->postDetail($post),
             'url' => $post->status === PostStatusEnum::Published ? $post->url : null,
@@ -376,6 +392,27 @@ trait WithPostScheduling
             || str_contains(mb_strtolower((string) $post->error), 'invalid_grant');
 
         return $needsReconnect ? 'reconnect' : 'retry';
+    }
+
+    private function privateLabel(SocialPost $post): ?string
+    {
+        return match (true) {
+            $post->status === PostStatusEnum::Published => $post->privacy === 'private' ? 'Saiu privado' : null,
+            in_array($post->status, [PostStatusEnum::Scheduled, PostStatusEnum::Posting], true) => $post->privacy === 'private' || $this->isPrivateOnly($post->socialAccount) ? 'Sai privado' : null,
+            default => null,
+        };
+    }
+
+    /**
+     * A conta só posta privado: canal com `privacy_status` private, ou app do
+     * Google ainda não verificado (a API força private em todo upload).
+     */
+    private function isPrivateOnly(SocialAccount $account): bool
+    {
+        return match ($account->provider) {
+            PostProviderEnum::YoutubeApi => ! config('services.google.youtube_app_verified') || ($account->meta['privacy_status'] ?? null) === 'private',
+            PostProviderEnum::TiktokUploader => false,
+        };
     }
 
     private function whenLabel(CarbonImmutable $at): string

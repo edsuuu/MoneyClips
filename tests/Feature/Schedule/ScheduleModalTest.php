@@ -183,6 +183,42 @@ it('reuses a canceled row instead of breaking the Short × account unique', func
         ->and(SocialPost::query()->count())->toBe(1);
 });
 
+it('flags the account that only posts private before confirming', function (): void {
+    config(['services.google.youtube_app_verified' => false]);
+
+    Livewire::test(Index::class)
+        ->call('openSchedule', $this->short->id)
+        ->assertSee('API oficial · sai privado')
+        ->assertViewHas('scheduleModal', fn (array $modal): bool => array_column($modal['accounts'], 'is_private_only') === [false, true]);
+
+    config(['services.google.youtube_app_verified' => true]);
+    $this->youtube->update(['meta' => ['privacy_status' => 'private']]);
+
+    Livewire::test(Index::class)
+        ->call('openSchedule', $this->short->id)
+        ->assertSee('API oficial · sai privado');
+
+    $this->youtube->update(['meta' => ['privacy_status' => 'public']]);
+
+    Livewire::test(Index::class)
+        ->call('openSchedule', $this->short->id)
+        ->assertDontSee('sai privado');
+});
+
+it('refuses to schedule a Short that is not ready or has no video', function (): void {
+    $draft = YoutubeShort::factory()->for($this->creator)->create(['ready_at' => null]);
+    $noVideo = YoutubeShort::factory()->for($this->creator)->ready()->notDownloaded()->create();
+
+    foreach ([$draft, $noVideo] as $short) {
+        Livewire::test(Index::class)
+            ->call('openSchedule', $short->id)
+            ->call('saveSchedule')
+            ->assertDispatched('toast', message: 'Marque o Short como pronto antes de agendar.', variant: 'danger');
+    }
+
+    expect(SocialPost::query()->count())->toBe(0);
+});
+
 it('keeps a creator away from shorts and accounts of other users', function (): void {
     $foreignShort = YoutubeShort::factory()->for($this->other)->ready()->create();
     $foreignAccount = modalAccount($this->other, 'tiktok', ['name' => '@alheia']);

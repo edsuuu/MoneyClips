@@ -297,7 +297,7 @@ final class Index extends Component
 
             $video = [
                 'id' => $short->id,
-                'youtube_id' => $short->youtube_id,
+                'subtitle' => is_null($short->duration_seconds) ? $short->youtube_id : sprintf('%d:%02d', intdiv($short->duration_seconds, 60), $short->duration_seconds % 60),
                 'title' => $short->title ?? $short->youtube_id,
                 'displayTags' => array_slice($short->hashtags ?? [], 0, self::CARD_TAG_LIMIT),
                 'ready' => $short->ready_at !== null,

@@ -5,7 +5,7 @@
         </div>
         <div class="min-w-0 flex-1">
             <div class="line-clamp-2 text-sm font-bold leading-snug">{{ $video['title'] }}</div>
-            <div class="mt-1 font-mono text-[11px] text-slate-500">{{ $video['youtube_id'] }}</div>
+            <div class="mt-1 font-mono text-[11px] text-slate-500">{{ $video['subtitle'] }}</div>
         </div>
     </div>
 
@@ -50,7 +50,7 @@
     </div>
 
     @if ($section === 'ready' && $video['posts'] !== [])
-        <div class="flex flex-col gap-1.5 border-t border-slate-800 pt-2.5">
+        <div class="flex flex-col gap-1.5 border-t border-slate-800 pt-2.5" data-tour="video-posts">
             @foreach ($video['posts'] as $post)
                 @include('livewire.videos.partials.post-status', ['post' => $post])
             @endforeach

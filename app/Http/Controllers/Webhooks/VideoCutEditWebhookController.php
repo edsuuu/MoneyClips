@@ -75,7 +75,9 @@ final class VideoCutEditWebhookController extends Controller
         // webhook refaz o conjunto — sem edição "ready" com estoque faltando.
         // ponytail: o render virar YoutubeShort é o modelo de estoque atual;
         // corrigir pra um artefato próprio é dívida conhecida.
-        $status = DB::transaction(function () use ($edit, $cut, $video, $renderedPath): string {
+        $duration = $request->durationSeconds();
+
+        $status = DB::transaction(function () use ($edit, $cut, $video, $renderedPath, $duration): string {
             $claimed = VideoCutEdit::query()
                 ->whereKey($edit->id)
                 ->where('render_status', VideoCutStatusEnum::Generating->value)
@@ -118,14 +120,16 @@ final class VideoCutEditWebhookController extends Controller
                 ]);
             }
 
-            $short->fill(['video_path' => $renderedPath, 'downloaded_at' => now()])->save();
+            $short->fill([
+                'video_path' => $renderedPath,
+                'downloaded_at' => now(),
+                'duration_seconds' => is_null($duration) ? $short->duration_seconds : (int) round($duration),
+            ])->save();
 
             VideoCutEdit::query()->whereKey($edit->id)->update(['youtube_short_id' => $short->id]);
 
             return 'ready';
         });
-
-        $duration = $request->durationSeconds();
 
         if ($status === 'ready' && ! is_null($duration) && $duration < 60) {
             Log::channel('daily')->warning('[WARN][VideoCutEdit] Corte editado com menos de 60s.', [
