@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
+use App\Enums\PostStatusEnum;
 use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
 use App\Helpers\Hashtags;
 use App\Jobs\EditCutWithAiJob;
 use App\Livewire\Concerns\WithCurrentUser;
+use App\Livewire\Concerns\WithPostScheduling;
 use App\Livewire\Concerns\WithToasts;
+use App\Models\SocialPost;
 use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use App\Services\DownloadYoutube\DownloadShortsService;
@@ -24,6 +27,7 @@ use Throwable;
 final class Index extends Component
 {
     use WithCurrentUser;
+    use WithPostScheduling;
     use WithToasts;
 
     public const string TAB_AVAILABLE = 'available';
@@ -275,12 +279,25 @@ final class Index extends Component
             ->get(['id', 'youtube_short_id', 'ai_status', 'ai_error', 'render_status', 'render_error'])
             ->keyBy('youtube_short_id');
 
-        return $shorts->map(function (YoutubeShort $short) use ($section, $edits): array {
+        $scheduling = $section === self::TAB_AVAILABLE ? $shorts->whereNotNull('ready_at') : new Collection;
+
+        $posts = SocialPost::query()
+            ->forUser($this->currentUser())
+            ->with(['youtubeShort', 'socialAccount'])
+            ->whereIn('youtube_short_id', $scheduling->modelKeys())
+            ->where('status', '!=', PostStatusEnum::Canceled)
+            ->oldest('scheduled_for')
+            ->get()
+            ->groupBy('youtube_short_id');
+
+        $schedulable = $scheduling->isEmpty() ? [] : $this->schedulableShortIds($scheduling);
+
+        return $shorts->map(function (YoutubeShort $short) use ($section, $edits, $posts, $schedulable): array {
             $edit = $section === self::TAB_POSTED ? null : $edits->get($short->id);
 
             $video = [
                 'id' => $short->id,
-                'youtube_id' => $short->youtube_id,
+                'subtitle' => is_null($short->duration_seconds) ? $short->youtube_id : sprintf('%d:%02d', intdiv($short->duration_seconds, 60), $short->duration_seconds % 60),
                 'title' => $short->title ?? $short->youtube_id,
                 'displayTags' => array_slice($short->hashtags ?? [], 0, self::CARD_TAG_LIMIT),
                 'ready' => $short->ready_at !== null,
@@ -292,6 +309,8 @@ final class Index extends Component
                 'canRedo' => $edit instanceof VideoCutEdit,
                 'isRedoing' => $edit?->ai_status === TranscriptionStatusEnum::Processing || $edit?->render_status === VideoCutStatusEnum::Generating,
                 'redoError' => $this->redoError($edit),
+                'posts' => $posts->get($short->id, new Collection)->map($this->postRow(...))->values()->all(),
+                'canSchedule' => in_array($short->id, $schedulable, true),
             ];
 
             $video['statusBadge'] = $this->statusBadge($video, $section);
@@ -377,6 +396,7 @@ final class Index extends Component
             'editingVideo' => $editing,
             'editingUrl' => $editing instanceof YoutubeShort ? $editing->presignedUrl() : null,
             'editingCredits' => $editing instanceof YoutubeShort ? $this->credits($editing) : '',
+            'scheduleModal' => $this->scheduleModal(),
         ]);
     }
 }

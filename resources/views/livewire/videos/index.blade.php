@@ -37,8 +37,8 @@
         <div class="flex flex-col gap-8">
             <div>
                 <div class="mb-3.5 flex items-baseline gap-2.5" data-tour="videos-review">
-                    <span class="text-[15px] font-bold">Baixados</span>
-                    <span class="text-[13px] text-slate-500">aguardando título, hashtags e revisão</span>
+                    <span class="text-[15px] font-bold">Para revisar</span>
+                    <span class="text-[13px] text-slate-500">confira o vídeo, o título e as hashtags antes de aprovar</span>
                 </div>
                 @if ($downloaded === [])
                     <div class="rounded-xl border border-dashed border-slate-800 py-8 text-center text-[13px] text-slate-500">Nada aguardando revisão.</div>
@@ -53,8 +53,8 @@
 
             <div>
                 <div class="mb-3.5 flex items-baseline gap-2.5">
-                    <span class="text-[15px] font-bold">Prontos</span>
-                    <span class="text-[13px] text-slate-500">revisados, prontos para você publicar</span>
+                    <span class="text-[15px] font-bold">Prontos para postar</span>
+                    <span class="text-[13px] text-slate-500">aprovados: entram na agenda</span>
                 </div>
                 @if ($ready === [])
                     <div class="rounded-xl border border-dashed border-slate-800 py-8 text-center text-[13px] text-slate-500">Nenhum vídeo pronto — revise os baixados acima.</div>
@@ -157,4 +157,7 @@
         </x-ui.server-modal>
     @endif
 
+    @if ($scheduleModal)
+        @include('livewire.videos.partials.schedule-modal')
+    @endif
 </section>

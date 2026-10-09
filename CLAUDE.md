@@ -90,7 +90,14 @@ polling do status). Detalhes em `docs/agendamento.md`.
   (um provider por `social_accounts.provider`, escolhido por
   `PostProviderEnum::service()`), `PostResultData`, `PostCloserService`
   (fecha o post — job e webhooks) e `PostSchedulerService` (próximo horário
-  livre da grade `config/posting.php`).
+  livre da grade `config/posting.php`; `schedule()` trava a conta e
+  reaproveita a linha Cancelada do unique Short × conta,
+  `reschedule()`/`rescheduleMissed()` só mexem em Failed/Missed).
+- **Modal "Agendar postagem"** (card Pronto de `/meus-videos` e linha da
+  `/agenda`): trait `App\Livewire\Concerns\WithPostScheduling` (modal +
+  `cancelPost`/`retryPost` + view-model da linha de estado, partial
+  `livewire/videos/partials/post-status`). Contas = as ativas do DONO do
+  Short; ação em post único checa `SocialPostPolicy::update`.
 - **Clients de microserviço** na raiz de Services:
   `app/Services/{DownloadYoutube,Video,TikTokUploader}/` — `TikTokUploader`
   é o provider `tiktok_uploader` (:8090); `Video` concentra os
@@ -185,6 +192,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | `/upload` | `App\Livewire\Uploads\Create` | envio de vídeo longo (multipart direto pro MinIO, com retomada) OU import por URL do YouTube (valida + preview → download no microserviço) |
 | `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo; corte manual e busca de momentos por IA (`SuggestCutsJob` → cortes com `is_ai_generated`) |
 | `/editor-de-video/{cut}` | `App\Livewire\VideoEditor\Index` | reframe do corte por keyframes (crop 9:16, modos, legendas) + "Gerar tracking automático" (face tracking no `media`, sobrescreve os keyframes) + "Gerar corte editado" → render no serviço `video` → estoque de `/meus-videos` |
+| `/agenda` | `App\Livewire\Schedule\Index` | próximos 7 dias por dia (linha = Short + horário, um selo de estado por plataforma) + bloco "precisa de você" (Failed/Missed dos últimos 7 dias, com Tentar de novo / Reconectar conta / Reagendar perdidas); cancelar e reagendar via `PostSchedulerService`; `wire:poll` só com post em Posting |
 | `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok por cookies de sessão, só de escrita — a tela mostra "sessão salva em DATA" e nunca devolve o valor; TikTok oficial via Login Kit; YouTube OAuth) com toggle por conta (conta desativada não posta) |
 | `/observabilidade` | `App\Livewire\Observability\Index` | stream de logs dos microserviços |
 

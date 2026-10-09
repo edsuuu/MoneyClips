@@ -29,6 +29,7 @@ use Throwable;
  * @property string|null $video_path
  * @property string|null $processed_video_path
  * @property string|null $youtube_video_id
+ * @property int|null $duration_seconds
  * @property Carbon|null $downloaded_at
  * @property Carbon|null $ready_at
  * @property Carbon|null $template_rendered_at
@@ -50,7 +51,7 @@ final class YoutubeShort extends Model
         'user_id', 'youtube_id', 'channel_url', 'title', 'hashtags',
         'video_path', 'processed_video_path', 'youtube_video_id',
         'downloaded_at', 'ready_at', 'template_rendered_at', 'posted_at',
-        'posted_youtube_at', 'posted_tiktok_at',
+        'posted_youtube_at', 'posted_tiktok_at', 'duration_seconds',
     ];
 
     public function postableVideoPath(): string
@@ -113,6 +114,7 @@ final class YoutubeShort extends Model
     {
         return [
             'hashtags' => 'array',
+            'duration_seconds' => 'integer',
             'downloaded_at' => 'datetime',
             'ready_at' => 'datetime',
             'template_rendered_at' => 'datetime',

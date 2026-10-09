@@ -211,5 +211,30 @@ Risco de ban aceito pelo dono: o microserviço (`MicroServices/TikTokUploader`,
   longo não travar a fila `processing`.
 - Logs em `daily` com `[INFO|WARN|ERRO][Posting]`; Discord em Missed, Failed e
   Published.
-- Missed por servidor desligado: reagendar é do dono (tela `/agenda`, PR
-  próprio).
+- Missed por servidor desligado: reagendar é do dono na tela `/agenda`
+  (botão por post ou "Reagendar perdidas", que reagenda os Missed dos
+  últimos 7 dias — os mesmos que a tela conta — nos próximos horários bons,
+  na ordem original; Failed fica de fora: o dono lê o motivo antes).
+  Reagendar zera o desfecho da tentativa anterior (`external_id`, `url`,
+  `privacy`, `posted_at`): webhook atrasado do job antigo não fecha a nova.
+
+## Tela `/agenda` e modal Agendar
+
+- `/agenda` (`App\Livewire\Schedule\Index`): próximos 7 dias por dia, uma
+  linha por Short + horário com um selo por plataforma; bloco "precisa de
+  você" com Failed/Missed dos últimos 7 dias. Failed mostra "Reconectar
+  conta" quando a causa é a conta (desativada, sessão inválida — o provider
+  marca em `invalid_grant`/401 — ou erro com `invalid_grant`) e "Tentar de
+  novo" no resto.
+- Modal Agendar (card Pronto de `/meus-videos` e linha da agenda): 1
+  checkbox por conta ativa do dono do Short, já marcadas as livres, +
+  "No próximo horário bom" ou `datetime-local`. Conta com post ativo daquele
+  Short aparece desabilitada com o motivo; cancelado volta a ser agendável
+  (a linha do unique é reaproveitada). Conta que só posta privado (YouTube
+  com app do Google não verificado ou canal em `privacy_status` private;
+  TikTok oficial sem auditoria) mostra "sai privado" antes de confirmar, e o post agendado nela leva o selo
+  "Sai privado" na agenda. Só Short pronto (`ready_at` + vídeo) é agendado.
+- Cobertura ("cobrem N dias"): conta desconectada fica de fora — ela já
+  aparece em "precisa de você".
+- Escopo: listas via `SocialPost::forUser()`; cancelar/tentar de novo via
+  `SocialPostPolicy::update` (admin ou dono da conta).

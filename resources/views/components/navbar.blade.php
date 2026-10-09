@@ -38,6 +38,7 @@
                     ['label' => 'Painel', 'icon' => 'layout-grid', 'route' => 'dashboard.index', 'pattern' => 'dashboard.*', 'tour' => null],
                     ['label' => 'Biblioteca', 'icon' => 'film', 'route' => 'uploads.index', 'pattern' => 'uploads.*', 'tour' => 'nav-library'],
                     ['label' => 'Meus vídeos', 'icon' => 'film', 'route' => 'videos.index', 'pattern' => 'videos.*', 'tour' => 'nav-videos'],
+                    ['label' => 'Agenda', 'icon' => 'calendar-days', 'route' => 'schedule.index', 'pattern' => 'schedule.*', 'tour' => 'nav-agenda'],
                     ['label' => 'Contas', 'icon' => 'user-circle', 'route' => 'accounts.index', 'pattern' => 'accounts.*', 'tour' => null],
                     ['label' => 'Observabilidade', 'icon' => 'activity', 'route' => 'observability.index', 'pattern' => 'observability.*', 'tour' => null, 'can' => 'observability.view'],
                 ] as $item)

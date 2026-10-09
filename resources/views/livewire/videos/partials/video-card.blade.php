@@ -1,11 +1,11 @@
-<div class="flex h-full flex-col gap-3 rounded-[14px] border border-slate-800 bg-slate-900 p-3.5 transition hover:border-slate-700" wire:key="video-{{ $section }}-{{ $video['id'] }}">
+<div class="flex h-full min-w-0 flex-col gap-3 rounded-[14px] border border-slate-800 bg-slate-900 p-3.5 transition hover:border-slate-700" wire:key="video-{{ $section }}-{{ $video['id'] }}">
     <div class="flex gap-3">
         <div class="flex h-[74px] w-14 shrink-0 items-center justify-center rounded-lg bg-slate-800">
             <x-ui.icon name="play" class="size-4 text-slate-500" />
         </div>
         <div class="min-w-0 flex-1">
             <div class="line-clamp-2 text-sm font-bold leading-snug">{{ $video['title'] }}</div>
-            <div class="mt-1 font-mono text-[11px] text-slate-500">{{ $video['youtube_id'] }}</div>
+            <div class="mt-1 font-mono text-[11px] text-slate-500">{{ $video['subtitle'] }}</div>
         </div>
     </div>
 
@@ -43,12 +43,19 @@
             @else
                 <button type="button" wire:click="openEdit({{ $video['id'] }})"
                     class="flex cursor-pointer items-center gap-1 text-xs font-semibold text-sky-700 transition hover:text-sky-600 dark:text-sky-400 dark:hover:text-sky-300">
-                    Visualizar
-                    <x-ui.icon name="arrow-top-right-on-square" class="size-3" />
+                    Revisar título
                 </button>
             @endif
         </div>
     </div>
+
+    @if ($section === 'ready' && $video['posts'] !== [])
+        <div class="flex flex-col gap-1.5 border-t border-slate-800 pt-2.5" data-tour="video-posts">
+            @foreach ($video['posts'] as $post)
+                @include('livewire.videos.partials.post-status', ['post' => $post])
+            @endforeach
+        </div>
+    @endif
 
     @if ($video['canRedo'])
         <div x-data="{ asking: false, change: '' }" class="flex flex-col gap-2">
@@ -95,9 +102,17 @@
         <div class="flex gap-2">
             <button type="button" wire:click="markReady({{ $video['id'] }})" data-tour="video-mark-ready"
                 class="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-gray-950 transition hover:bg-sky-300">
-                <x-ui.icon name="plus" class="size-3" />
+                <x-ui.icon name="check" class="size-3" />
                 Marcar como pronto
             </button>
         </div>
+    @endif
+
+    @if ($section === 'ready' && $video['canSchedule'])
+        <button type="button" wire:click="openSchedule({{ $video['id'] }})" data-tour="video-schedule"
+            class="flex cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-sky-400 px-3 py-2 text-[12.5px] font-bold text-gray-950 transition hover:bg-sky-300">
+            <x-ui.icon name="calendar-days" class="size-3" />
+            Agendar
+        </button>
     @endif
 </div>
