@@ -115,7 +115,9 @@ de template foi removido).
   (autenticado) fecha com claim `downloading → uploaded` e despacha o
   `StartHLSPackagingJob` — dali em diante é o fluxo normal de upload.
 - Cookies do TikTok seguem **criptografados no banco**
-  (`social_accounts.cookies`, cast `encrypted:array`), sem consumidor.
+  (`social_accounts.cookies`, cast `encrypted:array`), sem consumidor. Não
+  existe senha de login: `login_email`/`login_password` foram dropadas e o
+  /contas nunca hidrata segredo numa propriedade Livewire (cookies só entram).
 
 ## Permissões e escopo
 
@@ -172,7 +174,7 @@ Push HTTP dos microserviços pro Laravel — sem Docker socket, sem Loki:
 | `/upload` | `App\Livewire\Uploads\Create` | envio de vídeo longo (multipart direto pro MinIO, com retomada) OU import por URL do YouTube (valida + preview → download no microserviço) |
 | `/meus-uploads` | `App\Livewire\Uploads\{Index,Show}` | biblioteca dos vídeos longos + player HLS adaptativo; corte manual e busca de momentos por IA (`SuggestCutsJob` → cortes com `is_ai_generated`) |
 | `/editor-de-video/{cut}` | `App\Livewire\VideoEditor\Index` | reframe do corte por keyframes (crop 9:16, modos, legendas) + "Gerar tracking automático" (face tracking no `media`, sobrescreve os keyframes) + "Gerar corte editado" → render no serviço `video` → estoque de `/meus-videos` |
-| `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok email/senha + status de sessão; YouTube OAuth) com toggle por conta — credenciais guardadas pra postagem futura |
+| `/contas` | `App\Livewire\Accounts\Index` | cards de contas (TikTok por cookies de sessão, só de escrita — a tela mostra "sessão salva em DATA" e nunca devolve o valor; YouTube OAuth) com toggle por conta — guardados pra postagem futura |
 | `/observabilidade` | `App\Livewire\Observability\Index` | stream de logs dos microserviços |
 
 Não existe redirect legado: cada tela tem UMA rota. Link novo aponta pra rota
