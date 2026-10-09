@@ -7,8 +7,8 @@ use App\Jobs\PublishPostJob;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
-use App\Services\Posting\PostProviderInterface;
 use App\Services\Posting\PostResultData;
+use App\Services\TikTokUploader\TikTokUploaderPostService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Queue;
@@ -35,7 +35,7 @@ function duePost(SocialAccount $account, array $attributes = []): SocialPost
 function fakeProvider(PostResultData|Throwable $outcome, ?Closure $whileUploading = null): FakePostService
 {
     $fake = new FakePostService($outcome, $whileUploading);
-    app()->instance(PostProviderInterface::class, $fake);
+    app()->instance(TikTokUploaderPostService::class, $fake);
 
     return $fake;
 }

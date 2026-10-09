@@ -1,6 +1,6 @@
 # Agendamento e postagem automática
 
-Estado: **núcleo pronto + provider da YouTube Data API**. Só providers
+Estado: **núcleo pronto + providers da YouTube Data API e do TikTokUploader**. Só providers
 nativos, escolhidos por conta, cada um no seu PR e nesta ordem: YouTube Data
 API (`videos.insert`, OAuth que já existe em `/contas`) → TikTokUploader
 (cookies) → TikTok Content Posting API oficial (direct post, privado até a
@@ -99,7 +99,7 @@ Adicionar um provider:
 | Provider | Classe | Estado |
 |---|---|---|
 | `youtube_api` | `App\Services\API\Youtube\YoutubePostService` | pronto |
-| `tiktok_uploader` | — | resolve `PostProviderInterface` (só os testes ligam um fake) |
+| `tiktok_uploader` | `App\Services\TikTokUploader\TikTokUploaderPostService` | pronto (assíncrono, webhook) |
 
 ### YouTube Data API (`youtube_api`)
 
@@ -126,6 +126,37 @@ Adicionar um provider:
   reagendar é do dono.
 - Link gravado: `https://www.youtube.com/shorts/{id}`. Token e refresh token
   nunca vão pra log, `error` ou Discord.
+
+### TikTokUploader (`tiktok_uploader`, não oficial)
+
+Risco de ban aceito pelo dono: o microserviço (`MicroServices/TikTokUploader`,
+:8090) posta pelo navegador com os cookies da conta.
+
+- **Envio:** `POST /posts` multipart `{video, cookies, title, hashtags,
+  webhook_url, account_id}` → `202 {job_id}` → o post fica em Posting com
+  `external_id = job_id`. `title` é o título do Short; `hashtags` as do bloco
+  (`captionHashtags()`, sem repetir as do título). `Authorization: Bearer`
+  com `TIKTOK_UPLOADER_API_TOKEN` quando setado (o serviço exige `API_TOKEN`
+  em produção). Conta sem cookies → Failed sem chamar o serviço; 4xx/5xx →
+  Failed com o detalhe; serviço inacessível → Failed (timeout pode ter
+  enfileirado: conferir no TikTok).
+- **Webhook** `POST /api/webhook/tiktok-post` (`X-Observability-Token`, no
+  padrão dos outros webhooks) `{job_id, status, session_status,
+  refreshed_cookies?, error?, detail?}`: acha o post por `external_id` (só de
+  conta `tiktok_uploader`; senão 404) e
+  - `completed` → Published (`privacy=public`, sem link: o uploader não
+    devolve a URL) + `posted_tiktok_at`;
+  - `dry-run` → Failed (nada saiu; `DRY_RUN=true` no serviço);
+  - `restricted` → Failed com o motivo do TikTok;
+  - `failed` → Failed; com `session_status=invalid`, "sessão expirada".
+  A conta sincroniza **mesmo com o post já fechado**: `refreshed_cookies`
+  substitui os cookies (cast `encrypted:array`) e carimba
+  `cookies_last_validated_at`; `session_status` valid/invalid vai pra conta
+  (invalid faz o dispatcher falhar os próximos posts dela até colar cookies
+  novos em `/contas`). Cookies nunca vão pra log, `error`, Discord ou resposta.
+- O fechamento (job síncrono ou webhook) passa por
+  `App\Services\Posting\PostCloserService::close()`: UPDATE só se ainda está
+  em Posting, `posted_*_at`, log e Discord num lugar só.
 
 ## Operação
 

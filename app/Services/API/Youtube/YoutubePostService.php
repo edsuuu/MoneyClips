@@ -172,6 +172,7 @@ final class YoutubePostService implements PostProviderInterface
             if ($tag === '') {
                 continue;
             }
+
             if ($length > self::TAGS_MAX_CHARS) {
                 continue;
             }

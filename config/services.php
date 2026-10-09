@@ -163,6 +163,19 @@ return [
         'max_cuts' => (int) env('CUT_SUGGESTION_MAX_CUTS', 20),
     ],
 
+    // Postagem no TikTok pelo microserviço TikTokUploader (:8090, não oficial):
+    // timeout curto porque a chamada só espera o 202 — o upload roda na fila
+    // do serviço e o desfecho chega pelo webhook.
+    'tiktok_uploader' => [
+        'base_url' => env('TIKTOK_UPLOADER_URL', 'http://127.0.0.1:8090'),
+        'api_token' => env('TIKTOK_UPLOADER_API_TOKEN', ''),
+        'timeout' => (int) env('TIKTOK_UPLOADER_TIMEOUT', 120),
+        'webhook_url' => env(
+            'TIKTOK_UPLOADER_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/tiktok-post',
+        ),
+    ],
+
     'discord' => [
         'webhook' => env('DISCORD_WEBHOOK_URL', ''),
     ],

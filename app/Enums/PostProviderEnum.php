@@ -6,6 +6,7 @@ namespace App\Enums;
 
 use App\Services\API\Youtube\YoutubePostService;
 use App\Services\Posting\PostProviderInterface;
+use App\Services\TikTokUploader\TikTokUploaderPostService;
 use InvalidArgumentException;
 
 enum PostProviderEnum: string
@@ -22,12 +23,11 @@ enum PostProviderEnum: string
         };
     }
 
-    // ponytail: o TikTokUploader ainda não tem provider (PR próprio): resolve a interface, que só os testes ligam a um fake.
     public function service(): PostProviderInterface
     {
         return match ($this) {
             self::YoutubeApi => resolve(YoutubePostService::class),
-            self::TiktokUploader => resolve(PostProviderInterface::class),
+            self::TiktokUploader => resolve(TikTokUploaderPostService::class),
         };
     }
 }

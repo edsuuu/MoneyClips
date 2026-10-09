@@ -4,10 +4,10 @@ Plataforma de **produção de Shorts** a partir de vídeos longos (upload/import
 → cortes → edição 9:16 → estoque). Laravel orquestra; microserviços fazem o
 trabalho pesado (download, transcrição, corte/render de vídeo). **A postagem
 automática está sendo refeita**: o núcleo (agenda em `social_posts`,
-`posts:dispatch`, `PublishPostJob`) e o provider da YouTube Data API
-(`YoutubePostService`) existem; TikTokUploader e TikTok oficial entram em PRs
-próprios — ver `docs/agendamento.md`. O microserviço TikTokUploader segue no repo sem
-consumidor. **Tudo roda nativo — sem Docker**
+`posts:dispatch`, `PublishPostJob`) e os providers da YouTube Data API
+(`YoutubePostService`) e do microserviço TikTokUploader
+(`TikTokUploaderPostService` + webhook `/api/webhook/tiktok-post`) existem; o
+TikTok oficial entra em PR próprio — ver `docs/agendamento.md`. **Tudo roda nativo — sem Docker**
 (`make up`).
 
 ## Stack
@@ -56,8 +56,8 @@ media /shorts/download → youtube_shorts direto (Shorts prontos de um canal)
 
 Postagem: `social_posts` (1 linha por Short × conta, horário na linha) →
 `posts:dispatch` a cada minuto (claim atômico) → `PublishPostJob` (1 tentativa,
-nunca reposta às cegas) → provider da conta (`youtube_api` pronto; TikTok em
-PRs próprios). Detalhes em `docs/agendamento.md`.
+nunca reposta às cegas) → provider da conta (`youtube_api` síncrono; `tiktok_uploader` assíncrono, fechado
+pelo webhook `/api/webhook/tiktok-post`; TikTok oficial em PR próprio). Detalhes em `docs/agendamento.md`.
 
 ## Organização de código (Services por integração)
 
@@ -83,10 +83,12 @@ PRs próprios). Detalhes em `docs/agendamento.md`.
   estruturada; `CLAUDE_CLI_BIN` com caminho absoluto, log no canal `claude`).
 - **`app/Services/Posting/`** — núcleo da postagem: `PostProviderInterface`
   (um provider por `social_accounts.provider`, escolhido por
-  `PostProviderEnum::service()`), `PostResultData` e `PostSchedulerService`
-  (próximo horário livre da grade `config/posting.php`).
+  `PostProviderEnum::service()`), `PostResultData`, `PostCloserService`
+  (fecha o post — job e webhooks) e `PostSchedulerService` (próximo horário
+  livre da grade `config/posting.php`).
 - **Clients de microserviço** na raiz de Services:
-  `app/Services/{DownloadYoutube,Video}/` — `Video` concentra os
+  `app/Services/{DownloadYoutube,Video,TikTokUploader}/` — `TikTokUploader`
+  é o provider `tiktok_uploader` (:8090); `Video` concentra os
   clients do serviço `video` (:8790) e da transcrição (`CutRenderService`,
   `VideoCutEditRenderService`, `TranscribeService` — este último aponta pro
   `media`, :8770); `DownloadYoutube` aponta pro `Media` (:8770). O client de
@@ -119,7 +121,9 @@ de template foi removido).
   (autenticado) fecha com claim `downloading → uploaded` e despacha o
   `StartHLSPackagingJob` — dali em diante é o fluxo normal de upload.
 - Cookies do TikTok seguem **criptografados no banco**
-  (`social_accounts.cookies`, cast `encrypted:array`), sem consumidor. Não
+  (`social_accounts.cookies`, cast `encrypted:array`): o
+  `TikTokUploaderPostService` manda pro microserviço e o webhook grava os
+  `refreshed_cookies` e o `session_status`; nunca vão pra log. Não
   existe senha de login: `login_email`/`login_password` foram dropadas e o
   /contas nunca hidrata segredo numa propriedade Livewire (cookies só entram).
 
@@ -283,7 +287,7 @@ composer lint       # pint + rector — ambos APLICAM fixes (commite o resultado
 | Serviço | Porta | Stack | Contrato |
 | --- | --- | --- | --- |
 | media | 8770 | FastAPI + yt-dlp + faster-whisper | **único serviço Python** (download + transcrição, filas separadas). `POST /shorts/download {channel_url, webhook_url}` → 202; 1 webhook/item. `GET /videos/metadata?url=` → dados do vídeo (400 URL inválida/live, 404 indisponível). `POST /videos/download {url, video_uuid, video_key, webhook_url}` → 202; fila de 1 consumidor baixa em ≤1080p (fallback progressivo de formato), sobe na key EXATA e ecoa `{video_uuid, status: completed\|failed, size_bytes, ...}` com `X-Observability-Token`. Sobe direto pro MinIO (exceção da regra S3). `POST /transcriptions` multipart {audio, uuid, webhook_url} → 202 {job_id}; fila própria + `gpu_lock` (faster-whisper, CUDA em prod, cpu/int8 no macOS); webhook `{uuid, status: done\|failed, transcript: {segments: [{start, end, text, words: [{word, start, end, score}]}], language}}`. Chamado pelo `video` (template) E pelo Laravel (vídeo longo e cortes). `POST /face-tracking` multipart {video, uuid, webhook_url, max_keyframes, style?: smooth (default) | cuts (troca seca + zoom-base + YuNet/SFace)} → 202 {job_id}; fila própria + o MESMO `gpu_lock` da transcrição (MediaPipe e faster-whisper não dividem GPU); webhook `{uuid, status: done\|failed, keyframes: [{t, mode: vertical, regions: [{x,y,w,h}]}], speakers: [{start, end, speaker}], source: {width, height, duration}}` |
-| tiktok-uploader | 8090 | Node 22 + Playwright | **SEM consumidor no Laravel** (a postagem foi removida e será refeita — o serviço fica como base). `POST /posts` multipart {video, cookies, title, hashtags, webhook_url} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status, session_status, refreshed_cookies?}`; `POST /session`, `POST /login`, `GET /health` |
+| tiktok-uploader | 8090 | Node 22 + Playwright | consumido pelo `TikTokUploaderPostService` (provider `tiktok_uploader`; envs `TIKTOK_UPLOADER_URL`, `TIKTOK_UPLOADER_API_TOKEN`, `TIKTOK_UPLOADER_WEBHOOK_URL`). `POST /posts` multipart {video, cookies, title, hashtags, webhook_url, account_id?} → **202 {job_id}**; fila serial em memória; webhook `{job_id, status: completed\|dry-run\|restricted\|failed, session_status, refreshed_cookies?}` → `/api/webhook/tiktok-post` com `X-Observability-Token`; `POST /session`, `POST /login`, `GET /health` |
 | video | 8790 | Node 22 + ffmpeg + sharp | **todo o ffmpeg da aplicação**: cinco endpoints, filas independentes. `POST /reencode` multipart {video, video_id?} → binário `_HQ` (X-Reencode: completed) ou JSON `skipped` (síncrono, sem S3). `POST /package` JSON {video_key, output_prefix, webhook_url} → 202 {uuid}; HLS/ABR (360p/720p/1080p, fMP4, segmentos de 6s); lê/escreve MinIO direto (exceção da regra S3); webhook `{uuid, status: done\|failed\|rejected\|progress, ...}`. `POST /cut` JSON {cut_uuid, video_key, start_seconds, end_seconds, clip_key, audio_key, webhook_url} → 202 {uuid}; corte frame-exato (cap 1080p) + WAV pra transcrição; webhook `{uuid, cut_uuid, status: done\|failed, audio}`. `POST /reframe` JSON {edit_uuid, source_key, output_key, keyframes, settings, transcript?, webhook_url} → 202 {uuid}; render do corte editado em 1080x1920 (ignora `source`; zoompan por keyframes + legenda opcional); `settings.speakerColors` ({id: hex}) + `transcript.segments[].speaker` pintam a legenda por locutor via tag inline do `.ass` — sem os dois, saída byte a byte igual à antiga; `captions[]` ({t:[a,b], text, style?: speech\|shout\|punch\|aside\|note\|art, pos?: bottom\|top}) troca o karaokê pela legenda literal (1 Dialogue por bloco, Montserrat embarcada em `assets/fonts` via `fontsdir`), com `caption_preset?` (verde\|branco_italico\|branco_limpo) e `watermark?` (handle, 5s a cada 40s) — sem `captions[]`, saída idêntica; `overlays[]` ({key, t:[a,b], kind: card\|small\|emoji\|meme\|meme_clip, pos?:{x,y}}) e `sfx[]` ({key, t, gain_db?}) opcionais, até 40 cada, keys só em `assets/` (422 fora disso): 1 input com janela por aparição + `amix normalize=0`; o áudio do `meme_clip` vai mandando a mesma key em `sfx[]`; sem os dois, saída idêntica; `cuts?` ([[a,b]] a REMOVER, em segundos do clip, ordenados e sem sobreposição) e `dead_air?` (bool: pausas de 0.5–1.5s pelo silencedetect −35dB viram corte com 0.12s de folga) ligam o jump cut: keep = [0,dur] − cuts − ar morto, trim/atrim + concat a/v no mesmo graph, fade de 30ms nas emendas, loudnorm I=-14, degrau de zoom 1.3× (abre se a região cabe, fecha se não) na emenda sem troca de enquadramento; pausa que cruza caption `note` ou overlay `meme_clip` não é cortada; keyframes/captions/overlays/sfx seguem em tempo do clip e a `Timeline` remapeia — sem os dois, saída idêntica (`cuts: []` já liga o pipeline novo); webhook `{uuid, edit_uuid, status: done\|failed, duration_seconds?}` (duração final; o Laravel loga aviso < 60s). `POST /videos` multipart {file, variants, caption_position, channel_name, channel_handle, webhook_url} → 202 {uuid}; render de legenda karaokê + template; webhook `{uuid, status: done\|failed, files}`; output em `GET /videos/{uuid}/output/{variant}`. `API_TOKEN` opcional, obrigatório com `NODE_ENV=production` (o serviço não sobe sem); `FFMPEG_TIMEOUT_SECONDS` (padrão 1800) mata ffmpeg travado |
 
 Todos com observabilidade (logs → Laravel) quando
