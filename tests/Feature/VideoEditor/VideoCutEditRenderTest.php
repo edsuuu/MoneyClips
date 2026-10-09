@@ -299,3 +299,19 @@ it('turns the stock items of the spec into overlays and sfx, with the meme clip 
         ['key' => 'assets/sfx/e.mp3', 't' => 0.97],
     ]);
 });
+
+it('sends the wikipedia images as card and small overlays', function (): void {
+    Http::fake(['*/reframe' => Http::response(['uuid' => 'job'], 202)]);
+    $edit = makeEditForRender($this->user);
+    $edit->update(['spec' => editSpec(['images' => [
+        ['asset_id' => 'a', 'key' => 'assets/image/a.jpg', 'size' => 'card', 't' => [2.02, 3.22], 'credit' => 'Imagem: Fulano, CC BY https://x.test'],
+        ['asset_id' => 'b', 'key' => 'assets/image/b.png', 'size' => 'small', 't' => [8.02, 8.92], 'credit' => null],
+    ]])]);
+
+    resolve(VideoCutEditRenderService::class)->startRender($edit->fresh(), null);
+
+    Http::assertSent(fn (Request $request): bool => $request['overlays'] === [
+        ['key' => 'assets/image/a.jpg', 't' => [2.02, 3.22], 'kind' => 'card'],
+        ['key' => 'assets/image/b.png', 't' => [8.02, 8.92], 'kind' => 'small'],
+    ] && $request['sfx'] === []);
+});

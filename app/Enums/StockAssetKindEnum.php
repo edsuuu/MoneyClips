@@ -17,7 +17,8 @@ enum StockAssetKindEnum: string
     {
         return match ($this) {
             self::Sfx => ['mp3', 'wav', 'ogg'],
-            self::Emoji, self::Image, self::MemeSticker => ['png', 'webp'],
+            self::Emoji, self::MemeSticker => ['png', 'webp'],
+            self::Image => ['png', 'jpg', 'jpeg', 'webp'],
             self::MemeClip => ['mp4'],
         };
     }

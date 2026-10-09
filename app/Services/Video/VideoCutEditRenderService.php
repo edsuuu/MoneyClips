@@ -15,6 +15,7 @@ use RuntimeException;
 
 /**
  * @phpstan-import-type StockAssetItem from CutEditValidatorService
+ * @phpstan-import-type ImageItem from CutEditValidatorService
  */
 final readonly class VideoCutEditRenderService
 {
@@ -98,16 +99,21 @@ final readonly class VideoCutEditRenderService
     }
 
     /**
-     * Figurinha, vídeo-meme e emoji viram overlay; o som vai em `sfx[]` junto
-     * com o áudio do vídeo-meme (a mesma key, tocando do começo da janela).
+     * Imagem (card/small), figurinha, vídeo-meme e emoji viram overlay; o som
+     * vai em `sfx[]` junto com o áudio do vídeo-meme (a mesma key, tocando do
+     * começo da janela).
      *
-     * @param  array{memes?: list<StockAssetItem>, meme_clips?: list<StockAssetItem>, emoji?: list<StockAssetItem>, sfx?: list<StockAssetItem>, ...}  $spec
+     * @param  array{images?: list<ImageItem>, memes?: list<StockAssetItem>, meme_clips?: list<StockAssetItem>, emoji?: list<StockAssetItem>, sfx?: list<StockAssetItem>, ...}  $spec
      * @return array{overlays: list<array{key: string, t: array{0: float, 1: float}, kind: string}>, sfx: list<array{key: string, t: float}>}
      */
     private function stockFields(array $spec): array
     {
         $overlays = [];
         $sfx = [];
+
+        foreach ($spec['images'] ?? [] as $image) {
+            $overlays[] = ['key' => $image['key'], 't' => $image['t'], 'kind' => $image['size']];
+        }
 
         foreach (self::OVERLAY_KINDS as $field => $kind) {
             foreach ($spec[$field] ?? [] as $item) {

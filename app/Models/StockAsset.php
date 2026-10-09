@@ -48,6 +48,21 @@ final class StockAsset extends Model
         return $this->shows_real_person || $this->has_audio;
     }
 
+    public function credit(): ?string
+    {
+        $license = match ($this->license) {
+            StockAssetLicenseEnum::CcBy => 'CC BY',
+            StockAssetLicenseEnum::CcBySa => 'CC BY-SA',
+            default => null,
+        };
+
+        if (is_null($license)) {
+            return null;
+        }
+
+        return mb_trim(sprintf('Imagem: %s, %s %s', $this->author ?? 'autor desconhecido', $license, $this->source_url ?? ''));
+    }
+
     /** @return array<string, string> */
     protected function casts(): array
     {
