@@ -26,18 +26,20 @@ final class TikTokAccountConnectorService
 
     private const string USER_INFO_URL = 'https://open.tiktokapis.com/v2/user/info/';
 
+    private const string SCOPES = 'user.info.basic,video.publish';
+
     public function configured(): bool
     {
-        return filled(config('services.tiktok.client_key')) && filled(config('services.tiktok.client_secret'));
+        return filled(config('services.tiktok_official.client_key')) && filled(config('services.tiktok_official.client_secret'));
     }
 
     public function authorizeUrl(string $state): string
     {
         return self::AUTHORIZE_URL.'?'.http_build_query([
-            'client_key' => config('services.tiktok.client_key'),
-            'scope' => config('services.tiktok.scopes'),
+            'client_key' => config('services.tiktok_official.client_key'),
+            'scope' => self::SCOPES,
             'response_type' => 'code',
-            'redirect_uri' => config('services.tiktok.redirect'),
+            'redirect_uri' => config('services.tiktok_official.redirect'),
             'state' => $state,
         ]);
     }
@@ -50,7 +52,7 @@ final class TikTokAccountConnectorService
         $tokens = $this->requestToken([
             'code' => $code,
             'grant_type' => 'authorization_code',
-            'redirect_uri' => config('services.tiktok.redirect'),
+            'redirect_uri' => config('services.tiktok_official.redirect'),
         ], 'a troca do código de autorização');
 
         $openId = $tokens->json('open_id');
@@ -82,7 +84,7 @@ final class TikTokAccountConnectorService
     {
         $token = (string) $account->access_token;
         $expiresAt = $account->token_expires_at;
-        if ($token !== '' && ($expiresAt === null || $expiresAt->subMinutes(5)->isFuture())) {
+        if ($token !== '' && (is_null($expiresAt) || $expiresAt->subMinutes(5)->isFuture())) {
             return $token;
         }
 
@@ -93,15 +95,7 @@ final class TikTokAccountConnectorService
             throw new TikTokApiException('Token do TikTok expirou e a conta não tem refresh token: revincule em /contas.');
         }
 
-        try {
-            $tokens = $this->requestToken(['grant_type' => 'refresh_token', 'refresh_token' => $refreshToken], 'a renovação do token');
-        } catch (TikTokApiException $tikTokApiException) {
-            if (str_contains($tikTokApiException->getMessage(), 'invalid_grant')) {
-                $this->invalidate($account);
-            }
-
-            throw $tikTokApiException;
-        }
+        $tokens = $this->requestToken(['grant_type' => 'refresh_token', 'refresh_token' => $refreshToken], 'a renovação do token', $account);
 
         $account->forceFill($this->tokenAttributes($tokens))->save();
 
@@ -118,12 +112,12 @@ final class TikTokAccountConnectorService
      *
      * @throws TikTokApiException
      */
-    private function requestToken(array $params, string $step): Response
+    private function requestToken(array $params, string $step, ?SocialAccount $account = null): Response
     {
         try {
             $response = Http::asForm()->timeout(30)->post(self::TOKEN_URL, [
-                'client_key' => config('services.tiktok.client_key'),
-                'client_secret' => config('services.tiktok.client_secret'),
+                'client_key' => config('services.tiktok_official.client_key'),
+                'client_secret' => config('services.tiktok_official.client_secret'),
                 ...$params,
             ]);
         } catch (ConnectionException) {
@@ -139,9 +133,15 @@ final class TikTokAccountConnectorService
         $error = is_string($error) && $error !== '' ? $error : 'HTTP '.$response->status();
         Log::channel('daily')->warning('[WARN][TikTok] OAuth recusado.', ['step' => $step, 'error' => $error, 'log_id' => $response->json('log_id')]);
 
-        $hint = $error === 'invalid_grant' ? ' Revincule a conta em /contas.' : '';
+        if ($error !== 'invalid_grant') {
+            throw new TikTokApiException(sprintf('TikTok recusou %s (%s).', $step, $error));
+        }
 
-        throw new TikTokApiException(sprintf('TikTok recusou %s (%s).%s', $step, $error, $hint));
+        if ($account instanceof SocialAccount) {
+            $this->invalidate($account);
+        }
+
+        throw new TikTokApiException(sprintf('TikTok recusou %s (%s). Revincule a conta em /contas.', $step, $error));
     }
 
     private function displayName(string $accessToken): string

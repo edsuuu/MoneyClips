@@ -10,6 +10,7 @@ use App\Models\SocialPost;
 use App\Services\Posting\PostProviderInterface;
 use App\Services\Posting\PostResultData;
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Sleep;
@@ -92,7 +93,7 @@ final readonly class TikTokPostService implements PostProviderInterface
 
     /**
      * App sem auditoria só pode postar SELF_ONLY (e só em conta privada): sem
-     * `TIKTOK_APP_AUDITED=true` o post sai SELF_ONLY e fica registrado.
+     * `TIKTOK_OFFICIAL_AUDITED=true` o post sai SELF_ONLY e fica registrado.
      *
      * @param  array<array-key, mixed>  $creator
      *
@@ -101,7 +102,7 @@ final readonly class TikTokPostService implements PostProviderInterface
     private function privacyLevel(SocialPost $post, array $creator): string
     {
         $wantsPublic = ($post->privacy ?? 'public') === 'public';
-        $level = $wantsPublic && config()->boolean('services.tiktok.app_audited') ? 'PUBLIC_TO_EVERYONE' : 'SELF_ONLY';
+        $level = $wantsPublic && config()->boolean('services.tiktok_official.audited') ? 'PUBLIC_TO_EVERYONE' : 'SELF_ONLY';
 
         if ($wantsPublic && $level === 'SELF_ONLY') {
             Log::channel('daily')->warning('[WARN][Posting] App TikTok sem auditoria: postando SELF_ONLY.', ['post_id' => $post->id]);
@@ -156,7 +157,20 @@ final readonly class TikTokPostService implements PostProviderInterface
         $step = sprintf('a consulta do status (o vídeo já foi enviado, publish_id %s: confira no app antes de tentar de novo)', $publishId);
 
         for ($attempt = 0; $attempt < self::POLL_ATTEMPTS; $attempt++) {
-            $status = $this->call($account, $token, 'status/fetch/', ['publish_id' => $publishId], $step);
+            if ($attempt > 0) {
+                Sleep::for(self::POLL_SECONDS)->seconds();
+            }
+
+            $response = $this->send($token, 'status/fetch/', ['publish_id' => $publishId]);
+            if (! $response instanceof Response || $response->serverError() || $response->status() === 429) {
+                Log::channel('daily')->warning('[WARN][Posting] Falha transitória no status/fetch do TikTok — tentando de novo.', [
+                    'account_id' => $account->id, 'publish_id' => $publishId, 'status' => $response?->status(),
+                ]);
+
+                continue;
+            }
+
+            $status = $this->data($account, $response, $step);
 
             if (($status['status'] ?? null) === 'PUBLISH_COMPLETE') {
                 $ids = $status['publicaly_available_post_id'] ?? [];
@@ -174,8 +188,6 @@ final readonly class TikTokPostService implements PostProviderInterface
 
                 return PostResultData::failed(sprintf('TikTok não publicou o vídeo (%s).', is_string($reason) && $reason !== '' ? $reason : 'sem motivo'));
             }
-
-            Sleep::for(self::POLL_SECONDS)->seconds();
         }
 
         return PostResultData::failed(sprintf('TikTok não confirmou a publicação em %d min (publish_id %s): confira no app antes de tentar de novo.', intdiv(self::POLL_SECONDS * self::POLL_ATTEMPTS, 60), $publishId));
@@ -189,15 +201,35 @@ final readonly class TikTokPostService implements PostProviderInterface
      */
     private function call(SocialAccount $account, string $token, string $path, array $body, string $step): array
     {
+        $response = $this->send($token, $path, $body);
+        throw_unless($response instanceof Response, TikTokApiException::class, sprintf('TikTok inacessível durante %s.', $step));
+
+        return $this->data($account, $response, $step);
+    }
+
+    /**
+     * @param  array<string, mixed>  $body
+     */
+    private function send(string $token, string $path, array $body): ?Response
+    {
         try {
             $request = Http::withToken($token)->timeout(60);
-            $response = $body === []
+
+            return $body === []
                 ? $request->withBody('{}', 'application/json; charset=UTF-8')->post(self::API_URL.$path)
                 : $request->asJson()->post(self::API_URL.$path, $body);
         } catch (ConnectionException) {
-            throw new TikTokApiException(sprintf('TikTok inacessível durante %s.', $step));
+            return null;
         }
+    }
 
+    /**
+     * @return array<array-key, mixed>
+     *
+     * @throws TikTokApiException
+     */
+    private function data(SocialAccount $account, Response $response, string $step): array
+    {
         $code = $response->json('error.code');
         $code = is_string($code) ? $code : '';
         if ($response->successful() && $code === 'ok') {

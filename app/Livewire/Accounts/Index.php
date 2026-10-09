@@ -81,12 +81,6 @@ final class Index extends Component
         }
 
         $this->authorize('update', $account);
-        if ($account->provider === PostProviderEnum::TiktokOfficial) {
-            $this->toast('Conta oficial não usa cookies: revincule pelo botão TikTok oficial.', 'danger');
-
-            return;
-        }
-
         $this->resetValidation();
         $this->editingAccountId = $account->id;
         $this->name = $account->name;
@@ -227,7 +221,7 @@ final class Index extends Component
      */
     private function tiktokQuery(): Builder
     {
-        return SocialAccount::query()->where('platform', 'tiktok');
+        return SocialAccount::query()->where('platform', 'tiktok')->where('provider', PostProviderEnum::TiktokUploader);
     }
 
     private function resetForm(): void

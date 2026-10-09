@@ -83,7 +83,7 @@ polling do status). Detalhes em `docs/agendamento.md`.
   provider `youtube_api`, upload resumable + refresh do token), `API/TikTok/`
   (Login Kit `TikTokAccountConnectorService` + `TikTokPostService` = provider
   `tiktok_official`, Content Posting API; envs `TIKTOK_CLIENT_KEY`,
-  `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`, `TIKTOK_APP_AUDITED`), `API/Discord/` (webhook
+  `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`, `TIKTOK_OFFICIAL_AUDITED`), `API/Discord/` (webhook
   de alertas) e `API/Claude/` (`claude -p` na assinatura Max, saída
   estruturada; `CLAUDE_CLI_BIN` com caminho absoluto, log no canal `claude`).
 - **`app/Services/Posting/`** — núcleo da postagem: `PostProviderInterface`

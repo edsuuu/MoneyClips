@@ -81,13 +81,17 @@ function tiktokError(string $code, string $message = 'Rejected.'): array
 
 /**
  * @param  list<string>  $privacyOptions
- * @param  list<array<string, mixed>>  $statuses
+ * @param  list<array<string, mixed>|int|null>  $statuses  int = resposta HTTP de erro, null = conexão caída
  */
 function fakeTiktokPosting(array $privacyOptions = ['SELF_ONLY'], array $statuses = [['status' => 'PUBLISH_COMPLETE', 'publicaly_available_post_id' => []]]): void
 {
     $statusSequence = Http::sequence();
     foreach ($statuses as $status) {
-        $statusSequence->push(tiktokOk($status));
+        match (true) {
+            is_null($status) => $statusSequence->pushFailedConnection(),
+            is_int($status) => $statusSequence->push(tiktokError('internal_error'), $status),
+            default => $statusSequence->push(tiktokOk($status)),
+        };
     }
 
     Http::fake([
@@ -131,9 +135,9 @@ beforeEach(function (): void {
     Storage::fake('s3');
     Sleep::fake();
     config([
-        'services.tiktok.client_key' => 'client-key',
-        'services.tiktok.client_secret' => 'client-secret',
-        'services.tiktok.redirect' => 'https://app.test/oauth/tiktok/callback',
+        'services.tiktok_official.client_key' => 'client-key',
+        'services.tiktok_official.client_secret' => 'client-secret',
+        'services.tiktok_official.redirect' => 'https://app.test/oauth/tiktok/callback',
         'services.discord.webhook' => 'https://discord.test/webhook',
     ]);
 });
@@ -153,7 +157,7 @@ it('redirects to the Login Kit with the client key, scopes and a session state',
 });
 
 it('refuses to connect without the TikTok keys', function (): void {
-    config(['services.tiktok.client_key' => null]);
+    config(['services.tiktok_official.client_key' => null]);
     $this->actingAs(User::factory()->create());
 
     $this->get(route('oauth.connect', ['platform' => 'tiktok']))
@@ -235,7 +239,7 @@ it('posts SELF_ONLY on an unaudited app: creator_info, init, chunk upload and st
 });
 
 it('posts PUBLIC_TO_EVERYONE on an audited app and records the video link', function (): void {
-    config(['services.tiktok.app_audited' => true]);
+    config(['services.tiktok_official.audited' => true]);
     fakeTiktokPosting(['PUBLIC_TO_EVERYONE', 'SELF_ONLY'], [['status' => 'PUBLISH_COMPLETE', 'publicaly_available_post_id' => [7_412_345_678]]]);
 
     $result = resolve(TikTokPostService::class)->post(tiktokOfficialPost(tiktokOfficialAccount()), tiktokOfficialFile());
@@ -246,7 +250,7 @@ it('posts PUBLIC_TO_EVERYONE on an audited app and records the video link', func
 });
 
 it('fails before uploading when the account does not allow the privacy level', function (): void {
-    config(['services.tiktok.app_audited' => true]);
+    config(['services.tiktok_official.audited' => true]);
     fakeTiktokPosting(['SELF_ONLY']);
 
     $result = resolve(TikTokPostService::class)->post(tiktokOfficialPost(tiktokOfficialAccount()), tiktokOfficialFile());
@@ -313,6 +317,49 @@ it('fails with the reason when TikTok gives up processing the video', function (
     expect($result->status)->toBe(PostStatusEnum::Failed)->and($result->error)->toContain('duration_check');
 });
 
+it('keeps polling through a transient status/fetch failure instead of failing a video already sent', function (): void {
+    fakeTiktokPosting(['SELF_ONLY'], [503, null, 429, ['status' => 'PUBLISH_COMPLETE', 'publicaly_available_post_id' => []]]);
+    $logs = tiktokOfficialLogs();
+    $account = tiktokOfficialAccount();
+
+    $result = resolve(TikTokPostService::class)->post(tiktokOfficialPost($account), tiktokOfficialFile());
+
+    expect($result->status)->toBe(PostStatusEnum::Published)
+        ->and($account->refresh()->session_status)->toBe(SocialAccount::SESSION_VALID)
+        ->and($logs())->toContain('Falha transitória no status/fetch');
+    Sleep::assertSleptTimes(3);
+});
+
+it('splits a video over 64 MiB in 10 MiB chunks with the last one taking the rest', function (): void {
+    fakeTiktokPosting();
+    $size = 65 * 1024 * 1024;
+    $chunk = 10 * 1024 * 1024;
+    $path = (string) tempnam(sys_get_temp_dir(), 'tto-big-');
+    $handle = fopen($path, 'r+b');
+    ftruncate($handle, $size);
+    fclose($handle);
+
+    $result = resolve(TikTokPostService::class)->post(tiktokOfficialPost(tiktokOfficialAccount()), $path);
+    @unlink($path);
+
+    expect($result->status)->toBe(PostStatusEnum::Published);
+    Http::assertSent(fn (Request $request): bool => str_ends_with($request->url(), 'video/init/')
+        && $request['source_info'] === ['source' => 'FILE_UPLOAD', 'video_size' => $size, 'chunk_size' => $chunk, 'total_chunk_count' => 6]);
+
+    $ranges = Http::recorded(fn (Request $request): bool => $request->method() === 'PUT')
+        ->map(fn (array $pair): array => [$pair[0]->header('Content-Range')[0], mb_strlen((string) $pair[0]->body(), '8bit')])
+        ->values()
+        ->all();
+    expect($ranges)->toBe([
+        [sprintf('bytes 0-%d/%d', $chunk - 1, $size), $chunk],
+        [sprintf('bytes %d-%d/%d', $chunk, 2 * $chunk - 1, $size), $chunk],
+        [sprintf('bytes %d-%d/%d', 2 * $chunk, 3 * $chunk - 1, $size), $chunk],
+        [sprintf('bytes %d-%d/%d', 3 * $chunk, 4 * $chunk - 1, $size), $chunk],
+        [sprintf('bytes %d-%d/%d', 4 * $chunk, 5 * $chunk - 1, $size), $chunk],
+        [sprintf('bytes %d-%d/%d', 5 * $chunk, $size - 1, $size), $size - 5 * $chunk],
+    ]);
+});
+
 it('fails asking to check the app when the status never settles', function (): void {
     fakeTiktokPosting(['SELF_ONLY'], array_fill(0, 120, ['status' => 'PROCESSING_DOWNLOAD']));
 
@@ -320,7 +367,7 @@ it('fails asking to check the app when the status never settles', function (): v
 
     expect($result->status)->toBe(PostStatusEnum::Failed)
         ->and($result->error)->toContain('v_pub_1')->toContain('confira no app');
-    Sleep::assertSleptTimes(120);
+    Sleep::assertSleptTimes(119);
 });
 
 it('lists the official account on /contas without tokens or the cookie editor', function (): void {
@@ -335,4 +382,21 @@ it('lists the official account on /contas without tokens or the cookie editor', 
         ->not->toContain('editTiktok('.$account->id.')');
     expect(json_encode($component->snapshot, JSON_THROW_ON_ERROR))->not->toContain(TTO_ACCESS);
     $component->call('editTiktok', $account->id)->assertSet('showTiktokModal', false);
+});
+
+it('never writes cookies or a name into an official account through a tampered editingAccountId', function (): void {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $account = tiktokOfficialAccount(['user_id' => $user->id]);
+
+    Livewire::test(Index::class)
+        ->set('editingAccountId', $account->id)
+        ->set('name', 'Sequestrada')
+        ->set('cookiesInput', '[{"name":"sessionid","value":"forged"}]')
+        ->call('saveTiktok');
+
+    $account->refresh();
+    expect($account->name)->toBe('Clips Oficial')
+        ->and($account->cookies)->toBeNull()
+        ->and($account->access_token)->toBe(TTO_ACCESS);
 });
