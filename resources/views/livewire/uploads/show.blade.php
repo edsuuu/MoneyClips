@@ -1,4 +1,4 @@
-<div @if ($isPackaging || $isTranscribing || $hasBusyCuts || $isSuggesting) wire:poll.5s @endif>
+<div @if ($isPackaging || $isTranscribing || $hasBusyCuts || $isSuggesting) wire:poll.5s.keep-alive @endif>
     @if ($isReady)
         <div
             wire:key="player"
@@ -364,7 +364,12 @@
                             @endif
 
                             @if (! is_null($cut['reason']))
-                                <p class="mt-1 text-xs text-slate-400">{{ $cut['reason'] }}</p>
+                                <div x-data="{ open: false }" class="mt-1">
+                                    <p class="text-xs text-slate-400" @if ($cut['reasonIsLong']) x-bind:class="!open && 'line-clamp-2'" @endif>{{ $cut['reason'] }}</p>
+                                    @if ($cut['reasonIsLong'])
+                                        <button type="button" x-on:click="open = !open" x-text="open ? 'ver menos' : 'ver mais'" class="cursor-pointer text-xs font-semibold text-sky-600 hover:underline dark:text-sky-400"></button>
+                                    @endif
+                                </div>
                             @endif
 
                             <div x-show="!editingRange" class="mt-2 flex items-center gap-2">

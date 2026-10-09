@@ -466,6 +466,7 @@ final class Show extends Component
                 'number' => $index + 1,
                 'title' => $cut->title ?? 'Corte '.($index + 1),
                 'reason' => $cut->reason,
+                'reasonIsLong' => mb_strlen((string) $cut->reason) > 90,
                 'score' => $cut->score,
                 'start' => $cut->start_seconds,
                 'end' => $cut->end_seconds,
