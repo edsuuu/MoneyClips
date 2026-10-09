@@ -236,8 +236,8 @@ final class Index extends Component
             'youtubeAccount' => $youtubeAccount,
             'youtubeStatus' => $youtubeAccount instanceof SocialAccount
                 ? [
-                    'expired' => $youtubeAccount->tokenExpired(),
-                    'label' => $youtubeAccount->tokenExpired() ? 'Token expirado' : 'Vinculado',
+                    'expired' => $youtubeAccount->session_status === SocialAccount::SESSION_INVALID,
+                    'label' => $youtubeAccount->session_status === SocialAccount::SESSION_INVALID ? 'Acesso revogado' : 'Vinculado',
                 ]
                 : null,
             'cookiesHint' => $this->editingAccountId !== null ? 'Deixe em branco para manter a sessão salva.' : null,

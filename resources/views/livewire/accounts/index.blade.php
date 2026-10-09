@@ -157,7 +157,7 @@
                     @endif
                     <div class="mt-2">
                         <x-ui.badge :color="$youtubeStatus['expired'] ? 'amber' : 'green'" size="sm">
-                            {{ $youtubeStatus['expired'] ? 'Token expirado — revincule' : 'Vinculado' }}
+                            {{ $youtubeStatus['expired'] ? 'Acesso revogado — revincule' : 'Vinculado' }}
                         </x-ui.badge>
                     </div>
                 </div>

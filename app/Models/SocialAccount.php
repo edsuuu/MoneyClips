@@ -39,12 +39,6 @@ final class SocialAccount extends Model
         return 'uuid';
     }
 
-    public function tokenExpired(): bool
-    {
-        // Cast 'datetime' garante CarbonImmutable|null aqui.
-        return $this->token_expires_at !== null && $this->token_expires_at->isPast();
-    }
-
     protected static function booted(): void
     {
         self::creating(function (self $model): void {

@@ -1,10 +1,10 @@
 # Agendamento e postagem automática
 
-Estado: **núcleo pronto, sem provider real** (PR `feat/posts-core`). Só
-providers nativos, escolhidos por conta, cada um no seu PR e nesta ordem:
-YouTube Data API (`videos.insert`, OAuth que já existe em `/contas`) →
-TikTokUploader (cookies) → TikTok Content Posting API oficial (direct post,
-privado até a auditoria passar). Nenhuma agregadora. A tela `/agenda` e o
+Estado: **núcleo pronto + provider da YouTube Data API**. Só providers
+nativos, escolhidos por conta, cada um no seu PR e nesta ordem: YouTube Data
+API (`videos.insert`, OAuth que já existe em `/contas`) → TikTokUploader
+(cookies) → TikTok Content Posting API oficial (direct post, privado até a
+auditoria passar). Nenhuma agregadora. A tela `/agenda` e o
 auto-agendamento também entram em PRs separados. Arquitetura completa: nota `Arquitetura- agendamento` (Almanac).
 
 ## Fluxo
@@ -83,18 +83,49 @@ recebe o padrão da plataforma (`youtube_api`, `tiktok_uploader`).
 
 Adicionar um provider:
 
-1. Classe em `app/Services/Posting/` implementando `PostProviderInterface`
-   (`post(SocialPost $post, string $localPath): PostResultData`). A legenda é
-   `$post->youtubeShort->caption()` (título + hashtags sem duplicar), lida na
-   hora do post.
-2. Devolver `PostResultData::published($url, 'public'|'private')`,
+1. Classe implementando `PostProviderInterface`
+   (`post(SocialPost $post, string $localPath): PostResultData`) na pasta da
+   integração: API oficial em `app/Services/API/<Plataforma>/`, microserviço
+   em `app/Services/<Microserviço>/`. A legenda é
+   `$post->youtubeShort->caption()` (título + hashtags sem duplicar; as tags
+   soltas em `captionHashtags()`), lida na hora do post.
+2. Devolver `PostResultData::published($url, 'public'|'private'|'unlisted')`,
    `::pending($externalId)` (o webhook fecha achando por `external_id`) ou
-   `::failed($motivo)`.
+   `::failed($motivo)`. Erro conhecido da plataforma (token, cota, validação)
+   vira `failed` com mensagem legível; exceção solta vira Failed "pode ter
+   saído" pelo `failed()` do job.
 3. Case no `PostProviderEnum` e o braço no `match` de `service()`.
 
-Hoje `service()` resolve `PostProviderInterface` do container, que só os
-testes ligam (`Tests\Fakes\FakePostService`): em produção, sem provider, o job
-falha com o motivo.
+| Provider | Classe | Estado |
+|---|---|---|
+| `youtube_api` | `App\Services\API\Youtube\YoutubePostService` | pronto |
+| `tiktok_uploader` | — | resolve `PostProviderInterface` (só os testes ligam um fake) |
+
+### YouTube Data API (`youtube_api`)
+
+- **Token:** usa o `access_token` da conta enquanto falta mais de 1 min pro
+  `token_expires_at`; senão renova no `oauth2.googleapis.com/token` com o
+  `refresh_token` guardado pelo `YoutubeAccountConnectorService` e grava o
+  novo token criptografado. `invalid_grant` (revogado/expirado), conta sem
+  refresh token ou 401 da API → Failed "revincule" + `session_status =
+  invalid` (o dispatcher passa a falhar os próximos posts da conta na hora,
+  sem gastar cota). Revincular em `/contas` volta a sessão pra `valid`.
+- **Upload resumable** (`videos.insert`, `part=snippet,status`): abre a sessão
+  com os metadados e manda o arquivo em pedaços de 8 MiB, seguindo o `Range`
+  do 308. O vídeo só nasce no canal quando o último pedaço é aceito.
+- **Metadados:** título do Short (sem `<`/`>`, até 100 caracteres; vazio vira
+  "Short"), descrição = `caption()` (até 5000 bytes), `tags` = hashtags sem
+  `#` (até 500 caracteres), categoria 22, `selfDeclaredMadeForKids=false`.
+- **Privacidade:** `social_posts.privacy` → `meta.privacy_status` da conta →
+  `public`. **Projeto Google não verificado trava todo upload em private:**
+  sem `GOOGLE_YOUTUBE_APP_VERIFIED=true` o post vai `private` e o log registra
+  o rebaixamento. A privacidade gravada é a que o YouTube devolveu.
+- **Cota/erros:** `quotaExceeded`/`rateLimitExceeded` → Failed "cota
+  esgotada, volta à meia-noite do Pacífico"; `uploadLimitExceeded` → limite do
+  canal; o resto → "YouTube recusou … (HTTP, reason): mensagem". Sem retry:
+  reagendar é do dono.
+- Link gravado: `https://www.youtube.com/shorts/{id}`. Token e refresh token
+  nunca vão pra log, `error` ou Discord.
 
 ## Operação
 

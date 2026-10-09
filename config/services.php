@@ -51,6 +51,7 @@ return [
             'auth' => env('GOOGLE_AUTH_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth2/google/callback'),
             'youtube' => env('GOOGLE_YOUTUBE_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback'),
         ],
+        'youtube_app_verified' => (bool) env('GOOGLE_YOUTUBE_APP_VERIFIED', false),
         'youtube_scopes' => array_values(array_filter(array_map(
             mb_trim(...),
             explode(',', (string) env(

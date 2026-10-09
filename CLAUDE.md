@@ -4,9 +4,9 @@ Plataforma de **produção de Shorts** a partir de vídeos longos (upload/import
 → cortes → edição 9:16 → estoque). Laravel orquestra; microserviços fazem o
 trabalho pesado (download, transcrição, corte/render de vídeo). **A postagem
 automática está sendo refeita**: o núcleo (agenda em `social_posts`,
-`posts:dispatch`, `PublishPostJob`) existe, os providers nativos (YouTube Data
-API, TikTokUploader, TikTok oficial) entram em PRs próprios — ver
-`docs/agendamento.md`. O microserviço TikTokUploader segue no repo sem
+`posts:dispatch`, `PublishPostJob`) e o provider da YouTube Data API
+(`YoutubePostService`) existem; TikTokUploader e TikTok oficial entram em PRs
+próprios — ver `docs/agendamento.md`. O microserviço TikTokUploader segue no repo sem
 consumidor. **Tudo roda nativo — sem Docker**
 (`make up`).
 
@@ -56,8 +56,8 @@ media /shorts/download → youtube_shorts direto (Shorts prontos de um canal)
 
 Postagem: `social_posts` (1 linha por Short × conta, horário na linha) →
 `posts:dispatch` a cada minuto (claim atômico) → `PublishPostJob` (1 tentativa,
-nunca reposta às cegas) → provider da conta. Sem provider real ainda: detalhes
-em `docs/agendamento.md`.
+nunca reposta às cegas) → provider da conta (`youtube_api` pronto; TikTok em
+PRs próprios). Detalhes em `docs/agendamento.md`.
 
 ## Organização de código (Services por integração)
 
@@ -77,7 +77,8 @@ em `docs/agendamento.md`.
   código de status mora nela, não espalhado em `response()->json([...], 4xx)`
   pelos controllers.
 - **`app/Services/API/`** — cada integração externa por API (não-microserviço)
-  em sua pasta: `API/Youtube/` (Data API v3 + OAuth), `API/Discord/` (webhook
+  em sua pasta: `API/Youtube/` (Data API v3 + OAuth; `YoutubePostService` =
+  provider `youtube_api`, upload resumable + refresh do token), `API/Discord/` (webhook
   de alertas) e `API/Claude/` (`claude -p` na assinatura Max, saída
   estruturada; `CLAUDE_CLI_BIN` com caminho absoluto, log no canal `claude`).
 - **`app/Services/Posting/`** — núcleo da postagem: `PostProviderInterface`
@@ -103,11 +104,14 @@ Ciclo: baixado (`video_path`) → revisado/pronto (`ready_at`). As colunas
 de template foi removido).
 `postableVideoPath()` prefere `processed_video_path` legado, quando existe.
 
-### YouTube (contas + downloads — SEM postagem)
+### YouTube (contas + downloads + postagem)
 
 - Connect OAuth em `/contas` via `YoutubeAccountConnectorService`
-  (credenciais em `social_accounts`, platform=`youtube`) — guardadas pra
-  quando a postagem for refeita. Download de canal (client do microserviço):
+  (credenciais em `social_accounts`, platform=`youtube`, revincular volta
+  `session_status` pra `valid`). Postagem: `YoutubePostService`
+  (`videos.insert` resumable; projeto Google não verificado → `private`, a
+  menos que `GOOGLE_YOUTUBE_APP_VERIFIED=true`; token revogado marca a conta
+  `invalid`). Download de canal (client do microserviço):
   `App\Services\DownloadYoutube\{DownloadShortsService,
   DownloadYoutubeImportService}`. Import de vídeo longo por URL (tela
   /upload): `App\Services\Upload\DownloadYoutubeService`

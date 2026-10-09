@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Enums;
 
+use App\Services\API\Youtube\YoutubePostService;
 use App\Services\Posting\PostProviderInterface;
 use InvalidArgumentException;
 
@@ -21,10 +22,12 @@ enum PostProviderEnum: string
         };
     }
 
-    // ponytail: nenhum provider real ainda — cada PR de provider (YouTube API, TikTokUploader, TikTok oficial) troca isto por um match
-    // case → classe. Até lá nada está ligado ao container e a postagem falha com o motivo (só os testes ligam um fake).
+    // ponytail: o TikTokUploader ainda não tem provider (PR próprio): resolve a interface, que só os testes ligam a um fake.
     public function service(): PostProviderInterface
     {
-        return resolve(PostProviderInterface::class);
+        return match ($this) {
+            self::YoutubeApi => resolve(YoutubePostService::class),
+            self::TiktokUploader => resolve(PostProviderInterface::class),
+        };
     }
 }
