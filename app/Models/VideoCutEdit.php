@@ -31,7 +31,7 @@ use RuntimeException;
  * @property string $mode
  * @property list<array{t: float, mode: string, regions: list<array{x: float, y: float, w: float, h: float}>}> $keyframes
  * @property array{version: int, background: string, captions?: bool, captionColor?: string, captionCase?: string, speakerColors?: array<int, string>}|null $settings
- * @property array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>, images?: list<ImageItem>, memes?: list<StockAssetItem>, meme_clips?: list<StockAssetItem>, emoji?: list<StockAssetItem>, sfx?: list<StockAssetItem>}|null $spec
+ * @property array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>, ignored_request?: string, images?: list<ImageItem>, memes?: list<StockAssetItem>, meme_clips?: list<StockAssetItem>, emoji?: list<StockAssetItem>, sfx?: list<StockAssetItem>}|null $spec
  * @property VideoCutStatusEnum|null $render_status
  * @property string|null $render_error
  * @property TranscriptionStatusEnum|null $tracking_status
@@ -39,6 +39,7 @@ use RuntimeException;
  * @property TranscriptionStatusEnum|null $ai_status
  * @property string|null $ai_error
  * @property string|null $ai_request
+ * @property string|null $caption_preset
  * @property-read YoutubeShort|null $youtubeShort
  * @property-read VideoCut|null $videoCut
  */
@@ -52,7 +53,7 @@ final class VideoCutEdit extends Model
     protected $fillable = [
         'uuid', 'youtube_short_id', 'video_cut_id', 'source_meta',
         'mode', 'keyframes', 'settings', 'spec', 'render_status', 'render_error',
-        'tracking_status', 'tracking_error', 'ai_status', 'ai_error', 'ai_request',
+        'tracking_status', 'tracking_error', 'ai_status', 'ai_error', 'ai_request', 'caption_preset',
     ];
 
     public static function failAi(int $id, string $error): bool

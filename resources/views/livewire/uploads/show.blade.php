@@ -471,7 +471,7 @@
                             </div>
 
                             @if ($cut['canEditWithAi'])
-                                <div x-data="{ asking: false, request: '' }" class="mt-2 space-y-2">
+                                <div x-data="{ asking: false, request: '', captionPreset: '' }" class="mt-2 space-y-2">
                                     <div class="flex flex-wrap items-center gap-2">
                                         <button
                                             type="button"
@@ -493,7 +493,17 @@
                                         @endif
                                     </div>
 
-                                    <div x-show="asking" x-cloak class="flex gap-2">
+                                    <div x-show="asking" x-cloak class="flex flex-wrap gap-2">
+                                        <select
+                                            x-model="captionPreset"
+                                            aria-label="Estilo da legenda"
+                                            class="w-full cursor-pointer rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 focus:border-sky-500 focus:outline-none"
+                                        >
+                                            <option value="">Legenda: Sorteio (padrão)</option>
+                                            <option value="verde">Legenda: Verde</option>
+                                            <option value="branco_italico">Legenda: Branco itálico</option>
+                                            <option value="branco_limpo">Legenda: Branco limpo</option>
+                                        </select>
                                         <input
                                             type="text"
                                             x-model="request"
@@ -503,7 +513,7 @@
                                         />
                                         <button
                                             type="button"
-                                            x-on:click="$wire.editWithAi({{ $cut['id'] }}, request); asking = false"
+                                            x-on:click="$wire.editWithAi({{ $cut['id'] }}, request, captionPreset); asking = false"
                                             class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500"
                                         >
                                             Editar
@@ -512,6 +522,10 @@
 
                                     @if (! is_null($cut['aiError']))
                                         <p class="text-xs break-words text-red-600 dark:text-red-400">{{ $cut['aiError'] }}</p>
+                                    @endif
+
+                                    @if ($cut['aiIgnored'] !== '')
+                                        <p class="text-xs break-words text-amber-700 dark:text-amber-400">A IA não conseguiu: {{ $cut['aiIgnored'] }}</p>
                                     @endif
                                 </div>
                             @endif

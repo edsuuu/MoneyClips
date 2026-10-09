@@ -93,13 +93,13 @@ final class EditCutWithAiJob implements ShouldQueue
         $schema = $stock->schema($assets);
 
         $output = $claude->structured($prompt, $schema, $input);
-        $result = $validator->validate($output, $words, $duration, $assets);
+        $result = $validator->validate($output, $words, $duration, $assets, $edit->caption_preset);
 
         if ($result['hard'] === [] && $result['soft'] !== []) {
             Log::channel('daily')->info('[INFO][CutEditAi] Spec com erros moles — 1 retry.', ['edit_id' => $edit->id, 'soft' => $result['soft']]);
 
             $output = $claude->structured($prompt, $schema, $this->retryInput($input, $output, $result['soft']));
-            $result = $validator->validate($output, $words, $duration, $assets);
+            $result = $validator->validate($output, $words, $duration, $assets, $edit->caption_preset);
         }
 
         if ($result['warnings'] !== []) {

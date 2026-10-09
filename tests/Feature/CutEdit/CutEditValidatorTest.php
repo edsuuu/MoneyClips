@@ -170,6 +170,23 @@ it('never repeats the caption preset of the previous short', function (): void {
     expect($presets)->not->toContain('verde');
 });
 
+it('uses the chosen caption preset instead of drawing one', function (): void {
+    VideoCutEdit::factory()->create(['spec' => ['caption_preset' => 'verde']]);
+
+    $result = (new CutEditValidatorService)->validate($this->fixture['spec'], $this->fixture['words'], $this->fixture['duration'], captionPreset: 'verde');
+
+    expect($result['spec']['caption_preset'])->toBe('verde');
+});
+
+it('keeps what the AI could not do without failing the spec', function (): void {
+    $result = validateCutEdit($this->fixture, ['ignored_request' => '  legenda amarela não existe ']);
+
+    expect($result['hard'])->toBe([])
+        ->and($result['soft'])->toBe([])
+        ->and($result['spec']['ignored_request'])->toBe('legenda amarela não existe')
+        ->and(validateCutEdit($this->fixture)['spec']['ignored_request'])->toBe('');
+});
+
 it('skips a caption with no duration instead of sending start >= end to the render', function (): void {
     $words = [
         ['word' => 'oi', 'start' => 10.0, 'end' => 10.0],
