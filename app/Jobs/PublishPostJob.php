@@ -8,11 +8,11 @@ use App\Enums\PostStatusEnum;
 use App\Jobs\Concerns\TransfersStorageFiles;
 use App\Models\SocialPost;
 use App\Services\API\Discord\DiscordNotifierService;
+use App\Services\Posting\PostCloserService;
 use App\Services\Posting\PostResultData;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -40,7 +40,7 @@ final class PublishPostJob implements ShouldQueue
     /**
      * @throws Throwable
      */
-    public function handle(DiscordNotifierService $discord): void
+    public function handle(PostCloserService $closer): void
     {
         $post = SocialPost::query()->with(['youtubeShort', 'socialAccount'])->find($this->postId);
 
@@ -52,7 +52,7 @@ final class PublishPostJob implements ShouldQueue
 
         $key = $post->youtubeShort->postableVideoPath();
         if ($key === '' || ! Storage::disk('s3')->exists($key)) {
-            $this->close($post, PostResultData::failed(sprintf('Vídeo não encontrado no MinIO: "%s".', $key)), $discord);
+            $closer->close($post, PostResultData::failed(sprintf('Vídeo não encontrado no MinIO: "%s".', $key)));
 
             return;
         }
@@ -65,7 +65,7 @@ final class PublishPostJob implements ShouldQueue
             @unlink($tmp);
         }
 
-        $this->close($post, $result, $discord);
+        $closer->close($post, $result);
     }
 
     public function failed(?Throwable $exception): void
@@ -87,63 +87,5 @@ final class PublishPostJob implements ShouldQueue
         ]);
 
         resolve(DiscordNotifierService::class)->error('❌ Job de postagem falhou', sprintf('Post #%d%s%s', $this->postId, PHP_EOL, $error));
-    }
-
-    /**
-     * O UPDATE só vale se a linha ainda está em Posting: se o reaper já marcou
-     * Failed (upload passou de stuck_minutes) ou o dono mexeu, a resposta
-     * chegou tarde e não pode sobrescrever nada, só avisar alto.
-     */
-    private function close(SocialPost $post, PostResultData $result, DiscordNotifierService $discord): void
-    {
-        $label = sprintf('%s · %s (%s)', $post->youtubeShort->title ?? $post->youtubeShort->youtube_id, $post->socialAccount->name, $post->socialAccount->platform);
-
-        $values = match ($result->status) {
-            PostStatusEnum::Posting => ['external_id' => $result->externalId],
-            PostStatusEnum::Failed => ['status' => PostStatusEnum::Failed, 'error' => $result->error],
-            default => ['status' => PostStatusEnum::Published, 'url' => $result->url, 'privacy' => $result->privacy, 'posted_at' => now()],
-        };
-
-        $postedColumn = match ($post->socialAccount->platform) {
-            'youtube' => 'posted_youtube_at',
-            'tiktok' => 'posted_tiktok_at',
-            default => null,
-        };
-
-        $closed = DB::transaction(function () use ($post, $result, $values, $postedColumn): bool {
-            if (SocialPost::query()->whereKey($post->id)->where('status', PostStatusEnum::Posting)->update($values) !== 1) {
-                return false;
-            }
-
-            if ($result->status === PostStatusEnum::Published && ! is_null($postedColumn)) {
-                $post->youtubeShort->forceFill([$postedColumn => now()])->save();
-            }
-
-            return true;
-        });
-
-        if (! $closed) {
-            $outcome = sprintf('%s %s', $result->status->label(), $result->url ?? $result->externalId ?? $result->error ?? '');
-            Log::channel('daily')->warning('[WARN][Posting] Resposta do provider chegou com o post já fora de Posting.', ['post_id' => $post->id, 'outcome' => $outcome]);
-            $discord->warning('⚠️ Resposta do provider chegou tarde', sprintf('%s%sO post já tinha sido fechado. Resultado: %s%sNÃO tente de novo sem conferir na plataforma.', $label, PHP_EOL, $outcome, PHP_EOL));
-
-            return;
-        }
-
-        if ($result->status === PostStatusEnum::Posting) {
-            Log::channel('daily')->info('[INFO][Posting] Post aceito pelo provider, aguardando o webhook.', ['post_id' => $post->id, 'external_id' => $result->externalId]);
-
-            return;
-        }
-
-        if ($result->status === PostStatusEnum::Failed) {
-            Log::channel('daily')->error('[ERRO][Posting] Post falhou.', ['post_id' => $post->id, 'error' => $result->error]);
-            $discord->error('❌ Post falhou', $label.PHP_EOL.$result->error);
-
-            return;
-        }
-
-        Log::channel('daily')->info('[INFO][Posting] Post publicado.', ['post_id' => $post->id, 'url' => $result->url, 'privacy' => $result->privacy]);
-        $discord->success('✅ Post publicado', $label, $result->url);
     }
 }

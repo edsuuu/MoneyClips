@@ -2,7 +2,7 @@
     <div class="mb-6 flex flex-wrap items-start justify-between gap-6 border-b border-slate-800 pb-6">
         <div>
             <h1 class="text-3xl font-extrabold tracking-tight text-slate-50">Contas</h1>
-            <p class="mt-2 text-sm text-slate-500">Contas usadas para publicar. O TikTok entra por cookies de sessão; o YouTube é vinculado via Google.</p>
+            <p class="mt-2 text-sm text-slate-500">Contas usadas para publicar. O TikTok entra por cookies de sessão ou pela API oficial; o YouTube é vinculado via Google.</p>
         </div>
         <div class="flex flex-wrap gap-2.5">
             <button type="button" wire:click="createTiktok"
@@ -10,6 +10,11 @@
                 <x-ui.icon name="plus" class="size-3.5" />
                 TikTok
             </button>
+            <a href="{{ route('oauth.connect', ['platform' => 'tiktok']) }}"
+                class="flex cursor-pointer items-center gap-2 rounded-[10px] border border-slate-700 bg-slate-800 px-4 py-2.5 text-[13.5px] font-semibold text-slate-100 transition hover:bg-slate-700">
+                <x-ui.icon name="plus" class="size-3.5" />
+                TikTok oficial
+            </a>
             <button type="button" wire:click="openYoutube"
                 class="flex cursor-pointer items-center gap-2 rounded-[10px] border border-slate-700 bg-slate-800 px-4 py-2.5 text-[13.5px] font-semibold text-slate-100 transition hover:bg-slate-700">
                 <x-ui.icon name="plus" class="size-3.5" />
@@ -94,10 +99,12 @@
                     <span class="text-[13px] text-slate-400">Ativa para publicação</span>
                     <div class="flex items-center gap-3">
                         <x-ui.toggle :active="$account['is_active']" wire:click="toggleActive({{ $account['id'] }})" title="Ativar/desativar conta" />
-                        <button type="button" wire:click="editTiktok({{ $account['id'] }})" title="Editar conta"
-                            class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-sky-950/60 hover:text-sky-400">
-                            <x-ui.icon name="pencil-square" class="size-4" />
-                        </button>
+                        @unless($account['isOfficial'])
+                            <button type="button" wire:click="editTiktok({{ $account['id'] }})" title="Editar conta"
+                                class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-sky-950/60 hover:text-sky-400">
+                                <x-ui.icon name="pencil-square" class="size-4" />
+                            </button>
+                        @endunless
                         <button type="button" wire:click="delete({{ $account['id'] }})" wire:confirm="Remover esta conta?" title="Remover conta"
                             class="flex size-[30px] cursor-pointer items-center justify-center rounded-lg text-slate-500 transition hover:bg-red-950/60 hover:text-red-400">
                             <x-ui.icon name="x-mark" class="size-4" />
@@ -157,7 +164,7 @@
                     @endif
                     <div class="mt-2">
                         <x-ui.badge :color="$youtubeStatus['expired'] ? 'amber' : 'green'" size="sm">
-                            {{ $youtubeStatus['expired'] ? 'Token expirado — revincule' : 'Vinculado' }}
+                            {{ $youtubeStatus['expired'] ? 'Acesso revogado — revincule' : 'Vinculado' }}
                         </x-ui.badge>
                     </div>
                 </div>

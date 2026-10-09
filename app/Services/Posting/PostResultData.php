@@ -9,7 +9,7 @@ use App\Enums\PostStatusEnum;
 final readonly class PostResultData
 {
     /**
-     * @param  'public'|'private'|null  $privacy
+     * @param  'public'|'private'|'unlisted'|null  $privacy
      */
     private function __construct(
         public PostStatusEnum $status,
@@ -20,7 +20,7 @@ final readonly class PostResultData
     ) {}
 
     /**
-     * @param  'public'|'private'  $privacy
+     * @param  'public'|'private'|'unlisted'  $privacy
      */
     public static function published(?string $url, string $privacy): self
     {

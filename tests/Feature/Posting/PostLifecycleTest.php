@@ -7,8 +7,9 @@ use App\Jobs\PublishPostJob;
 use App\Models\SocialAccount;
 use App\Models\SocialPost;
 use App\Models\YoutubeShort;
-use App\Services\Posting\PostProviderInterface;
+use App\Services\Posting\PostCloserService;
 use App\Services\Posting\PostResultData;
+use App\Services\TikTokUploader\TikTokUploaderPostService;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\Queue;
@@ -35,7 +36,7 @@ function duePost(SocialAccount $account, array $attributes = []): SocialPost
 function fakeProvider(PostResultData|Throwable $outcome, ?Closure $whileUploading = null): FakePostService
 {
     $fake = new FakePostService($outcome, $whileUploading);
-    app()->instance(PostProviderInterface::class, $fake);
+    app()->instance(TikTokUploaderPostService::class, $fake);
 
     return $fake;
 }
@@ -211,9 +212,8 @@ it('skips a post that left Posting before the job ran', function (): void {
 });
 
 it('does not overwrite a post the reaper already failed when the upload finishes late', function (PostResultData $late): void {
-    $reaperError = 'Resultado desconhecido: a postagem ficou sem resposta. Confira na plataforma antes de tentar de novo.';
-    fakeProvider($late, function (SocialPost $post) use ($reaperError): void {
-        SocialPost::query()->whereKey($post->id)->update(['status' => PostStatusEnum::Failed, 'error' => $reaperError]);
+    fakeProvider($late, function (SocialPost $post): void {
+        SocialPost::query()->whereKey($post->id)->update(['status' => PostStatusEnum::Failed, 'error' => PostCloserService::UNKNOWN_RESULT_ERROR]);
     });
     $post = duePost($this->account);
 
@@ -221,11 +221,26 @@ it('does not overwrite a post the reaper already failed when the upload finishes
 
     $post->refresh();
     expect($post->status)->toBe(PostStatusEnum::Failed)
-        ->and($post->error)->toBe($reaperError)
+        ->and($post->error)->toBe(PostCloserService::UNKNOWN_RESULT_ERROR)
         ->and($post->url)->toBeNull()
         ->and($post->external_id)->toBeNull()
         ->and($post->youtubeShort->posted_tiktok_at)->toBeNull();
 })->with([
-    'published' => fn (): PostResultData => PostResultData::published('https://www.tiktok.com/@conta/video/1', 'public'),
     'pending' => fn (): PostResultData => PostResultData::pending('job-123'),
+    'failed' => fn (): PostResultData => PostResultData::failed('Upload recusado.'),
 ]);
+
+it('publishes a post the reaper marked as unknown when the upload finishes late as published', function (): void {
+    fakeProvider(PostResultData::published('https://www.tiktok.com/@conta/video/1', 'public'), function (SocialPost $post): void {
+        SocialPost::query()->whereKey($post->id)->update(['status' => PostStatusEnum::Failed, 'error' => PostCloserService::UNKNOWN_RESULT_ERROR]);
+    });
+    $post = duePost($this->account);
+
+    $this->artisan('posts:dispatch')->assertSuccessful();
+
+    $post->refresh();
+    expect($post->status)->toBe(PostStatusEnum::Published)
+        ->and($post->error)->toBeNull()
+        ->and($post->url)->toBe('https://www.tiktok.com/@conta/video/1')
+        ->and($post->youtubeShort->posted_tiktok_at)->not->toBeNull();
+});

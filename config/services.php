@@ -51,6 +51,7 @@ return [
             'auth' => env('GOOGLE_AUTH_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth2/google/callback'),
             'youtube' => env('GOOGLE_YOUTUBE_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/youtube/callback'),
         ],
+        'youtube_app_verified' => (bool) env('GOOGLE_YOUTUBE_APP_VERIFIED', false),
         'youtube_scopes' => array_values(array_filter(array_map(
             mb_trim(...),
             explode(',', (string) env(
@@ -160,6 +161,29 @@ return [
         'max_duration' => (int) env('CUT_SUGGESTION_MAX_DURATION', 170),
         'min_gap' => (float) env('CUT_SUGGESTION_MIN_GAP', 0.0),
         'max_cuts' => (int) env('CUT_SUGGESTION_MAX_CUTS', 20),
+    ],
+
+    // Postagem no TikTok pelo microserviço TikTokUploader (:8090, não oficial):
+    // timeout curto porque a chamada só espera o 202 — o upload roda na fila
+    // do serviço e o desfecho chega pelo webhook.
+    'tiktok_uploader' => [
+        'base_url' => env('TIKTOK_UPLOADER_URL', 'http://127.0.0.1:8090'),
+        'api_token' => env('TIKTOK_UPLOADER_API_TOKEN', ''),
+        'timeout' => (int) env('TIKTOK_UPLOADER_TIMEOUT', 120),
+        'webhook_url' => env(
+            'TIKTOK_UPLOADER_WEBHOOK_URL',
+            mb_rtrim((string) env('APP_URL', 'http://localhost'), '/').'/api/webhook/tiktok-post',
+        ),
+    ],
+
+    // TikTok oficial (provider tiktok_official): Login Kit (OAuth em /contas) +
+    // Content Posting API (direct post). App sem auditoria só posta SELF_ONLY e
+    // só em conta privada: TIKTOK_OFFICIAL_AUDITED=true depois que o TikTok aprovar o app.
+    'tiktok_official' => [
+        'client_key' => env('TIKTOK_CLIENT_KEY'),
+        'client_secret' => env('TIKTOK_CLIENT_SECRET'),
+        'redirect' => env('TIKTOK_REDIRECT_URI', mb_rtrim((string) env('APP_URL'), '/').'/oauth/tiktok/callback'),
+        'audited' => (bool) env('TIKTOK_OFFICIAL_AUDITED', false),
     ],
 
     'discord' => [
