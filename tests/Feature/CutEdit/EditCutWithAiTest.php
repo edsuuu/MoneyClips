@@ -14,9 +14,11 @@ use App\Models\StockAsset;
 use App\Models\Video;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
+use Illuminate\Http\Client\Request;
 use Illuminate\Process\FakeProcessResult;
 use Illuminate\Process\PendingProcess;
 use Illuminate\Support\Facades\Bus;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -274,5 +276,60 @@ it('offers the approved stickers to claude and renders without the ones that bre
         ->and($schema['properties'])->not->toHaveKey('sfx')
         ->and($command[array_search('--system-prompt', $command, true) + 1])->toContain('#### `memes`', $sticker->id);
     Process::assertRanTimes(fn (): bool => true, 1);
+    Bus::assertDispatched(StartVideoCutEditRenderJob::class);
+});
+
+it('renders the wikipedia images it resolves with their credit and drops the ones it cannot', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Http::fake([
+        'upload.wikimedia.org/*' => Http::response((string) base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAIAAAADCAYAAAC56t6BAAAAEklEQVR4nGP4z8Dwn4GBgQEAFAUCAU2a6TQAAAAASUVORK5CYII=', true), 200, ['Content-Type' => 'image/png']),
+        '*.wikipedia.org/*' => fn (Request $request) => Http::response(['query' => ['pages' => [match (true) {
+            str_contains($request->url(), 'Banana') => ['title' => 'Banana', 'pageprops' => ['disambiguation' => '']],
+            str_contains($request->url(), 'imageinfo') => ['imageinfo' => [[
+                'thumburl' => 'https://upload.wikimedia.org/thumb/1000px-Sovaco.png',
+                'descriptionurl' => 'https://commons.wikimedia.org/wiki/File:Sovaco.png',
+                'extmetadata' => ['License' => ['value' => 'cc-by-4.0'], 'Artist' => ['value' => 'Fulano']],
+            ]]],
+            default => ['title' => 'Axila', 'pageimage' => 'Sovaco.png'],
+        }]]]),
+    ]);
+    Process::fake(['*' => claudeEditResult([...$this->fixture['spec'], 'images' => [
+        ['w' => $this->fixture['spec']['captions'][1]['w'][0], 'wikipedia_title' => 'Axila', 'lang' => 'pt', 'size' => 'card'],
+        ['w' => $this->fixture['spec']['captions'][20]['w'][0], 'wikipedia_title' => 'Banana', 'lang' => 'pt', 'size' => 'small'],
+    ]])]);
+    $edit = aiEditFor(aiEditCut($this->fixture));
+
+    runEditCutWithAi($edit);
+
+    $images = $edit->fresh()?->spec['images'] ?? [];
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Ready)
+        ->and($images)->toHaveCount(1)
+        ->and($images[0]['size'])->toBe('card')
+        ->and($images[0]['key'])->toStartWith('assets/image/')
+        ->and($images[0]['credit'])->toBe('Imagem: Fulano, CC BY https://commons.wikimedia.org/wiki/File:Sovaco.png');
+    Storage::disk('s3')->assertExists($images[0]['key']);
+    Http::assertSent(fn (Request $request): bool => str_contains($request->url(), 'titles=Banana'));
+    Bus::assertDispatched(StartVideoCutEditRenderJob::class);
+});
+
+it('renders without the image when storing it in the stock fails', function (): void {
+    Bus::fake([StartVideoCutEditRenderJob::class]);
+    Storage::disk('s3')->put('assets/image', 'um arquivo no lugar da pasta: o upload falha');
+    Http::fake([
+        'upload.wikimedia.org/*' => Http::response('png', 200, ['Content-Type' => 'image/png']),
+        '*.wikipedia.org/*' => fn (Request $request) => Http::response(['query' => ['pages' => [str_contains($request->url(), 'imageinfo')
+            ? ['imageinfo' => [['thumburl' => 'https://upload.wikimedia.org/thumb/1000px-Sovaco.png', 'descriptionurl' => 'https://commons.wikimedia.org/wiki/File:Sovaco.png', 'extmetadata' => ['License' => ['value' => 'cc0']]]]]
+            : ['title' => 'Axila', 'pageimage' => 'Sovaco.png']]]]),
+    ]);
+    Process::fake(['*' => claudeEditResult([...$this->fixture['spec'], 'images' => [
+        ['w' => $this->fixture['spec']['captions'][1]['w'][0], 'wikipedia_title' => 'Axila', 'lang' => 'pt', 'size' => 'card'],
+    ]])]);
+    $edit = aiEditFor(aiEditCut($this->fixture));
+
+    runEditCutWithAi($edit);
+
+    expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Ready)
+        ->and($edit->fresh()?->spec['images'])->toBe([]);
     Bus::assertDispatched(StartVideoCutEditRenderJob::class);
 });

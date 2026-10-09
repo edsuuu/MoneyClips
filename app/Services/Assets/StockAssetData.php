@@ -13,7 +13,7 @@ use InvalidArgumentException;
 final readonly class StockAssetData
 {
     public const string OPTIONS = '{--kind= : sfx, emoji, image, meme_sticker ou meme_clip}
-        {--license= : cc0, public_domain, pixabay, pexels, apache2, own ou own_risk}
+        {--license= : cc0, public_domain, cc_by, cc_by_sa, pixabay, pexels, apache2, own ou own_risk}
         {--tags= : separadas por vírgula}
         {--emotion=}
         {--source=manual}

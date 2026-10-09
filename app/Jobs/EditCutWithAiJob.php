@@ -7,10 +7,12 @@ namespace App\Jobs;
 use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
 use App\Exceptions\ClaudeException;
+use App\Exceptions\WikipediaImageException;
 use App\Models\VideoCut;
 use App\Models\VideoCutEdit;
 use App\Services\API\Claude\ClaudeService;
 use App\Services\API\Discord\DiscordNotifierService;
+use App\Services\API\Wikipedia\WikipediaImageService;
 use App\Services\CutEdit\CutEditAssetService;
 use App\Services\CutEdit\CutEditValidatorService;
 use Illuminate\Contracts\Database\Query\Builder;
@@ -29,6 +31,9 @@ use Throwable;
  * o Claude escreve o spec a partir das palavras do clip e dos turnos de
  * locutor, o validador confere, e o render sai direto pro estoque. Sem retry
  * da fila: cada tentativa queima o limite da assinatura.
+ *
+ * @phpstan-import-type ImageRequest from CutEditValidatorService
+ * @phpstan-import-type ImageItem from CutEditValidatorService
  */
 final class EditCutWithAiJob implements ShouldQueue
 {
@@ -53,7 +58,7 @@ final class EditCutWithAiJob implements ShouldQueue
      * @throws JsonException
      * @throws Throwable
      */
-    public function handle(ClaudeService $claude, CutEditValidatorService $validator, CutEditAssetService $stock): void
+    public function handle(ClaudeService $claude, CutEditValidatorService $validator, CutEditAssetService $stock, WikipediaImageService $wikipedia): void
     {
         $edit = VideoCutEdit::query()->with('videoCut.video')->find($this->editId);
 
@@ -98,7 +103,7 @@ final class EditCutWithAiJob implements ShouldQueue
         }
 
         if ($result['warnings'] !== []) {
-            Log::channel('daily')->warning('[WARN][CutEditAi] Itens do estoque descartados.', ['edit_id' => $edit->id, 'warnings' => $result['warnings']]);
+            Log::channel('daily')->warning('[WARN][CutEditAi] Figurinhas, imagens ou sons descartados.', ['edit_id' => $edit->id, 'warnings' => $result['warnings']]);
         }
 
         $errors = [...$result['hard'], ...$result['soft']];
@@ -111,6 +116,8 @@ final class EditCutWithAiJob implements ShouldQueue
             return;
         }
 
+        $spec = [...$result['spec'], 'images' => $this->resolveImages($result['spec']['images'], $wikipedia, $edit->id)];
+
         $claimed = VideoCutEdit::query()
             ->whereKey($edit->id)
             ->where('ai_status', TranscriptionStatusEnum::Processing->value)
@@ -118,7 +125,7 @@ final class EditCutWithAiJob implements ShouldQueue
             ->update([
                 'ai_status' => TranscriptionStatusEnum::Ready,
                 'ai_error' => null,
-                'spec' => json_encode($result['spec'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION),
+                'spec' => json_encode($spec, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION),
                 'render_status' => VideoCutStatusEnum::Generating,
                 'render_error' => null,
             ]);
@@ -156,6 +163,37 @@ final class EditCutWithAiJob implements ShouldQueue
             '❌ Edição com IA falhou',
             sprintf('Edição #%d%s%s', $this->editId, PHP_EOL, $error),
         );
+    }
+
+    /**
+     * Imagem resolvida entra no render direto (a revisão é no estoque); a que
+     * falha cai com log e o render segue: uma imagem não vale perder o spec
+     * que custou as chamadas do Claude.
+     *
+     * @param  list<ImageRequest>  $images
+     * @return list<ImageItem>
+     */
+    private function resolveImages(array $images, WikipediaImageService $wikipedia, int $editId): array
+    {
+        $resolved = [];
+
+        foreach ($images as $image) {
+            try {
+                $asset = $wikipedia->resolve($image['title'], $image['lang']);
+            } catch (WikipediaImageException $exception) {
+                Log::channel('daily')->warning('[WARN][CutEditAi] Imagem da Wikipedia descartada.', ['edit_id' => $editId, 'exception' => $exception]);
+
+                continue;
+            } catch (Throwable $throwable) {
+                Log::channel('daily')->error('[ERRO][CutEditAi] Falha ao resolver a imagem da Wikipedia — segue sem ela.', ['edit_id' => $editId, 'title' => $image['title'], 'exception' => $throwable]);
+
+                continue;
+            }
+
+            $resolved[] = ['asset_id' => $asset->id, 'key' => $asset->storage_key, 'size' => $image['size'], 't' => $image['t'], 'credit' => $asset->credit()];
+        }
+
+        return $resolved;
     }
 
     /**

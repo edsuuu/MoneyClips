@@ -276,8 +276,8 @@ it('keeps stickers at 3 per minute and 4 seconds apart', function (): void {
 
     expect(array_column($result['spec']['memes'], 'asset_id'))->toBe(['memes0', 'memes2', 'memes3'])
         ->and($result['warnings'])->toBe([
-            'memes em 4.0s: a menos de 4s da figurinha anterior',
-            'memes em 20.0s: passa de 3 por minuto',
+            'memes em 4.0s: a menos de 4s de outra figurinha',
+            'memes em 20.0s: passa de 3 figurinhas por minuto',
         ]);
 });
 
@@ -354,5 +354,61 @@ it('keeps sounds at 4 per minute, inside the clip and outside the cuts', functio
             'sfx 5: fora do clip ou dentro de um corte',
             'sfx 6: fora do clip ou dentro de um corte',
             'sfx em 17.0s: passa de 4 por minuto',
+        ]);
+});
+
+function wikipediaImage(int $word, string $title = 'Fusca', string $size = 'small'): array
+{
+    return ['w' => $word, 'wikipedia_title' => $title, 'lang' => 'pt', 'size' => $size];
+}
+
+it('shows a wikipedia image from its word to the end of the block, between 0.9 and 1.5 seconds', function (): void {
+    $short = validateStock(stockClip(70, changes: ['images' => [wikipediaImage(2), ['w' => 9, 'wikipedia_title' => '', 'lang' => 'pt', 'size' => 'card']]]), []);
+    $long = validateStock(stockClip(70, changes: [
+        'captions' => [['w' => [10, 12], 'text' => 'fala fala fala', 'style' => 'speech', 'pos' => 'bottom']],
+        'images' => [wikipediaImage(11, size: 'card')],
+    ]), []);
+
+    expect($short['spec']['images'])->toBe([['title' => 'Fusca', 'lang' => 'pt', 'size' => 'small', 't' => [2.02, 2.92]]])
+        ->and($short['warnings'])->toBe(['images 1: título, lang ou size inválido'])
+        ->and($long['spec']['images'][0]['t'])->toBe([11.02, 12.52]);
+});
+
+it('keeps at most 3 images per clip, 4 seconds apart and never the same title twice', function (): void {
+    $clip = stockClip(130, changes: ['images' => [
+        wikipediaImage(2),
+        wikipediaImage(5, 'Opala'),
+        wikipediaImage(10, 'fusca'),
+        wikipediaImage(20, 'Uno'),
+        wikipediaImage(30, 'Gol'),
+        wikipediaImage(40, 'Chevette'),
+    ]]);
+
+    $result = validateStock($clip, []);
+
+    expect(array_column($result['spec']['images'], 'title'))->toBe(['Fusca', 'Uno', 'Gol'])
+        ->and($result['warnings'])->toBe([
+            'images em 5.0s: a menos de 4s de outra figurinha',
+            'images em 10.0s: imagem repetida no clip',
+            'images em 40.0s: passa de 3 imagens no clip',
+        ]);
+});
+
+it('counts the images as stickers in the meme limits and keeps the emoji off them', function (): void {
+    $clip = stockClip(70, changes: [
+        'images' => [wikipediaImage(2), wikipediaImage(10, 'Opala')],
+        'memes' => [['asset_id' => 'memes0', 'w' => 4], ['asset_id' => 'memes1', 'w' => 20], ['asset_id' => 'memes2', 'w' => 30]],
+        'emoji' => [['asset_id' => 'emoji0', 'w' => 10]],
+    ]);
+
+    $result = validateStock($clip, [...stockFor('memes', 3), ...stockFor('emoji', 1)]);
+
+    expect(array_column($result['spec']['images'], 'title'))->toBe(['Fusca', 'Opala'])
+        ->and(array_column($result['spec']['memes'], 'asset_id'))->toBe(['memes1'])
+        ->and($result['spec']['emoji'])->toBe([])
+        ->and($result['warnings'])->toBe([
+            'memes em 4.0s: a menos de 4s de outra figurinha',
+            'memes em 30.0s: passa de 3 figurinhas por minuto',
+            'emoji em 10.0s: em cima de uma figurinha',
         ]);
 });

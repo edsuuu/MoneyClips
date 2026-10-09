@@ -166,4 +166,12 @@ return [
         'webhook' => env('DISCORD_WEBHOOK_URL', ''),
     ],
 
+    // Imagem contextual da edição por IA (pageimages + extmetadata). A política
+    // da Wikimedia exige User-Agent com contato; `%s` vira o idioma (pt|en).
+    'wikipedia' => [
+        'api_url' => env('WIKIPEDIA_API_URL', 'https://%s.wikipedia.org/w/api.php'),
+        'user_agent' => env('WIKIPEDIA_USER_AGENT', 'MoneyClips/1.0 (https://github.com/edsuuu/MoneyClips)'),
+        'timeout' => (int) env('WIKIPEDIA_TIMEOUT', 15),
+    ],
+
 ];

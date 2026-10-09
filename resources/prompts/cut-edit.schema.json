@@ -51,6 +51,21 @@
     },
     "title": { "type": "string" },
     "hashtags": { "type": "array", "items": { "type": "string" } },
+    "images": {
+      "type": "array",
+      "description": "foto da COISA que a fala nomeia (objeto, comida, animal, veículo, lugar), tirada da Wikipedia. Nunca pessoa real, marca cujo atrativo é o logo, bandeira ou brasão. No máximo 3 por clip, 4s ou mais de outra imagem ou figurinha",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["w", "wikipedia_title", "lang", "size"],
+        "properties": {
+          "w": { "type": "integer", "description": "índice da palavra que nomeia a coisa" },
+          "wikipedia_title": { "type": "string", "description": "título EXATO do artigo, com a desambiguação quando houver: Pastel (culinária)" },
+          "lang": { "type": "string", "enum": ["pt", "en"], "description": "pt; en só quando não existe artigo em pt" },
+          "size": { "type": "string", "enum": ["card", "small"], "description": "card: o objeto do tema, grande no meio da tela; small: menção de passagem, quadradinho acima da legenda" }
+        }
+      }
+    },
     "memes": {
       "type": "array",
       "description": "figurinha de reação pequena acima da legenda, durante o bloco da palavra w. Liga com o que a fala nomeia ou com a emoção do instante. No máximo 3 por minuto e 5 nos primeiros 25s, com 4s ou mais entre uma e outra",

@@ -120,6 +120,12 @@
                     <input type="text" wire:model="editHashtags" placeholder="#shorts #podcast"
                         class="w-full rounded-[9px] border border-slate-700 bg-slate-950 px-3 py-2 font-mono text-[13px] text-sky-700 dark:text-sky-300 outline-none focus:border-sky-500" />
                 </div>
+                @if ($editingCredits !== '')
+                    <div>
+                        <div class="mb-1.5 font-mono text-[10.5px] tracking-[0.08em] text-slate-500">CRÉDITOS</div>
+                        <div class="select-all whitespace-pre-line break-all rounded-[9px] border border-slate-700 bg-slate-950 px-3 py-2 text-[12.5px] text-slate-300">{{ $editingCredits }}</div>
+                    </div>
+                @endif
                 <div class="mt-1 flex justify-end gap-2">
                     <x-ui.button variant="outline" wire:click="closeEdit">Fechar</x-ui.button>
                     <x-ui.button wire:click="saveEdit">Salvar</x-ui.button>

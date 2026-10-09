@@ -84,6 +84,16 @@ O enquadramento no rosto de quem fala, a troca seca entre locutores e o ritmo 1.
 - `title`: frase ou palavra LITERAL da piada, com CAIXA ALTA parcial, mais 😂😂😂, mais o @ do canal fonte quando dá para deduzir pelo nome do vídeo. Pode levar o contexto que ficou fora do corte, mas não pode mentir. Exemplos: "PAUL tirando JACQUIN pra LOUCO 😂😂😂", "CASTANHARI beijou o SOVACO de língua 😂😂😂 @programapanico".
 - `hashtags`: de 4 a 6, cada uma começando com #, sem repetir: #cortes, #podcast (ou o formato do programa), o convidado, o programa e 1 de nicho.
 
+## Imagens (`images`)
+
+Foto da coisa que a fala NOMEIA, puxada da Wikipedia pelo título do artigo. Só quando a coisa é o assunto ou a piada ("no J3", "o bagulho da Brastemp", "a cueca do Piu-Piu"), nunca para ilustrar uma palavra qualquer.
+
+- Só objeto, comida, animal, veículo ou lugar. NUNCA pessoa real (nem famoso, nem o convidado), marca cujo atrativo é o logo, bandeira ou brasão.
+- `wikipedia_title` é o título EXATO do artigo, com a desambiguação entre parênteses quando o nome é ambíguo ("Pastel (culinária)", "Opala (automóvel)"). Na dúvida sobre o título exato, sem imagem.
+- `lang: "pt"`; `en` só quando a coisa não tem artigo em português.
+- `size: "card"` para o objeto do tema (grande, no meio da tela); `small` para a menção de passagem (quadradinho acima da legenda).
+- Concentre no gancho (primeiros 25s) e nas punchlines. NUNCA durante explicação. No máximo 3 por clip, com 4s ou mais entre uma imagem e outra imagem ou figurinha.
+
 ## Proibido nesta edição
 
 Gancho escrito no topo, efeito de tremer, preto e branco e emoji dentro do texto de legenda ou nota. Figurinha, meme, emoji na tela e efeito sonoro só entram pela seção **Figurinhas, memes e sons**, quando ela existir no fim deste prompt; sem ela, nada disso entra no spec.

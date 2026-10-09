@@ -19,6 +19,8 @@ use Illuminate\Support\Arr;
  * shorts do gusta.
  *
  * @phpstan-type StockAssetItem array{asset_id: string, key: string, t: array{0: float, 1: float}, has_audio: bool}
+ * @phpstan-type ImageRequest array{title: string, lang: string, size: string, t: array{0: float, 1: float}}
+ * @phpstan-type ImageItem array{asset_id: string, key: string, size: string, t: array{0: float, 1: float}, credit: string|null}
  */
 final readonly class CutEditValidatorService
 {
@@ -66,15 +68,25 @@ final readonly class CutEditValidatorService
 
     private const float HOOK = 25.0;
 
-    private const int MAX_HOOK_MEMES = 5;
+    private const int MAX_HOOK_STICKERS = 5;
 
-    private const float MIN_MEME_GAP = 4.0;
+    private const float MIN_STICKER_GAP = 4.0;
+
+    private const int MAX_IMAGES = 3;
+
+    private const float MIN_IMAGE_SECONDS = 0.9;
+
+    private const float MAX_IMAGE_SECONDS = 1.5;
+
+    private const array IMAGE_LANGS = ['pt', 'en'];
+
+    private const array IMAGE_SIZES = ['card', 'small'];
 
     /**
      * @param  array<mixed>  $spec
      * @param  list<array{word: string, start: float, end: float}>  $words
      * @param  array<string, array<string, StockAsset>>  $assets
-     * @return array{hard: list<string>, soft: list<string>, warnings: list<string>, spec: array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>, memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}}
+     * @return array{hard: list<string>, soft: list<string>, warnings: list<string>, spec: array{version: int, caption_preset: string, cuts: list<array{0: float, 1: float}>, captions: list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>, punches: list<array{t: array{0: float, 1: float}, kind: string}>, title: string, hashtags: list<string>, images: list<ImageRequest>, memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}}
      */
     public function validate(array $spec, array $words, float $duration, array $assets = []): array
     {
@@ -130,7 +142,8 @@ final readonly class CutEditValidatorService
         $punches = $this->punches($spec['punches'] ?? [], $duration, $soft);
 
         $warnings = [];
-        $stock = $this->stockAssets($spec, $assets, $captions, $words, $cuts, $duration, $kept, $warnings);
+        $images = $this->images($spec['images'] ?? [], $captions, $words, $cuts, $duration, $kept, $warnings);
+        $stock = $this->stockAssets($spec, $assets, $images, $captions, $words, $cuts, $duration, $kept, $warnings);
 
         $title = is_string($spec['title'] ?? null) ? mb_trim($spec['title']) : '';
         $rawTags = array_values(array_filter(Arr::wrap($spec['hashtags'] ?? []), is_string(...)));
@@ -156,6 +169,7 @@ final readonly class CutEditValidatorService
                 'punches' => $punches,
                 'title' => $title,
                 'hashtags' => $hashtags,
+                'images' => $images,
                 ...$stock,
             ],
         ];
@@ -167,13 +181,14 @@ final readonly class CutEditValidatorService
      *
      * @param  array<mixed>  $spec
      * @param  array<string, array<string, StockAsset>>  $assets
+     * @param  list<ImageRequest>  $images
      * @param  list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>  $captions
      * @param  list<array{word: string, start: float, end: float}>  $words
      * @param  list<array{0: float, 1: float}>  $cuts
      * @param  list<string>  $warnings
      * @return array{memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}
      */
-    private function stockAssets(array $spec, array $assets, array $captions, array $words, array $cuts, float $duration, float $kept, array &$warnings): array
+    private function stockAssets(array $spec, array $assets, array $images, array $captions, array $words, array $cuts, float $duration, float $kept, array &$warnings): array
     {
         $minutes = max($kept, 1.0) / 60;
         $placed = ['memes' => [], 'meme_clips' => [], 'emoji' => [], 'sfx' => []];
@@ -209,7 +224,7 @@ final readonly class CutEditValidatorService
             usort($candidates, static fn (array $a, array $b): int => $a['t'][0] <=> $b['t'][0]);
 
             foreach ($candidates as $candidate) {
-                $limit = $this->assetLimit($field, $candidate, $placed, $rate, $minutes, $cuts);
+                $limit = $this->assetLimit($field, $candidate, $placed, $images, $rate, $minutes, $cuts);
 
                 if (! is_null($limit)) {
                     $warnings[] = sprintf('%s em %.1fs: %s', $field, $candidate['t'][0], $limit);
@@ -225,11 +240,89 @@ final readonly class CutEditValidatorService
     }
 
     /**
-     * @param  StockAssetItem  $candidate
-     * @param  array{memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}  $placed
+     * Imagem da Wikipedia: entra na palavra que nomeia a coisa e fica até o
+     * fim do bloco dela, entre 0,9 e 1,5s. Ocupa os tetos de figurinha antes
+     * dos memes, porque é a coisa que a fala nomeia.
+     *
+     * @param  list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>  $captions
+     * @param  list<array{word: string, start: float, end: float}>  $words
+     * @param  list<array{0: float, 1: float}>  $cuts
+     * @param  list<string>  $warnings
+     * @return list<ImageRequest>
+     */
+    private function images(mixed $raw, array $captions, array $words, array $cuts, float $duration, float $kept, array &$warnings): array
+    {
+        $minutes = max($kept, 1.0) / 60;
+        $candidates = [];
+
+        foreach (Arr::wrap($raw) as $index => $item) {
+            $title = is_array($item) && is_string($item['wikipedia_title'] ?? null) ? mb_trim($item['wikipedia_title']) : '';
+            $lang = is_array($item) ? ($item['lang'] ?? null) : null;
+            $size = is_array($item) ? ($item['size'] ?? null) : null;
+
+            if ($title === '' || ! in_array($lang, self::IMAGE_LANGS, true) || ! in_array($size, self::IMAGE_SIZES, true)) {
+                $warnings[] = sprintf('images %d: título, lang ou size inválido', $index);
+
+                continue;
+            }
+
+            $span = $this->imageSpan($item['w'] ?? null, $captions, $words, $cuts, $duration);
+
+            if (is_string($span)) {
+                $warnings[] = sprintf('images %d: %s', $index, $span);
+
+                continue;
+            }
+
+            $candidates[] = ['title' => $title, 'lang' => $lang, 'size' => $size, 't' => $span];
+        }
+
+        usort($candidates, static fn (array $a, array $b): int => $a['t'][0] <=> $b['t'][0]);
+
+        $placed = [];
+
+        foreach ($candidates as $candidate) {
+            $limit = $this->imageLimit($candidate, $placed, $minutes, $cuts);
+
+            if (! is_null($limit)) {
+                $warnings[] = sprintf('images em %.1fs: %s', $candidate['t'][0], $limit);
+
+                continue;
+            }
+
+            $placed[] = $candidate;
+        }
+
+        return $placed;
+    }
+
+    /**
+     * @param  ImageRequest  $candidate
+     * @param  list<ImageRequest>  $placed
      * @param  list<array{0: float, 1: float}>  $cuts
      */
-    private function assetLimit(string $field, array $candidate, array $placed, float $rate, float $minutes, array $cuts): ?string
+    private function imageLimit(array $candidate, array $placed, float $minutes, array $cuts): ?string
+    {
+        foreach ($placed as $image) {
+            if (mb_strtolower($image['title']) === mb_strtolower($candidate['title'])) {
+                return 'imagem repetida no clip';
+            }
+        }
+
+        if (count($placed) >= self::MAX_IMAGES) {
+            return sprintf('passa de %d imagens no clip', self::MAX_IMAGES);
+        }
+
+        return $this->stickerLimit($candidate['t'], $placed, self::ASSET_RATES['memes'], $minutes, $cuts);
+    }
+
+    /**
+     * @param  StockAssetItem  $candidate
+     * @param  array{memes: list<StockAssetItem>, meme_clips: list<StockAssetItem>, emoji: list<StockAssetItem>, sfx: list<StockAssetItem>}  $placed
+     * @param  list<ImageRequest>  $images
+     * @param  list<array{0: float, 1: float}>  $cuts
+     */
+    private function assetLimit(string $field, array $candidate, array $placed, array $images, float $rate, float $minutes, array $cuts): ?string
     {
         $same = $placed[$field] ?? [];
 
@@ -237,30 +330,77 @@ final readonly class CutEditValidatorService
             return 'asset repetido no clip';
         }
 
+        if ($field === 'memes') {
+            return $this->stickerLimit($candidate['t'], [...$images, ...$same], $rate, $minutes, $cuts);
+        }
+
         if (count($same) + 1 > $rate * $minutes) {
             return sprintf('passa de %g por minuto', $rate);
         }
 
-        if ($field === 'emoji' && array_any($placed['memes'], static fn (array $meme): bool => $meme['t'][0] < $candidate['t'][1] && $meme['t'][1] > $candidate['t'][0])) {
+        if ($field === 'emoji' && array_any([...$images, ...$placed['memes']], static fn (array $sticker): bool => $sticker['t'][0] < $candidate['t'][1] && $sticker['t'][1] > $candidate['t'][0])) {
             return 'em cima de uma figurinha';
         }
 
-        if ($field !== 'memes' || $same === []) {
-            return null;
+        return null;
+    }
+
+    /**
+     * Figurinha = meme ou imagem da Wikipedia: os tetos valem pras duas
+     * somadas, no tempo do vídeo final.
+     *
+     * @param  array{0: float, 1: float}  $span
+     * @param  list<array{t: array{0: float, 1: float}, ...}>  $stickers
+     * @param  list<array{0: float, 1: float}>  $cuts
+     */
+    private function stickerLimit(array $span, array $stickers, float $rate, float $minutes, array $cuts): ?string
+    {
+        if (count($stickers) + 1 > $rate * $minutes) {
+            return sprintf('passa de %g figurinhas por minuto', $rate);
         }
 
-        $start = $this->outputTime($candidate['t'][0], $cuts);
-        $hook = array_filter($same, fn (array $meme): bool => $this->outputTime($meme['t'][0], $cuts) < self::HOOK);
+        $start = $this->outputTime($span[0], $cuts);
+        $hook = 0;
 
-        if ($start < self::HOOK && count($hook) >= self::MAX_HOOK_MEMES) {
-            return sprintf('passa de %d figurinhas nos primeiros %gs', self::MAX_HOOK_MEMES, self::HOOK);
+        foreach ($stickers as $sticker) {
+            $other = $this->outputTime($sticker['t'][0], $cuts);
+
+            if (abs($start - $other) < self::MIN_STICKER_GAP) {
+                return sprintf('a menos de %gs de outra figurinha', self::MIN_STICKER_GAP);
+            }
+
+            $hook += $other < self::HOOK ? 1 : 0;
         }
 
-        if ($start - $this->outputTime($same[count($same) - 1]['t'][0], $cuts) < self::MIN_MEME_GAP) {
-            return sprintf('a menos de %gs da figurinha anterior', self::MIN_MEME_GAP);
+        if ($start < self::HOOK && $hook >= self::MAX_HOOK_STICKERS) {
+            return sprintf('passa de %d figurinhas nos primeiros %gs', self::MAX_HOOK_STICKERS, self::HOOK);
         }
 
         return null;
+    }
+
+    /**
+     * @param  list<array{t: array{0: float, 1: float}, text: string, style: string, pos: string}>  $captions
+     * @param  list<array{word: string, start: float, end: float}>  $words
+     * @param  list<array{0: float, 1: float}>  $cuts
+     * @return array{0: float, 1: float}|string
+     */
+    private function imageSpan(mixed $index, array $captions, array $words, array $cuts, float $duration): array|string
+    {
+        if (! is_int($index) || ! isset($words[$index])) {
+            return 'índice w inválido';
+        }
+
+        $block = $this->blockSpan($index, $captions, $words, $cuts);
+
+        if (is_string($block)) {
+            return $block;
+        }
+
+        $start = max($block[0], round($words[$index]['start'] - self::LEAD_IN, 2));
+        $end = min($start + self::MAX_IMAGE_SECONDS, max($block[1], $start + self::MIN_IMAGE_SECONDS), $duration);
+
+        return [$start, round($end, 2)];
     }
 
     /**

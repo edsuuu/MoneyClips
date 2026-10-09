@@ -6,6 +6,7 @@ namespace App\Livewire\Videos;
 
 use App\Helpers\Hashtags;
 use App\Livewire\Concerns\WithToasts;
+use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use App\Services\DownloadYoutube\DownloadShortsService;
 use Illuminate\Database\Eloquent\Builder;
@@ -122,6 +123,18 @@ final class Index extends Component
             report($throwable);
             $this->toast('Não foi possível iniciar o download: '.$throwable->getMessage(), 'danger');
         }
+    }
+
+    /**
+     * Imagem CC BY/BY-SA exige crédito na postagem: sai do spec da edição
+     * que gerou o Short, uma linha por imagem.
+     */
+    private function credits(YoutubeShort $short): string
+    {
+        $spec = VideoCutEdit::query()->where('youtube_short_id', $short->id)->latest('id')->first()?->spec;
+        $credits = array_filter(array_column($spec['images'] ?? [], 'credit'));
+
+        return implode(PHP_EOL, array_unique($credits));
     }
 
     /** @return Builder<YoutubeShort> */
@@ -258,6 +271,7 @@ final class Index extends Component
             ],
             'editingVideo' => $editing,
             'editingUrl' => $editing instanceof YoutubeShort ? $editing->presignedUrl() : null,
+            'editingCredits' => $editing instanceof YoutubeShort ? $this->credits($editing) : '',
         ]);
     }
 }

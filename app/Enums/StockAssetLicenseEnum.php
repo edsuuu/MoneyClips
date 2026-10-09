@@ -8,6 +8,8 @@ enum StockAssetLicenseEnum: string
 {
     case Cc0 = 'cc0';
     case PublicDomain = 'public_domain';
+    case CcBy = 'cc_by';
+    case CcBySa = 'cc_by_sa';
     case Pixabay = 'pixabay';
     case Pexels = 'pexels';
     case Apache2 = 'apache2';

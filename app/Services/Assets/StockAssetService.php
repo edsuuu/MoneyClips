@@ -71,7 +71,7 @@ final class StockAssetService
     {
         $empty = ['duration_ms' => null, 'width' => null, 'height' => null];
 
-        if (in_array($extension, ['png', 'webp'], true)) {
+        if (in_array($extension, ['png', 'jpg', 'jpeg', 'webp'], true)) {
             $size = @getimagesize($path);
 
             return $size === false ? $this->probeFailed($path, $empty) : ['duration_ms' => null, 'width' => $size[0], 'height' => $size[1]];
