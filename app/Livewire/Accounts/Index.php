@@ -216,8 +216,9 @@ final class Index extends Component
     }
 
     /**
-     * Desligar a Automática cancela os agendados dela; ligar a Automática já
-     * preenche a conta (trazendo de volta o que o desligar cancelou).
+     * Desligar tira os agendados da conta: a Automática apaga (religada, o
+     * preenchimento devolve), a Manual cancela (foram escolhidos à mão).
+     * Ligar a Automática já preenche a conta.
      *
      * @throws RuntimeException
      */
@@ -225,18 +226,18 @@ final class Index extends Component
     {
         $scheduler = resolve(PostSchedulerService::class);
 
-        if ($previous === SocialAccountModeEnum::Auto && $chosen === SocialAccountModeEnum::Off) {
-            $canceled = $scheduler->cancelScheduled($account);
+        if ($previous !== SocialAccountModeEnum::Off && $chosen === SocialAccountModeEnum::Off) {
+            $removed = $previous === SocialAccountModeEnum::Auto ? $scheduler->deleteScheduled($account) : $scheduler->cancelScheduled($account);
 
-            return match ($canceled) {
+            return match ($removed) {
                 0 => '',
                 1 => ' 1 postagem cancelada.',
-                default => sprintf(' %d postagens canceladas.', $canceled),
+                default => sprintf(' %d postagens canceladas.', $removed),
             };
         }
 
         if ($previous !== SocialAccountModeEnum::Auto && $chosen === SocialAccountModeEnum::Auto) {
-            $filled = $scheduler->fillAccount($account, reviveCanceled: true);
+            $filled = $scheduler->fillAccount($account);
 
             return match ($filled) {
                 0 => '',
@@ -252,7 +253,7 @@ final class Index extends Component
     private function modeOptions(SocialAccount $account): array
     {
         $current = $account->mode();
-        $scheduled = $current === SocialAccountModeEnum::Auto ? $account->socialPosts()->where('status', PostStatusEnum::Scheduled)->count() : 0;
+        $scheduled = $current !== SocialAccountModeEnum::Off ? $account->socialPosts()->where('status', PostStatusEnum::Scheduled)->count() : 0;
 
         return array_map(fn (SocialAccountModeEnum $mode): array => [
             'value' => $mode->value,

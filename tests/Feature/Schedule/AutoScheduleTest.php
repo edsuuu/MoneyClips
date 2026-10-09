@@ -188,7 +188,7 @@ it('refuses Automatic on a disconnected account', function (): void {
     expect($account->refresh()->mode())->toBe(SocialAccountModeEnum::Manual);
 });
 
-it('cancels the scheduled posts of an Automatic account turned off, without Discord, and brings them back when it turns Automatic again', function (): void {
+it('takes the scheduled posts out of an Automatic account turned off, without Discord, and fills them back when it turns Automatic again', function (): void {
     config(['posting.per_day' => 2]);
     $account = autoAccount($this->creator, 'tiktok');
     $other = autoAccount($this->creator, 'youtube');
@@ -200,17 +200,51 @@ it('cancels the scheduled posts of an Automatic account turned off, without Disc
         ->call('setMode', $account->id, 'off')
         ->assertDispatched('toast', message: 'Conta em modo Desligada. 2 postagens canceladas.', variant: 'success');
 
-    expect($account->socialPosts()->where('status', PostStatusEnum::Canceled)->count())->toBe(2)
+    expect($account->socialPosts()->count())->toBe(0)
         ->and($other->socialPosts()->where('status', PostStatusEnum::Scheduled)->count())->toBe(2);
 
     $this->artisan('posts:fill')->assertSuccessful();
-    expect($account->socialPosts()->where('status', PostStatusEnum::Scheduled)->count())->toBe(0);
+    expect($account->socialPosts()->count())->toBe(0);
 
     Livewire::test(AccountsIndex::class)
         ->call('setMode', $account->id, 'auto')
         ->assertDispatched('toast', message: 'Conta em modo Automática. 2 Shorts agendados.', variant: 'success');
 
     expect($account->socialPosts()->where('status', PostStatusEnum::Scheduled)->count())->toBe(2);
+    Http::assertNothingSent();
+});
+
+it('keeps the owner cancel when the account turns Automatic again', function (SocialAccountModeEnum $via): void {
+    $account = autoAccount($this->creator, 'tiktok');
+    $short = YoutubeShort::factory()->for($this->creator)->ready()->create();
+    $this->artisan('posts:fill')->assertSuccessful();
+    $post = $account->socialPosts()->sole();
+    Livewire::test(ScheduleIndex::class)->call('cancelPost', $post->id);
+
+    $this->artisan('posts:fill')->assertSuccessful();
+    Livewire::test(AccountsIndex::class)->call('setMode', $account->id, $via->value);
+    Livewire::test(AccountsIndex::class)->call('setMode', $account->id, 'auto');
+
+    expect($account->socialPosts()->sole()->status)->toBe(PostStatusEnum::Canceled)
+        ->and($post->youtube_short_id)->toBe($short->id);
+})->with([SocialAccountModeEnum::Manual, SocialAccountModeEnum::Off]);
+
+it('cancels the scheduled posts of a Manual account turned off, so none of them fails or warns Discord', function (): void {
+    $account = autoAccount($this->creator, 'tiktok', SocialAccountModeEnum::Manual);
+    $short = YoutubeShort::factory()->for($this->creator)->ready()->create();
+    resolve(PostSchedulerService::class)->schedule($short, $account);
+
+    Livewire::test(AccountsIndex::class)
+        ->assertSeeHtml('wire:confirm="1 postagem agendada será cancelada."')
+        ->call('setMode', $account->id, 'off')
+        ->assertDispatched('toast', message: 'Conta em modo Desligada. 1 postagem cancelada.', variant: 'success');
+
+    expect($account->socialPosts()->sole()->status)->toBe(PostStatusEnum::Canceled);
+
+    $this->travel(2)->days();
+    $this->artisan('posts:dispatch')->assertSuccessful();
+
+    expect($account->socialPosts()->sole()->status)->toBe(PostStatusEnum::Canceled);
     Http::assertNothingSent();
 });
 

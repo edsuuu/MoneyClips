@@ -32,7 +32,7 @@ horário o dispatcher manda "publicar agora".
 | Published | Postado | job (provider síncrono) ou webhook |
 | Failed | Falhou | provider recusou, vídeo ausente, conta bloqueada, exceção no job, reaper |
 | Missed | Perdeu o horário | passou de `grace_minutes` sem sair (servidor/worker fora do ar) |
-| Canceled | Cancelado | dono |
+| Canceled | Cancelado | dono (× na agenda, ou desligar a conta Manual) |
 
 Regras que não se negociam:
 
@@ -46,7 +46,8 @@ Regras que não se negociam:
   `UPDATE ... WHERE status = 'scheduled'` (dois ticks ou dois workers nunca
   reivindicam a mesma linha).
 - Conta desativada ou com `session_status = invalid` na hora do post → Failed
-  com o motivo, na hora, com Discord.
+  com o motivo, na hora, com Discord. (Desligar em `/contas` já tira os
+  agendados da conta; isto pega o que sobrar.)
 
 ## Horários (`config/posting.php`, tudo sobrescrevível por env)
 
@@ -251,11 +252,16 @@ Risco de ban aceito pelo dono: o microserviço (`MicroServices/TikTokUploader`,
   tem qualquer linha daquele Short (inclusive Cancelada) fica de fora:
   cancelar é definitivo pro automático. Já postado só bloqueia a plataforma
   em que saiu (`posted_{platform}_at`).
-- Ligar a Automática já preenche a conta na hora (`fillAccount`) e traz de
-  volta as linhas Canceladas dela. Desligar uma conta Automática cancela os
-  agendados dela (`cancelScheduled`, com `wire:confirm`), em vez de deixar
-  cada um virar Falhou com Discord na hora marcada. Conta com sessão inválida
-  não aceita a Automática ("Reconecte a conta").
+- Ligar a Automática já preenche a conta na hora (`fillAccount`), sem
+  desfazer nenhuma linha Cancelada: o × do dono vale pra sempre.
+- Desligar uma conta tira os agendados dela (com `wire:confirm`), em vez de
+  deixar cada um virar Falhou com Discord na hora marcada:
+  - **Automática** → os Scheduled são APAGADOS (`deleteScheduled`; linha
+    Scheduled não tem desfecho, nada se perde). Religada, o preenchimento
+    normal devolve esses Shorts e o que o dono cancelou segue Cancelado.
+  - **Manual** → os Scheduled viram Cancelados (`cancelScheduled`): foram
+    escolhidos à mão e a linha guarda o registro.
+- Conta com sessão inválida não aceita a Automática ("Reconecte a conta").
 - `posts:fill` (de hora em hora) preenche o que faltou, do pronto mais antigo
   pro mais novo, e avisa no Discord (`services.discord.webhook`) quando os
   agendados futuros de uma conta Automática são menos do que cabe num dia

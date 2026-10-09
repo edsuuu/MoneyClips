@@ -151,16 +151,15 @@ final class PostSchedulerService
 
     /**
      * Os prontos do dono que ainda não estão na conta, do mais antigo pro
-     * mais novo. Ao religar o Automático (`$reviveCanceled`) a linha Cancelada
-     * volta: foi o desligar que cancelou, e o dono pediu o Automático de novo.
+     * mais novo. Qualquer linha conta como "já está", inclusive a Cancelada:
+     * o × do dono é definitivo.
      *
      * @throws RuntimeException
      */
-    public function fillAccount(SocialAccount $account, bool $reviveCanceled = false): int
+    public function fillAccount(SocialAccount $account): int
     {
         $taken = SocialPost::query()
             ->where('social_account_id', $account->id)
-            ->when($reviveCanceled, fn (Builder $query): Builder => $query->where('status', '!=', PostStatusEnum::Canceled))
             ->select('youtube_short_id');
 
         $shorts = YoutubeShort::query()
@@ -176,8 +175,22 @@ final class PostSchedulerService
     }
 
     /**
-     * Desligar uma conta Automática cancela os agendados dela: senão cada um
-     * vira Falhou (com Discord) na hora marcada.
+     * Desligar uma conta Automática APAGA os agendados dela (linha Scheduled
+     * não tem desfecho, nada se perde): religada, o preenchimento devolve o
+     * que saiu daqui sem confundir com o que o dono cancelou no ×.
+     */
+    public function deleteScheduled(SocialAccount $account): int
+    {
+        return (int) SocialPost::query()
+            ->where('social_account_id', $account->id)
+            ->where('status', PostStatusEnum::Scheduled)
+            ->delete();
+    }
+
+    /**
+     * Desligar uma conta Manual cancela os agendados dela: foram escolhidos à
+     * mão, a linha Cancelada guarda o registro e não vira Falhou (com Discord)
+     * na hora marcada.
      */
     public function cancelScheduled(SocialAccount $account): int
     {
