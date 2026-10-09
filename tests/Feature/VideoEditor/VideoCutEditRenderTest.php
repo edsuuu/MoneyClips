@@ -235,6 +235,42 @@ it('stocks the short with the spec title and keeps an edited title on re-render'
         ->and(YoutubeShort::query()->where('youtube_id', 'reframe-'.$edit->uuid)->count())->toBe(1);
 });
 
+it('replaces the old automatic or empty title of an existing short with the spec title', function (string $kind): void {
+    config(['services.observability.token' => 'test-token']);
+    $edit = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);
+    $edit->update(['spec' => editSpec()]);
+    YoutubeShort::factory()->create([
+        'youtube_id' => 'reframe-'.$edit->uuid,
+        'title' => $kind === 'empty' ? '' : $edit->videoCut->video->name,
+        'hashtags' => null,
+    ]);
+
+    $this->postJson('/api/webhook/video-cut-edit', ['edit_uuid' => $edit->uuid, 'status' => 'done'], ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    $short = YoutubeShort::query()->where('youtube_id', 'reframe-'.$edit->uuid)->firstOrFail();
+
+    expect($short->title)->toBe(editSpec()['title'])
+        ->and($short->hashtags)->toBe(editSpec()['hashtags']);
+})->with(['empty', 'video name']);
+
+it('keeps hand-edited hashtags while replacing an automatic title', function (): void {
+    config(['services.observability.token' => 'test-token']);
+    $edit = makeEditForRender($this->user, VideoCutStatusEnum::Generating->value);
+    $edit->update(['spec' => editSpec()]);
+    YoutubeShort::factory()->create([
+        'youtube_id' => 'reframe-'.$edit->uuid,
+        'title' => $edit->videoCut->video->name,
+        'hashtags' => ['#dono'],
+    ]);
+
+    $this->postJson('/api/webhook/video-cut-edit', ['edit_uuid' => $edit->uuid, 'status' => 'done'], ['X-Observability-Token' => 'test-token'])->assertOk();
+
+    $short = YoutubeShort::query()->where('youtube_id', 'reframe-'.$edit->uuid)->firstOrFail();
+
+    expect($short->title)->toBe(editSpec()['title'])
+        ->and($short->hashtags)->toBe(['#dono']);
+});
+
 it('composes the punches at render time and reapplies them after the framing is adjusted', function (): void {
     Http::fake(['*/reframe' => Http::response(['uuid' => 'job'], 202)]);
     $edit = makeEditForRender($this->user);

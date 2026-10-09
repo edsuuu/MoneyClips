@@ -94,7 +94,10 @@ final class VideoCutEditWebhookController extends Controller
             );
 
             // Título e hashtags só no primeiro render: num re-render o dono
-            // pode já ter editado os dois em /meus-videos.
+            // pode já ter editado os dois em /meus-videos. Exceção: short
+            // já existente com título vazio ou igual ao nome do vídeo (o
+            // automático antigo ou o do corte) recebe o título do spec, e as
+            // hashtags também se ainda forem as automáticas.
             $short = YoutubeShort::query()->firstOrNew(
                 ['youtube_id' => 'reframe-'.$edit->uuid],
                 [
@@ -102,6 +105,18 @@ final class VideoCutEditWebhookController extends Controller
                     'hashtags' => ($edit->spec['hashtags'] ?? null) ?: $cut->hashtags,
                 ],
             );
+
+            $specTitle = mb_trim((string) ($edit->spec['title'] ?? ''));
+
+            if ($short->exists && $specTitle !== '' && (blank($short->title) || in_array($short->title, [$video->name, $cut->title], true))) {
+                $autoHashtags = blank($short->hashtags) || $short->hashtags === $cut->hashtags;
+
+                $short->fill([
+                    'title' => $specTitle,
+                    'hashtags' => $autoHashtags ? (($edit->spec['hashtags'] ?? null) ?: $short->hashtags) : $short->hashtags,
+                ]);
+            }
+
             $short->fill(['video_path' => $renderedPath, 'downloaded_at' => now()])->save();
 
             VideoCutEdit::query()->whereKey($edit->id)->update(['youtube_short_id' => $short->id]);
