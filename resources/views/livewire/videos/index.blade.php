@@ -1,4 +1,4 @@
-<section class="flex w-full flex-col gap-6">
+<section class="flex w-full flex-col gap-6" @if ($isRedoing) wire:poll.5s @endif>
     <div class="flex flex-wrap items-start justify-between gap-6">
         <div>
             <div class="mb-2 font-mono text-[11px] tracking-[0.1em] text-slate-500">MEUS VÍDEOS</div>

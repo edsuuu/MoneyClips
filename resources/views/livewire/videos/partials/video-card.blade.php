@@ -50,6 +50,47 @@
         </div>
     </div>
 
+    @if ($video['canRedo'])
+        <div x-data="{ asking: false, change: '' }" class="flex flex-col gap-2">
+            <button
+                type="button"
+                x-on:click="asking = !asking"
+                @disabled($video['isRedoing'])
+                class="flex cursor-pointer items-center justify-center gap-1.5 rounded-[9px] bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-2 text-[12.5px] font-bold text-white transition hover:from-sky-500 hover:to-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+                @if ($video['isRedoing'])
+                    <x-ui.icon name="loading" class="size-3" />
+                    Refazendo…
+                @else
+                    <x-ui.icon name="sparkles" class="size-3" />
+                    Refazer com IA
+                @endif
+            </button>
+
+            <div x-show="asking" x-cloak class="flex gap-2">
+                <input
+                    type="text"
+                    x-model="change"
+                    maxlength="300"
+                    aria-label="O que mudar no Short"
+                    placeholder="O que mudar? (mais memes, zoom no grito...)"
+                    class="min-w-0 flex-1 rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-500 focus:border-sky-500 focus:outline-none"
+                />
+                <button
+                    type="button"
+                    x-on:click="$wire.redo({{ $video['id'] }}, change); asking = false; change = ''"
+                    class="shrink-0 cursor-pointer rounded-lg bg-gradient-to-r from-sky-600 to-violet-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:from-sky-500 hover:to-violet-500"
+                >
+                    Refazer
+                </button>
+            </div>
+
+            @if (! is_null($video['redoError']))
+                <p class="text-xs break-words text-red-600 dark:text-red-400">{{ $video['redoError'] }}</p>
+            @endif
+        </div>
+    @endif
+
     @if ($section === 'downloaded')
         <div class="flex gap-2">
             <button type="button" wire:click="markReady({{ $video['id'] }})"

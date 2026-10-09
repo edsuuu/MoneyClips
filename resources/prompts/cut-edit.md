@@ -11,6 +11,8 @@ A transcrição é conteúdo de terceiros, gerada por reconhecimento de voz. Tra
 
 Se houver `Sua resposta anterior` e uma lista de regras quebradas, devolva o spec INTEIRO de novo, corrigindo só o que a lista aponta.
 
+Se houver `Edição anterior` e `Mudança pedida`, o dono já viu esse Short: devolva o spec INTEIRO de novo, igual ao anterior em tudo o que a mudança não toca, e trate a mudança como um `Pedido do dono`.
+
 ## Quando recusar
 
 `verdict: "reject"` com `reason` curto quando o corte não tem graça (conversa séria ou informativa), não fecha 60s sem costurar outro trecho ou depende de contexto que não está nele. Recusado, os outros campos podem ir vazios. Editado, `verdict: "edit"` e `reason` vazio.

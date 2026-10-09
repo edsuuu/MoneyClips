@@ -4,11 +4,15 @@ declare(strict_types=1);
 
 namespace App\Livewire\Videos;
 
+use App\Enums\TranscriptionStatusEnum;
+use App\Enums\VideoCutStatusEnum;
 use App\Helpers\Hashtags;
+use App\Jobs\EditCutWithAiJob;
 use App\Livewire\Concerns\WithToasts;
 use App\Models\VideoCutEdit;
 use App\Models\YoutubeShort;
 use App\Services\DownloadYoutube\DownloadShortsService;
+use Illuminate\Contracts\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
@@ -31,6 +35,8 @@ final class Index extends Component
     private const int SECTION_LIMIT = 60;
 
     private const int CARD_TAG_LIMIT = 4;
+
+    private const int MAX_CHANGE_LENGTH = 300;
 
     #[Url(as: 'tab', except: self::TAB_AVAILABLE)]
     public string $tab = self::TAB_AVAILABLE;
@@ -98,6 +104,51 @@ final class Index extends Component
 
         $short->forceFill(['ready_at' => now()])->save();
         $this->toast('Vídeo marcado como pronto.');
+    }
+
+    /**
+     * Refaz a edição com IA do Short com uma instrução, sem novo tracking. O
+     * render sai na mesma edição, então o webhook substitui o vídeo do mesmo
+     * Short e mantém título, hashtags e ready_at.
+     */
+    public function redo(int $shortId, string $change): void
+    {
+        $change = mb_trim($change);
+
+        if ($change === '' || mb_strlen($change) > self::MAX_CHANGE_LENGTH) {
+            $this->toast('Descreva a mudança em até 300 caracteres.', 'danger');
+
+            return;
+        }
+
+        $edit = VideoCutEdit::query()->where('youtube_short_id', $shortId)->whereNotNull('spec->ai_output')->first();
+
+        if (! $edit instanceof VideoCutEdit) {
+            $this->toast('Este Short não tem edição com IA para refazer.', 'danger');
+
+            return;
+        }
+
+        // ponytail: mesmo claim e destravamento de 30 min do "Editar com IA" em
+        // /meus-uploads; centralizar num método do model se surgir um 3º.
+        $claimed = VideoCutEdit::query()
+            ->whereKey($edit->id)
+            ->where(fn (QueryBuilder $query): QueryBuilder => $query
+                ->where('updated_at', '<', now()->subMinutes(30))
+                ->orWhere(fn (QueryBuilder $idle): QueryBuilder => $idle
+                    ->where(fn (QueryBuilder $ai): QueryBuilder => $ai->whereNull('ai_status')->orWhere('ai_status', '!=', TranscriptionStatusEnum::Processing->value))
+                    ->where(fn (QueryBuilder $tracking): QueryBuilder => $tracking->whereNull('tracking_status')->orWhere('tracking_status', '!=', TranscriptionStatusEnum::Processing->value))
+                    ->where(fn (QueryBuilder $render): QueryBuilder => $render->whereNull('render_status')->orWhere('render_status', '!=', VideoCutStatusEnum::Generating->value))))
+            ->update(['ai_status' => TranscriptionStatusEnum::Processing, 'ai_error' => null]);
+
+        if ($claimed !== 1) {
+            $this->toast('Este Short já está sendo editado ou renderizado.', 'danger');
+
+            return;
+        }
+
+        dispatch(new EditCutWithAiJob($edit->id, change: $change));
+        $this->toast('Refazendo com IA — o Short é substituído aqui quando o render terminar.');
     }
 
     public function openUpload(): void
@@ -197,7 +248,15 @@ final class Index extends Component
      */
     private function decorate(Collection $shorts, string $section): array
     {
-        return $shorts->map(function (YoutubeShort $short) use ($section): array {
+        $edits = VideoCutEdit::query()
+            ->whereIn('youtube_short_id', $shorts->pluck('id'))
+            ->whereNotNull('spec->ai_output')
+            ->get(['id', 'youtube_short_id', 'ai_status', 'ai_error', 'render_status', 'render_error'])
+            ->keyBy('youtube_short_id');
+
+        return $shorts->map(function (YoutubeShort $short) use ($section, $edits): array {
+            $edit = $section === self::TAB_POSTED ? null : $edits->get($short->id);
+
             $video = [
                 'id' => $short->id,
                 'youtube_id' => $short->youtube_id,
@@ -209,12 +268,32 @@ final class Index extends Component
                 'posted_youtube' => $short->posted_youtube_at !== null,
                 'posted_tiktok' => $short->posted_tiktok_at !== null,
                 'youtube_link' => $short->youtube_video_id !== null ? 'https://www.youtube.com/shorts/'.$short->youtube_video_id : null,
+                'canRedo' => $edit instanceof VideoCutEdit,
+                'isRedoing' => $edit?->ai_status === TranscriptionStatusEnum::Processing || $edit?->render_status === VideoCutStatusEnum::Generating,
+                'redoError' => $this->redoError($edit),
             ];
 
             $video['statusBadge'] = $this->statusBadge($video, $section);
 
             return $video;
         })->values()->all();
+    }
+
+    private function redoError(?VideoCutEdit $edit): ?string
+    {
+        if (is_null($edit) || $edit->ai_status === TranscriptionStatusEnum::Processing) {
+            return null;
+        }
+
+        if ($edit->ai_status === TranscriptionStatusEnum::Failed) {
+            return $edit->ai_error;
+        }
+
+        if ($edit->render_status === VideoCutStatusEnum::Failed) {
+            return $edit->render_error;
+        }
+
+        return null;
     }
 
     /** @return array<string, list<string>> */
@@ -258,12 +337,16 @@ final class Index extends Component
         ];
 
         $editing = $this->editingId !== null ? YoutubeShort::query()->find($this->editingId) : null;
+        $downloadedCards = $this->decorate($downloaded, self::TAB_AVAILABLE);
+        $readyCards = $this->decorate($ready, self::TAB_AVAILABLE);
+        $templatedCards = $this->decorate($templated, self::TAB_TEMPLATED);
 
         return view('livewire.videos.index', [
-            'downloaded' => $this->decorate($downloaded, self::TAB_AVAILABLE),
-            'ready' => $this->decorate($ready, self::TAB_AVAILABLE),
-            'templated' => $this->decorate($templated, self::TAB_TEMPLATED),
+            'downloaded' => $downloadedCards,
+            'ready' => $readyCards,
+            'templated' => $templatedCards,
             'posted' => $this->decorate($posted, self::TAB_POSTED),
+            'isRedoing' => in_array(true, array_column([...$downloadedCards, ...$readyCards, ...$templatedCards], 'isRedoing'), true),
             'tabs' => [
                 ['key' => self::TAB_AVAILABLE, 'label' => 'Disponíveis', 'count' => $counts['available']],
                 ['key' => self::TAB_TEMPLATED, 'label' => 'Com template', 'count' => $counts['templated']],
