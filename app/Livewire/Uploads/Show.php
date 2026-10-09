@@ -9,6 +9,7 @@ use App\Enums\VideoCutStatusEnum;
 use App\Enums\VideoStatusEnum;
 use App\Jobs\StartCutRenderJob;
 use App\Jobs\StartFaceTrackingJob;
+use App\Jobs\StartHLSPackagingJob;
 use App\Jobs\SuggestCutsJob;
 use App\Livewire\Concerns\EditsTranscript;
 use App\Livewire\Concerns\WithToasts;
@@ -203,6 +204,31 @@ final class Show extends Component
         dispatch(new StartCutRenderJob($cutId));
     }
 
+    public function retryVideo(): void
+    {
+        if (! $this->video->file(File::ORIGINAL) instanceof File) {
+            return;
+        }
+
+        $claimed = Video::query()
+            ->whereKey($this->video->id)
+            ->where('status', VideoStatusEnum::Failed)
+            ->update(['status' => VideoStatusEnum::Uploaded, 'error' => null]);
+
+        if ($claimed !== 1) {
+            return;
+        }
+
+        dispatch(new StartHLSPackagingJob($this->video->id));
+    }
+
+    public function deleteVideo(): void
+    {
+        $this->video->delete();
+
+        $this->redirectRoute('uploads.index', navigate: true);
+    }
+
     public function suggestAiCuts(): void
     {
         $prompt = mb_trim($this->cutSearch);
@@ -368,6 +394,23 @@ final class Show extends Component
         return $hours > 0 ? $hours.':'.$rest : $rest;
     }
 
+    private function failureMessage(Video $video): string
+    {
+        if ($video->status === VideoStatusEnum::Rejected) {
+            return 'O arquivo enviado não é um vídeo válido. Envie outro arquivo.';
+        }
+
+        if ($video->status === VideoStatusEnum::AwaitingUpload) {
+            return 'O envio deste vídeo não terminou. Envie o arquivo de novo.';
+        }
+
+        if ($video->file(File::ORIGINAL) instanceof File) {
+            return 'Não conseguimos preparar este vídeo para reprodução.';
+        }
+
+        return 'O YouTube recusou o download deste vídeo ou ele está indisponível.';
+    }
+
     /**
      * @return array{aiLabel: ?string, aiBadgeClass: string, aiError: ?string, aiIgnored: string, isAiBusy: bool}
      */
@@ -454,7 +497,8 @@ final class Show extends Component
             'captionsKey' => $video->uuid,
             'statusLabel' => $video->status->label(),
             'progress' => $video->progress,
-            'error' => $video->error,
+            'canRetryVideo' => $video->status === VideoStatusEnum::Failed && $video->file(File::ORIGINAL) instanceof File,
+            'failureMessage' => $this->failureMessage($video),
             'hlsUrl' => $video->isReady() ? route('hls.master', $video->uuid) : null,
             'fallbackUrl' => $this->fallbackUrl,
             'posterUrl' => $video->file(File::POSTER) === null ? null : route('hls.segment', [$video->uuid, 'poster.jpg']),

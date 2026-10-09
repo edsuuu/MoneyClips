@@ -240,10 +240,10 @@ it('shows the claude error on the edit when the call fails', function (): void {
 
     expect(fn () => runEditCutWithAi($edit))->toThrow(ClaudeException::class);
 
-    new EditCutWithAiJob($edit->id)->failed(new ClaudeException('O Claude falhou (exit 1): Claude AI usage limit reached'));
+    new EditCutWithAiJob($edit->id)->failed(ClaudeException::usageLimit());
 
     expect($edit->fresh()?->ai_status)->toBe(TranscriptionStatusEnum::Failed)
-        ->and($edit->fresh()?->ai_error)->toContain('usage limit reached');
+        ->and($edit->fresh()?->ai_error)->toContain('limite de uso');
     Bus::assertNotDispatched(StartVideoCutEditRenderJob::class);
 });
 

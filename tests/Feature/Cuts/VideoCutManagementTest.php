@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 use App\Enums\TranscriptionStatusEnum;
 use App\Enums\VideoCutStatusEnum;
+use App\Enums\VideoStatusEnum;
 use App\Jobs\StartCutRenderJob;
+use App\Jobs\StartHLSPackagingJob;
 use App\Livewire\Uploads\Show;
 use App\Models\File;
 use App\Models\Video;
@@ -213,4 +215,22 @@ it('keeps a decimal cut untouched when the range is confirmed without changes', 
 
     expect($cut->fresh()?->start_seconds)->toBe(100.42)
         ->and($cut->fresh()?->status)->toBe(VideoCutStatusEnum::Ready);
+});
+
+it('hides the raw error of a failed video and lets the user retry or delete it', function (): void {
+    Bus::fake([StartHLSPackagingJob::class]);
+    $video = Video::factory()->create(['status' => VideoStatusEnum::Failed, 'error' => 'ERROR: HTTP Error 403: Forbidden']);
+    $video->files()->create(['type' => File::ORIGINAL, 'path' => $video->originalPath(), 'size' => 1, 'mime_type' => 'video/mp4']);
+
+    $component = Livewire::actingAs($video->user)
+        ->test(Show::class, ['uuid' => $video->uuid])
+        ->assertDontSee('403')
+        ->assertSee('Tentar de novo')
+        ->call('retryVideo');
+
+    expect($video->fresh()?->status)->toBe(VideoStatusEnum::Uploaded);
+    Bus::assertDispatched(StartHLSPackagingJob::class);
+
+    $component->call('deleteVideo')->assertRedirect(route('uploads.index'));
+    expect(Video::query()->find($video->id))->toBeNull();
 });

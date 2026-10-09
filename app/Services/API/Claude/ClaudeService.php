@@ -47,7 +47,7 @@ final class ClaudeService
                 'exception' => $processTimedOutException,
             ]);
 
-            throw ClaudeException::timedOut($timeout);
+            throw ClaudeException::timedOut();
         }
 
         $output = $result->output();
@@ -66,7 +66,7 @@ final class ClaudeService
 
             $detail = is_array($response) && is_string($response['result'] ?? null) ? $response['result'] : $result->errorOutput();
 
-            throw ClaudeException::failed((int) $result->exitCode(), mb_trim($detail));
+            throw str_contains(mb_strtolower($detail), 'usage limit') ? ClaudeException::usageLimit() : ClaudeException::failed();
         }
 
         if (! is_array($response['structured_output'] ?? null)) {

@@ -12,7 +12,7 @@
                     </a>
 
                     <div class="min-w-0">
-                        <div class="text-[15px] font-bold text-slate-100">Posicione o Crop</div>
+                        <div class="text-[15px] font-bold text-slate-100">Posicione o enquadramento</div>
                         <p class="mt-0.5 text-xs text-slate-500">Clique ou arraste pra posicionar. Arraste as bordas pra redimensionar.</p>
                     </div>
 
@@ -208,7 +208,7 @@
 
             <div class="rounded-xl border border-slate-800 bg-slate-900 p-4">
                 <div class="flex items-center justify-between">
-                    <div class="text-[13.5px] font-bold text-slate-200">Posições do Crop</div>
+                    <div class="text-[13.5px] font-bold text-slate-200">Enquadramentos</div>
                     <span class="rounded-md bg-slate-800 px-1.5 py-0.5 text-xs font-semibold text-slate-400" x-text="keyframes.length"></span>
                 </div>
 
@@ -311,7 +311,7 @@
                     x-bind:disabled="tracking || trackingStatus === 'processing'"
                     class="flex w-full cursor-pointer items-center justify-center gap-2 rounded-[10px] border border-violet-400/40 bg-violet-400/10 px-4 py-2.5 text-sm font-bold text-violet-700 transition hover:bg-violet-400/20 disabled:pointer-events-none disabled:opacity-50 dark:text-violet-300">
                     <x-ui.icon name="sparkles" class="size-3.5" />
-                    <span x-text="tracking || trackingStatus === 'processing' ? 'Rastreando…' : (trackingStatus === 'ready' ? 'Refazer tracking automático' : 'Gerar tracking automático')"></span>
+                    <span x-text="tracking || trackingStatus === 'processing' ? 'Rastreando…' : (trackingStatus === 'ready' ? 'Refazer rastreio automático' : 'Gerar rastreio automático')"></span>
                 </button>
                 <p class="mt-2 text-center text-[11.5px] text-slate-500">Segue o rosto de quem fala e cria os keyframes — dá pra ajustar tudo depois.</p>
                 <p class="mt-1 text-center text-[11.5px] text-sky-600 dark:text-sky-400/80" x-show="trackingStatus === 'processing'" x-cloak>Rodando em segundo plano — a tela atualiza sozinha quando terminar.</p>
